@@ -1,159 +1,178 @@
-# Turborepo starter
+# Anchored Spec
 
-This Turborepo starter is maintained by the Turborepo core team.
+> Spec-driven development framework — specs as living contracts.
 
-## Using this example
+**Anchored Spec** is a drop-in framework for brownfield and greenfield repositories that makes specifications the source of truth for your software. Unlike ephemeral spec tools that discard specs after generation, Anchored Spec treats specs as **persistent, machine-validated contracts** that evolve with your codebase.
 
-Run the following command:
+## Philosophy
 
-```sh
-npx create-turbo@latest
+| Principle | What it means |
+|---|---|
+| **Spec-anchored** | Specs persist as living contracts — they evolve with code, never get deleted |
+| **JSON-first** | Machine-readable JSON is the source of truth; markdown is generated for humans |
+| **EARS notation** | Behavioral statements use structured "When/While/shall" format |
+| **Path-based enforcement** | Glob rules automatically detect which changes need formal governance |
+| **Progressive adoption** | Start with `init` + `verify`, add requirements and changes incrementally |
+| **Three workflow sizes** | `feature` (full ceremony), `fix` (root-cause first), `chore` (lightweight) |
+
+## Quick Start
+
+```bash
+# Initialize spec infrastructure in your project
+npx anchored-spec init
+
+# Create your first requirement
+npx anchored-spec create requirement --title "User can log in"
+
+# Create a change record to implement it
+npx anchored-spec create change --title "Add login" --type feature --slug add-login
+
+# Verify everything
+npx anchored-spec verify
+
+# Generate markdown documentation
+npx anchored-spec generate
+
+# Check project health
+npx anchored-spec status
 ```
 
-## What's inside?
+## What Gets Created
 
-This Turborepo includes the following packages/apps:
+After `anchored-spec init`, your project gets:
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```
+your-repo/
+├── .anchored-spec/
+│   └── config.json          # Framework configuration
+├── specs/
+│   ├── schemas/             # JSON Schema files (reference)
+│   ├── requirements/        # REQ-*.json files (behavioral specs)
+│   ├── changes/             # CHG-*/change.json (work tracking)
+│   ├── decisions/           # ADR-*.json (architecture decisions)
+│   ├── generated/           # Generated markdown (don't edit)
+│   └── workflow-policy.json # Governance rules
+└── package.json             # Gets spec:* scripts added
 ```
 
-Without global `turbo`, use your package manager:
+## Core Concepts
 
-```sh
-cd my-turborepo
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+### Requirements (REQ)
+
+Requirements describe **what** the system does using EARS notation (Easy Approach to Requirements Syntax):
+
+```json
+{
+  "id": "REQ-1",
+  "title": "User Authentication",
+  "behaviorStatements": [
+    {
+      "id": "BS-1",
+      "text": "When a user submits valid credentials, the system shall return an auth token.",
+      "format": "EARS",
+      "trigger": "user submits valid credentials",
+      "response": "the system shall return an auth token"
+    }
+  ],
+  "semanticRefs": {
+    "interfaces": ["IAuthService"],
+    "routes": ["POST /api/v1/auth/login"]
+  }
+}
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+**Key rule:** Requirements stay functional forever. Technical detail goes in `semanticRefs` (code anchors) and change records.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+### Change Records (CHG)
 
-```sh
-turbo build --filter=docs
+Changes are born technical — they carry file scope, affected symbols, and policy enforcement:
+
+```json
+{
+  "id": "CHG-2025-0001-add-auth",
+  "type": "feature",
+  "workflowVariant": "feature-behavior-first",
+  "scope": { "include": ["src/auth/**"] },
+  "requirements": ["REQ-1"]
+}
 ```
 
-Without global `turbo`:
+### Decisions (ADR)
 
-```sh
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+Architecture Decision Records capture choices among alternatives:
+
+```json
+{
+  "id": "ADR-1",
+  "title": "Use PostgreSQL for persistence",
+  "decision": "We will use PostgreSQL as the primary database.",
+  "alternatives": [
+    { "name": "MySQL", "verdict": "rejected", "reason": "Fewer features" }
+  ],
+  "relatedRequirements": ["REQ-1"]
+}
 ```
 
-### Develop
+### Workflow Policy
 
-To develop all apps and packages, run the following command:
+The workflow policy defines governance rules:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+- **Workflow variants** — Different ceremony levels for different change types
+- **Path rules** — Glob patterns that trigger change record requirements
+- **Trivial exemptions** — Paths that never need governance (README, CI config, etc.)
+- **Lifecycle rules** — Gates like "shipped requires test coverage"
 
-```sh
-cd my-turborepo
-turbo dev
+## Commands
+
+| Command | Description |
+|---|---|
+| `anchored-spec init` | Initialize spec infrastructure |
+| `anchored-spec create requirement` | Create a new requirement |
+| `anchored-spec create change` | Create a new change record |
+| `anchored-spec create decision` | Create a new decision (ADR) |
+| `anchored-spec verify` | Run all validation checks |
+| `anchored-spec verify --strict` | Treat warnings as errors |
+| `anchored-spec generate` | Regenerate markdown from JSON |
+| `anchored-spec generate --check` | Check if generated files are stale |
+| `anchored-spec status` | Show health dashboard |
+| `anchored-spec status --json` | Machine-readable status output |
+
+## Verification Checks
+
+`anchored-spec verify` runs these checks:
+
+1. **Schema validation** — All JSON files validate against their schemas
+2. **Requirement quality** — No vague language, EARS compliance, semantic ref population
+3. **Workflow policy** — Policy structure is valid
+4. **Cross-reference integrity** — REQ↔CHG bidirectional links are consistent
+5. **Lifecycle rules** — Transition gates are enforced (e.g., shipped requires coverage)
+
+## Comparison with Other Tools
+
+| Feature | Anchored Spec | Kiro | Spec-kit | Tessl |
+|---|---|---|---|---|
+| Spec persistence | ✅ Living contracts | ❌ Deleted after task | ⚠️ Branch-scoped | ✅ Spec-as-source |
+| Machine enforcement | ✅ 5+ lint rules | ❌ None | ❌ Agent-interpreted | ⚠️ Limited |
+| Workflow sizes | ✅ feature/fix/chore | ❌ One size | ❌ One size | ❌ One size |
+| EARS notation | ✅ Structured | ❌ Freeform | ❌ Freeform | ❌ Freeform |
+| Brownfield support | ✅ Drop-in | ⚠️ IDE-specific | ✅ Drop-in | ❌ Greenfield only |
+| IDE independence | ✅ Any editor | ❌ VS Code only | ✅ Any editor | ⚠️ Limited |
+
+## Packages
+
+| Package | Description |
+|---|---|
+| `@anchored-spec/core` | Schemas, validation, policy engine, generators |
+| `@anchored-spec/cli` | CLI commands (init, create, verify, generate, status) |
+
+## Development
+
+```bash
+pnpm install
+pnpm build
+pnpm test
 ```
 
-Without global `turbo`, use your package manager:
+## License
 
-```sh
-cd my-turborepo
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+MIT

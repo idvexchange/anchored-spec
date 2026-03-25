@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/decision.schema.json",
+  "title": "Anchored Spec — Decision Record (ADR)",
+  "description": "An architectural decision record. Captures a choice among alternatives with rationale.",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "slug",
+    "status",
+    "decision",
+    "context",
+    "rationale",
+    "alternatives",
+    "relatedRequirements"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ADR-[1-9][0-9]*$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 120
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["accepted", "superseded", "deprecated"]
+    },
+    "domain": {
+      "type": "string",
+      "description": "Categorization domain (e.g., 'auth', 'infra', 'api')"
+    },
+    "decision": {
+      "type": "string",
+      "minLength": 10,
+      "description": "The decision statement — one clear sentence"
+    },
+    "context": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Why this decision was needed (markdown)"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Why this alternative was chosen (markdown)"
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "verdict"],
+        "properties": {
+          "name": { "type": "string" },
+          "verdict": {
+            "type": "string",
+            "enum": ["chosen", "rejected", "deferred"]
+          },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Alternatives considered with verdicts"
+    },
+    "implications": {
+      "type": ["string", "null"],
+      "description": "Consequences of this decision (markdown)"
+    },
+    "relatedRequirements": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[1-9][0-9]*$"
+      },
+      "description": "Requirements this decision impacts"
+    },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "ADR ID this decision replaces"
+    },
+    "supersededBy": {
+      "type": ["string", "null"],
+      "description": "ADR ID that replaces this decision"
+    },
+    "docSource": {
+      "type": "string",
+      "const": "canonical-json"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "superseded" } }
+      },
+      "then": {
+        "required": ["supersededBy"]
+      }
+    }
+  ]
+}

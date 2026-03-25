@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/requirement.schema.json",
+  "title": "Anchored Spec — Requirement",
+  "description": "A behavioral requirement using EARS notation. Requirements describe WHAT the system does, never HOW.",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "summary",
+    "priority",
+    "status",
+    "behaviorStatements",
+    "owners"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^REQ-[1-9][0-9]*$",
+      "description": "Unique requirement identifier"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 120,
+      "description": "Human-readable title"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "description": "One-paragraph behavioral summary"
+    },
+    "description": {
+      "type": "string",
+      "description": "Extended description (optional)"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must", "should", "could", "wont"],
+      "description": "MoSCoW priority"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "planned", "active", "shipped", "deferred", "deprecated"],
+      "description": "Lifecycle status"
+    },
+    "statusReason": {
+      "type": "string",
+      "description": "Why the requirement is in its current status"
+    },
+    "behaviorStatements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "format", "response"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^BS-[0-9]+$",
+            "description": "Behavior statement ID (scoped to this requirement)"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Full EARS statement text"
+          },
+          "format": {
+            "type": "string",
+            "const": "EARS",
+            "description": "Always EARS (Easy Approach to Requirements Syntax)"
+          },
+          "trigger": {
+            "type": "string",
+            "description": "The 'When' clause — event that initiates behavior"
+          },
+          "precondition": {
+            "type": "string",
+            "description": "The 'While' clause — ongoing state context"
+          },
+          "response": {
+            "type": "string",
+            "description": "The 'shall' clause — what the system does"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Behavioral statements in EARS notation"
+    },
+    "traceRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "role"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Relative path to the referenced document"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["normative", "architecture", "decision", "api", "implementation", "reference"],
+            "description": "How this document relates to the requirement"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Document traceability references"
+    },
+    "semanticRefs": {
+      "type": "object",
+      "properties": {
+        "interfaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "TypeScript/Java/etc interface names"
+        },
+        "routes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "API route patterns (e.g., GET /api/v1/users/{id})"
+        },
+        "errorCodes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "Error code identifiers"
+        },
+        "symbols": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "Exported code symbols (functions, classes, constants)"
+        },
+        "schemas": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true,
+          "description": "Database table or schema names"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Machine-resolvable code anchors — the 'spec-anchored' binding"
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "requiredTestKinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["unit", "integration", "e2e", "contract", "manual"]
+          },
+          "uniqueItems": true
+        },
+        "coverageStatus": {
+          "type": "string",
+          "enum": ["none", "partial", "full"],
+          "default": "none"
+        },
+        "testFiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Paths to test files covering this requirement"
+        },
+        "testRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "kind"],
+            "properties": {
+              "path": { "type": "string" },
+              "kind": {
+                "type": "string",
+                "enum": ["unit", "integration", "e2e", "contract", "manual"]
+              },
+              "required": { "type": "boolean", "default": true }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Test verification tracking"
+    },
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "activeChanges": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "CHG IDs currently implementing this requirement"
+        },
+        "shippedBy": {
+          "type": ["string", "null"],
+          "description": "CHG ID that shipped this requirement"
+        },
+        "deprecatedBy": {
+          "type": ["string", "null"],
+          "description": "CHG ID that deprecated this requirement"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Bidirectional link to change records"
+    },
+    "owners": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "People or teams responsible for this requirement"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Free-form tags for categorization"
+    },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "REQ ID this requirement replaces"
+    },
+    "supersededBy": {
+      "type": ["string", "null"],
+      "description": "REQ ID that replaces this requirement"
+    },
+    "docSource": {
+      "type": "string",
+      "const": "canonical-json",
+      "description": "Always canonical-json — JSON is the source of truth"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "shipped" } }
+      },
+      "then": {
+        "properties": {
+          "verification": {
+            "properties": {
+              "coverageStatus": { "not": { "const": "none" } }
+            },
+            "required": ["coverageStatus"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "deprecated" } }
+      },
+      "then": {
+        "anyOf": [
+          { "required": ["supersededBy"] },
+          { "required": ["statusReason"] }
+        ]
+      }
+    }
+  ]
+}
