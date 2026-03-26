@@ -73,7 +73,7 @@ export function checkTestLinking(
       const matches = new Set<string>();
       let match: RegExpExecArray | null;
       while ((match = reqPattern.exec(content)) !== null) {
-        matches.add(match[0]);
+        matches.add(match[1] ?? match[0]);
       }
       if (matches.size > 0) {
         testToReqs.set(relPath, matches);

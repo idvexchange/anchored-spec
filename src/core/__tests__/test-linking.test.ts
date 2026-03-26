@@ -146,4 +146,25 @@ describe("checkTestLinking", () => {
     expect(testToReqFindings).toHaveLength(2);
     expect(testToReqFindings.map((f) => f.reqId).sort()).toEqual(["REQ-1", "REQ-42"]);
   });
+
+  it("uses capture group from custom requirementPattern", () => {
+    const tmpCg = join(TMP, "capture-group");
+    mkdirSync(join(tmpCg, "tests"), { recursive: true });
+    writeFileSync(
+      join(tmpCg, "tests/meta.test.ts"),
+      '// REQ-METADATA: REQ-5\n// REQ-METADATA: REQ-10\n',
+    );
+    const req5 = makeReq({ id: "REQ-5" });
+    const req10 = makeReq({ id: "REQ-10" });
+    const report = checkTestLinking([req5, req10], tmpCg, {
+      requirementPattern: "REQ-METADATA:\\s*(REQ-[1-9][0-9]*)",
+    });
+    // Test file references REQ-5 and REQ-10 via capture group — shows as orphan
+    // (test mentions req but req doesn't list the test file in testRefs)
+    const testToReq = report.findings.filter(
+      (f) => f.direction === "test-to-req",
+    );
+    expect(testToReq).toHaveLength(2);
+    expect(testToReq.map((f) => f.reqId).sort()).toEqual(["REQ-10", "REQ-5"]);
+  });
 });
