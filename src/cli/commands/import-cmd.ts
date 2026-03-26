@@ -17,6 +17,7 @@ import {
 } from "node:fs";
 import { join, basename, extname, relative } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
+import { CliError } from "../errors.js";
 
 // ─── ADR Parsing ────────────────────────────────────────────────────────────────
 
@@ -151,16 +152,12 @@ export function importCommand(): Command {
         const spec = new SpecRoot(projectRoot, config);
 
         if (!spec.isInitialized()) {
-          console.error(
-            chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."),
-          );
-          process.exit(1);
+          throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
         }
 
         const absPath = join(projectRoot, inputPath);
         if (!existsSync(absPath)) {
-          console.error(chalk.red(`Error: Path not found: ${absPath}`));
-          process.exit(1);
+          throw new CliError(`Error: Path not found: ${absPath}`);
         }
 
         // Find markdown files

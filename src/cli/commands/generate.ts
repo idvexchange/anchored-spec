@@ -17,6 +17,7 @@ import {
   generateStatusMarkdown,
 } from "../../core/index.js";
 import { watchSpecs } from "../watch.js";
+import { CliError } from "../errors.js";
 
 export function generateCommand(): Command {
   return new Command("generate")
@@ -28,16 +29,14 @@ export function generateCommand(): Command {
       const spec = new SpecRoot(cwd);
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       console.log(chalk.blue("📝 Anchored Spec — Generate\n"));
 
       if (options.watch) {
         if (options.check) {
-          console.error(chalk.red("Error: --watch and --check cannot be used together."));
-          process.exit(1);
+          throw new CliError("Error: --watch and --check cannot be used together.");
         }
         watchSpecs(spec.specRoot, () => {
           runGeneration(spec);
@@ -49,7 +48,7 @@ export function generateCommand(): Command {
 
       if (options.check && staleCount > 0) {
         console.log(chalk.red(`\n✗ ${staleCount} artifact(s) are stale. Run 'anchored-spec generate' to update.`));
-        process.exit(1);
+        throw new CliError("", 1);
       }
     });
 }

@@ -20,6 +20,7 @@ import {
 } from "../../core/index.js";
 import type { ValidationError, Requirement, Change } from "../../core/index.js";
 import { watchSpecs } from "../watch.js";
+import { CliError } from "../errors.js";
 
 interface VerifyStats {
   checks: number;
@@ -39,8 +40,7 @@ export function verifyCommand(): Command {
       const spec = new SpecRoot(cwd);
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       if (options.watch) {
@@ -52,7 +52,7 @@ export function verifyCommand(): Command {
 
       const hasFailure = runVerification(spec, options);
       if (hasFailure) {
-        process.exit(1);
+        throw new CliError("", 1);
       }
     });
 }

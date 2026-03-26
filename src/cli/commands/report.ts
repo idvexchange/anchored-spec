@@ -11,6 +11,7 @@ import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
 import type { Requirement, Change, Decision } from "../../core/types.js";
+import { CliError } from "../errors.js";
 
 // ─── Report Data Structures ─────────────────────────────────────────────────────
 
@@ -197,10 +198,7 @@ export function reportCommand(): Command {
       const spec = new SpecRoot(projectRoot, config);
 
       if (!spec.isInitialized()) {
-        console.error(
-          chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."),
-        );
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const requirements = spec.loadRequirements();

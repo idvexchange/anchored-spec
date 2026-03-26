@@ -10,6 +10,7 @@ import chalk from "chalk";
 import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { SpecRoot } from "../../core/index.js";
+import { CliError } from "../errors.js";
 
 const CURRENT_SCHEMA_VERSION = "1.0";
 
@@ -93,8 +94,7 @@ export function migrateCommand(): Command {
       const spec = new SpecRoot(cwd);
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized.");
       }
 
       console.log(chalk.blue(`🔄 Anchored Spec — Migrate (target: v${CURRENT_SCHEMA_VERSION})\n`));
@@ -107,7 +107,7 @@ export function migrateCommand(): Command {
 
       if (allFiles.length === 0) {
         console.log(chalk.dim("  No spec artifacts found."));
-        process.exit(0);
+        return;
       }
 
       let needsMigration = 0;
@@ -163,7 +163,7 @@ export function migrateCommand(): Command {
 
       if (options.check && needsMigration > 0) {
         console.log(chalk.red(`\n✗ ${needsMigration} artifact(s) need migration. Run 'anchored-spec migrate' to update.`));
-        process.exit(1);
+        throw new CliError("", 1);
       } else if (migrated > 0) {
         console.log(chalk.green(`\n✓ Migrated ${migrated} artifact(s) to v${CURRENT_SCHEMA_VERSION}.`));
       } else {

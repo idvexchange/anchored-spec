@@ -10,6 +10,7 @@ import chalk from "chalk";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
 import { detectDrift } from "../../core/drift.js";
 import type { DriftFinding } from "../../core/types.js";
+import { CliError } from "../errors.js";
 
 export function driftCommand(): Command {
   const cmd = new Command("drift")
@@ -27,10 +28,7 @@ export function driftCommand(): Command {
       const spec = new SpecRoot(projectRoot, config);
 
       if (!spec.isInitialized()) {
-        console.error(
-          chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."),
-        );
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const requirements = spec.loadRequirements();
@@ -94,7 +92,7 @@ export function driftCommand(): Command {
       console.log();
 
       if (opts.failOnMissing && missing.length > 0) {
-        process.exit(1);
+        throw new CliError("", 1);
       }
     });
 

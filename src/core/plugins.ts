@@ -5,7 +5,7 @@
  * Plugins are Node modules that export an AnchoredSpecPlugin object.
  */
 
-import { resolve, join } from "node:path";
+import { resolve, join, relative } from "node:path";
 import { existsSync } from "node:fs";
 import type {
   AnchoredSpecPlugin,
@@ -20,10 +20,20 @@ import type {
  * Supports:
  *  - Relative paths: "./my-plugin" or "./plugins/custom.js"
  *  - Package names: "anchored-spec-plugin-foo"
+ *
+ * Security: Warns if resolved path is outside the project root.
  */
 function resolvePluginPath(specifier: string, projectRoot: string): string {
   if (specifier.startsWith(".") || specifier.startsWith("/")) {
-    return resolve(projectRoot, specifier);
+    const resolved = resolve(projectRoot, specifier);
+    // Security: warn if the resolved path escapes the project root
+    const rel = relative(projectRoot, resolved);
+    if (rel.startsWith("..")) {
+      console.warn(
+        `⚠ Plugin "${specifier}" resolves outside project root: ${resolved}`,
+      );
+    }
+    return resolved;
   }
   // npm package — resolve from project's node_modules
   return join(projectRoot, "node_modules", specifier);

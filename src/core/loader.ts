@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import type {
   AnchoredSpecConfig,
   Requirement,
@@ -17,32 +17,63 @@ import type {
 
 // ─── Default Configuration ─────────────────────────────────────────────────────
 
-const DEFAULT_CONFIG: AnchoredSpecConfig = {
-  specRoot: "specs",
-  schemasDir: "specs/schemas",
-  requirementsDir: "specs/requirements",
-  changesDir: "specs/changes",
-  decisionsDir: "specs/decisions",
-  workflowPolicyPath: "specs/workflow-policy.json",
-  generatedDir: "specs/generated",
-};
+function buildDefaults(specRoot: string): AnchoredSpecConfig {
+  return {
+    specRoot,
+    schemasDir: `${specRoot}/schemas`,
+    requirementsDir: `${specRoot}/requirements`,
+    changesDir: `${specRoot}/changes`,
+    decisionsDir: `${specRoot}/decisions`,
+    workflowPolicyPath: `${specRoot}/workflow-policy.json`,
+    generatedDir: `${specRoot}/generated`,
+  };
+}
 
 const CONFIG_FILE = ".anchored-spec/config.json";
 
 // ─── Config Resolution ─────────────────────────────────────────────────────────
 
 /**
+ * Walk up parent directories to find .anchored-spec/config.json.
+ * Returns the directory containing it, or null if not found.
+ */
+export function findProjectRoot(startDir: string): string | null {
+  let current = resolve(startDir);
+  const root = dirname(current) === current ? current : undefined;
+
+  while (true) {
+    if (existsSync(join(current, CONFIG_FILE))) {
+      return current;
+    }
+    // Also check for specRoot dir (supports repos initialized without config file)
+    if (existsSync(join(current, "specs"))) {
+      return current;
+    }
+    const parent = dirname(current);
+    if (parent === current) break; // filesystem root
+    current = parent;
+  }
+
+  return null;
+}
+
+/**
  * Resolve the anchored-spec configuration.
  * Looks for .anchored-spec/config.json in the project root.
  * Falls back to defaults if not found.
+ *
+ * When a user overrides specRoot, subdirectory paths cascade
+ * automatically unless explicitly overridden.
  */
 export function resolveConfig(projectRoot: string): AnchoredSpecConfig {
   const configPath = join(projectRoot, CONFIG_FILE);
   if (existsSync(configPath)) {
-    const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-    return { ...DEFAULT_CONFIG, ...raw };
+    const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Partial<AnchoredSpecConfig>;
+    const specRoot = raw.specRoot ?? "specs";
+    const defaults = buildDefaults(specRoot);
+    return { ...defaults, ...raw };
   }
-  return { ...DEFAULT_CONFIG };
+  return buildDefaults("specs");
 }
 
 // ─── JSON File Loading ─────────────────────────────────────────────────────────

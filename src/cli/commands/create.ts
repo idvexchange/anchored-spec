@@ -10,6 +10,31 @@ import chalk from "chalk";
 import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { SpecRoot } from "../../core/index.js";
+import { CliError } from "../errors.js";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+const SLUG_PATTERN_SHORT = /^[a-z0-9]$/;
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+}
+
+function validateSlug(slug: string): void {
+  if (!SLUG_PATTERN.test(slug) && !SLUG_PATTERN_SHORT.test(slug)) {
+    throw new CliError(
+      `Error: Invalid slug "${slug}". Must contain only lowercase letters, numbers, and hyphens (e.g., "add-login").`,
+    );
+  }
+  if (slug.length > 60) {
+    throw new CliError(`Error: Slug "${slug}" is too long (max 60 characters).`);
+  }
+}
 
 // ─── ID Generation ─────────────────────────────────────────────────────────────
 
@@ -65,8 +90,7 @@ export function createCommand(): Command {
       const dryRun = options.dryRun as boolean;
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const id = getNextReqId(spec.requirementsDir);
@@ -129,7 +153,7 @@ export function createCommand(): Command {
     .description("Create a new change record")
     .requiredOption("--title <title>", "Change title")
     .requiredOption("--type <type>", "Change type (feature, fix, refactor, chore)")
-    .requiredOption("--slug <slug>", "URL-safe short name")
+    .option("--slug <slug>", "URL-safe short name (auto-derived from title if omitted)")
     .option("--scope <globs...>", "Glob patterns for files in scope", ["src/**"])
     .option("--owner <owner>", "Owner", "team")
     .option("--dry-run", "Show what would be created without writing")
@@ -139,17 +163,19 @@ export function createCommand(): Command {
       const dryRun = options.dryRun as boolean;
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const validTypes = ["feature", "fix", "refactor", "chore"];
       if (!validTypes.includes(options.type)) {
-        console.error(chalk.red(`Error: Invalid type "${options.type}". Must be one of: ${validTypes.join(", ")}`));
-        process.exit(1);
+        throw new CliError(`Error: Invalid type "${options.type}". Must be one of: ${validTypes.join(", ")}`);
       }
 
-      const id = getNextChangeId(spec.changesDir, options.slug);
+      // Auto-derive slug from title if not provided
+      const slug: string = options.slug ? (options.slug as string) : slugify(options.title as string);
+      validateSlug(slug);
+
+      const id = getNextChangeId(spec.changesDir, slug);
       const today = new Date().toISOString().split("T")[0];
 
       // Resolve workflow variant from policy
@@ -167,7 +193,7 @@ export function createCommand(): Command {
         $schema: "../../schemas/change.schema.json",
         id,
         title: options.title,
-        slug: options.slug,
+        slug,
         type: options.type,
         phase: isChore ? "implementation" : "design",
         status: "active",
@@ -228,7 +254,7 @@ export function createCommand(): Command {
     .command("decision")
     .description("Create a new architecture decision record (ADR)")
     .requiredOption("--title <title>", "Decision title")
-    .requiredOption("--slug <slug>", "URL-safe short name")
+    .option("--slug <slug>", "URL-safe short name (auto-derived from title if omitted)")
     .option("--domain <domain>", "Domain category")
     .option("--dry-run", "Show what would be created without writing")
     .action((options) => {
@@ -237,16 +263,18 @@ export function createCommand(): Command {
       const dryRun = options.dryRun as boolean;
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
+
+      const adrSlug: string = options.slug ? (options.slug as string) : slugify(options.title as string);
+      validateSlug(adrSlug);
 
       const id = getNextAdrId(spec.decisionsDir);
       const decision = {
         $schema: "../schemas/decision.schema.json",
         id,
         title: options.title,
-        slug: options.slug,
+        slug: adrSlug,
         status: "accepted",
         domain: options.domain ?? null,
         decision: "TODO: One clear sentence describing the decision.",

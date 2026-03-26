@@ -8,6 +8,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { SpecRoot } from "../../core/index.js";
 import type { Requirement, Change, Decision, WorkflowPolicy } from "../../core/index.js";
+import { CliError } from "../errors.js";
 
 export function statusCommand(): Command {
   return new Command("status")
@@ -18,8 +19,7 @@ export function statusCommand(): Command {
       const spec = new SpecRoot(cwd);
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const requirements = spec.loadRequirements();

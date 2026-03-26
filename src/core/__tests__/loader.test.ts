@@ -6,7 +6,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { SpecRoot, resolveConfig } from "../loader.js";
+import { SpecRoot, resolveConfig, findProjectRoot } from "../loader.js";
 
 function createTempDir(): string {
   const dir = join(tmpdir(), `anchored-spec-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -35,7 +35,7 @@ describe("resolveConfig", () => {
     expect(config.requirementsDir).toBe("specs/requirements");
   });
 
-  it("merges config file with defaults", () => {
+  it("merges config file with defaults and cascades specRoot", () => {
     mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
     writeFileSync(
       join(tempDir, ".anchored-spec", "config.json"),
@@ -43,13 +43,60 @@ describe("resolveConfig", () => {
     );
     const config = resolveConfig(tempDir);
     expect(config.specRoot).toBe("custom-specs");
-    expect(config.requirementsDir).toBe("specs/requirements"); // default preserved
+    expect(config.requirementsDir).toBe("custom-specs/requirements"); // cascaded from specRoot
+    expect(config.changesDir).toBe("custom-specs/changes");
+    expect(config.decisionsDir).toBe("custom-specs/decisions");
+    expect(config.generatedDir).toBe("custom-specs/generated");
+  });
+
+  it("allows explicit subdirectory overrides", () => {
+    mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
+    writeFileSync(
+      join(tempDir, ".anchored-spec", "config.json"),
+      JSON.stringify({ specRoot: "custom-specs", requirementsDir: "reqs" })
+    );
+    const config = resolveConfig(tempDir);
+    expect(config.specRoot).toBe("custom-specs");
+    expect(config.requirementsDir).toBe("reqs"); // explicit override wins
+    expect(config.changesDir).toBe("custom-specs/changes"); // cascaded
   });
 
   it("handles malformed config JSON gracefully", () => {
     mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
     writeFileSync(join(tempDir, ".anchored-spec", "config.json"), "not valid json");
     expect(() => resolveConfig(tempDir)).toThrow();
+  });
+});
+
+describe("findProjectRoot", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("finds project root from nested directory", () => {
+    mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
+    writeFileSync(join(tempDir, ".anchored-spec", "config.json"), "{}");
+    mkdirSync(join(tempDir, "src", "components"), { recursive: true });
+    const found = findProjectRoot(join(tempDir, "src", "components"));
+    expect(found).toBe(tempDir);
+  });
+
+  it("finds project root via specs directory", () => {
+    mkdirSync(join(tempDir, "specs"), { recursive: true });
+    mkdirSync(join(tempDir, "src"), { recursive: true });
+    const found = findProjectRoot(join(tempDir, "src"));
+    expect(found).toBe(tempDir);
+  });
+
+  it("returns null when no project root found", () => {
+    const found = findProjectRoot(tempDir);
+    expect(found).toBeNull();
   });
 });
 

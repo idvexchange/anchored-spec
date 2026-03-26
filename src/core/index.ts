@@ -80,4 +80,4 @@ export type { DriftOptions } from "./drift.js";
 export { loadPlugin, loadPlugins, runPluginChecks } from "./plugins.js";
 
 // Loader
-export { SpecRoot, resolveConfig } from "./loader.js";
+export { SpecRoot, resolveConfig, findProjectRoot } from "./loader.js";

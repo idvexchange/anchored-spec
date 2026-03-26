@@ -7,31 +7,51 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   SpecRoot,
   evaluatePolicy,
   validateWorkflowEntry,
   isPathCoveredByChange,
 } from "../../core/index.js";
+import { CliError } from "../errors.js";
 
-function getChangedPaths(mode: string, base?: string): string[] {
+const BRANCH_PATTERN = /^[a-zA-Z0-9/_.\-]+$/;
+
+interface ChangedPathsResult {
+  paths: string[];
+  error?: string;
+}
+
+function getChangedPaths(mode: string, base?: string): ChangedPathsResult {
   try {
-    let cmd: string;
+    let args: string[];
     switch (mode) {
       case "staged":
-        cmd = "git diff --cached --name-only --diff-filter=ACMR";
+        args = ["diff", "--cached", "--name-only", "--diff-filter=ACMR"];
         break;
-      case "branch":
-        cmd = `git diff --name-only --diff-filter=ACMR ${base ?? "main"}...HEAD`;
+      case "branch": {
+        const branch = base ?? "main";
+        if (!BRANCH_PATTERN.test(branch)) {
+          return { paths: [], error: `Invalid branch name: "${branch}"` };
+        }
+        args = ["diff", "--name-only", "--diff-filter=ACMR", `${branch}...HEAD`];
         break;
+      }
       default:
-        cmd = "git diff --name-only --diff-filter=ACMR HEAD";
+        args = ["diff", "--name-only", "--diff-filter=ACMR", "HEAD"];
     }
-    const output = execSync(cmd, { encoding: "utf-8" }).trim();
-    return output ? output.split("\n").filter(Boolean) : [];
-  } catch {
-    return [];
+    const output = execFileSync("git", args, { encoding: "utf-8" }).trim();
+    return { paths: output ? output.split("\n").filter(Boolean) : [] };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("not a git repository") || msg.includes("ENOENT")) {
+      return { paths: [], error: "Not a git repository or git is not installed." };
+    }
+    if (msg.includes("unknown revision")) {
+      return { paths: [], error: `Branch "${base ?? "main"}" not found. Use --against <branch>.` };
+    }
+    return { paths: [], error: `Git error: ${msg.split("\n")[0]}` };
   }
 }
 
@@ -47,14 +67,12 @@ export function checkCommand(): Command {
       const spec = new SpecRoot(cwd);
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const policy = spec.loadWorkflowPolicy();
       if (!policy) {
-        console.error(chalk.red("Error: No workflow policy found."));
-        process.exit(1);
+        throw new CliError("Error: No workflow policy found.");
       }
 
       // Get changed paths
@@ -62,11 +80,35 @@ export function checkCommand(): Command {
       if (options.paths) {
         changedPaths = options.paths as string[];
       } else if (options.staged) {
-        changedPaths = getChangedPaths("staged");
+        const result = getChangedPaths("staged");
+        if (result.error) {
+          if (options.json) {
+            console.log(JSON.stringify({ paths: [], valid: false, error: result.error }));
+            throw new CliError("", 1);
+          }
+          throw new CliError(`Error: ${result.error}`);
+        }
+        changedPaths = result.paths;
       } else if (options.against) {
-        changedPaths = getChangedPaths("branch", options.against as string);
+        const result = getChangedPaths("branch", options.against as string);
+        if (result.error) {
+          if (options.json) {
+            console.log(JSON.stringify({ paths: [], valid: false, error: result.error }));
+            throw new CliError("", 1);
+          }
+          throw new CliError(`Error: ${result.error}`);
+        }
+        changedPaths = result.paths;
       } else {
-        changedPaths = getChangedPaths("default");
+        const result = getChangedPaths("default");
+        if (result.error) {
+          if (options.json) {
+            console.log(JSON.stringify({ paths: [], valid: false, error: result.error }));
+            throw new CliError("", 1);
+          }
+          throw new CliError(`Error: ${result.error}`);
+        }
+        changedPaths = result.paths;
       }
 
       if (changedPaths.length === 0) {
@@ -75,7 +117,7 @@ export function checkCommand(): Command {
         } else {
           console.log(chalk.dim("No changed files detected."));
         }
-        process.exit(0);
+        return;
       }
 
       // Evaluate policy
@@ -92,7 +134,8 @@ export function checkCommand(): Command {
           valid: entry.valid,
           uncoveredPaths: entry.uncoveredPaths,
         }, null, 2));
-        process.exit(entry.valid ? 0 : 1);
+        if (!entry.valid) throw new CliError("", 1);
+        return;
       }
 
       console.log(chalk.blue("🔍 Anchored Spec — Policy Check\n"));
@@ -109,7 +152,6 @@ export function checkCommand(): Command {
       if (governedPaths > 0) {
         console.log(chalk.yellow(`  ⚠ ${governedPaths} path(s) require a change record`));
 
-        // Show governed paths
         for (const result of evaluation.paths) {
           if (result.requiresChange) {
             const rules = result.matchedRules.map((r) => r.id).join(", ");
@@ -131,8 +173,8 @@ export function checkCommand(): Command {
         for (const path of entry.uncoveredPaths) {
           console.log(chalk.red(`    ${path}`));
         }
-        console.log(chalk.dim("\n  Create a change record: anchored-spec create change --type <type> --title <title> --slug <slug>"));
-        process.exit(1);
+        console.log(chalk.dim("\n  Create a change record: anchored-spec create change --type <type> --title <title>"));
+        throw new CliError("", 1);
       }
     });
 }

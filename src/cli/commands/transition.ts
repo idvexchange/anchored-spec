@@ -7,10 +7,11 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { SpecRoot } from "../../core/index.js";
 import type { Change, ChangePhase } from "../../core/index.js";
+import { CliError } from "../errors.js";
 
 const PHASE_ORDER: ChangePhase[] = [
   "design",
@@ -93,6 +94,18 @@ function validateTransition(
   return errors;
 }
 
+/**
+ * Find the actual file path for a change record.
+ * Supports both nested (CHG-xxx/change.json) and flat (CHG-xxx.json) layouts.
+ */
+function findChangePath(changesDir: string, changeId: string): string | null {
+  const nested = join(changesDir, changeId, "change.json");
+  if (existsSync(nested)) return nested;
+  const flat = join(changesDir, `${changeId}.json`);
+  if (existsSync(flat)) return flat;
+  return null;
+}
+
 export function transitionCommand(): Command {
   return new Command("transition")
     .description("Advance a change record to the next phase")
@@ -105,27 +118,30 @@ export function transitionCommand(): Command {
       const spec = new SpecRoot(cwd);
 
       if (!spec.isInitialized()) {
-        console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
-        process.exit(1);
+        throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
       const changes = spec.loadChanges();
       const change = changes.find((c) => c.id === changeId);
 
       if (!change) {
-        console.error(chalk.red(`Error: Change "${changeId}" not found.`));
         const suggestions = changes.filter((c) => c.id.includes(changeId.split("-").pop() ?? ""));
-        if (suggestions.length > 0) {
-          console.error(chalk.dim(`  Did you mean: ${suggestions.map((c) => c.id).join(", ")}?`));
-        }
-        process.exit(1);
+        const hint = suggestions.length > 0
+          ? `\n  Did you mean: ${suggestions.map((c) => c.id).join(", ")}?`
+          : "";
+        throw new CliError(`Error: Change "${changeId}" not found.${hint}`);
+      }
+
+      const changePath = findChangePath(spec.changesDir, changeId);
+      if (!changePath) {
+        throw new CliError(`Error: Change file not found for "${changeId}".`);
       }
 
       const targetPhase = (options.to as ChangePhase) ?? getNextPhase(change);
 
       if (!targetPhase) {
         console.log(chalk.yellow(`Change "${changeId}" is already at terminal phase "${change.phase}".`));
-        process.exit(0);
+        return;
       }
 
       console.log(chalk.blue(`🔄 Transition: ${changeId}`));
@@ -139,13 +155,13 @@ export function transitionCommand(): Command {
             console.log(chalk.red(`    • ${err}`));
           }
           console.log(chalk.dim("\n  Use --force to skip validation."));
-          process.exit(1);
+          throw new CliError("", 1);
         }
       }
 
       if (options.dryRun) {
         console.log(chalk.yellow(`\n  [DRY RUN] Would update phase to "${targetPhase}".`));
-        process.exit(0);
+        return;
       }
 
       // Update the change
@@ -159,8 +175,6 @@ export function transitionCommand(): Command {
         },
       };
 
-      // Write back
-      const changePath = join(spec.changesDir, changeId, "change.json");
       writeFileSync(changePath, JSON.stringify(updated, null, 2) + "\n");
 
       console.log(chalk.green(`\n  ✓ Phase updated: ${change.phase} → ${targetPhase}`));

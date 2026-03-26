@@ -668,3 +668,109 @@ describe("CLI: migrate", () => {
     expect(result.exitCode).toBe(0);
   });
 });
+
+// ─── Check Command ──────────────────────────────────────────────────────────────
+
+describe("CLI: check", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("works with --paths to bypass git", () => {
+    const result = runCLI("check --paths src/main.ts --json", tempDir);
+    // Exit 1 because src/** is governed and no active change covers it
+    const json = JSON.parse(result.stdout);
+    expect(json.paths).toContain("src/main.ts");
+    expect(json.uncoveredPaths).toBeDefined();
+  });
+
+  it("reports valid when paths are trivially exempt", () => {
+    const result = runCLI("check --paths README.md --json", tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.valid).toBe(true);
+  });
+
+  it("fails on git errors in non-git repo", () => {
+    const result = runCLI("check --json", tempDir);
+    expect(result.exitCode).toBe(1);
+  });
+
+  it("fails without initialized specs", () => {
+    const emptyDir = createTempDir();
+    const result = runCLI("check --paths foo.ts", emptyDir);
+    expect(result.exitCode).toBe(1);
+    cleanDir(emptyDir);
+  });
+
+  it("validates branch names — rejects injection attempts", () => {
+    const result = runCLI("check --against \"main; echo pwned\" --json", tempDir);
+    expect(result.exitCode).toBe(1);
+  });
+});
+
+// ─── Slug Validation ────────────────────────────────────────────────────────────
+
+describe("CLI: create slug handling", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("auto-derives slug from title when not provided", () => {
+    const result = runCLI("create change --type feature --title \"Add User Login\"", tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("add-user-login");
+  });
+
+  it("rejects path-traversal slugs", () => {
+    const result = runCLI("create change --type feature --title test --slug \"../../../etc\"", tempDir);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("Invalid slug");
+  });
+
+  it("auto-derives slug for decisions too", () => {
+    const result = runCLI("create decision --title \"Use PostgreSQL\"", tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("ADR-");
+  });
+});
+
+// ─── --cwd Global Option ────────────────────────────────────────────────────────
+
+describe("CLI: --cwd", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("supports --cwd to target a different project", () => {
+    // Run from /tmp but target tempDir via --cwd
+    const result = runCLI(`--cwd ${tempDir} status --json`, "/tmp");
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.requirements).toBeDefined();
+  });
+});
