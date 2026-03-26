@@ -19,12 +19,13 @@ const RESOLVER_EXT_PATTERN = /\.(js|mjs|cjs)$/;
 async function loadResolvers(paths: string[], projectRoot: string): Promise<DriftResolver[]> {
   const resolvers: DriftResolver[] = [];
   for (const p of paths) {
-    if (!RESOLVER_EXT_PATTERN.test(p)) {
+    const isBareSpecifier = !p.startsWith(".") && !p.startsWith("/");
+    if (!isBareSpecifier && !RESOLVER_EXT_PATTERN.test(p)) {
       throw new CliError(`Invalid drift resolver path "${p}". Must be a .js, .mjs, or .cjs file.`);
     }
-    const absPath = join(projectRoot, p);
+    const importPath = isBareSpecifier ? p : join(projectRoot, p);
     try {
-      const mod = await import(absPath);
+      const mod = await import(importPath);
       const resolver: DriftResolver = mod.default ?? mod;
       if (typeof resolver.resolve !== "function") {
         throw new CliError(`Drift resolver "${p}" does not export a resolve() function.`);
@@ -32,6 +33,11 @@ async function loadResolvers(paths: string[], projectRoot: string): Promise<Drif
       resolvers.push(resolver);
     } catch (err) {
       if (err instanceof CliError) throw err;
+      // Graceful degradation: warn and skip if an optional resolver can't load
+      if (isBareSpecifier) {
+        console.error(chalk.yellow(`⚠ Could not load drift resolver "${p}" — skipping. Install its dependencies to enable it.`));
+        continue;
+      }
       const message = err instanceof Error ? err.message : String(err);
       throw new CliError(`Failed to load drift resolver "${p}": ${message}`);
     }

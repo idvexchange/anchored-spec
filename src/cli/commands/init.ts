@@ -18,6 +18,7 @@ export function initCommand(): Command {
   return new Command("init")
     .description("Initialize spec infrastructure in the current project")
     .option("--spec-root <path>", "Root directory for specs", "specs")
+    .option("--bare", "Minimal setup — no drift resolvers, regex-only scanning")
     .option("--no-scripts", "Skip adding scripts to package.json")
     .option("--no-examples", "Skip creating starter example files")
     .option("--force", "Overwrite existing files")
@@ -54,8 +55,9 @@ export function initCommand(): Command {
 
       // 2. Write config
       const configPath = join(cwd, ".anchored-spec", "config.json");
+      const isBare = options.bare as boolean;
       if (!existsSync(configPath) || options.force) {
-        const config = {
+        const config: Record<string, unknown> = {
           specRoot,
           schemasDir: `${specRoot}/schemas`,
           requirementsDir: `${specRoot}/requirements`,
@@ -64,6 +66,9 @@ export function initCommand(): Command {
           workflowPolicyPath: `${specRoot}/workflow-policy.json`,
           generatedDir: `${specRoot}/generated`,
         };
+        if (!isBare) {
+          config.driftResolvers = ["anchored-spec/resolvers/typescript-ast"];
+        }
         if (!dryRun) writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
         console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .anchored-spec/config.json`));
       }
@@ -307,6 +312,9 @@ export function initCommand(): Command {
       }
 
       console.log(chalk.dim("\nNext steps:"));
+      if (!isBare) {
+        console.log(chalk.dim("  0. Install AST resolver dep:       npm install -D ts-morph"));
+      }
       console.log(chalk.dim("  1. Create your first requirement:  anchored-spec create requirement"));
       console.log(chalk.dim("  2. Run verification:               anchored-spec verify"));
       console.log(chalk.dim("  3. Check status:                   anchored-spec status"));

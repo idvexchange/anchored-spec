@@ -24,7 +24,17 @@
       "import": "./dist/cli/index.js",
       "require": "./dist/cli/index.cjs"
     },
-    "./schemas/*": "./dist/core/schemas/*"
+    "./schemas/*": "./dist/core/schemas/*",
+    "./resolvers/typescript-ast": {
+      "import": {
+        "types": "./dist/resolvers/typescript-ast.d.ts",
+        "default": "./dist/resolvers/typescript-ast.js"
+      },
+      "require": {
+        "types": "./dist/resolvers/typescript-ast.d.cts",
+        "default": "./dist/resolvers/typescript-ast.cjs"
+      }
+    }
   },
   "sideEffects": false,
   "files": [
@@ -57,6 +67,7 @@
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-only-warn": "^1.1.0",
     "prettier": "^3.7.4",
+    "ts-morph": "^27.0.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.50.0",
@@ -80,5 +91,13 @@
   "homepage": "https://github.com/idvexchange/anchored-spec#readme",
   "engines": {
     "node": ">=18"
+  },
+  "peerDependencies": {
+    "ts-morph": ">=23.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ts-morph": {
+      "optional": true
+    }
   }
 }

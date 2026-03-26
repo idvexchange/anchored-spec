@@ -119,3 +119,6 @@ export type { ImpactResult, ImpactMatch, ImpactMap } from "./impact.js";
 
 // Loader
 export { SpecRoot, resolveConfig, findProjectRoot } from "./loader.js";
+
+// Built-in resolvers
+export { default as typescriptAstResolver, resetProjectCache } from "../resolvers/typescript-ast.js";

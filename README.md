@@ -147,6 +147,7 @@ The workflow policy defines governance rules:
 | Command | Description |
 |---|---|
 | `anchored-spec init` | Initialize spec infrastructure |
+| `anchored-spec init --bare` | Init without AST resolver — regex-only scanning |
 | `anchored-spec init --dry-run` | Preview what init would create |
 | `anchored-spec init --no-examples` | Skip creating starter example files |
 | `anchored-spec create requirement` | Create a new requirement |
@@ -421,8 +422,53 @@ Or configure via `.anchored-spec/config.json`:
 
 ```json
 {
-  "driftResolvers": ["./.anchored-spec/resolvers/typescript-ast.js"]
+  "driftResolvers": ["anchored-spec/resolvers/typescript-ast"]
 }
+```
+
+Both bare specifiers (e.g., `anchored-spec/resolvers/typescript-ast`) and relative file paths (e.g., `./.anchored-spec/resolvers/my-custom.js`) are supported.
+
+### Built-in TypeScript AST Resolver
+
+Anchored Spec ships a TypeScript AST drift resolver powered by [ts-morph](https://ts-morph.com/) for accurate symbol resolution. It's added to your config automatically by `init` (use `init --bare` for regex-only).
+
+**Setup:**
+
+```bash
+# Init adds the resolver to config by default
+anchored-spec init
+
+# Then install ts-morph
+npm install -D ts-morph
+
+# Or init without AST resolver (regex-only)
+anchored-spec init --bare
+```
+
+**What it resolves:**
+
+| Ref Kind | Strategy |
+|----------|----------|
+| `interface` / `symbol` | `getExportedDeclarations()` — handles interfaces, classes, types, functions, consts, enums, re-exports, barrel files |
+| `route` | Finds call expressions on `app`/`router` objects (`.get()`, `.post()`, etc.) with route path matching |
+| `errorCode` | Finds enum members by name, string literals by value, exported const declarations |
+| `schema` | Finds string literals containing the schema name, type references |
+
+**Features:**
+- Auto-detects and uses project's `tsconfig.json` for path aliases
+- Lazy-initializes the ts-morph Project (expensive — created once per drift run)
+- Falls through to built-in regex scanner when it returns `null`
+- Graceful degradation if `ts-morph` is not installed — warns and skips
+
+**Programmatic usage:**
+
+```typescript
+import { typescriptAstResolver, detectDrift } from "anchored-spec";
+
+const report = detectDrift(requirements, {
+  projectRoot: "/path/to/project",
+  resolvers: [typescriptAstResolver],
+});
 ```
 
 ## Lifecycle Hooks
