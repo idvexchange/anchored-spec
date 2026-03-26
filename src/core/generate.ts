@@ -82,6 +82,12 @@ export function generateRequirementsMarkdown(requirements: Requirement[]): strin
         if (refs.routes?.length) lines.push(`- **Routes:** ${refs.routes.join(", ")}`);
         if (refs.errorCodes?.length) lines.push(`- **Error Codes:** ${refs.errorCodes.join(", ")}`);
         if (refs.symbols?.length) lines.push(`- **Symbols:** ${refs.symbols.join(", ")}`);
+        if (refs.schemas?.length) lines.push(`- **Schemas:** ${refs.schemas.join(", ")}`);
+        if (refs.other) {
+          for (const [kind, values] of Object.entries(refs.other)) {
+            if (values.length > 0) lines.push(`- **${kind}:** ${values.join(", ")}`);
+          }
+        }
         lines.push("");
       }
     }
@@ -91,8 +97,16 @@ export function generateRequirementsMarkdown(requirements: Requirement[]): strin
       lines.push("### Trace References");
       lines.push("");
       for (const tr of req.traceRefs) {
-        lines.push(`- [${tr.role}] ${tr.path}`);
+        const labelSuffix = tr.label ? ` — ${tr.label}` : "";
+        lines.push(`- [${tr.role}] ${tr.path}${labelSuffix}`);
       }
+      lines.push("");
+    }
+
+    // Supersedes
+    if (req.supersedes) {
+      const ids = Array.isArray(req.supersedes) ? req.supersedes : [req.supersedes];
+      lines.push(`**Supersedes:** ${ids.join(", ")}`);
       lines.push("");
     }
 
@@ -175,6 +189,12 @@ export function generateDecisionsMarkdown(decisions: Decision[]): string {
 
     if (dec.relatedRequirements.length > 0) {
       lines.push(`**Related Requirements:** ${dec.relatedRequirements.join(", ")}`);
+      lines.push("");
+    }
+
+    if (dec.supersedes) {
+      const ids = Array.isArray(dec.supersedes) ? dec.supersedes : [dec.supersedes];
+      lines.push(`**Supersedes:** ${ids.join(", ")}`);
       lines.push("");
     }
 

@@ -486,7 +486,7 @@ describe("validateWorkflowPolicy", () => {
 // ─── Decision Schema Edge Cases ────────────────────────────────────────────────
 
 describe("validateSchema — decision edge cases", () => {
-  it("rejects empty alternatives array", () => {
+  it("accepts empty alternatives array", () => {
     const decision = {
       id: "ADR-1",
       title: "Decision with no alternatives",
@@ -499,7 +499,79 @@ describe("validateSchema — decision edge cases", () => {
       relatedRequirements: [],
     };
     const result = validateSchema(decision, "decision");
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
+  });
+});
+
+// ─── Round 5 Schema Relaxations ───────────────────────────────────────────────
+
+describe("validateSchema — round 5 schema relaxations", () => {
+  const baseReq = {
+    id: "REQ-1",
+    title: "Test requirement for schema",
+    summary: "A requirement for testing schema relaxations.",
+    priority: "must",
+    status: "active",
+    behaviorStatements: [
+      { id: "BS-1", text: "When triggered, the system shall respond.", format: "EARS", response: "the system shall respond" },
+    ],
+    owners: ["team"],
+  };
+
+  it("accepts supersedes as a string array on requirements", () => {
+    const req = { ...baseReq, supersedes: ["REQ-2", "REQ-3"] };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts supersedes as a string on requirements (backwards compat)", () => {
+    const req = { ...baseReq, supersedes: "REQ-2" };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts supersedes as null on requirements (backwards compat)", () => {
+    const req = { ...baseReq, supersedes: null };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts label on traceRefs items", () => {
+    const req = {
+      ...baseReq,
+      traceRefs: [{ path: "docs/api.md", role: "api", label: "REST contract for verification" }],
+    };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts notes on testRefs items", () => {
+    const req = {
+      ...baseReq,
+      verification: {
+        coverageStatus: "partial",
+        testRefs: [{ path: "tests/auth.test.ts", kind: "integration", notes: "Covers bearer token flow" }],
+      },
+    };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts supersedes as a string array on decisions", () => {
+    const decision = {
+      id: "ADR-2",
+      title: "Replace PostgreSQL with CockroachDB",
+      slug: "replace-postgresql",
+      status: "accepted",
+      decision: "We will migrate from PostgreSQL to CockroachDB.",
+      context: "We need better horizontal scaling for our data.",
+      rationale: "CockroachDB offers distributed SQL with PostgreSQL compatibility.",
+      alternatives: [],
+      relatedRequirements: [],
+      supersedes: ["ADR-1", "ADR-3"],
+    };
+    const result = validateSchema(decision, "decision");
+    expect(result.valid).toBe(true);
   });
 });
 

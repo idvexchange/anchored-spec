@@ -38,8 +38,8 @@
     },
     "type": {
       "type": "string",
-      "enum": ["feature", "fix", "refactor", "chore"],
-      "description": "Change type — determines workflow variant"
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Change type — built-in (feature, fix, refactor, chore) or custom via config"
     },
     "workflowVariant": {
       "type": "string",

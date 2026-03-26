@@ -36,6 +36,8 @@ export type {
   AnchoredSpecPlugin,
   PluginCheck,
   PluginContext,
+  PluginHooks,
+  GenerateHookContext,
   SemanticRefKind,
   DriftFinding,
   DriftReport,
@@ -47,6 +49,9 @@ export type {
   ChangeVerification,
   ChangeVerificationCommand,
 } from "./types.js";
+
+export { BUILTIN_CHANGE_TYPES } from "./types.js";
+export type { BuiltinChangeType } from "./types.js";
 
 // Validation
 export {
@@ -121,6 +126,10 @@ export type { ImpactResult, ImpactMatch, ImpactMap } from "./impact.js";
 
 // Loader
 export { SpecRoot, resolveConfig, findProjectRoot } from "./loader.js";
+
+// Verification Engine
+export { runAllChecks } from "./verify.js";
+export type { VerificationResult, VerificationSummary, VerificationOptions } from "./verify.js";
 
 // Built-in resolvers
 export { default as typescriptAstResolver, resetProjectCache } from "../resolvers/typescript-ast.js";

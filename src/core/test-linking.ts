@@ -54,9 +54,10 @@ export function checkTestLinking(
   config?: TestMetadataConfig,
 ): TestLinkReport {
   const testGlobs = config?.testGlobs ?? DEFAULT_TEST_GLOBS;
-  const reqPattern = config?.requirementPattern
-    ? new RegExp(config.requirementPattern, "g")
-    : DEFAULT_REQ_PATTERN;
+  const rawPatterns = config?.requirementPattern;
+  const reqPatterns: RegExp[] = rawPatterns
+    ? (Array.isArray(rawPatterns) ? rawPatterns : [rawPatterns]).map((p) => new RegExp(p, "g"))
+    : [DEFAULT_REQ_PATTERN];
 
   // Discover test files
   const testFiles = discoverSourceFiles([""], testGlobs, projectRoot, {
@@ -69,11 +70,13 @@ export function checkTestLinking(
     const relPath = relative(projectRoot, file);
     try {
       const content = readFileSync(file, "utf-8");
-      reqPattern.lastIndex = 0;
       const matches = new Set<string>();
-      let match: RegExpExecArray | null;
-      while ((match = reqPattern.exec(content)) !== null) {
-        matches.add(match[1] ?? match[0]);
+      for (const reqPattern of reqPatterns) {
+        reqPattern.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = reqPattern.exec(content)) !== null) {
+          matches.add(match[1] ?? match[0]);
+        }
       }
       if (matches.size > 0) {
         testToReqs.set(relPath, matches);

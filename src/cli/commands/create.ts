@@ -193,7 +193,7 @@ export function createCommand(): Command {
         throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
-      const validTypes = ["feature", "fix", "refactor", "chore"];
+      const validTypes = ["feature", "fix", "refactor", "chore", ...(spec.config.customChangeTypes ?? [])];
       if (!validTypes.includes(options.type)) {
         throw new CliError(`Error: Invalid type "${options.type}". Must be one of: ${validTypes.join(", ")}`);
       }

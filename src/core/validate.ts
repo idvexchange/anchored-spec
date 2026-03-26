@@ -66,6 +66,7 @@ export function validateSchema(
           path: "",
           message: `Unknown schema: ${schemaName}`,
           severity: "error",
+          rule: `schema:unknown`,
         },
       ],
       warnings: [],
@@ -127,6 +128,7 @@ export function checkRequirementQuality(req: Requirement): ValidationError[] {
           message: `Vague language detected: "${bs.text.match(pattern)?.[0]}". Use precise, observable behavior.`,
           severity: "warning",
           rule: "quality:no-vague-language",
+          suggestion: `Replace with precise, observable behavior using EARS keywords (When/While/If/Where shall)`,
         });
       }
     }
@@ -164,13 +166,15 @@ export function checkRequirementQuality(req: Requirement): ValidationError[] {
     (!req.semanticRefs ||
       ((!req.semanticRefs.interfaces || req.semanticRefs.interfaces.length === 0) &&
         (!req.semanticRefs.routes || req.semanticRefs.routes.length === 0) &&
-        (!req.semanticRefs.symbols || req.semanticRefs.symbols.length === 0)))
+        (!req.semanticRefs.symbols || req.semanticRefs.symbols.length === 0) &&
+        !Object.values(req.semanticRefs.other ?? {}).some((arr) => arr.length > 0)))
   ) {
     issues.push({
       path: `/semanticRefs`,
       message: `Active/shipped requirement should have at least one semantic ref (interface, route, or symbol) for spec anchoring.`,
       severity: "warning",
       rule: "quality:semantic-refs-populated",
+      suggestion: `Add at least one entry to semanticRefs.interfaces, semanticRefs.routes, or semanticRefs.symbols`,
     });
   }
 

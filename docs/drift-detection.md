@@ -87,8 +87,22 @@ const report = detectDrift(requirements, {
 ### Resolution Order
 
 1. Custom resolvers are tried **in order** — first match wins
-2. If a resolver returns `null`, the next resolver is tried
-3. If all resolvers return `null`, the **built-in regex scanner** runs as final fallback
+2. If a resolver declares `kinds: ["errorCode"]`, it's **automatically skipped** for non-matching kinds (the engine returns `null` on its behalf)
+3. If a resolver returns `null`, the next resolver is tried
+4. If all resolvers return `null`, the **built-in regex scanner** runs as final fallback (standard kinds only)
+5. For custom semantic ref kinds (via `semanticRefs.other`), only custom resolvers are consulted — the built-in scanner ignores them
+
+### Return Value Semantics
+
+The return value of `resolve()` controls the resolver chain:
+
+| Return | Meaning | Chain behavior |
+|--------|---------|---------------|
+| `["path/to/file.ts"]` | Found at these paths | **Stops chain** — ref reported as `found` |
+| `[]` (empty array) | Definitely not found | **Stops chain** — ref reported as `missing` |
+| `null` | Don't handle this ref | **Continues chain** — tries next resolver |
+
+⚠️ **Common mistake:** Returning `[]` when you mean `null`. If your resolver doesn't handle a ref kind, return `null` to let the next resolver (or built-in scanner) try. Returning `[]` tells the engine "I looked and it's not there" — no further resolvers will be consulted.
 
 ## Built-in TypeScript AST Resolver
 

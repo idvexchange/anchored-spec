@@ -58,7 +58,7 @@
     },
     "alternatives": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "required": ["name", "verdict"],
@@ -87,8 +87,12 @@
       "description": "Requirements this decision impacts"
     },
     "supersedes": {
-      "type": ["string", "null"],
-      "description": "ADR ID this decision replaces"
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        { "type": "null" }
+      ],
+      "description": "ADR ID(s) this decision replaces"
     },
     "supersededBy": {
       "type": ["string", "null"],

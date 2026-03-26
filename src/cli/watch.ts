@@ -1,7 +1,8 @@
 /**
  * Anchored Spec — File Watcher
  *
- * Shared watch utility for verify --watch and generate --watch.
+ * Shared watch utility for verify --watch, generate --watch, and drift --watch.
+ * Watches specRoot and optionally sourceRoots for changes.
  */
 
 import { watch } from "chokidar";
@@ -10,7 +11,8 @@ import chalk from "chalk";
 export function watchSpecs(
   specDir: string,
   onChange: () => void | Promise<void>,
-  label: string
+  label: string,
+  sourceRoots?: string[],
 ): void {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let running = false;
@@ -31,9 +33,11 @@ export function watchSpecs(
     }, 300);
   };
 
-  const watcher = watch(specDir, {
+  const watchPaths = [specDir, ...(sourceRoots ?? [])];
+
+  const watcher = watch(watchPaths, {
     ignoreInitial: true,
-    ignored: ["**/generated/**", "**/.DS_Store"],
+    ignored: ["**/generated/**", "**/.DS_Store", "**/node_modules/**", "**/dist/**"],
     persistent: true,
   });
 
@@ -41,7 +45,10 @@ export function watchSpecs(
   watcher.on("add", debouncedRun);
   watcher.on("unlink", debouncedRun);
 
-  console.log(chalk.blue(`👀 Watching ${specDir} for changes... (Ctrl+C to stop)\n`));
+  const pathDesc = watchPaths.length > 1
+    ? `${specDir} + ${sourceRoots!.length} source root(s)`
+    : specDir;
+  console.log(chalk.blue(`👀 Watching ${pathDesc} for changes... (Ctrl+C to stop)\n`));
 
   // Run once immediately
   onChange();

@@ -13,6 +13,7 @@ import { SpecRoot, resolveConfig } from "../../core/loader.js";
 import { detectDrift } from "../../core/drift.js";
 import type { DriftFinding, DriftReport, DriftResolver } from "../../core/types.js";
 import { CliError } from "../errors.js";
+import { watchSpecs } from "../watch.js";
 
 const RESOLVER_EXT_PATTERN = /\.(js|mjs|cjs)$/;
 
@@ -58,13 +59,48 @@ export function driftCommand(): Command {
     .option("--generate-map", "Write semantic-links.json to generated dir")
     .option("--check-map", "Check if semantic-links.json is stale")
     .option("--resolver <path...>", "Additional drift resolver module paths")
-    .action(async (opts: { root?: string; json?: boolean; failOnMissing?: boolean; generateMap?: boolean; checkMap?: boolean; resolver?: string[] }) => {
+    .option("--watch", "Re-run on spec/source file changes")
+    .action(async (opts: { root?: string; json?: boolean; failOnMissing?: boolean; generateMap?: boolean; checkMap?: boolean; resolver?: string[]; watch?: boolean }) => {
       const projectRoot = process.cwd();
       const config = resolveConfig(projectRoot);
       const spec = new SpecRoot(projectRoot, config);
 
       if (!spec.isInitialized()) {
         throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
+      }
+
+      if (opts.watch) {
+        const sourceRoots = config.sourceRoots;
+        watchSpecs(spec.specRoot, async () => {
+          // Inline drift run for watch mode — no process.exit on failure
+          try {
+            const requirements = spec.loadRequirements();
+            const activeReqs = requirements.filter(
+              (r) => r.status === "active" || r.status === "shipped",
+            );
+            if (activeReqs.length === 0) {
+              console.log(chalk.yellow("No active/shipped requirements with semantic refs to check."));
+              return;
+            }
+            const sr = opts.root
+              ? opts.root.split(",").map((r) => r.trim())
+              : config.sourceRoots ?? ["src"];
+            const rPaths = [...(config.driftResolvers ?? []), ...(opts.resolver ?? [])];
+            const res = rPaths.length > 0 ? await loadResolvers(rPaths, spec.projectRoot) : undefined;
+            const report = detectDrift(requirements, {
+              projectRoot: spec.projectRoot, sourceRoots: sr, sourceGlobs: config.sourceGlobs, resolvers: res,
+            });
+            const missing = report.findings.filter((f) => f.status === "missing");
+            console.log(chalk.dim(`  ${report.summary.totalRefs} refs | ${report.summary.found} found | ${report.summary.missing} missing`));
+            for (const f of missing) {
+              console.log(chalk.yellow(`  ⚠ ${f.reqId}: ${f.kind} "${f.ref}" not found`));
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(chalk.red(`  Error: ${msg}`));
+          }
+        }, "drift", sourceRoots);
+        return;
       }
 
       const requirements = spec.loadRequirements();

@@ -65,6 +65,7 @@ export function checkCrossReferences(
           message: `${chg.id} references this requirement, but it is not listed in implementation.activeChanges`,
           severity: "warning",
           rule: "cross-ref:bidirectional-consistency",
+          suggestion: `Add "${chg.id}" to ${reqId}'s implementation.activeChanges array`,
         });
       }
     }
@@ -83,6 +84,7 @@ export function checkCrossReferences(
           message: `${req.id} lists this change in activeChanges, but the change does not reference it in requirements`,
           severity: "warning",
           rule: "cross-ref:bidirectional-consistency",
+          suggestion: `Add "${req.id}" to ${chgId}'s requirements array`,
         });
       }
     }
@@ -121,6 +123,7 @@ export function checkLifecycleRules(
           message: `Active requirement has no active change record`,
           severity: "error",
           rule: "lifecycle:active-requires-change",
+          suggestion: `Run 'anchored-spec create change --type feature' and add ${req.id} to its requirements array`,
         });
       }
     }
@@ -133,6 +136,7 @@ export function checkLifecycleRules(
           message: `Shipped requirement has no test coverage`,
           severity: "error",
           rule: "lifecycle:shipped-requires-coverage",
+          suggestion: `Set verification.coverageStatus to 'partial' or 'full', or add testRefs entries`,
         });
       }
     }
@@ -145,6 +149,7 @@ export function checkLifecycleRules(
           message: `Deprecated requirement has no reason or replacement`,
           severity: "error",
           rule: "lifecycle:deprecated-requires-reason",
+          suggestion: `Add a 'statusReason' explaining why it was deprecated, or set 'supersededBy' to the replacement requirement ID`,
         });
       }
     }

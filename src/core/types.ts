@@ -25,6 +25,7 @@ export interface TraceRef {
     | "api"
     | "implementation"
     | "reference";
+  label?: string;
 }
 
 export interface SemanticRefs {
@@ -33,12 +34,14 @@ export interface SemanticRefs {
   errorCodes?: string[];
   symbols?: string[];
   schemas?: string[];
+  other?: Record<string, string[]>;
 }
 
 export interface TestRef {
   path: string;
   kind: "unit" | "integration" | "e2e" | "contract" | "manual";
   required?: boolean;
+  notes?: string;
 }
 
 export interface Verification {
@@ -83,7 +86,7 @@ export interface Requirement {
   implementation?: Implementation;
   owners: string[];
   tags?: string[];
-  supersedes?: string | null;
+  supersedes?: string | string[] | null;
   supersededBy?: string | null;
   dependsOn?: string[];
   docSource?: "canonical-json";
@@ -93,7 +96,9 @@ export interface Requirement {
 
 // ─── Change Record ─────────────────────────────────────────────────────────────
 
-export type ChangeType = "feature" | "fix" | "refactor" | "chore";
+export const BUILTIN_CHANGE_TYPES = ["feature", "fix", "refactor", "chore"] as const;
+export type BuiltinChangeType = (typeof BUILTIN_CHANGE_TYPES)[number];
+export type ChangeType = string;
 export type ChangePhase =
   | "design"
   | "planned"
@@ -162,7 +167,7 @@ export interface Decision {
   alternatives: Alternative[];
   implications?: string;
   relatedRequirements: string[];
-  supersedes?: string | null;
+  supersedes?: string | string[] | null;
   supersededBy?: string | null;
   docSource?: "canonical-json";
   schemaVersion?: string;
@@ -174,7 +179,7 @@ export interface Decision {
 export interface WorkflowVariant {
   id: string;
   name: string;
-  defaultTypes: ChangeType[];
+  defaultTypes: string[];
   artifacts: string[];
   skipSkillSequence?: boolean;
   verificationFocus?: string[];
@@ -215,7 +220,8 @@ export interface ValidationError {
   path: string;
   message: string;
   severity: "error" | "warning";
-  rule?: string;
+  rule: string;
+  suggestion?: string;
 }
 
 export interface ValidationResult {
@@ -257,8 +263,12 @@ export interface AnchoredSpecConfig {
   sourceRoots?: string[];
   sourceGlobs?: string[];
   plugins?: string[];
+  /** Glob patterns for files to exclude from artifact loading. Default: [".**"] */
+  exclude?: string[];
   quality?: {
     validateFilePaths?: boolean;
+    /** Per-rule severity overrides. "error" | "warn" | "off" */
+    rules?: Record<string, "error" | "warn" | "off">;
   };
   /** Pluggable drift resolver module paths (.js/.mjs/.cjs files exporting DriftResolver). */
   driftResolvers?: string[];
@@ -266,6 +276,8 @@ export interface AnchoredSpecConfig {
   hooks?: HookDefinition[];
   /** Test metadata linking configuration. */
   testMetadata?: TestMetadataConfig;
+  /** Custom change types beyond the built-in feature/fix/refactor/chore. */
+  customChangeTypes?: string[];
 }
 
 // ─── Plugin System ─────────────────────────────────────────────────────────────
@@ -274,6 +286,16 @@ export interface AnchoredSpecPlugin {
   name: string;
   version?: string;
   checks?: PluginCheck[];
+  hooks?: PluginHooks;
+}
+
+export interface PluginHooks {
+  onGenerate?: (context: GenerateHookContext) => void | Promise<void>;
+}
+
+export interface GenerateHookContext {
+  spec: PluginContext;
+  generatedDir: string;
 }
 
 export interface PluginCheck {
@@ -292,7 +314,7 @@ export interface PluginContext {
 
 // ─── Drift Detection ──────────────────────────────────────────────────────────
 
-export type SemanticRefKind = "interface" | "route" | "errorCode" | "symbol" | "schema";
+export type SemanticRefKind = "interface" | "route" | "errorCode" | "symbol" | "schema" | (string & {});
 
 export interface DriftFinding {
   reqId: string;
@@ -320,13 +342,27 @@ export interface DriftResolveContext {
 
 /**
  * A pluggable drift resolver that can look up semantic refs.
- * Return file paths where the ref was found, or null to defer to next resolver.
+ *
+ * Resolver chain behavior:
+ * - Return `string[]` (non-empty) → ref is found at those file paths (stops chain)
+ * - Return `[]` (empty array) → ref is definitely NOT found (stops chain — no further resolvers run)
+ * - Return `null` → this resolver doesn't handle this ref (defers to next resolver)
+ *
+ * ⚠️ Return `null`, not `[]`, when your resolver doesn't handle a ref kind.
+ * Returning `[]` short-circuits the entire resolver chain.
  */
 export interface DriftResolver {
   name: string;
-  /** Which ref kinds this resolver handles. Omit to handle all. */
+  /** Which ref kinds this resolver handles. Omit to handle all kinds.
+   * When set, the drift engine will skip this resolver for non-matching kinds. */
   kinds?: SemanticRefKind[];
-  /** Resolve a ref. Return array of relative paths, or null to defer. */
+  /**
+   * Resolve a semantic ref to source file paths.
+   * @param kind - The kind of semantic reference being resolved
+   * @param ref - The reference value to look up
+   * @param ctx - Context including projectRoot and fileIndex
+   * @returns File paths where the ref is defined, `[]` to mark as not found, or `null` to defer
+   */
   resolve(kind: SemanticRefKind, ref: string, ctx: DriftResolveContext): string[] | null;
 }
 
@@ -344,8 +380,8 @@ export interface HookDefinition {
 export interface TestMetadataConfig {
   /** Glob patterns for test files. Default: *.test.ts, *.test.tsx, etc. */
   testGlobs?: string[];
-  /** Regex pattern to extract requirement IDs from test files */
-  requirementPattern?: string;
+  /** Regex pattern(s) to extract requirement IDs from test files. String or array of strings. */
+  requirementPattern?: string | string[];
 }
 
 // ─── Change Verification ──────────────────────────────────────────────────────

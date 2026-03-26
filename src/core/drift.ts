@@ -202,6 +202,13 @@ export function detectDrift(
       { kind: "schema", refs: req.semanticRefs.schemas ?? [] },
     ];
 
+    // Include custom ref kinds from `other` map
+    if (req.semanticRefs.other) {
+      for (const [customKind, refs] of Object.entries(req.semanticRefs.other)) {
+        refEntries.push({ kind: customKind, refs });
+      }
+    }
+
     for (const { kind, refs } of refEntries) {
       for (const ref of refs) {
         let foundIn: string[] | null = null;
@@ -216,10 +223,16 @@ export function detectDrift(
           }
         }
 
-        // Fallback to built-in scanner
-        if (foundIn === null) {
+        // Fallback to built-in scanner (only for standard kinds)
+        const standardKinds = ["interface", "route", "errorCode", "symbol", "schema"];
+        if (foundIn === null && standardKinds.includes(kind)) {
           foundIn = builtinResolve(index, kind, ref);
         }
+
+        // Custom kinds with no resolver match are reported as missing
+        // only if a resolver explicitly returned [] (short-circuit).
+        // If no resolver handled it at all, skip the finding.
+        if (foundIn === null) continue;
 
         findings.push({
           reqId: req.id,

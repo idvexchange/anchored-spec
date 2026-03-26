@@ -7,6 +7,7 @@
 
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { minimatch } from "minimatch";
 import type {
   AnchoredSpecConfig,
   Requirement,
@@ -92,7 +93,7 @@ function loadJsonFile<T>(filePath: string): T {
   }
 }
 
-function loadJsonFilesFromDir<T>(dirPath: string, pattern?: RegExp): T[] {
+function loadJsonFilesFromDir<T>(dirPath: string, pattern?: RegExp, excludeGlobs?: string[]): T[] {
   if (!existsSync(dirPath)) return [];
 
   const items: T[] = [];
@@ -104,9 +105,12 @@ function loadJsonFilesFromDir<T>(dirPath: string, pattern?: RegExp): T[] {
 
     if (stat.isFile() && entry.endsWith(".json")) {
       if (pattern && !pattern.test(entry)) continue;
+      if (excludeGlobs?.length && excludeGlobs.some((g) => minimatch(entry, g))) continue;
       items.push(loadJsonFile<T>(fullPath));
     } else if (stat.isDirectory()) {
       // Support nested directories (e.g., changes/CHG-2026-0001-foo/change.json)
+      const relDir = entry;
+      if (excludeGlobs?.length && excludeGlobs.some((g) => minimatch(relDir, g))) continue;
       const nestedJson = join(fullPath, "change.json");
       if (existsSync(nestedJson)) {
         items.push(loadJsonFile<T>(nestedJson));
@@ -160,16 +164,20 @@ export class SpecRoot {
 
   // ─── Loaders ───────────────────────────────────────────────────────────────
 
+  private get excludeGlobs(): string[] {
+    return this.config.exclude ?? ["**/.*"];
+  }
+
   loadRequirements(): Requirement[] {
-    return loadJsonFilesFromDir<Requirement>(this.requirementsDir, /^REQ-.*\.json$/);
+    return loadJsonFilesFromDir<Requirement>(this.requirementsDir, /^REQ-.*\.json$/, this.excludeGlobs);
   }
 
   loadChanges(): Change[] {
-    return loadJsonFilesFromDir<Change>(this.changesDir);
+    return loadJsonFilesFromDir<Change>(this.changesDir, undefined, this.excludeGlobs);
   }
 
   loadDecisions(): Decision[] {
-    return loadJsonFilesFromDir<Decision>(this.decisionsDir, /^ADR-.*\.json$/);
+    return loadJsonFilesFromDir<Decision>(this.decisionsDir, /^ADR-.*\.json$/, this.excludeGlobs);
   }
 
   loadWorkflowPolicy(): WorkflowPolicy | null {

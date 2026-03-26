@@ -15,6 +15,7 @@ import {
   generateDecisionsMarkdown,
   generateChangesMarkdown,
   generateStatusMarkdown,
+  loadPlugins,
 } from "../../core/index.js";
 import { resolveConfig } from "../../core/loader.js";
 import { detectDrift } from "../../core/drift.js";
@@ -106,6 +107,39 @@ function runGeneration(spec: SpecRoot): number {
     writeFileSync(artifact.path, artifact.content);
     console.log(chalk.green(`  ✓ Generated ${artifact.name}`));
   }
+
+  // Run onGenerate plugin hooks
+  const config = resolveConfig(spec.projectRoot);
+  if (config.plugins?.length) {
+    const requirements = spec.loadRequirements();
+    const changes = spec.loadChanges();
+    const decisions = spec.loadDecisions();
+    const policy = spec.loadWorkflowPolicy();
+    const hookContext = {
+      spec: { requirements, changes, decisions, policy, projectRoot: spec.projectRoot },
+      generatedDir,
+    };
+    // loadPlugins is async — fire and forget for sync generate
+    loadPlugins(config.plugins, spec.projectRoot).then((plugins) => {
+      for (const plugin of plugins) {
+        if (plugin.hooks?.onGenerate) {
+          try {
+            const result = plugin.hooks.onGenerate(hookContext);
+            if (result instanceof Promise) {
+              result.catch((err: unknown) => {
+                console.log(chalk.yellow(`  ⚠ Plugin "${plugin.name}" onGenerate failed: ${err}`));
+              });
+            }
+          } catch (err) {
+            console.log(chalk.yellow(`  ⚠ Plugin "${plugin.name}" onGenerate failed: ${err}`));
+          }
+        }
+      }
+    }).catch((err) => {
+      console.log(chalk.yellow(`  ⚠ Failed to load plugins: ${err}`));
+    });
+  }
+
   if (artifacts.length === 0) {
     console.log(chalk.dim("  No spec artifacts found to generate from."));
   } else {

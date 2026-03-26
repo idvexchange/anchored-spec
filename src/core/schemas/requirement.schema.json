@@ -105,11 +105,15 @@
             "type": "string",
             "enum": ["normative", "architecture", "decision", "api", "implementation", "reference"],
             "description": "How this document relates to the requirement"
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label explaining the trace link"
           }
         },
         "additionalProperties": false
       },
-      "description": "Document traceability references"
+      "description": "Document traceability references with optional labels"
     },
     "semanticRefs": {
       "type": "object",
@@ -143,6 +147,15 @@
           "items": { "type": "string" },
           "uniqueItems": true,
           "description": "Database table or schema names"
+        },
+        "other": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string" },
+            "uniqueItems": true
+          },
+          "description": "Custom semantic ref kinds (e.g., graphqlQuery, eventName, featureFlag)"
         }
       },
       "additionalProperties": false,
@@ -180,7 +193,11 @@
                 "type": "string",
                 "enum": ["unit", "integration", "e2e", "contract", "manual"]
               },
-              "required": { "type": "boolean", "default": true }
+              "required": { "type": "boolean", "default": true },
+              "notes": {
+                "type": "string",
+                "description": "Coverage status explanation or test notes"
+              }
             },
             "additionalProperties": false
           }
@@ -232,8 +249,12 @@
       "description": "Free-form tags for categorization"
     },
     "supersedes": {
-      "type": ["string", "null"],
-      "description": "REQ ID this requirement replaces"
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        { "type": "null" }
+      ],
+      "description": "REQ ID(s) this requirement replaces"
     },
     "supersededBy": {
       "type": ["string", "null"],
