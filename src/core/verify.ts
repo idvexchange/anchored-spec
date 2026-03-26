@@ -18,8 +18,9 @@ import {
 import { checkCrossReferences, checkLifecycleRules, checkDependencies } from "./integrity.js";
 import { checkTestLinking } from "./test-linking.js";
 import { validateEvidence } from "./evidence.js";
+import { loadPlugins, runPluginChecks } from "./plugins.js";
 import { SpecRoot } from "./loader.js";
-import type { ValidationError } from "./types.js";
+import type { AnchoredSpecPlugin, ValidationError } from "./types.js";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -258,6 +259,60 @@ export async function runAllChecks(
       passedChecks++;
     } else {
       allFindings.push(...evidenceErrors);
+    }
+  }
+
+  // ─── 11. Plugin Checks ──────────────────────────────────────────────────
+
+  let plugins: AnchoredSpecPlugin[] = [];
+  if (config.plugins && config.plugins.length > 0) {
+    plugins = await loadPlugins(config.plugins, cwd);
+    const pluginCtx = {
+      requirements, changes, decisions, policy,
+      projectRoot: cwd, config,
+    };
+    totalChecks++;
+    const pluginFindings = runPluginChecks(plugins, pluginCtx);
+    if (pluginFindings.length === 0) {
+      passedChecks++;
+    } else {
+      allFindings.push(...pluginFindings);
+    }
+  }
+
+  // ─── 12. onVerify Plugin Hooks ──────────────────────────────────────────
+
+  if (plugins.length > 0) {
+    const verifyCtx = {
+      spec: {
+        requirements, changes, decisions, policy,
+        projectRoot: cwd, config,
+      },
+      builtinFindings: [...allFindings],
+    };
+    for (const plugin of plugins) {
+      if (!plugin.hooks?.onVerify) continue;
+      try {
+        totalChecks++;
+        const hookFindings = await plugin.hooks.onVerify(verifyCtx);
+        const prefixed = hookFindings.map((f) => ({
+          ...f,
+          rule: f.rule.startsWith("plugin:") ? f.rule : `plugin:${plugin.name}/${f.rule}`,
+        }));
+        if (prefixed.length === 0) {
+          passedChecks++;
+        } else {
+          allFindings.push(...prefixed);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        allFindings.push({
+          path: "",
+          message: `Plugin "${plugin.name}" onVerify hook threw: ${msg}`,
+          severity: "error",
+          rule: `plugin:${plugin.name}/onVerify`,
+        });
+      }
     }
   }
 

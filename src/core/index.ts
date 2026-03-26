@@ -38,6 +38,7 @@ export type {
   PluginContext,
   PluginHooks,
   GenerateHookContext,
+  VerifyHookContext,
   SemanticRefKind,
   DriftFinding,
   DriftReport,

@@ -27,7 +27,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["feature", "fix", "refactor", "chore"]
+              "pattern": "^[a-z][a-z0-9-]*$"
             },
             "description": "Change types that default to this variant"
           },
@@ -138,6 +138,11 @@
     "schemaVersion": {
       "type": "string",
       "description": "Schema version for migration tracking"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Project-specific policy metadata. Not validated by built-in schemas."
     }
   },
   "additionalProperties": false

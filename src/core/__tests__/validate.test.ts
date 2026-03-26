@@ -793,7 +793,7 @@ describe("extensions support", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("rejects extensions on workflow-policy (not allowed)", () => {
+  it("accepts extensions on workflow-policy", () => {
     const policy = {
       workflowVariants: [
         {
@@ -806,10 +806,87 @@ describe("extensions support", () => {
       changeRequiredRules: [],
       trivialExemptions: [],
       lifecycleRules: {},
-      extensions: { bad: true },
+      extensions: { customRouting: [{ pattern: "add-*", variant: "feature" }] },
     };
     const result = validateSchema(policy, "workflow-policy");
+    expect(result.valid).toBe(true);
+  });
+});
+
+// ─── Workflow Policy: Custom Change Types in defaultTypes ──────────────────────
+
+describe("workflow-policy defaultTypes", () => {
+  const makePolicy = (defaultTypes: string[]) => ({
+    workflowVariants: [
+      {
+        id: "custom",
+        name: "Custom",
+        defaultTypes,
+        artifacts: ["requirements"],
+      },
+    ],
+    changeRequiredRules: [],
+    trivialExemptions: [],
+    lifecycleRules: {},
+  });
+
+  it("accepts built-in types in defaultTypes", () => {
+    const result = validateSchema(makePolicy(["feature", "fix"]), "workflow-policy");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts custom kebab-case types in defaultTypes", () => {
+    const result = validateSchema(makePolicy(["infrastructure", "schema", "repo-workflow"]), "workflow-policy");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts mix of built-in and custom types", () => {
+    const result = validateSchema(makePolicy(["chore", "workflow", "infrastructure"]), "workflow-policy");
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects invalid type patterns in defaultTypes", () => {
+    const result = validateSchema(makePolicy(["Feature"]), "workflow-policy");
     expect(result.valid).toBe(false);
+  });
+
+  it("rejects types with special characters", () => {
+    const result = validateSchema(makePolicy(["my_type"]), "workflow-policy");
+    expect(result.valid).toBe(false);
+  });
+});
+
+// ─── Workflow Policy: extensions field ─────────────────────────────────────────
+
+describe("workflow-policy extensions", () => {
+  const basePolicy = {
+    workflowVariants: [
+      { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: ["requirements"] },
+    ],
+    changeRequiredRules: [],
+    trivialExemptions: [],
+    lifecycleRules: {},
+  };
+
+  it("accepts policy without extensions", () => {
+    const result = validateSchema(basePolicy, "workflow-policy");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts policy with extensions containing arbitrary data", () => {
+    const result = validateSchema(
+      { ...basePolicy, extensions: { commonRequestRouting: [{ pattern: "add-*" }], impactRules: { "src/**": "rebuild" } } },
+      "workflow-policy",
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts policy with empty extensions", () => {
+    const result = validateSchema(
+      { ...basePolicy, extensions: {} },
+      "workflow-policy",
+    );
+    expect(result.valid).toBe(true);
   });
 });
 

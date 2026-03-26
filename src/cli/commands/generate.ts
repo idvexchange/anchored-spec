@@ -116,7 +116,7 @@ function runGeneration(spec: SpecRoot): number {
     const decisions = spec.loadDecisions();
     const policy = spec.loadWorkflowPolicy();
     const hookContext = {
-      spec: { requirements, changes, decisions, policy, projectRoot: spec.projectRoot },
+      spec: { requirements, changes, decisions, policy, projectRoot: spec.projectRoot, config },
       generatedDir,
     };
     // loadPlugins is async — fire and forget for sync generate

@@ -5,6 +5,7 @@ import type {
   PluginContext,
   ValidationError,
   Requirement,
+  AnchoredSpecConfig,
 } from "../../core/types.js";
 
 function makeCtx(overrides: Partial<PluginContext> = {}): PluginContext {
@@ -14,6 +15,7 @@ function makeCtx(overrides: Partial<PluginContext> = {}): PluginContext {
     decisions: [],
     policy: null,
     projectRoot: "/tmp",
+    config: { specRoot: "specs" },
     ...overrides,
   };
 }
@@ -132,5 +134,31 @@ describe("plugin system", () => {
     runPluginChecks([plugin], ctx);
     expect(receivedCtx).not.toBeNull();
     expect(receivedCtx!.projectRoot).toBe("/my/project");
+  });
+
+  it("provides config in PluginContext", () => {
+    let receivedConfig: AnchoredSpecConfig | null = null;
+    const plugin: AnchoredSpecPlugin = {
+      name: "config-reader",
+      checks: [
+        {
+          id: "read-config",
+          description: "Reads config",
+          check: (ctx) => {
+            receivedConfig = ctx.config;
+            return [];
+          },
+        },
+      ],
+    };
+    const config: AnchoredSpecConfig = {
+      specRoot: "specs",
+      sourceRoots: ["apps/api/src", "packages/core/src"],
+      customChangeTypes: ["infrastructure"],
+    };
+    runPluginChecks([plugin], makeCtx({ config }));
+    expect(receivedConfig).not.toBeNull();
+    expect(receivedConfig!.sourceRoots).toEqual(["apps/api/src", "packages/core/src"]);
+    expect(receivedConfig!.customChangeTypes).toEqual(["infrastructure"]);
   });
 });

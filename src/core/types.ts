@@ -212,6 +212,8 @@ export interface WorkflowPolicy {
   trivialExemptions: string[];
   choreEligibility?: ChoreEligibility;
   lifecycleRules: LifecycleRules;
+  schemaVersion?: string;
+  extensions?: Record<string, unknown>;
 }
 
 // ─── Validation Result ─────────────────────────────────────────────────────────
@@ -291,11 +293,17 @@ export interface AnchoredSpecPlugin {
 
 export interface PluginHooks {
   onGenerate?: (context: GenerateHookContext) => void | Promise<void>;
+  onVerify?: (context: VerifyHookContext) => ValidationError[] | Promise<ValidationError[]>;
 }
 
 export interface GenerateHookContext {
   spec: PluginContext;
   generatedDir: string;
+}
+
+export interface VerifyHookContext {
+  spec: PluginContext;
+  builtinFindings: ValidationError[];
 }
 
 export interface PluginCheck {
@@ -310,6 +318,7 @@ export interface PluginContext {
   decisions: Decision[];
   policy: WorkflowPolicy | null;
   projectRoot: string;
+  config: AnchoredSpecConfig;
 }
 
 // ─── Drift Detection ──────────────────────────────────────────────────────────
