@@ -155,10 +155,25 @@ The workflow policy defines governance rules:
 | `anchored-spec create <type> --dry-run` | Preview without writing files |
 | `anchored-spec verify` | Run all validation checks |
 | `anchored-spec verify --strict` | Treat warnings as errors |
+| `anchored-spec verify --watch` | Re-verify on file changes |
 | `anchored-spec generate` | Regenerate markdown from JSON |
 | `anchored-spec generate --check` | Check if generated files are stale (CI-friendly) |
+| `anchored-spec generate --watch` | Regenerate on file changes |
 | `anchored-spec status` | Show health dashboard |
 | `anchored-spec status --json` | Machine-readable status output |
+| `anchored-spec transition <id>` | Advance a change to the next phase |
+| `anchored-spec transition <id> --to <phase>` | Move to a specific phase |
+| `anchored-spec transition <id> --force` | Skip gate validation |
+| `anchored-spec check` | Git-aware policy enforcement |
+| `anchored-spec check --staged` | Check only staged files |
+| `anchored-spec check --against <branch>` | Compare against a branch |
+| `anchored-spec migrate` | Detect and apply schema migrations |
+| `anchored-spec drift` | Detect semantic drift between specs and code |
+| `anchored-spec drift --fail-on-missing` | Exit with error if refs are missing (CI) |
+| `anchored-spec import <path>` | Import markdown ADRs/requirements to JSON |
+| `anchored-spec import <path> --dry-run` | Preview import without writing |
+| `anchored-spec report` | Generate traceability matrix and coverage report |
+| `anchored-spec report --json` | Machine-readable report output |
 
 ## CI Integration
 
@@ -168,9 +183,10 @@ Add verification to your CI pipeline:
 # .github/workflows/ci.yml
 - run: npx anchored-spec verify --strict
 - run: npx anchored-spec generate --check
+- run: npx anchored-spec drift --fail-on-missing
 ```
 
-This ensures specs stay valid and generated docs don't go stale.
+This ensures specs stay valid, generated docs don't go stale, and semantic refs stay connected to code.
 
 ## Verification Checks
 
@@ -181,13 +197,21 @@ This ensures specs stay valid and generated docs don't go stale.
 3. **Policy quality** — Unique variant and rule IDs
 4. **Cross-reference integrity** — REQ↔CHG bidirectional links are consistent
 5. **Lifecycle rules** — Transition gates are enforced (e.g., shipped requires coverage)
+6. **Dependency checks** — Cycle detection, missing references, blocked status derivation
 
 ## Programmatic API
 
 Anchored Spec also exports its core engine for programmatic use:
 
 ```typescript
-import { validateRequirement, SpecRoot, evaluatePolicy } from "anchored-spec";
+import {
+  validateRequirement,
+  SpecRoot,
+  evaluatePolicy,
+  detectDrift,
+  loadPlugins,
+  runPluginChecks,
+} from "anchored-spec";
 
 // Validate a requirement
 const result = validateRequirement(myReqJson);
@@ -201,6 +225,54 @@ const changes = spec.loadChanges();
 // Evaluate policy against changed files
 const policy = spec.loadWorkflowPolicy();
 const evaluation = evaluatePolicy(changedPaths, policy);
+
+// Detect semantic drift
+const drift = detectDrift(requirements, {
+  projectRoot: "/path/to/project",
+  sourceRoots: ["src"],
+});
+console.log(drift.summary); // { totalRefs, found, missing }
+```
+
+## Plugin System
+
+Create custom verification checks by writing a plugin:
+
+```javascript
+// .anchored-spec/plugins/no-orphan-tags.js
+export default {
+  name: "no-orphan-tags",
+  checks: [
+    {
+      id: "unique-tags",
+      description: "All tags must be used by at least 2 requirements",
+      check: (ctx) => {
+        const tagCounts = {};
+        for (const req of ctx.requirements) {
+          for (const tag of req.tags ?? []) {
+            tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+          }
+        }
+        return Object.entries(tagCounts)
+          .filter(([, count]) => count < 2)
+          .map(([tag]) => ({
+            path: "tags",
+            message: `Tag "${tag}" is only used once`,
+            severity: "warning",
+          }));
+      },
+    },
+  ],
+};
+```
+
+Register it in `.anchored-spec/config.json`:
+
+```json
+{
+  "specRoot": "specs",
+  "plugins": ["./.anchored-spec/plugins/no-orphan-tags.js"]
+}
 ```
 
 ## Comparison with Other Tools
