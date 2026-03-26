@@ -244,4 +244,50 @@ export interface AnchoredSpecConfig {
   decisionsDir?: string;
   workflowPolicyPath?: string;
   generatedDir?: string;
+  sourceRoots?: string[];
+  sourceGlobs?: string[];
+  plugins?: string[];
+}
+
+// ─── Plugin System ─────────────────────────────────────────────────────────────
+
+export interface AnchoredSpecPlugin {
+  name: string;
+  version?: string;
+  checks?: PluginCheck[];
+}
+
+export interface PluginCheck {
+  id: string;
+  description: string;
+  check: (ctx: PluginContext) => ValidationError[];
+}
+
+export interface PluginContext {
+  requirements: Requirement[];
+  changes: Change[];
+  decisions: Decision[];
+  policy: WorkflowPolicy | null;
+  projectRoot: string;
+}
+
+// ─── Drift Detection ──────────────────────────────────────────────────────────
+
+export type SemanticRefKind = "interface" | "route" | "errorCode" | "symbol" | "schema";
+
+export interface DriftFinding {
+  reqId: string;
+  kind: SemanticRefKind;
+  ref: string;
+  status: "found" | "missing";
+  foundIn?: string[];
+}
+
+export interface DriftReport {
+  findings: DriftFinding[];
+  summary: {
+    totalRefs: number;
+    found: number;
+    missing: number;
+  };
 }

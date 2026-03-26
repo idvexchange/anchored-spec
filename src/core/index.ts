@@ -33,6 +33,12 @@ export type {
   PolicyMatchResult,
   PolicyEvaluationResult,
   AnchoredSpecConfig,
+  AnchoredSpecPlugin,
+  PluginCheck,
+  PluginContext,
+  SemanticRefKind,
+  DriftFinding,
+  DriftReport,
 } from "./types.js";
 
 // Validation
@@ -65,6 +71,13 @@ export {
   generateChangesMarkdown,
   generateStatusMarkdown,
 } from "./generate.js";
+
+// Drift Detection
+export { detectDrift } from "./drift.js";
+export type { DriftOptions } from "./drift.js";
+
+// Plugin System
+export { loadPlugin, loadPlugins, runPluginChecks } from "./plugins.js";
 
 // Loader
 export { SpecRoot, resolveConfig } from "./loader.js";

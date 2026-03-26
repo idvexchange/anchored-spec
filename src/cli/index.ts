@@ -17,6 +17,9 @@ import { statusCommand } from "./commands/status.js";
 import { transitionCommand } from "./commands/transition.js";
 import { checkCommand } from "./commands/check.js";
 import { migrateCommand } from "./commands/migrate.js";
+import { driftCommand } from "./commands/drift.js";
+import { importCommand } from "./commands/import-cmd.js";
+import { reportCommand } from "./commands/report.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
@@ -36,5 +39,8 @@ program.addCommand(statusCommand());
 program.addCommand(transitionCommand());
 program.addCommand(checkCommand());
 program.addCommand(migrateCommand());
+program.addCommand(driftCommand());
+program.addCommand(importCommand());
+program.addCommand(reportCommand());
 
 program.parse();

@@ -414,3 +414,257 @@ describe("CLI: status", () => {
     expect(json.requirements.total).toBe(1);
   });
 });
+
+// ─── Transition Command ────────────────────────────────────────────────────────
+
+describe("CLI: transition", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("transitions a change to next phase", () => {
+    runCLI("create change --type feature --slug test-feature --title \"Test Feature\"", tempDir);
+    const changesDir = join(tempDir, "specs", "changes");
+    const entries = readdirSync(changesDir);
+    const changeDirName = entries.find((e) => e.includes("test-feature"))!;
+    const changePath = join(changesDir, changeDirName, "change.json");
+    const change = JSON.parse(readFileSync(changePath, "utf-8"));
+    expect(change.phase).toBe("design");
+
+    // Use --force to skip gate validation (no requirements linked)
+    const result = runCLI(`transition ${change.id} --to planned --force`, tempDir);
+    expect(result.exitCode).toBe(0);
+    const updated = JSON.parse(readFileSync(changePath, "utf-8"));
+    expect(updated.phase).toBe("planned");
+  });
+
+  it("supports --dry-run", () => {
+    runCLI("create change --type feature --slug dry-run --title \"Dry Run Test\"", tempDir);
+    const changesDir = join(tempDir, "specs", "changes");
+    const entries = readdirSync(changesDir);
+    const changeDirName = entries.find((e) => e.includes("dry-run"))!;
+    const changePath = join(changesDir, changeDirName, "change.json");
+    const change = JSON.parse(readFileSync(changePath, "utf-8"));
+
+    const result = runCLI(`transition ${change.id} --to planned --dry-run --force`, tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.toLowerCase()).toContain("dry");
+    // Phase should NOT have changed
+    const after = JSON.parse(readFileSync(changePath, "utf-8"));
+    expect(after.phase).toBe("design");
+  });
+});
+
+// ─── Drift Command ─────────────────────────────────────────────────────────────
+
+describe("CLI: drift", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+    mkdirSync(join(tempDir, "src"), { recursive: true });
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("reports no drift when no active requirements", () => {
+    const result = runCLI("drift --json", tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.findings).toHaveLength(0);
+  });
+
+  it("detects missing symbols", () => {
+    writeFileSync(join(tempDir, "src", "empty.ts"), "export const x = 1;\n");
+    const req = {
+      id: "REQ-1",
+      title: "Test Drift Detection",
+      summary: "Requirement with semantic refs for drift testing.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-01", text: "When triggered, the system shall detect drift.", format: "EARS", response: "The system shall detect drift" },
+      ],
+      semanticRefs: { interfaces: ["MissingInterface"] },
+      owners: ["team"],
+    };
+    writeFileSync(join(tempDir, "specs", "requirements", "REQ-1.json"), JSON.stringify(req, null, 2));
+    const result = runCLI("drift --json", tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.summary.missing).toBe(1);
+  });
+
+  it("exits with error on --fail-on-missing", () => {
+    writeFileSync(join(tempDir, "src", "empty.ts"), "export const x = 1;\n");
+    const req = {
+      id: "REQ-1",
+      title: "Fail on Missing Test",
+      summary: "Requirement with missing refs for error exit testing.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-01", text: "When triggered, the system shall fail.", format: "EARS", response: "The system shall fail" },
+      ],
+      semanticRefs: { symbols: ["GhostSymbol"] },
+      owners: ["team"],
+    };
+    writeFileSync(join(tempDir, "specs", "requirements", "REQ-1.json"), JSON.stringify(req, null, 2));
+    const result = runCLI("drift --fail-on-missing", tempDir);
+    expect(result.exitCode).toBe(1);
+  });
+});
+
+// ─── Import Command ─────────────────────────────────────────────────────────────
+
+describe("CLI: import", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("imports markdown ADRs", () => {
+    const adrDir = join(tempDir, "legacy-adrs");
+    mkdirSync(adrDir, { recursive: true });
+    writeFileSync(
+      join(adrDir, "001-use-postgres.md"),
+      `# ADR-1: Use PostgreSQL\n\n## Status\n\nAccepted\n\n## Context\n\nWe need a database.\n\n## Decision\n\nUse PostgreSQL.\n\n## Consequences\n\nNeed DBA.\n`,
+    );
+    const result = runCLI(`import legacy-adrs --json`, tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.length).toBeGreaterThan(0);
+    expect(json[0].type).toBe("decision");
+    expect(existsSync(join(tempDir, "specs", "decisions", "ADR-01.json"))).toBe(true);
+  });
+
+  it("supports --dry-run", () => {
+    const adrDir = join(tempDir, "docs");
+    mkdirSync(adrDir, { recursive: true });
+    writeFileSync(
+      join(adrDir, "adr-002.md"),
+      `# ADR-2: Use TypeScript\n\n## Status\n\nAccepted\n\n## Context\n\nType safety.\n\n## Decision\n\nUse TypeScript.\n`,
+    );
+    const result = runCLI(`import docs --dry-run --json`, tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(join(tempDir, "specs", "decisions", "ADR-02.json"))).toBe(false);
+  });
+
+  it("fails on non-existent path", () => {
+    const result = runCLI("import nonexistent-dir", tempDir);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("not found");
+  });
+});
+
+// ─── Report Command ─────────────────────────────────────────────────────────────
+
+describe("CLI: report", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("generates empty report with no artifacts", () => {
+    const result = runCLI("report --json", tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.totalRequirements).toBe(0);
+    expect(json.trace).toHaveLength(0);
+  });
+
+  it("generates traceability report with artifacts", () => {
+    const req = {
+      id: "REQ-1",
+      title: "Report Test Requirement",
+      summary: "A requirement for report testing purposes.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-01", text: "When reporting, the system shall generate trace.", format: "EARS", response: "The system shall generate trace" },
+      ],
+      owners: ["team"],
+    };
+    writeFileSync(join(tempDir, "specs", "requirements", "REQ-1.json"), JSON.stringify(req, null, 2));
+    const result = runCLI("report --json", tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.totalRequirements).toBe(1);
+    expect(json.trace).toHaveLength(1);
+    expect(json.trace[0].reqId).toBe("REQ-1");
+  });
+
+  it("writes markdown report to file", () => {
+    const req = {
+      id: "REQ-1",
+      title: "Markdown Report Test",
+      summary: "A requirement for markdown report file testing.",
+      priority: "must",
+      status: "draft",
+      behaviorStatements: [
+        { id: "BS-01", text: "When reporting, the system shall write markdown.", format: "EARS", response: "The system shall write markdown" },
+      ],
+      owners: ["team"],
+    };
+    writeFileSync(join(tempDir, "specs", "requirements", "REQ-1.json"), JSON.stringify(req, null, 2));
+    const result = runCLI("report", tempDir);
+    expect(result.exitCode).toBe(0);
+    const reportPath = join(tempDir, "specs", "generated", "report.md");
+    expect(existsSync(reportPath)).toBe(true);
+    const md = readFileSync(reportPath, "utf-8");
+    expect(md).toContain("Traceability Report");
+    expect(md).toContain("REQ-1");
+  });
+});
+
+// ─── Migrate Command ───────────────────────────────────────────────────────────
+
+describe("CLI: migrate", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("reports all up-to-date when no artifacts", () => {
+    const result = runCLI("migrate", tempDir);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("supports --dry-run", () => {
+    const result = runCLI("migrate --dry-run", tempDir);
+    expect(result.exitCode).toBe(0);
+  });
+});
