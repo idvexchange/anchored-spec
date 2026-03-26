@@ -679,7 +679,7 @@ describe("extensions support", () => {
     const data = { ...baseReq, extensions: { jira: { issueKey: "PROJ-123" }, custom: [1, 2, 3] } };
     const result = validateSchema(data, "requirement");
     expect(result.valid).toBe(true);
-    expect((data as any).extensions.jira.issueKey).toBe("PROJ-123");
+    expect((data.extensions as Record<string, Record<string, unknown>>).jira.issueKey).toBe("PROJ-123");
   });
 
   it("accepts change with extensions", () => {

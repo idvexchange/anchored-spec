@@ -162,7 +162,7 @@ describe("pluggable drift resolvers", () => {
       },
     };
 
-    const report = detectDrift([req as any], {
+    const report = detectDrift([req as Requirement], {
       projectRoot: TMP,
       resolvers: [customResolver],
     });
@@ -197,7 +197,7 @@ describe("pluggable drift resolvers", () => {
       },
     };
 
-    const report = detectDrift([req as any], {
+    const report = detectDrift([req as Requirement], {
       projectRoot: TMP,
       resolvers: [nullResolver],
     });
@@ -232,7 +232,7 @@ describe("pluggable drift resolvers", () => {
       },
     };
 
-    const report = detectDrift([req as any], {
+    const report = detectDrift([req as Requirement], {
       projectRoot: TMP,
       resolvers: [routeOnlyResolver],
     });
@@ -273,7 +273,7 @@ describe("pluggable drift resolvers", () => {
       },
     };
 
-    detectDrift([req as any], {
+    detectDrift([req as Requirement], {
       projectRoot: TMP,
       sourceRoots: ["src"],
       resolvers: [spyResolver],

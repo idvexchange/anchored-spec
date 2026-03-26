@@ -16,7 +16,7 @@ import {
 } from "../../core/index.js";
 import { CliError } from "../errors.js";
 
-const BRANCH_PATTERN = /^[a-zA-Z0-9/_.\-]+$/;
+const BRANCH_PATTERN = /^[a-zA-Z0-9/_.-]+$/;
 
 interface ChangedPathsResult {
   paths: string[];

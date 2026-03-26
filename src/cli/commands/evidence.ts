@@ -6,6 +6,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
+import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { SpecRoot } from "../../core/index.js";
 import {
@@ -42,7 +43,6 @@ export function evidenceCommand(): Command {
       const outputPath = options.output ?? join(spec.specRoot, "evidence", "evidence.json");
 
       // Ensure directory exists
-      const { mkdirSync } = require("node:fs");
       mkdirSync(join(spec.specRoot, "evidence"), { recursive: true });
 
       writeEvidence(evidence, outputPath);

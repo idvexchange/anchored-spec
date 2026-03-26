@@ -48,6 +48,10 @@ export interface Verification {
   coverageStatus?: "none" | "partial" | "full";
   testFiles?: string[];
   testRefs?: TestRef[];
+  executionPolicy?: {
+    requiresEvidence?: boolean;
+    requiredKinds?: string[];
+  };
 }
 
 export interface Implementation {

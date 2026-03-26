@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { relative, extname } from "node:path";
 import { minimatch } from "minimatch";
-import type { Requirement, Change, DriftResolver, SemanticRefKind } from "./types.js";
+import type { Requirement, Change, SemanticRefKind } from "./types.js";
 import { discoverSourceFiles } from "./files.js";
 
 export interface ImpactMatch {
@@ -34,7 +34,6 @@ export function analyzeImpact(
   paths: string[],
   requirements: Requirement[],
   changes: Change[],
-  options?: { resolvers?: DriftResolver[] },
 ): ImpactResult[] {
   const results: ImpactResult[] = [];
 

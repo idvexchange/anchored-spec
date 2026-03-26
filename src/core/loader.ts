@@ -39,7 +39,6 @@ const CONFIG_FILE = ".anchored-spec/config.json";
  */
 export function findProjectRoot(startDir: string): string | null {
   let current = resolve(startDir);
-  const root = dirname(current) === current ? current : undefined;
 
   while (true) {
     if (existsSync(join(current, CONFIG_FILE))) {

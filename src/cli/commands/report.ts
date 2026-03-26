@@ -7,7 +7,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
 import type { Requirement, Change, Decision } from "../../core/types.js";

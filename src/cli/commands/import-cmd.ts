@@ -202,7 +202,7 @@ export function importCommand(): Command {
 
               if (!opts.dryRun) {
                 mkdirSync(spec.requirementsDir, { recursive: true });
-                for (const [i, artifact] of artifacts.entries()) {
+                for (const [, artifact] of artifacts.entries()) {
                   const id = (artifact as { id: string }).id;
                   const outPath = join(spec.requirementsDir, `${id}.json`);
                   if (!existsSync(outPath)) {

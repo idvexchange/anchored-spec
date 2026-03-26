@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -154,7 +154,7 @@ describe("evidence pipeline", () => {
         verification: {
           coverageStatus: "full",
           executionPolicy: { requiresEvidence: true },
-        } as any,
+        },
       });
 
       const issues = validateEvidence(evidencePath, [req]);
@@ -184,7 +184,7 @@ describe("evidence pipeline", () => {
         verification: {
           coverageStatus: "full",
           executionPolicy: { requiresEvidence: true },
-        } as any,
+        },
       });
 
       const issues = validateEvidence(evidencePath, [req]);

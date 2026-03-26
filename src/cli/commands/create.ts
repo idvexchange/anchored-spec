@@ -45,7 +45,7 @@ function validateGlobs(patterns: string[]): void {
     } catch {
       throw new CliError(`Error: Invalid glob pattern "${pattern}" in --scope.`);
     }
-    if (/[^\\][\[\{](?![^[\]]*\]|[^{}]*\})/.test(pattern)) {
+    if (/[^\\][[{](?![^[\]]*\]|[^{}]*\})/.test(pattern)) {
       // Don't over-validate — minimatch handles most cases.
       // Just reject obviously broken brackets as a safety net.
     }
