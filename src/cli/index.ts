@@ -14,6 +14,7 @@ import { createCommand } from "./commands/create.js";
 import { verifyCommand } from "./commands/verify.js";
 import { generateCommand } from "./commands/generate.js";
 import { statusCommand } from "./commands/status.js";
+import { transitionCommand } from "./commands/transition.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
@@ -30,5 +31,6 @@ program.addCommand(createCommand());
 program.addCommand(verifyCommand());
 program.addCommand(generateCommand());
 program.addCommand(statusCommand());
+program.addCommand(transitionCommand());
 
 program.parse();

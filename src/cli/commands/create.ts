@@ -71,6 +71,7 @@ export function createCommand(): Command {
 
       const id = getNextReqId(spec.requirementsDir);
       const requirement = {
+        $schema: "../schemas/requirement.schema.json",
         id,
         title: options.title,
         summary: `TODO: Describe what ${options.title} does in behavioral terms.`,
@@ -163,6 +164,7 @@ export function createCommand(): Command {
 
       const isChore = options.type === "chore";
       const change: Record<string, unknown> = {
+        $schema: "../../schemas/change.schema.json",
         id,
         title: options.title,
         slug: options.slug,
@@ -241,6 +243,7 @@ export function createCommand(): Command {
 
       const id = getNextAdrId(spec.decisionsDir);
       const decision = {
+        $schema: "../schemas/decision.schema.json",
         id,
         title: options.title,
         slug: options.slug,

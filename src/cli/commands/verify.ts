@@ -19,6 +19,7 @@ import {
   validateWorkflowPolicy,
 } from "../../core/index.js";
 import type { ValidationError, Requirement, Change } from "../../core/index.js";
+import { watchSpecs } from "../watch.js";
 
 interface VerifyStats {
   checks: number;
@@ -32,6 +33,7 @@ export function verifyCommand(): Command {
     .description("Run all spec validation checks")
     .option("--strict", "Treat warnings as errors")
     .option("--quiet", "Only show errors")
+    .option("--watch", "Re-run on spec file changes")
     .action((options) => {
       const cwd = process.cwd();
       const spec = new SpecRoot(cwd);
@@ -40,6 +42,25 @@ export function verifyCommand(): Command {
         console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
         process.exit(1);
       }
+
+      if (options.watch) {
+        watchSpecs(spec.specRoot, () => {
+          runVerification(spec, options);
+        }, "verify");
+        return;
+      }
+
+      const hasFailure = runVerification(spec, options);
+      if (hasFailure) {
+        process.exit(1);
+      }
+    });
+}
+
+function runVerification(
+  spec: SpecRoot,
+  options: { strict?: boolean; quiet?: boolean }
+): boolean {
 
       console.log(chalk.blue("🔍 Anchored Spec — Verification\n"));
 
@@ -189,11 +210,11 @@ export function verifyCommand(): Command {
       const hasFailure = allErrors.length > 0 || (options.strict && allWarnings.length > 0);
       if (hasFailure) {
         console.log(chalk.red("\n✗ Verification failed."));
-        process.exit(1);
+        return true;
       } else {
         console.log(chalk.green("\n✓ All checks passed."));
+        return false;
       }
-    });
 }
 
 // ─── Cross-Reference Checks ────────────────────────────────────────────────────

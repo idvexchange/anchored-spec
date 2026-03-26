@@ -178,6 +178,7 @@ export function initCommand(): Command {
         const exampleReqPath = join(cwd, specRoot, "requirements", "REQ-1.json");
         if (!existsSync(exampleReqPath) || options.force) {
           const exampleReq = {
+            $schema: "../schemas/requirement.schema.json",
             id: "REQ-1",
             title: "Example Requirement",
             summary: "TODO: Describe what this feature does in behavioral terms. Replace this with your first real requirement.",
@@ -272,6 +273,38 @@ export function initCommand(): Command {
       }
 
       console.log(chalk.blue("\n✅ Spec infrastructure initialized!"));
+
+      // 9. Optionally scaffold .vscode config for editor integration
+      const vscodePath = join(cwd, ".vscode");
+      const settingsPath = join(vscodePath, "settings.json");
+      if (!existsSync(settingsPath)) {
+        if (!dryRun) {
+          mkdirSync(vscodePath, { recursive: true });
+          const settings = {
+            "json.schemas": [
+              {
+                fileMatch: [`${specRoot}/requirements/REQ-*.json`],
+                url: `./${specRoot}/schemas/requirement.schema.json`,
+              },
+              {
+                fileMatch: [`${specRoot}/changes/*/change.json`],
+                url: `./${specRoot}/schemas/change.schema.json`,
+              },
+              {
+                fileMatch: [`${specRoot}/decisions/ADR-*.json`],
+                url: `./${specRoot}/schemas/decision.schema.json`,
+              },
+              {
+                fileMatch: [`${specRoot}/workflow-policy.json`],
+                url: `./${specRoot}/schemas/workflow-policy.schema.json`,
+              },
+            ],
+          };
+          writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+        }
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .vscode/settings.json (JSON schema associations)`));
+      }
+
       console.log(chalk.dim("\nNext steps:"));
       console.log(chalk.dim("  1. Create your first requirement:  anchored-spec create requirement"));
       console.log(chalk.dim("  2. Run verification:               anchored-spec verify"));

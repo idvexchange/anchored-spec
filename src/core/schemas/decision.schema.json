@@ -16,6 +16,10 @@
     "relatedRequirements"
   ],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for editor validation"
+    },
     "id": {
       "type": "string",
       "pattern": "^ADR-[1-9][0-9]*$"

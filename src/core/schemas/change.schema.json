@@ -17,6 +17,10 @@
     "owners"
   ],
   "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for editor validation"
+    },
     "id": {
       "type": "string",
       "pattern": "^CHG-[0-9]{4}-[0-9]{4}-[a-z0-9]+(?:-[a-z0-9]+)*$",
