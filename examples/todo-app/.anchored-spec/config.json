@@ -1,14 +1,13 @@
 {
   "specRoot": "specs",
-  "schemasDir": "specs/schemas",
   "requirementsDir": "specs/requirements",
   "changesDir": "specs/changes",
   "decisionsDir": "specs/decisions",
   "workflowPolicyPath": "specs/workflow-policy.json",
   "generatedDir": "specs/generated",
-  "sourceRoots": ["src"],
+  "sourceRoots": ["lib", "components", "app"],
   "testMetadata": {
-    "testGlobs": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    "testGlobs": ["__tests__/**/*.test.ts"],
     "requirementPattern": "\\bREQ-[1-9][0-9]*\\b"
   }
 }

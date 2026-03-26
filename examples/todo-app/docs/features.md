@@ -2,7 +2,7 @@
 
 ## Overview
 
-A client-side to-do list application that lets users manage tasks through add, complete, delete, and filter operations.
+A client-side to-do list application built with Next.js that lets users manage tasks through add, complete, delete, and filter operations.
 
 ## Features
 

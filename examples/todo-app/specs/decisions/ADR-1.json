@@ -16,7 +16,7 @@
     {
       "name": "Server-side persistence with API routes",
       "verdict": "deferred",
-      "reason": "Not needed for MVP. Would require database setup, API routes, and error handling. Planned for REQ-6 (future: persistence)."
+      "reason": "Not needed for MVP. Would require database setup, API routes, and error handling. Planned for a future iteration."
     },
     {
       "name": "React Context API",

@@ -29,7 +29,7 @@
   "verification": {
     "coverageStatus": "full",
     "testRefs": [
-      { "path": "src/__tests__/todo.test.ts", "kind": "unit", "notes": "Covers delete + empty state fallback" }
+      { "path": "__tests__/todo.test.ts", "kind": "unit", "notes": "Covers delete + empty state fallback" }
     ]
   },
   "implementation": {

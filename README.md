@@ -117,7 +117,7 @@ See [Contributing](docs/contributing.md) for the full development guide.
 
 ## Example Project
 
-The [`examples/todo-app/`](examples/todo-app/) directory contains a complete to-do list application demonstrating the full Feature (Behavior First) workflow — 5 EARS requirements, an architecture decision, a shipped change record, bidirectional test linking, and semantic refs anchoring specs to source code. See its [README](examples/todo-app/README.md) for a guided walkthrough.
+The [`examples/todo-app/`](examples/todo-app/) directory contains a self-contained Next.js to-do list application demonstrating the full Feature (Behavior First) workflow — 5 EARS requirements, an architecture decision, a shipped change record with verification sidecar, bidirectional test linking, and semantic refs anchoring specs to source code. Run `npm install && npm run dev` inside it to try it live. See its [README](examples/todo-app/README.md) for a guided walkthrough.
 
 ## License
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { addTask, toggleTask, deleteTask, filterTasks } from "../tasks";
-import type { TaskItem } from "../types";
+import { addTask, toggleTask, deleteTask, filterTasks } from "@/lib/tasks";
+import type { TaskItem } from "@/lib/types";
 
 // REQ-1: Add New Tasks
 describe("REQ-1: Add New Tasks", () => {

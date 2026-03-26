@@ -7,8 +7,8 @@
   "phase": "done",
   "status": "complete",
   "scope": {
-    "include": ["src/**"],
-    "exclude": ["src/**/*.test.*"]
+    "include": ["lib/**", "components/**", "app/**"],
+    "exclude": ["**/*.test.*"]
   },
   "requirements": ["REQ-1", "REQ-2", "REQ-3", "REQ-4", "REQ-5"],
   "branch": "feat/initial-todo",

@@ -1,18 +1,29 @@
 # To-Do App — Anchored Spec Example
 
-This is a complete example showing how [anchored-spec](https://github.com/AnchoredSpec/anchored-spec) manages a real feature from requirements to shipped code. It demonstrates the **Feature (Behavior First)** workflow using a simple to-do list application.
+A self-contained Next.js to-do list managed by [anchored-spec](https://github.com/AnchoredSpec/anchored-spec). This example demonstrates the full **Feature (Behavior First)** workflow — from EARS requirements through shipped code with bidirectional test linking.
+
+## Quick Start
+
+```bash
+cd examples/todo-app
+npm install
+npm run dev          # Start Next.js → http://localhost:3000
+npm test             # Run unit tests (Vitest)
+npm run spec:verify  # Validate all specs
+npm run spec:drift   # Check semantic refs against source
+```
 
 ## What This Example Shows
 
 | Concept | Where to look |
 |---------|---------------|
 | **EARS requirements** with behavioral statements | `specs/requirements/REQ-1.json` through `REQ-5.json` |
-| **Semantic refs** binding behavior to code | `semanticRefs` in each requirement → `src/` symbols |
+| **Semantic refs** binding behavior to code | `semanticRefs` in each requirement → `lib/` and `components/` symbols |
 | **Architecture decisions** with alternatives | `specs/decisions/ADR-1.json` |
 | **Change records** with scope and verification | `specs/changes/CHG-2025-0001-initial-todo/` |
 | **Bidirectional test linking** | Tests reference `REQ-*` IDs; requirements reference test files |
 | **Workflow policy** with lifecycle rules | `specs/workflow-policy.json` |
-| **Verification sidecar** tracking CI commands | `specs/changes/CHG-2025-0001-initial-todo/verification.json` |
+| **Verification sidecar** tracking CI commands | `specs/changes/.../verification.json` |
 
 ## The Feature
 
@@ -26,82 +37,42 @@ A to-do list with five requirements:
 
 One architecture decision:
 
-- **ADR-1:** Use React `useState` over Redux/Context/server-side persistence (simplest for MVP)
+- **ADR-1:** Use React `useState` over Redux/Context/server persistence (simplest for MVP)
 
 ## Project Structure
 
 ```
-todo-app/
-├── .anchored-spec/
-│   └── config.json                    # Framework configuration
+todo-app/                         ← Standard Next.js app (create-next-app defaults)
+├── app/
+│   ├── layout.tsx                # Root layout (Geist fonts, Tailwind)
+│   ├── page.tsx                  # Main page — wires state to components
+│   └── globals.css               # Tailwind imports
+├── components/
+│   ├── TodoInput.tsx             # Text input + Add button
+│   ├── TodoList.tsx              # Task list with toggle/delete + empty state
+│   └── TodoFilter.tsx            # All / Active / Completed filter tabs
+├── lib/
+│   ├── types.ts                  # TaskItem, FilterMode
+│   └── tasks.ts                  # addTask, toggleTask, deleteTask, filterTasks
+├── __tests__/
+│   └── todo.test.ts              # 12 unit tests linked to REQ-1–5
+│
+├── .anchored-spec/config.json    ← Framework configuration
 ├── specs/
-│   ├── workflow-policy.json           # Governance rules + lifecycle gates
-│   ├── requirements/
-│   │   ├── REQ-1.json                 # Add tasks
-│   │   ├── REQ-2.json                 # Display list
-│   │   ├── REQ-3.json                 # Toggle completion
-│   │   ├── REQ-4.json                 # Delete tasks
-│   │   └── REQ-5.json                 # Filter by status
-│   ├── decisions/
-│   │   └── ADR-1.json                 # State management choice
-│   └── changes/
-│       └── CHG-2025-0001-initial-todo/
-│           ├── change.json            # Feature change record
-│           └── verification.json      # CI verification sidecar
-├── src/
-│   ├── types.ts                       # TaskItem, FilterMode
-│   ├── tasks.ts                       # addTask, toggleTask, deleteTask, filterTasks
-│   ├── components/
-│   │   └── interfaces.ts             # TodoInput, TodoList, TodoFilter
-│   └── __tests__/
-│       └── todo.test.ts               # Unit tests linked to REQ-1 through REQ-5
-└── docs/
-    └── features.md                    # Feature spec (referenced by traceRefs)
+│   ├── workflow-policy.json      # Governance rules + lifecycle gates
+│   ├── requirements/REQ-{1..5}.json
+│   ├── decisions/ADR-1.json
+│   └── changes/CHG-2025-0001-initial-todo/
+│       ├── change.json
+│       └── verification.json
+├── docs/features.md              # Feature spec (referenced by traceRefs)
+│
+├── package.json                  # Next.js + anchored-spec + vitest
+├── tsconfig.json                 # Standard Next.js TypeScript config
+├── next.config.ts
+├── postcss.config.mjs
+└── vitest.config.ts
 ```
-
-## Try It Yourself
-
-### 1. Verify the specs
-
-```bash
-cd examples/todo-app
-npx anchored-spec verify
-```
-
-Expected output: all checks pass — schema validation, cross-references, lifecycle rules, and test linking.
-
-### 2. Check for semantic drift
-
-```bash
-npx anchored-spec drift
-```
-
-Every `interface`, `symbol`, and `route` in the requirements' `semanticRefs` resolves to source files.
-
-### 3. Generate documentation
-
-```bash
-npx anchored-spec generate
-```
-
-Creates human-readable markdown in `specs/generated/` from the JSON specs.
-
-### 4. View project health
-
-```bash
-npx anchored-spec status
-```
-
-Shows a dashboard of requirements by status, changes by phase, and coverage metrics.
-
-### 5. Explore structured output
-
-```bash
-npx anchored-spec verify --json
-npx anchored-spec drift --json
-```
-
-Machine-readable JSON for CI pipelines.
 
 ## Key Patterns to Notice
 
@@ -118,8 +89,8 @@ Requirements don't specify *how* — they specify *what* and anchor to *where*:
 
 ```json
 "semanticRefs": {
-  "interfaces": ["TodoInput"],
-  "symbols": ["addTask", "TaskItem"]
+  "symbols": ["addTask", "TaskItem"],
+  "interfaces": ["TodoInput"]
 }
 ```
 
@@ -131,7 +102,7 @@ Tests reference requirement IDs in their descriptions:
 
 ```typescript
 describe("REQ-1: Add New Tasks", () => {
-  it("BS-1: adds a task with the given title...", () => { /* ... */ });
+  it("BS-1: adds a task with the given title and incomplete status", () => { /* ... */ });
 });
 ```
 
@@ -139,35 +110,48 @@ Requirements link back to test files:
 
 ```json
 "verification": {
-  "testRefs": [{ "path": "src/__tests__/todo.test.ts", "kind": "unit" }]
+  "testRefs": [{ "path": "__tests__/todo.test.ts", "kind": "unit" }]
 }
 ```
 
 The `verify` command checks both directions — unlinked tests get flagged.
 
-### Change Record as Work Tracker
+### Separation of Concerns
 
-The change record captures scope, requirements, branch, and phase:
+Domain logic lives in `lib/tasks.ts` — pure functions with no React dependency. Components in `components/` handle rendering. The page in `app/page.tsx` wires state to components. This makes the domain logic easy to test without React rendering and keeps semantic refs pointing to stable, framework-independent symbols.
 
-```json
-{
-  "type": "feature",
-  "phase": "done",
-  "requirements": ["REQ-1", "REQ-2", "REQ-3", "REQ-4", "REQ-5"],
-  "scope": { "include": ["src/**"] }
-}
+## Try It Yourself
+
+### Verify the specs
+
+```bash
+npm run spec:verify
 ```
 
-Lifecycle gates enforce that shipping requires test coverage.
+All checks pass — schema validation, cross-references, lifecycle rules, test linking.
 
-## Extending This Example
+### Introduce drift and catch it
 
-Try these exercises to learn the framework:
+Rename `deleteTask` to `removeTask` in `lib/tasks.ts` (and update imports), then:
 
-1. **Add REQ-6: Persist tasks** — Create a new requirement for localStorage persistence, an ADR choosing localStorage over IndexedDB, and a change record. Transition through all phases.
+```bash
+npm run spec:drift
+```
 
-2. **Introduce a bug** — Rename `deleteTask` to `removeTask` in `tasks.ts` without updating REQ-4's `semanticRefs`. Run `anchored-spec drift` to see it caught.
+REQ-4 reports `deleteTask` as "missing" — the spec is now out of sync with the code.
 
-3. **Add a custom plugin** — Write a plugin that checks all requirements have at least 2 behavior statements. Register it in `config.json`.
+### Add a new requirement
 
-4. **Try the fix workflow** — Create a `fix` change to address a hypothetical bug, including a `bugfixSpec` block.
+```bash
+npx anchored-spec create requirement --title "Persist tasks to localStorage"
+```
+
+Edit the new `REQ-6.json`, create a change record, implement it, link tests — the full workflow.
+
+### Try the fix workflow
+
+```bash
+npx anchored-spec create change --title "Fix: empty title allows whitespace" --type fix
+```
+
+Fill in the `bugfixSpec` block, write a failing test, fix the code, then ship.

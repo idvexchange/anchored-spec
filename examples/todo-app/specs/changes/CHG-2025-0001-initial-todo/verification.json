@@ -2,7 +2,7 @@
   "changeId": "CHG-2025-0001-initial-todo",
   "commands": [
     { "name": "Type Check", "command": "npx tsc --noEmit", "required": true, "status": "passed", "ranAt": "2025-06-14T10:00:00Z" },
-    { "name": "Unit Tests", "command": "npx vitest run", "required": true, "status": "passed", "ranAt": "2025-06-14T10:01:00Z" },
-    { "name": "Lint", "command": "npx eslint src/", "required": false, "status": "passed", "ranAt": "2025-06-14T10:02:00Z" }
+    { "name": "Unit Tests", "command": "npm test", "required": true, "status": "passed", "ranAt": "2025-06-14T10:01:00Z" },
+    { "name": "Lint", "command": "npm run lint", "required": false, "status": "passed", "ranAt": "2025-06-14T10:02:00Z" }
   ]
 }

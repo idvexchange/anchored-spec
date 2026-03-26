@@ -24,13 +24,13 @@
     { "path": "docs/features.md", "role": "normative", "label": "Feature spec" }
   ],
   "semanticRefs": {
-    "interfaces": ["TodoInput"],
-    "symbols": ["addTask", "TaskItem"]
+    "symbols": ["addTask", "TaskItem"],
+    "interfaces": ["TodoInput"]
   },
   "verification": {
     "coverageStatus": "full",
     "testRefs": [
-      { "path": "src/__tests__/todo.test.ts", "kind": "unit", "notes": "Covers add + empty rejection" }
+      { "path": "__tests__/todo.test.ts", "kind": "unit", "notes": "Covers add + empty rejection" }
     ]
   },
   "implementation": {

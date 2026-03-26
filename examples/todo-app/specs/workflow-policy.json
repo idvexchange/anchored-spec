@@ -27,15 +27,16 @@
     {
       "id": "source-change",
       "description": "Any source code change requires a change record",
-      "include": ["src/**"],
-      "exclude": ["src/**/*.test.*"]
+      "include": ["lib/**", "components/**", "app/**"],
+      "exclude": ["**/*.test.*", "**/*.spec.*"]
     }
   ],
   "trivialExemptions": [
     "README.md",
     "*.md",
     "*.config.*",
-    ".gitignore"
+    ".gitignore",
+    "public/**"
   ],
   "choreEligibility": {
     "conditions": [
