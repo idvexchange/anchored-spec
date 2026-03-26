@@ -23,6 +23,9 @@ jobs:
       # Validate all specs
       - run: npx anchored-spec verify --strict
 
+      # Or use --json for structured output in CI
+      # - run: npx anchored-spec verify --strict --json
+
       # Ensure generated docs are up to date
       - run: npx anchored-spec generate --check
 

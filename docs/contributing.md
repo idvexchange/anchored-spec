@@ -44,6 +44,7 @@ src/
 │   ├── evidence.ts   # Test evidence pipeline (collect, validate, parsers)
 │   ├── impact.ts     # File-to-requirement impact analysis
 │   ├── plugins.ts    # Plugin loading and execution
+│   ├── verify.ts     # Pure verification engine (runAllChecks)
 │   ├── generate.ts   # Markdown generation from JSON specs
 │   ├── loader.ts     # Filesystem loader (SpecRoot class)
 │   └── types.ts      # TypeScript types matching schemas

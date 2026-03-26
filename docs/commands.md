@@ -32,7 +32,7 @@ Types: `requirement`, `change`, `decision`
 | Option | Description |
 |--------|-------------|
 | `--title <text>` | Title for the artifact (prompted if omitted) |
-| `--type <type>` | Change type: `feature`, `fix`, `chore` (changes only) |
+| `--type <type>` | Change type: `feature`, `fix`, `refactor`, `chore`, or any custom type from `customChangeTypes` (changes only) |
 | `--slug <slug>` | URL-friendly identifier (auto-derived from title if omitted) |
 | `--dry-run` | Preview without writing files |
 | `--no-hooks` | Skip lifecycle hooks |
@@ -49,6 +49,7 @@ anchored-spec verify [options]
 |--------|-------------|
 | `--strict` | Treat warnings as errors (exit code 1) |
 | `--quiet` | Only show errors, suppress warnings |
+| `--json` | Output structured JSON to stdout (ideal for CI) |
 | `--watch` | Re-verify automatically on file changes |
 
 ### Checks Performed
@@ -69,6 +70,8 @@ anchored-spec verify [options]
 14. **File path existence** — Validates that `testRefs`, `traceRefs`, `testFiles` paths exist on disk
 15. **Bidirectional test linking** — Ensures test files reference the requirements that claim them
 16. **Evidence validation** — Checks evidence integrity when `evidence.json` exists
+17. **Plugin checks** — Custom verification from registered plugins (`config.plugins`)
+18. **Plugin onVerify hooks** — Full-context plugin hooks that can react to built-in findings
 
 ## `generate`
 
@@ -139,6 +142,7 @@ anchored-spec drift [options]
 | `--resolver <path...>` | Additional drift resolver modules |
 | `--generate-map` | Write `semantic-links.json` to generated dir |
 | `--check-map` | Check if `semantic-links.json` is stale (CI) |
+| `--watch` | Re-run on spec/source file changes |
 
 ## `migrate`
 

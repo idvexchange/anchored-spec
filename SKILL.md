@@ -126,7 +126,11 @@ When transitioning from `draft` → `active`, add semantic refs that bind behavi
   "interfaces": ["IMyService"],
   "routes": ["POST /api/v1/resource"],
   "errorCodes": ["RESOURCE_NOT_FOUND"],
-  "symbols": ["createResource", "ResourceValidator"]
+  "symbols": ["createResource", "ResourceValidator"],
+  "schemas": ["UserSchema"],
+  "other": {
+    "events": ["user.created", "user.deleted"]
+  }
 }
 ```
 
@@ -171,7 +175,7 @@ Update the requirement's `verification` section:
 "verification": {
   "coverageStatus": "full",
   "testRefs": [
-    { "path": "src/__tests__/feature.test.ts", "kind": "unit" },
+    { "path": "src/__tests__/feature.test.ts", "kind": "unit", "notes": "Covers happy path + validation" },
     { "path": "src/__tests__/feature.integration.test.ts", "kind": "integration" }
   ]
 }
@@ -307,7 +311,20 @@ Projects can override rule severity in `.anchored-spec/config.json`:
 }
 ```
 
-Respect these overrides — if a rule is set to `"off"`, don't flag it.
+Respect these overrides — if a rule is set to `"off"`, don't flag it. Overrides apply to both built-in and plugin findings.
+
+### Plugins
+
+Projects may have custom verification plugins registered in `config.plugins`. These add:
+
+- **`checks[]`** — Pure functions that run as step 11 in the verify pipeline
+- **`onVerify` hook** — Full-context hook (step 12) that receives all prior findings and can add more
+
+Plugin rule names follow the pattern `plugin:<name>/<check-id>`. They can be overridden in `quality.rules` just like built-in rules.
+
+### Workflow Policy Extensions
+
+The workflow policy (`specs/workflow-policy.json`) supports an `extensions` field for project-specific metadata like routing rules, impact maps, or agent instructions. Plugins can read `policy.extensions` via `PluginContext`. Do not modify `extensions` without consulting the project's plugin documentation.
 
 ---
 

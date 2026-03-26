@@ -48,6 +48,8 @@ Semantic refs are the bridge between specs and code. They enable [drift detectio
 | `routes` | `"POST /api/v1/auth/login"` | HTTP endpoint handler |
 | `errorCodes` | `"AUTH_INVALID_CREDENTIALS"` | Error code enum member or constant |
 | `symbols` | `"AuthService.login"` | Exported function, const, or class method |
+| `schemas` | `"UserSchema"` | JSON schema, Zod schema, or type alias |
+| `other` | `Record<string, string[]>` | Custom ref kinds (project-specific) |
 
 ### Verification & Evidence
 
@@ -64,7 +66,7 @@ Requirements can declare execution policy for evidence-based verification:
     },
     "testFiles": ["src/__tests__/auth.test.ts"],
     "testRefs": [
-      { "path": "src/__tests__/auth.test.ts", "kind": "unit" }
+      { "path": "src/__tests__/auth.test.ts", "kind": "unit", "notes": "Covers login + token refresh" }
     ]
   }
 }
@@ -104,8 +106,9 @@ Changes progress through phases that vary by workflow variant:
 | `design` | Requirements and design doc |
 | `planned` | Approved for implementation |
 | `implementation` | Active coding |
-| `review` | PR review and testing |
+| `verification` | Testing and review |
 | `done` | Merged and shipped |
+| `archived` | Historical record |
 
 Use `anchored-spec transition <id>` to advance a change. Gates enforce quality at each transition (e.g., "done" requires test coverage).
 
@@ -148,10 +151,11 @@ Architecture Decision Records capture choices among alternatives. They document 
 
 | Status | Meaning |
 |--------|---------|
-| `proposed` | Under discussion |
 | `accepted` | Approved and active |
-| `deprecated` | Superseded by a newer decision |
-| `rejected` | Considered but not adopted |
+| `superseded` | Replaced by a newer decision |
+| `deprecated` | No longer relevant |
+
+Decisions support `supersedes` (which can be a string, array of strings, or null) and `supersededBy` for linking to replacement decisions.
 
 ## Workflow Policy
 
@@ -180,11 +184,13 @@ The workflow policy (`specs/workflow-policy.json`) defines governance rules for 
     }
   ],
   "changeRequiredRules": [
-    { "id": "governed-source", "pattern": "src/**/*.ts", "message": "Source files need a change record" }
+    { "id": "governed-source", "include": ["src/**/*.ts"], "description": "Source files need a change record" }
   ],
   "trivialExemptions": ["README.md", ".github/**", "*.config.*"],
   "lifecycleRules": {
-    "shipped": { "requiresCoverage": true }
+    "plannedToActiveRequiresChange": true,
+    "activeToShippedRequiresCoverage": true,
+    "deprecatedRequiresReason": true
   }
 }
 ```

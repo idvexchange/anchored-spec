@@ -27,6 +27,9 @@ anchored-spec drift --generate-map
 
 # Check if the link map is stale (CI)
 anchored-spec drift --check-map
+
+# Watch mode — re-run on spec/source changes
+anchored-spec drift --watch
 ```
 
 ## Pluggable Resolvers

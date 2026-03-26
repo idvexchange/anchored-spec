@@ -1,19 +1,22 @@
 # Plugins & Hooks
 
-Extend Anchored Spec with custom verification checks and lifecycle automation.
+Extend Anchored Spec with custom verification checks, lifecycle automation, and plugin hooks.
 
 ## Plugin System
 
-Plugins add custom verification checks that run alongside the built-in checks during `anchored-spec verify`.
+Plugins add custom verification checks and hooks that run alongside the built-in engine during `anchored-spec verify` and `anchored-spec generate`.
 
 ### Writing a Plugin
 
-A plugin is a JavaScript/TypeScript module that exports a default object with a `name` and `checks` array:
+A plugin is a JavaScript/TypeScript module that exports a default object with a `name`, optional `checks` array, and optional `hooks`:
 
 ```javascript
-// .anchored-spec/plugins/no-orphan-tags.js
+// .anchored-spec/plugins/my-plugin.js
 export default {
-  name: "no-orphan-tags",
+  name: "my-plugin",
+  version: "1.0.0",
+
+  // Simple checks — pure functions that return findings
   checks: [
     {
       id: "unique-tags",
@@ -31,16 +34,63 @@ export default {
             path: "tags",
             message: `Tag "${tag}" is only used once`,
             severity: "warning",
+            rule: "unique-tags",
           }));
       },
     },
   ],
+
+  // Hooks — full-context callbacks
+  hooks: {
+    // Runs after all built-in + plugin checks, receives findings
+    onVerify: (ctx) => {
+      const errors = [];
+      // Example: validate policy extensions
+      const routing = ctx.spec.policy?.extensions?.commonRequestRouting;
+      if (routing && !Array.isArray(routing)) {
+        errors.push({
+          path: "workflow-policy/extensions",
+          message: "commonRequestRouting must be an array",
+          severity: "error",
+          rule: "valid-routing",
+        });
+      }
+      return errors;
+    },
+
+    // Runs after markdown generation
+    onGenerate: async (ctx) => {
+      console.log(`Generated to ${ctx.generatedDir}`);
+    },
+  },
 };
+```
+
+### Plugin Interface
+
+```typescript
+interface AnchoredSpecPlugin {
+  name: string;
+  version?: string;
+  checks?: PluginCheck[];
+  hooks?: PluginHooks;
+}
+
+interface PluginCheck {
+  id: string;
+  description: string;
+  check: (ctx: PluginContext) => ValidationError[];
+}
+
+interface PluginHooks {
+  onGenerate?: (context: GenerateHookContext) => void | Promise<void>;
+  onVerify?: (context: VerifyHookContext) => ValidationError[] | Promise<ValidationError[]>;
+}
 ```
 
 ### Plugin Context
 
-Each check function receives a `PluginContext` with:
+Each check function and hook receives a `PluginContext` with full access to all spec data and configuration:
 
 ```typescript
 interface PluginContext {
@@ -49,7 +99,21 @@ interface PluginContext {
   decisions: Decision[];
   policy: WorkflowPolicy | null;
   projectRoot: string;
-  config: AnchoredSpecConfig;
+  config: AnchoredSpecConfig;         // Full resolved config
+}
+```
+
+### Hook Contexts
+
+```typescript
+interface VerifyHookContext {
+  spec: PluginContext;
+  builtinFindings: ValidationError[];  // All findings from built-in + plugin checks
+}
+
+interface GenerateHookContext {
+  spec: PluginContext;
+  generatedDir: string;               // Path to the generated output directory
 }
 ```
 
@@ -59,14 +123,25 @@ Each check returns an array of `ValidationError` objects:
 
 ```typescript
 interface ValidationError {
-  path: string;      // Which artifact or location
-  message: string;   // Human-readable description
+  path: string;                    // Which artifact or location
+  message: string;                 // Human-readable description
   severity: "error" | "warning";
-  rule?: string;     // Optional rule identifier
+  rule: string;                    // Rule identifier (auto-prefixed with "plugin:<name>/")
+  suggestion?: string;             // Actionable remediation hint
 }
 ```
 
 Return an empty array `[]` if the check passes.
+
+### Execution Order
+
+During `anchored-spec verify`, checks run in this order:
+
+1. **Built-in checks** (steps 1–10: schema, quality, lifecycle, cross-refs, test-linking, evidence)
+2. **Plugin `checks[]`** (step 11) — Simple pure-function checks
+3. **Plugin `onVerify` hooks** (step 12) — Full-context hooks that receive all prior findings
+
+Rule severity overrides from `config.quality.rules` apply to **all** findings — built-in and plugin alike. Plugin rule names are auto-prefixed as `plugin:<plugin-name>/<check-id>`.
 
 ### Registering Plugins
 

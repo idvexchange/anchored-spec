@@ -36,10 +36,16 @@ Located at `.anchored-spec/config.json`, created by `anchored-spec init`:
 | `decisionsDir` | `string` | Directory for decision (ADR) JSON files |
 | `workflowPolicyPath` | `string` | Path to workflow policy JSON |
 | `generatedDir` | `string` | Output directory for generated markdown |
+| `sourceRoots` | `string[]` | Source directories for drift detection (default: `["src"]`) |
+| `sourceGlobs` | `string[]` | Glob patterns for source file discovery |
 | `driftResolvers` | `string[]` | Drift resolver module paths (see [Drift Detection](drift-detection.md)) |
 | `plugins` | `string[]` | Plugin module paths (see [Plugins & Hooks](plugins-and-hooks.md)) |
 | `hooks` | `HookDefinition[]` | Lifecycle hook definitions |
 | `testMetadata` | `object` | Test file discovery configuration |
+| `exclude` | `string[]` | Glob patterns to exclude from artifact loading (default: `["**/.*"]`) |
+| `customChangeTypes` | `string[]` | Custom change types beyond the built-in `feature`/`fix`/`refactor`/`chore` |
+| `quality.validateFilePaths` | `boolean` | Validate that traceRef/testRef paths exist on disk |
+| `quality.rules` | `Record<string, "error" \| "warn" \| "off">` | Per-rule severity overrides (see below) |
 
 ## Workflow Policy
 
@@ -83,13 +89,16 @@ Glob patterns that trigger change record requirements:
   "changeRequiredRules": [
     {
       "id": "governed-source",
-      "pattern": "src/**/*.ts",
-      "message": "Source files require a change record"
+      "include": ["src/**/*.ts"],
+      "description": "Source files require a change record"
     },
     {
       "id": "api-routes",
-      "pattern": "src/routes/**",
-      "message": "API route changes need formal governance"
+      "include": ["src/routes/**"],
+      "exclude": ["src/routes/__tests__/**"],
+      "description": "API route changes need formal governance",
+      "requiredDocs": ["docs/api.md"],
+      "requiredDriftChecks": ["semantic-links"]
     }
   ]
 }
@@ -118,9 +127,9 @@ Gates enforced during phase transitions:
 ```json
 {
   "lifecycleRules": {
-    "shipped": {
-      "requiresCoverage": true
-    }
+    "plannedToActiveRequiresChange": true,
+    "activeToShippedRequiresCoverage": true,
+    "deprecatedRequiresReason": true
   }
 }
 ```
@@ -144,7 +153,7 @@ All requirement, change, and decision schemas support an `extensions` field for 
 Extensions are:
 - **Preserved** through validation and generation
 - **Free-form** — any JSON structure is accepted
-- **Available on requirements, changes, and decisions** (not workflow policy)
+- **Available on requirements, changes, decisions, and workflow policy**
 - **Validatable with plugins** — write custom checks for your extension fields
 
 ### Example: Validating Extensions with a Plugin
@@ -169,6 +178,38 @@ export default {
   }],
 };
 ```
+
+## Quality Rule Overrides
+
+Override the severity of any built-in or plugin verification rule:
+
+```json
+{
+  "quality": {
+    "validateFilePaths": true,
+    "rules": {
+      "quality:no-vague-language": "off",
+      "quality:semantic-refs-populated": "error",
+      "quality:missing-test-refs": "warn",
+      "plugin:my-plugin/custom-check": "off"
+    }
+  }
+}
+```
+
+Values: `"error"` (fail verify), `"warn"` (show but don't fail), `"off"` (suppress entirely). These overrides apply to both built-in and plugin findings.
+
+## Custom Change Types
+
+Add project-specific change types beyond the built-in `feature`, `fix`, `refactor`, `chore`:
+
+```json
+{
+  "customChangeTypes": ["infrastructure", "schema", "workflow", "security"]
+}
+```
+
+Custom types can be assigned to workflow variants in `defaultTypes` and used with `anchored-spec create change --type <custom-type>`. All types must match the pattern `^[a-z][a-z0-9-]*$`.
 
 ## Schema Versioning
 

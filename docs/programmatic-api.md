@@ -33,6 +33,31 @@ const summary = spec.getSummary();                 // { initialized, counts... }
 
 ## Validation
 
+### Verification Engine
+
+The primary verification API — runs all built-in checks, plugin checks, and onVerify hooks:
+
+```typescript
+import { SpecRoot, runAllChecks } from "anchored-spec";
+import type { VerificationResult, VerificationOptions } from "anchored-spec";
+
+const spec = new SpecRoot("/path/to/project");
+const result: VerificationResult = await runAllChecks(spec, { strict: true });
+
+// result.passed: boolean — true if zero errors
+// result.summary: { totalChecks, passed, warnings, errors, artifacts }
+// result.findings: ValidationError[] — all findings with rule, suggestion, severity
+```
+
+Options:
+
+```typescript
+interface VerificationOptions {
+  strict?: boolean;                              // Promote warnings to errors
+  ruleOverrides?: Record<string, "error" | "warn" | "off">;  // Per-rule overrides
+}
+```
+
 ### Schema Validation
 
 ```typescript
@@ -69,7 +94,7 @@ import {
 const crossRefErrors = checkCrossReferences(requirements, changes);
 
 // Lifecycle rule enforcement
-const lifecycleErrors = checkLifecycleRules(requirements, policy);
+const lifecycleErrors = checkLifecycleRules(requirements, changes, policy);
 
 // Dependency validation
 const depErrors = checkDependencies(requirements);
@@ -169,14 +194,14 @@ const map = generateImpactMap(requirements, changes, {
 
 ```typescript
 import { runHooks } from "anchored-spec";
+import type { AnchoredSpecConfig, HookEnv } from "anchored-spec";
 
-await runHooks("post-create:requirement", hooks, {
-  id: "REQ-1",
-  type: "requirement",
-  status: "draft",
-  cwd: projectRoot,
-  dryRun: false,
-});
+runHooks("post-create:requirement", config, {
+  ANCHORED_SPEC_EVENT: "post-create:requirement",
+  ANCHORED_SPEC_ID: "REQ-1",
+  ANCHORED_SPEC_TYPE: "requirement",
+  ANCHORED_SPEC_STATUS: "draft",
+} as HookEnv, { cwd: projectRoot, dryRun: false });
 ```
 
 ## Plugins
@@ -219,7 +244,8 @@ import type {
   ChangeVerification, ChangeVerificationCommand,
 
   // Requirement parts
-  BehaviorStatement, SemanticRefs, Verification, Implementation,
+  BehaviorStatement, TraceRef, TestRef, SemanticRefs,
+  Verification, Implementation, RequirementStatus,
 
   // Change parts
   ChangeType, ChangePhase, ChangeStatus, ChangeScope,
@@ -240,10 +266,18 @@ import type {
   // Hooks
   HookDefinition, HookEvent,
 
-  // Validation
+  // Validation & Verification
   ValidationResult, ValidationError,
+  VerificationResult, VerificationSummary, VerificationOptions,
 
   // Config & Policy
   AnchoredSpecConfig, WorkflowVariant, ChangeRequiredRule,
+
+  // Plugin system
+  AnchoredSpecPlugin, PluginCheck, PluginContext, PluginHooks,
+  GenerateHookContext, VerifyHookContext,
 } from "anchored-spec";
+
+// Value exports
+import { BUILTIN_CHANGE_TYPES, runAllChecks } from "anchored-spec";
 ```
