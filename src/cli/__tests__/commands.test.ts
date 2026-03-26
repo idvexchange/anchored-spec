@@ -774,3 +774,209 @@ describe("CLI: --cwd", () => {
     expect(json.requirements).toBeDefined();
   });
 });
+
+// ─── Check with Active Change Coverage ──────────────────────────────────────────
+
+describe("CLI: check with covered paths", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("passes when governed paths are covered by active change", () => {
+    // Create an active change covering src/**
+    runCLI("create change --type feature --title \"Test Feature\" --scope \"src/**\"", tempDir);
+    const result = runCLI("check --paths src/main.ts --json", tempDir);
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.valid).toBe(true);
+    expect(json.uncoveredPaths).toHaveLength(0);
+  });
+
+  it("fails when governed paths are NOT covered by active change", () => {
+    // Change only covers lib/**
+    runCLI("create change --type feature --title \"Lib Only\" --scope \"lib/**\"", tempDir);
+    const result = runCLI("check --paths src/main.ts --json", tempDir);
+    expect(result.exitCode).toBe(1);
+    const json = JSON.parse(result.stdout);
+    expect(json.valid).toBe(false);
+    expect(json.uncoveredPaths).toContain("src/main.ts");
+  });
+});
+
+// ─── Transition Gate Tests ──────────────────────────────────────────────────────
+
+describe("CLI: transition gates", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("blocks design→planned without linked requirements", () => {
+    runCLI("create change --type feature --title \"Gate Test\"", tempDir);
+    // Find the change ID
+    const changesDir = join(tempDir, "specs", "changes");
+    const changeId = readdirSync(changesDir).find((f) => f.startsWith("CHG-"))!;
+    const result = runCLI(`transition ${changeId}`, tempDir);
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("no requirements linked");
+  });
+
+  it("allows transition with --force", () => {
+    runCLI("create change --type feature --title \"Force Test\"", tempDir);
+    const changesDir = join(tempDir, "specs", "changes");
+    const changeId = readdirSync(changesDir).find((f) => f.startsWith("CHG-"))!;
+    const result = runCLI(`transition ${changeId} --force`, tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Phase updated");
+  });
+
+  it("chore skips design phase entirely", () => {
+    runCLI("create change --type chore --title \"Chore Test\"", tempDir);
+    const changesDir = join(tempDir, "specs", "changes");
+    const changeId = readdirSync(changesDir).find((f) => f.startsWith("CHG-"))!;
+    // Chore starts at implementation, next is verification
+    const result = runCLI(`transition ${changeId}`, tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("verification");
+  });
+});
+
+// ─── Migrate with Data ──────────────────────────────────────────────────────────
+
+describe("CLI: migrate with versioned data", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("migrates requirement without $schema version", () => {
+    // Create a requirement missing $schema (pre-versioned)
+    const req = {
+      id: "REQ-1",
+      title: "Legacy Req",
+      summary: "A pre-versioned requirement",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-1", text: "When triggered, the system shall respond.", format: "EARS", response: "The system shall respond" },
+      ],
+      traceRefs: [],
+      owners: ["team"],
+      tags: [],
+      supersedes: null,
+      supersededBy: null,
+      docSource: "canonical-json",
+    };
+    writeFileSync(
+      join(tempDir, "specs", "requirements", "REQ-1.json"),
+      JSON.stringify(req, null, 2),
+    );
+    const result = runCLI("migrate", tempDir);
+    expect(result.exitCode).toBe(0);
+  });
+});
+
+// ─── Verify Integrity via CLI ───────────────────────────────────────────────────
+
+describe("CLI: verify integrity checks", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "test-project" }));
+    runCLI("init --no-examples", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("detects cross-reference integrity issues", () => {
+    // Create a requirement pointing to a non-existent change
+    const req = {
+      $schema: "../schemas/requirement.schema.json",
+      id: "REQ-1",
+      title: "CrossRef Test",
+      summary: "Test cross-reference checking",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-1", text: "When testing, the system shall validate.", format: "EARS", response: "The system shall validate" },
+      ],
+      traceRefs: [],
+      semanticRefs: { interfaces: [], routes: [], errorCodes: [], symbols: [] },
+      verification: { requiredTestKinds: ["unit"], coverageStatus: "none", testFiles: [], testRefs: [] },
+      implementation: { activeChanges: ["CHG-GHOST"], shippedBy: null, deprecatedBy: null },
+      owners: ["team"],
+      tags: [],
+      supersedes: null,
+      supersededBy: null,
+      docSource: "canonical-json",
+    };
+    writeFileSync(
+      join(tempDir, "specs", "requirements", "REQ-1.json"),
+      JSON.stringify(req, null, 2),
+    );
+    // Also create a real change so cross-ref checks are triggered
+    runCLI("create change --type feature --title \"Real Change\"", tempDir);
+    const result = runCLI("verify", tempDir);
+    // Should have warnings about ghost reference
+    expect(result.stdout).toContain("CHG-GHOST");
+  });
+
+  it("detects circular dependencies", () => {
+    const makeReq = (id: string, deps: string[]) => ({
+      $schema: "../schemas/requirement.schema.json",
+      id,
+      title: `Cycle ${id}`,
+      summary: "Cycle test",
+      priority: "must",
+      status: "draft",
+      behaviorStatements: [
+        { id: "BS-1", text: "When cycling, the system shall cycle.", format: "EARS", response: "The system shall cycle" },
+      ],
+      traceRefs: [],
+      semanticRefs: { interfaces: [], routes: [], errorCodes: [], symbols: [] },
+      verification: { requiredTestKinds: [], coverageStatus: "none", testFiles: [], testRefs: [] },
+      implementation: { activeChanges: [], shippedBy: null, deprecatedBy: null },
+      owners: ["team"],
+      tags: [],
+      supersedes: null,
+      supersededBy: null,
+      docSource: "canonical-json",
+      dependsOn: deps,
+    });
+    writeFileSync(
+      join(tempDir, "specs", "requirements", "REQ-1.json"),
+      JSON.stringify(makeReq("REQ-1", ["REQ-2"]), null, 2),
+    );
+    writeFileSync(
+      join(tempDir, "specs", "requirements", "REQ-2.json"),
+      JSON.stringify(makeReq("REQ-2", ["REQ-1"]), null, 2),
+    );
+    const result = runCLI("verify", tempDir);
+    expect(result.stdout).toContain("Circular dependency");
+  });
+});

@@ -46,11 +46,18 @@ src/
 │   ├── __tests__/    # Core unit tests
 │   ├── validate.ts   # AJV validation + semantic quality checks
 │   ├── policy.ts     # Path-based workflow enforcement
+│   ├── integrity.ts  # Cross-refs, lifecycle rules, dependency checks
+│   ├── check.ts      # Programmatic policy check API
+│   ├── drift.ts      # Semantic drift detection
+│   ├── plugins.ts    # Plugin loading and execution
 │   ├── generate.ts   # Markdown generation from JSON specs
 │   ├── loader.ts     # Filesystem loader (SpecRoot class)
 │   └── types.ts      # TypeScript types matching schemas
 ├── cli/              # CLI interface (commander)
-│   ├── commands/     # init, create, verify, generate, status
+│   ├── commands/     # init, create, verify, generate, status, transition,
+│   │                 # check, drift, migrate, import-cmd, report
+│   ├── watch.ts      # File watcher for --watch modes
+│   ├── errors.ts     # CliError class for testable exits
 │   └── __tests__/    # CLI integration tests
 └── index.ts          # Public library API (re-exports core)
 ```

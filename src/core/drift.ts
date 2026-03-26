@@ -113,38 +113,48 @@ function fileContainsString(content: string, needle: string): boolean {
 
 // ─── Drift detection ────────────────────────────────────────────────────────────
 
-interface FileCache {
+interface FileEntry {
   path: string;
   relativePath: string;
-  content: string;
-  exports: Set<string>;
+  _content?: string;
+  _exports?: Set<string>;
 }
 
-function buildFileCache(files: string[], projectRoot: string): FileCache[] {
-  const cache: FileCache[] = [];
-  const tsExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+/**
+ * Build a lazy file index — content and exports are read on first access.
+ */
+function buildFileIndex(files: string[], projectRoot: string): FileEntry[] {
+  return files.map((f) => ({
+    path: f,
+    relativePath: relative(projectRoot, f),
+  }));
+}
 
-  for (const f of files) {
+function getContent(entry: FileEntry): string {
+  if (entry._content === undefined) {
     try {
-      const content = readFileSync(f, "utf-8");
-      const ext = extname(f);
-      const exports = tsExtensions.has(ext) ? extractExportedSymbols(content) : new Set<string>();
-      cache.push({
-        path: f,
-        relativePath: relative(projectRoot, f),
-        content,
-        exports,
-      });
+      entry._content = readFileSync(entry.path, "utf-8");
     } catch {
-      // Skip files that can't be read
+      entry._content = "";
     }
   }
+  return entry._content;
+}
 
-  return cache;
+const TS_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+
+function getExports(entry: FileEntry): Set<string> {
+  if (entry._exports === undefined) {
+    const ext = extname(entry.path);
+    entry._exports = TS_EXTENSIONS.has(ext)
+      ? extractExportedSymbols(getContent(entry))
+      : new Set<string>();
+  }
+  return entry._exports;
 }
 
 function findRef(
-  cache: FileCache[],
+  index: FileEntry[],
   kind: SemanticRefKind,
   ref: string,
 ): string[] {
@@ -153,42 +163,39 @@ function findRef(
   switch (kind) {
     case "interface":
     case "symbol": {
-      // Look for the symbol as an export
-      for (const file of cache) {
-        if (file.exports.has(ref)) {
-          foundIn.push(file.relativePath);
+      for (const entry of index) {
+        if (getExports(entry).has(ref)) {
+          foundIn.push(entry.relativePath);
         }
       }
       break;
     }
     case "route": {
-      // Extract the path part of a route ref (e.g., "GET /api/v1/users" → "/api/v1/users")
       const routePath = ref.replace(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/i, "");
-      for (const file of cache) {
-        if (fileContainsString(file.content, routePath)) {
-          foundIn.push(file.relativePath);
+      for (const entry of index) {
+        if (fileContainsString(getContent(entry), routePath)) {
+          foundIn.push(entry.relativePath);
         }
       }
       break;
     }
     case "errorCode": {
-      // Look for the error code as a string literal
-      for (const file of cache) {
+      for (const entry of index) {
+        const content = getContent(entry);
         if (
-          fileContainsString(file.content, `"${ref}"`) ||
-          fileContainsString(file.content, `'${ref}'`) ||
-          fileContainsString(file.content, `\`${ref}\``)
+          fileContainsString(content, `"${ref}"`) ||
+          fileContainsString(content, `'${ref}'`) ||
+          fileContainsString(content, `\`${ref}\``)
         ) {
-          foundIn.push(file.relativePath);
+          foundIn.push(entry.relativePath);
         }
       }
       break;
     }
     case "schema": {
-      // Look for table/schema name references
-      for (const file of cache) {
-        if (fileContainsString(file.content, ref)) {
-          foundIn.push(file.relativePath);
+      for (const entry of index) {
+        if (fileContainsString(getContent(entry), ref)) {
+          foundIn.push(entry.relativePath);
         }
       }
       break;
@@ -214,7 +221,7 @@ export function detectDrift(
   const globs = options.sourceGlobs ?? DEFAULT_SOURCE_GLOBS;
 
   const files = discoverSourceFiles(roots, globs, options.projectRoot);
-  const cache = buildFileCache(files, options.projectRoot);
+  const index = buildFileIndex(files, options.projectRoot);
 
   const findings: DriftFinding[] = [];
 
@@ -233,7 +240,7 @@ export function detectDrift(
 
     for (const { kind, refs } of refEntries) {
       for (const ref of refs) {
-        const foundIn = findRef(cache, kind, ref);
+        const foundIn = findRef(index, kind, ref);
         findings.push({
           reqId: req.id,
           kind,

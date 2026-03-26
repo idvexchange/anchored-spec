@@ -8,7 +8,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
 import type { Requirement, Change, Decision } from "../../core/types.js";
 import { CliError } from "../errors.js";
@@ -215,7 +215,7 @@ export function reportCommand(): Command {
       const markdown = renderMarkdown(report);
 
       const outPath = opts.out ?? join(spec.generatedDir, "report.md");
-      mkdirSync(join(outPath, ".."), { recursive: true });
+      mkdirSync(dirname(outPath), { recursive: true });
       writeFileSync(outPath, markdown);
 
       // Console summary

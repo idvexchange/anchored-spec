@@ -87,8 +87,8 @@ describe("findProjectRoot", () => {
     expect(found).toBe(tempDir);
   });
 
-  it("finds project root via specs directory", () => {
-    mkdirSync(join(tempDir, "specs"), { recursive: true });
+  it("finds project root via specs/requirements directory", () => {
+    mkdirSync(join(tempDir, "specs", "requirements"), { recursive: true });
     mkdirSync(join(tempDir, "src"), { recursive: true });
     const found = findProjectRoot(join(tempDir, "src"));
     expect(found).toBe(tempDir);

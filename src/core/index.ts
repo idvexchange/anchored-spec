@@ -76,6 +76,19 @@ export {
 export { detectDrift } from "./drift.js";
 export type { DriftOptions } from "./drift.js";
 
+// Integrity Checks
+export {
+  checkCrossReferences,
+  checkLifecycleRules,
+  checkDependencies,
+  detectCycles,
+} from "./integrity.js";
+export type { LifecyclePolicy } from "./integrity.js";
+
+// Check (Policy Evaluation)
+export { checkPaths } from "./check.js";
+export type { CheckResult } from "./check.js";
+
 // Plugin System
 export { loadPlugin, loadPlugins, runPluginChecks } from "./plugins.js";
 

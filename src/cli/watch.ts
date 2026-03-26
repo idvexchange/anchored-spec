@@ -23,8 +23,9 @@ export function watchSpecs(
       console.log(chalk.dim(`\n[${new Date().toLocaleTimeString()}] Change detected, re-running ${label}...\n`));
       try {
         await onChange();
-      } catch {
-        // Errors are handled by the callback
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg) console.error(chalk.red(`  Error: ${msg}`));
       }
       running = false;
     }, 300);

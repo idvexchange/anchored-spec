@@ -75,8 +75,12 @@ export function validateSchema(
 
   if (!valid && validate.errors) {
     for (const err of validate.errors) {
+      const pathStr = err.instancePath || "";
+      const propHint = err.params && "missingProperty" in err.params
+        ? `.${err.params.missingProperty as string}`
+        : "";
       errors.push({
-        path: err.instancePath || "/",
+        path: pathStr + propHint || "/",
         message: err.message || "Validation error",
         severity: "error",
         rule: `schema:${schemaName}`,

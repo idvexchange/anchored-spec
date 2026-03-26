@@ -155,6 +155,7 @@ The workflow policy defines governance rules:
 | `anchored-spec create <type> --dry-run` | Preview without writing files |
 | `anchored-spec verify` | Run all validation checks |
 | `anchored-spec verify --strict` | Treat warnings as errors |
+| `anchored-spec verify --quiet` | Only show errors |
 | `anchored-spec verify --watch` | Re-verify on file changes |
 | `anchored-spec generate` | Regenerate markdown from JSON |
 | `anchored-spec generate --check` | Check if generated files are stale (CI-friendly) |
@@ -167,6 +168,8 @@ The workflow policy defines governance rules:
 | `anchored-spec check` | Git-aware policy enforcement |
 | `anchored-spec check --staged` | Check only staged files |
 | `anchored-spec check --against <branch>` | Compare against a branch |
+| `anchored-spec check --paths <files...>` | Manually specify paths (no git) |
+| `anchored-spec check --json` | Machine-readable output |
 | `anchored-spec migrate` | Detect and apply schema migrations |
 | `anchored-spec drift` | Detect semantic drift between specs and code |
 | `anchored-spec drift --fail-on-missing` | Exit with error if refs are missing (CI) |
@@ -188,16 +191,37 @@ Add verification to your CI pipeline:
 
 This ensures specs stay valid, generated docs don't go stale, and semantic refs stay connected to code.
 
+### Pre-commit Hook
+
+Use `anchored-spec check --staged` as a git pre-commit hook to enforce governance on every commit:
+
+```bash
+# With Husky (recommended)
+npx husky add .husky/pre-commit "npx anchored-spec check --staged"
+
+# Or manually — add to .git/hooks/pre-commit:
+#!/bin/sh
+npx anchored-spec check --staged
+```
+
+This blocks commits that touch governed paths without an active change record.
+
 ## Verification Checks
 
-`anchored-spec verify` runs these checks:
+`anchored-spec verify` runs 12+ quality and integrity checks:
 
 1. **Schema validation** — All JSON files validate against their schemas
-2. **Requirement quality** — No vague language, EARS compliance, unique BS IDs, semantic ref population
-3. **Policy quality** — Unique variant and rule IDs
-4. **Cross-reference integrity** — REQ↔CHG bidirectional links are consistent
-5. **Lifecycle rules** — Transition gates are enforced (e.g., shipped requires coverage)
-6. **Dependency checks** — Cycle detection, missing references, blocked status derivation
+2. **Vague language detection** — Flags imprecise wording in behavior statements
+3. **EARS compliance** — Verifies "response" field begins with "shall" format
+4. **Route format validation** — Catches Express-style `:param` in semantic refs
+5. **Semantic ref population** — Active/shipped requirements must have code anchors
+6. **Unique ID enforcement** — Duplicate BS, variant, and rule IDs are flagged
+7. **Policy quality** — Unique variant and rule IDs across workflow policy
+8. **Cross-reference integrity** — REQ↔CHG bidirectional links are consistent
+9. **Lifecycle rules** — Transition gates (e.g., shipped requires coverage)
+10. **Dependency validation** — Missing references, blocked status derivation
+11. **Cycle detection** — Circular requirement dependencies
+12. **System name detection** — Flags technology names in behavioral text
 
 ## Programmatic API
 
@@ -209,6 +233,10 @@ import {
   SpecRoot,
   evaluatePolicy,
   detectDrift,
+  checkPaths,
+  checkCrossReferences,
+  checkLifecycleRules,
+  checkDependencies,
   loadPlugins,
   runPluginChecks,
 } from "anchored-spec";
@@ -222,9 +250,18 @@ const spec = new SpecRoot("/path/to/project");
 const requirements = spec.loadRequirements();
 const changes = spec.loadChanges();
 
-// Evaluate policy against changed files
+// Check changed paths against policy (programmatic equivalent of `check`)
 const policy = spec.loadWorkflowPolicy();
-const evaluation = evaluatePolicy(changedPaths, policy);
+const checkResult = checkPaths(
+  ["src/auth.ts", "README.md"],
+  policy,
+  changes.filter((c) => c.status === "active"),
+);
+console.log(checkResult.valid, checkResult.uncoveredPaths);
+
+// Run integrity checks
+const crossRefErrors = checkCrossReferences(requirements, changes);
+const depErrors = checkDependencies(requirements);
 
 // Detect semantic drift
 const drift = detectDrift(requirements, {

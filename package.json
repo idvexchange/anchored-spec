@@ -20,8 +20,13 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./cli": {
+      "import": "./dist/cli/index.js",
+      "require": "./dist/cli/index.cjs"
+    },
     "./schemas/*": "./dist/core/schemas/*"
   },
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md",
@@ -72,6 +77,7 @@
     "type": "git",
     "url": "https://github.com/idvexchange/anchored-spec"
   },
+  "homepage": "https://github.com/idvexchange/anchored-spec#readme",
   "engines": {
     "node": ">=18"
   }

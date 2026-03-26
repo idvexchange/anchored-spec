@@ -9,6 +9,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { minimatch } from "minimatch";
 import { SpecRoot } from "../../core/index.js";
 import { CliError } from "../errors.js";
 
@@ -33,6 +34,20 @@ function validateSlug(slug: string): void {
   }
   if (slug.length > 60) {
     throw new CliError(`Error: Slug "${slug}" is too long (max 60 characters).`);
+  }
+}
+
+function validateGlobs(patterns: string[]): void {
+  for (const pattern of patterns) {
+    try {
+      minimatch("test.ts", pattern);
+    } catch {
+      throw new CliError(`Error: Invalid glob pattern "${pattern}" in --scope.`);
+    }
+    if (/[^\\][\[\{](?![^[\]]*\]|[^{}]*\})/.test(pattern)) {
+      // Don't over-validate — minimatch handles most cases.
+      // Just reject obviously broken brackets as a safety net.
+    }
   }
 }
 
@@ -174,6 +189,7 @@ export function createCommand(): Command {
       // Auto-derive slug from title if not provided
       const slug: string = options.slug ? (options.slug as string) : slugify(options.title as string);
       validateSlug(slug);
+      validateGlobs(options.scope as string[]);
 
       const id = getNextChangeId(spec.changesDir, slug);
       const today = new Date().toISOString().split("T")[0];

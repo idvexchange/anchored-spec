@@ -45,8 +45,12 @@ export function findProjectRoot(startDir: string): string | null {
     if (existsSync(join(current, CONFIG_FILE))) {
       return current;
     }
-    // Also check for specRoot dir (supports repos initialized without config file)
-    if (existsSync(join(current, "specs"))) {
+    // Also check for specRoot dir — but require a recognizable subdirectory
+    // to avoid false-positives on random "specs/" dirs in monorepos
+    if (
+      existsSync(join(current, "specs", "requirements")) ||
+      existsSync(join(current, "specs", "workflow-policy.json"))
+    ) {
       return current;
     }
     const parent = dirname(current);
