@@ -256,6 +256,12 @@ export interface AnchoredSpecConfig {
   quality?: {
     validateFilePaths?: boolean;
   };
+  /** Pluggable drift resolvers (tried before built-in scanner). */
+  driftResolvers?: DriftResolver[];
+  /** Lifecycle hooks. */
+  hooks?: HookDefinition[];
+  /** Test metadata linking configuration. */
+  testMetadata?: TestMetadataConfig;
 }
 
 // ─── Plugin System ─────────────────────────────────────────────────────────────
@@ -299,4 +305,41 @@ export interface DriftReport {
     found: number;
     missing: number;
   };
+}
+
+/** Context passed to drift resolvers for each ref lookup. */
+export interface DriftResolveContext {
+  projectRoot: string;
+  /** Lazy file index — only available if built-in scanner ran first. */
+  fileIndex?: ReadonlyArray<{ path: string; relativePath: string }>;
+}
+
+/**
+ * A pluggable drift resolver that can look up semantic refs.
+ * Return file paths where the ref was found, or null to defer to next resolver.
+ */
+export interface DriftResolver {
+  name: string;
+  /** Which ref kinds this resolver handles. Omit to handle all. */
+  kinds?: SemanticRefKind[];
+  /** Resolve a ref. Return array of relative paths, or null to defer. */
+  resolve(kind: SemanticRefKind, ref: string, ctx: DriftResolveContext): string[] | null;
+}
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+
+export type HookEvent = "post-create" | "post-transition";
+
+export interface HookDefinition {
+  event: HookEvent;
+  run: string;
+}
+
+// ─── Test Linking ─────────────────────────────────────────────────────────────
+
+export interface TestMetadataConfig {
+  /** Glob patterns for test files. Default: *.test.ts, *.test.tsx, etc. */
+  testGlobs?: string[];
+  /** Regex pattern to extract requirement IDs from test files */
+  requirementPattern?: string;
 }

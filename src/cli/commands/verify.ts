@@ -21,6 +21,7 @@ import {
   checkLifecycleRules,
   checkDependencies,
   checkFilePaths,
+  checkTestLinking,
   resolveConfig,
 } from "../../core/index.js";
 import type { ValidationError } from "../../core/index.js";
@@ -215,6 +216,28 @@ function runVerification(
           stats.passed++;
         } else {
           allWarnings.push(...fpErrors);
+          stats.warnings++;
+        }
+      }
+
+      // ─── 9. Bidirectional Test Linking ─────────────────────────────────────
+
+      if (requirements.length > 0) {
+        stats.checks++;
+        console.log(chalk.dim(`  Checking test linking...`));
+        const tlReport = checkTestLinking(requirements, cwd, config.testMetadata);
+        const orphans = tlReport.findings.filter((f) => f.status === "orphan");
+        if (orphans.length === 0) {
+          stats.passed++;
+        } else {
+          for (const o of orphans) {
+            allWarnings.push({
+              path: o.reqId,
+              message: o.message,
+              severity: "warning",
+              rule: "quality:test-linking",
+            });
+          }
           stats.warnings++;
         }
       }

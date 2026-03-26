@@ -10,7 +10,8 @@ import chalk from "chalk";
 import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { minimatch } from "minimatch";
-import { SpecRoot } from "../../core/index.js";
+import { SpecRoot, resolveConfig } from "../../core/index.js";
+import { runHooks } from "../../core/hooks.js";
 import { CliError } from "../errors.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -88,7 +89,8 @@ function getNextChangeId(changesDir: string, slug: string): string {
 
 export function createCommand(): Command {
   const cmd = new Command("create")
-    .description("Create a new spec artifact (requirement, change, or decision)");
+    .description("Create a new spec artifact (requirement, change, or decision)")
+    .option("--no-hooks", "Skip lifecycle hooks");
 
   // ─── create requirement ────────────────────────────────────────────────────
 
@@ -160,6 +162,15 @@ export function createCommand(): Command {
       console.log(chalk.dim(`  File: ${filePath}`));
       console.log(chalk.dim(`\nNext: Edit the behavior statements to describe observable behavior.`));
       console.log(chalk.dim(`  Tip: Use EARS notation — "When <event>, the system shall <response>"`));
+
+      if (!dryRun && cmd.opts().hooks !== false) {
+        const config = resolveConfig(cwd);
+        runHooks("post-create", config, {
+          ANCHORED_SPEC_EVENT: "post-create",
+          ANCHORED_SPEC_ID: id,
+          ANCHORED_SPEC_TYPE: "requirement",
+        }, { cwd });
+      }
     });
 
   // ─── create change ─────────────────────────────────────────────────────────
@@ -264,6 +275,15 @@ export function createCommand(): Command {
         console.log(chalk.dim(`  2. Create design doc:  Add design rationale`));
         console.log(chalk.dim(`  3. Start work:         Update phase to "implementation"`));
       }
+
+      if (!dryRun && cmd.opts().hooks !== false) {
+        const config = resolveConfig(cwd);
+        runHooks("post-create", config, {
+          ANCHORED_SPEC_EVENT: "post-create",
+          ANCHORED_SPEC_ID: id,
+          ANCHORED_SPEC_TYPE: "change",
+        }, { cwd });
+      }
     });
 
   // ─── create decision ───────────────────────────────────────────────────────
@@ -321,6 +341,15 @@ export function createCommand(): Command {
       console.log(chalk.green(`${dryRun ? "→" : "✓"} ${dryRun ? "Would create" : "Created"} ${id}: ${options.title}`));
       console.log(chalk.dim(`  File: ${filePath}`));
       console.log(chalk.dim(`\nNext: Fill in decision, context, rationale, and alternatives.`));
+
+      if (!dryRun && cmd.opts().hooks !== false) {
+        const config = resolveConfig(cwd);
+        runHooks("post-create", config, {
+          ANCHORED_SPEC_EVENT: "post-create",
+          ANCHORED_SPEC_ID: id,
+          ANCHORED_SPEC_TYPE: "decision",
+        }, { cwd });
+      }
     });
 
   return cmd;

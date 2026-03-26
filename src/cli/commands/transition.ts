@@ -9,8 +9,9 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { SpecRoot } from "../../core/index.js";
+import { SpecRoot, resolveConfig } from "../../core/index.js";
 import type { Change, ChangePhase } from "../../core/index.js";
+import { runHooks } from "../../core/hooks.js";
 import { CliError } from "../errors.js";
 
 const PHASE_ORDER: ChangePhase[] = [
@@ -113,6 +114,7 @@ export function transitionCommand(): Command {
     .option("--to <phase>", "Target phase (default: next phase)")
     .option("--force", "Skip gate validation")
     .option("--dry-run", "Show what would happen without writing")
+    .option("--no-hooks", "Skip lifecycle hooks")
     .action((changeId: string, options) => {
       const cwd = process.cwd();
       const spec = new SpecRoot(cwd);
@@ -187,6 +189,16 @@ export function transitionCommand(): Command {
         console.log(chalk.dim(`\n  Next phase: ${next}`));
       } else {
         console.log(chalk.dim(`\n  This change is now complete.`));
+      }
+
+      if (options.hooks !== false) {
+        const config = resolveConfig(cwd);
+        runHooks("post-transition", config, {
+          ANCHORED_SPEC_EVENT: "post-transition",
+          ANCHORED_SPEC_ID: changeId,
+          ANCHORED_SPEC_TYPE: "change",
+          ANCHORED_SPEC_STATUS: updated.phase,
+        }, { cwd });
       }
     });
 }

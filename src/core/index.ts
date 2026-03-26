@@ -39,6 +39,11 @@ export type {
   SemanticRefKind,
   DriftFinding,
   DriftReport,
+  DriftResolver,
+  DriftResolveContext,
+  HookEvent,
+  HookDefinition,
+  TestMetadataConfig,
 } from "./types.js";
 
 // Validation
@@ -92,6 +97,17 @@ export type { CheckResult } from "./check.js";
 
 // Plugin System
 export { loadPlugin, loadPlugins, runPluginChecks } from "./plugins.js";
+
+// File Discovery
+export { walkDir, discoverSourceFiles } from "./files.js";
+export type { WalkOptions } from "./files.js";
+
+// Hooks
+export { runHooks } from "./hooks.js";
+
+// Test Linking
+export { checkTestLinking } from "./test-linking.js";
+export type { TestLinkReport, TestLinkFinding } from "./test-linking.js";
 
 // Loader
 export { SpecRoot, resolveConfig, findProjectRoot } from "./loader.js";

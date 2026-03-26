@@ -2,24 +2,26 @@
  * Anchored Spec — Semantic Drift Detection
  *
  * Scans source files to verify that semanticRefs (interfaces, routes,
- * error codes, symbols) still exist in the codebase. Uses basic regex
- * scanning — no AST parser dependency required for v0.1.
+ * error codes, symbols) still exist in the codebase. Supports pluggable
+ * resolvers with fallback to the built-in regex scanner.
  */
 
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative, extname } from "node:path";
-import { minimatch } from "minimatch";
+import { readFileSync } from "node:fs";
+import { relative, extname } from "node:path";
 import type {
   Requirement,
   DriftFinding,
   DriftReport,
+  DriftResolver,
+  DriftResolveContext,
   SemanticRefKind,
 } from "./types.js";
+import { discoverSourceFiles } from "./files.js";
 
 // ─── Default configuration ─────────────────────────────────────────────────────
 
 const DEFAULT_SOURCE_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"];
-const DEFAULT_IGNORE = [
+const DRIFT_IGNORE = [
   "**/node_modules/**",
   "**/dist/**",
   "**/build/**",
@@ -30,50 +32,6 @@ const DEFAULT_IGNORE = [
   "**/*.spec.*",
   "**/__tests__/**",
 ];
-
-// ─── File discovery ─────────────────────────────────────────────────────────────
-
-function walkDir(dir: string, baseDir: string): string[] {
-  if (!existsSync(dir)) return [];
-  const results: string[] = [];
-
-  for (const entry of readdirSync(dir)) {
-    const fullPath = join(dir, entry);
-    const stat = statSync(fullPath);
-    const relPath = relative(baseDir, fullPath);
-
-    if (DEFAULT_IGNORE.some((ig) => minimatch(relPath, ig))) continue;
-
-    if (stat.isDirectory()) {
-      results.push(...walkDir(fullPath, baseDir));
-    } else if (stat.isFile()) {
-      results.push(fullPath);
-    }
-  }
-
-  return results;
-}
-
-function discoverSourceFiles(
-  roots: string[],
-  globs: string[],
-  projectRoot: string,
-): string[] {
-  const allFiles: string[] = [];
-
-  for (const root of roots) {
-    const absRoot = join(projectRoot, root);
-    const files = walkDir(absRoot, projectRoot);
-    for (const f of files) {
-      const rel = relative(projectRoot, f);
-      if (globs.some((g) => minimatch(rel, g))) {
-        allFiles.push(f);
-      }
-    }
-  }
-
-  return [...new Set(allFiles)];
-}
 
 // ─── Symbol scanning patterns ───────────────────────────────────────────────────
 
@@ -87,12 +45,10 @@ function extractExportedSymbols(content: string): Set<string> {
   const symbols = new Set<string>();
 
   for (const pattern of TS_EXPORT_PATTERNS) {
-    // Reset lastIndex for global patterns
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(content)) !== null) {
       const captured = match[1]!;
-      // For `export { A, B, C }`, split by comma
       if (captured.includes(",")) {
         for (const sym of captured.split(",")) {
           const clean = sym.trim().split(/\s+as\s+/).pop()?.trim();
@@ -111,7 +67,7 @@ function fileContainsString(content: string, needle: string): boolean {
   return content.includes(needle);
 }
 
-// ─── Drift detection ────────────────────────────────────────────────────────────
+// ─── Lazy file index ────────────────────────────────────────────────────────────
 
 interface FileEntry {
   path: string;
@@ -120,9 +76,6 @@ interface FileEntry {
   _exports?: Set<string>;
 }
 
-/**
- * Build a lazy file index — content and exports are read on first access.
- */
 function buildFileIndex(files: string[], projectRoot: string): FileEntry[] {
   return files.map((f) => ({
     path: f,
@@ -153,7 +106,9 @@ function getExports(entry: FileEntry): Set<string> {
   return entry._exports;
 }
 
-function findRef(
+// ─── Built-in Resolver ──────────────────────────────────────────────────────────
+
+function builtinResolve(
   index: FileEntry[],
   kind: SemanticRefKind,
   ref: string,
@@ -211,6 +166,8 @@ export interface DriftOptions {
   sourceRoots?: string[];
   sourceGlobs?: string[];
   projectRoot: string;
+  /** Custom resolvers — tried in order before the built-in scanner. */
+  resolvers?: DriftResolver[];
 }
 
 export function detectDrift(
@@ -219,15 +176,22 @@ export function detectDrift(
 ): DriftReport {
   const roots = options.sourceRoots ?? ["src"];
   const globs = options.sourceGlobs ?? DEFAULT_SOURCE_GLOBS;
+  const resolvers = options.resolvers ?? [];
 
-  const files = discoverSourceFiles(roots, globs, options.projectRoot);
+  const files = discoverSourceFiles(roots, globs, options.projectRoot, {
+    ignore: DRIFT_IGNORE,
+  });
   const index = buildFileIndex(files, options.projectRoot);
+
+  const ctx: DriftResolveContext = {
+    projectRoot: options.projectRoot,
+    fileIndex: index.map((e) => ({ path: e.path, relativePath: e.relativePath })),
+  };
 
   const findings: DriftFinding[] = [];
 
   for (const req of requirements) {
     if (!req.semanticRefs) continue;
-    // Only check active and shipped requirements
     if (req.status !== "active" && req.status !== "shipped") continue;
 
     const refEntries: Array<{ kind: SemanticRefKind; refs: string[] }> = [
@@ -240,7 +204,23 @@ export function detectDrift(
 
     for (const { kind, refs } of refEntries) {
       for (const ref of refs) {
-        const foundIn = findRef(index, kind, ref);
+        let foundIn: string[] | null = null;
+
+        // Try custom resolvers first
+        for (const resolver of resolvers) {
+          if (resolver.kinds && !resolver.kinds.includes(kind)) continue;
+          const result = resolver.resolve(kind, ref, ctx);
+          if (result !== null) {
+            foundIn = result;
+            break;
+          }
+        }
+
+        // Fallback to built-in scanner
+        if (foundIn === null) {
+          foundIn = builtinResolve(index, kind, ref);
+        }
+
         findings.push({
           reqId: req.id,
           kind,
