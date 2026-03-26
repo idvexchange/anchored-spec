@@ -150,9 +150,10 @@ The workflow policy defines governance rules:
 | `anchored-spec init --dry-run` | Preview what init would create |
 | `anchored-spec init --no-examples` | Skip creating starter example files |
 | `anchored-spec create requirement` | Create a new requirement |
-| `anchored-spec create change` | Create a new change record |
+| `anchored-spec create change` | Create a new change record (with verification sidecar) |
 | `anchored-spec create decision` | Create a new decision (ADR) |
 | `anchored-spec create <type> --dry-run` | Preview without writing files |
+| `anchored-spec create --no-hooks` | Skip lifecycle hooks |
 | `anchored-spec verify` | Run all validation checks |
 | `anchored-spec verify --strict` | Treat warnings as errors |
 | `anchored-spec verify --quiet` | Only show errors |
@@ -165,6 +166,7 @@ The workflow policy defines governance rules:
 | `anchored-spec transition <id>` | Advance a change to the next phase |
 | `anchored-spec transition <id> --to <phase>` | Move to a specific phase |
 | `anchored-spec transition <id> --force` | Skip gate validation |
+| `anchored-spec transition <id> --no-hooks` | Skip lifecycle hooks |
 | `anchored-spec check` | Git-aware policy enforcement |
 | `anchored-spec check --staged` | Check only staged files |
 | `anchored-spec check --against <branch>` | Compare against a branch |
@@ -172,11 +174,20 @@ The workflow policy defines governance rules:
 | `anchored-spec check --json` | Machine-readable output |
 | `anchored-spec migrate` | Detect and apply schema migrations |
 | `anchored-spec drift` | Detect semantic drift between specs and code |
+| `anchored-spec drift --json` | Machine-readable drift output |
 | `anchored-spec drift --fail-on-missing` | Exit with error if refs are missing (CI) |
+| `anchored-spec drift --generate-map` | Write `semantic-links.json` to generated dir |
+| `anchored-spec drift --check-map` | Check if `semantic-links.json` is stale (CI) |
 | `anchored-spec import <path>` | Import markdown ADRs/requirements to JSON |
 | `anchored-spec import <path> --dry-run` | Preview import without writing |
 | `anchored-spec report` | Generate traceability matrix and coverage report |
 | `anchored-spec report --json` | Machine-readable report output |
+| `anchored-spec evidence collect --from <path>` | Ingest test runner output into evidence artifact |
+| `anchored-spec evidence collect --format <fmt>` | Specify format: `vitest`, `jest`, `junit` |
+| `anchored-spec evidence validate` | Validate evidence against requirements |
+| `anchored-spec impact <paths...>` | Show which requirements are affected by files |
+| `anchored-spec impact --json` | Machine-readable impact output |
+| `anchored-spec impact --generate` | Generate full impact map to generated dir |
 
 ## CI Integration
 
@@ -187,9 +198,11 @@ Add verification to your CI pipeline:
 - run: npx anchored-spec verify --strict
 - run: npx anchored-spec generate --check
 - run: npx anchored-spec drift --fail-on-missing
+- run: npx anchored-spec drift --check-map          # Semantic link freshness
+- run: npx anchored-spec evidence validate           # Test evidence integrity
 ```
 
-This ensures specs stay valid, generated docs don't go stale, and semantic refs stay connected to code.
+This ensures specs stay valid, generated docs don't go stale, semantic refs stay connected to code, and test evidence is current.
 
 ### Pre-commit Hook
 
@@ -208,7 +221,7 @@ This blocks commits that touch governed paths without an active change record.
 
 ## Verification Checks
 
-`anchored-spec verify` runs 12+ quality and integrity checks:
+`anchored-spec verify` runs 15+ quality and integrity checks:
 
 1. **Schema validation** — All JSON files validate against their schemas
 2. **Vague language detection** — Flags imprecise wording in behavior statements
@@ -222,21 +235,59 @@ This blocks commits that touch governed paths without an active change record.
 10. **Dependency validation** — Missing references, blocked status derivation
 11. **Cycle detection** — Circular requirement dependencies
 12. **System name detection** — Flags technology names in behavioral text
+13. **Test kind coverage** — Checks `testRefs` against `requiredTestKinds`
+14. **File path existence** — Validates that `testRefs`, `traceRefs`, and `testFiles` paths exist on disk
+15. **Bidirectional test linking** — Ensures test files reference the requirements that claim them
 
 ## Programmatic API
 
-Anchored Spec also exports its core engine for programmatic use:
+Anchored Spec exports its core engine for programmatic use:
 
 ```typescript
 import {
+  // Validation
   validateRequirement,
+  checkRequirementQuality,
+  checkFilePaths,
+
+  // Loader
   SpecRoot,
+  resolveConfig,
+
+  // Policy
   evaluatePolicy,
-  detectDrift,
   checkPaths,
+
+  // Integrity
   checkCrossReferences,
   checkLifecycleRules,
   checkDependencies,
+  detectCycles,
+
+  // Drift detection (pluggable resolvers)
+  detectDrift,
+
+  // Test linking
+  checkTestLinking,
+
+  // Evidence pipeline
+  collectEvidence,
+  writeEvidence,
+  validateEvidence,
+  VitestParser,
+
+  // Impact analysis
+  analyzeImpact,
+  generateImpactMap,
+
+  // File discovery
+  walkDir,
+  discoverSourceFiles,
+
+  // Hooks
+  runHooks,
+
+  // Plugins
   loadPlugins,
   runPluginChecks,
 } from "anchored-spec";
@@ -250,7 +301,7 @@ const spec = new SpecRoot("/path/to/project");
 const requirements = spec.loadRequirements();
 const changes = spec.loadChanges();
 
-// Check changed paths against policy (programmatic equivalent of `check`)
+// Check changed paths against policy
 const policy = spec.loadWorkflowPolicy();
 const checkResult = checkPaths(
   ["src/auth.ts", "README.md"],
@@ -263,12 +314,44 @@ console.log(checkResult.valid, checkResult.uncoveredPaths);
 const crossRefErrors = checkCrossReferences(requirements, changes);
 const depErrors = checkDependencies(requirements);
 
-// Detect semantic drift
+// Detect semantic drift with custom resolvers
 const drift = detectDrift(requirements, {
   projectRoot: "/path/to/project",
   sourceRoots: ["src"],
+  resolvers: [myCustomResolver],  // Optional — falls back to built-in
 });
 console.log(drift.summary); // { totalRefs, found, missing }
+
+// Analyze file impact on requirements
+const impact = analyzeImpact(
+  ["src/auth/login.ts"],
+  requirements,
+  changes,
+);
+console.log(impact[0].matchedRequirements);
+
+// Collect test evidence
+const evidence = collectEvidence("vitest-report.json", "vitest", requirements);
+writeEvidence(evidence, "specs/evidence/evidence.json");
+
+// Check bidirectional test linking
+const linking = checkTestLinking(requirements, "/path/to/project");
+console.log(linking.summary); // { linkedTests, orphanTests, ... }
+```
+
+### Key Types
+
+```typescript
+import type {
+  Requirement, Change, Decision, WorkflowPolicy,
+  DriftResolver, DriftResolveContext,
+  Evidence, EvidenceRecord, EvidenceParser,
+  ImpactResult, ImpactMatch, ImpactMap,
+  TestLinkReport, TestLinkFinding,
+  HookDefinition, HookEvent,
+  TestMetadataConfig,
+  ValidationResult, ValidationError,
+} from "anchored-spec";
 ```
 
 ## Plugin System
@@ -311,6 +394,109 @@ Register it in `.anchored-spec/config.json`:
   "plugins": ["./.anchored-spec/plugins/no-orphan-tags.js"]
 }
 ```
+
+## Pluggable Drift Resolvers
+
+The built-in drift scanner uses regex to find semantic refs in source files. For AST-level accuracy or non-JS ecosystems, register custom resolvers:
+
+```typescript
+import type { DriftResolver } from "anchored-spec";
+
+const tsResolver: DriftResolver = {
+  name: "typescript-ast",
+  kinds: ["interface", "symbol"],  // Only handle these kinds
+  resolve(kind, ref, ctx) {
+    // Return file paths where ref was found, or null to defer to built-in
+    return myAstLookup(ref, ctx.projectRoot) ?? null;
+  },
+};
+
+const drift = detectDrift(requirements, {
+  projectRoot: "/path/to/project",
+  resolvers: [tsResolver],  // Tried before built-in; null = fall through
+});
+```
+
+Or configure via `.anchored-spec/config.json`:
+
+```json
+{
+  "driftResolvers": ["./.anchored-spec/resolvers/typescript-ast.js"]
+}
+```
+
+## Lifecycle Hooks
+
+Run scripts after `create` and `transition` commands:
+
+```json
+{
+  "hooks": [
+    { "event": "post-create", "run": ".anchored-spec/hooks/scaffold-docs.sh" },
+    { "event": "post-transition", "run": ".anchored-spec/hooks/update-board.sh" }
+  ]
+}
+```
+
+Hooks receive context as environment variables (`ANCHORED_SPEC_EVENT`, `ANCHORED_SPEC_ID`, `ANCHORED_SPEC_TYPE`, `ANCHORED_SPEC_STATUS`). Failing hooks warn but don't block. Use `--no-hooks` to skip.
+
+## Test Evidence Pipeline
+
+Prove that tests actually pass — don't just declare coverage:
+
+```bash
+# Run tests and generate a JSON report
+npx vitest run --reporter=json --outputFile=vitest-report.json
+
+# Ingest the report into an evidence artifact
+npx anchored-spec evidence collect --from vitest-report.json --format vitest
+
+# Validate evidence against requirements
+npx anchored-spec evidence validate
+```
+
+Requirements can declare execution policy:
+
+```json
+{
+  "verification": {
+    "executionPolicy": { "requiresEvidence": true, "requiredKinds": ["unit"] }
+  }
+}
+```
+
+## Impact Analysis
+
+Find which requirements are affected by file changes:
+
+```bash
+# Which requirements does this file affect?
+npx anchored-spec impact src/auth/login.ts
+
+# Machine-readable output
+npx anchored-spec impact --json src/auth/login.ts
+
+# Generate full impact map
+npx anchored-spec impact --generate
+```
+
+Matching strategy: change scope patterns → semantic ref content matching → test ref path matching.
+
+## Schema Extensions
+
+All requirement, change, and decision schemas support an `extensions` field for project-specific metadata:
+
+```json
+{
+  "id": "REQ-1",
+  "extensions": {
+    "jira": { "issueKey": "PROJ-123" },
+    "compliance": { "level": "high" }
+  }
+}
+```
+
+Extensions are preserved through validation and generation. Validate them with plugins.
 
 ## Comparison with Other Tools
 

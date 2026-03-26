@@ -48,14 +48,20 @@ src/
 │   ├── policy.ts     # Path-based workflow enforcement
 │   ├── integrity.ts  # Cross-refs, lifecycle rules, dependency checks
 │   ├── check.ts      # Programmatic policy check API
-│   ├── drift.ts      # Semantic drift detection
+│   ├── drift.ts      # Semantic drift detection (pluggable resolvers)
+│   ├── files.ts      # Shared file discovery (walkDir, discoverSourceFiles)
+│   ├── hooks.ts      # Lifecycle hooks (post-create, post-transition)
+│   ├── test-linking.ts # Bidirectional test↔requirement traceability
+│   ├── evidence.ts   # Test evidence pipeline (collect, validate, parsers)
+│   ├── impact.ts     # File-to-requirement impact analysis
 │   ├── plugins.ts    # Plugin loading and execution
 │   ├── generate.ts   # Markdown generation from JSON specs
 │   ├── loader.ts     # Filesystem loader (SpecRoot class)
 │   └── types.ts      # TypeScript types matching schemas
 ├── cli/              # CLI interface (commander)
 │   ├── commands/     # init, create, verify, generate, status, transition,
-│   │                 # check, drift, migrate, import-cmd, report
+│   │                 # check, drift, migrate, import-cmd, report,
+│   │                 # evidence, impact
 │   ├── watch.ts      # File watcher for --watch modes
 │   ├── errors.ts     # CliError class for testable exits
 │   └── __tests__/    # CLI integration tests
