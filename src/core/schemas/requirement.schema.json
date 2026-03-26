@@ -228,6 +228,15 @@
       "type": ["string", "null"],
       "description": "REQ ID that replaces this requirement"
     },
+    "dependsOn": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[1-9][0-9]*$"
+      },
+      "uniqueItems": true,
+      "description": "Requirement IDs this requirement depends on"
+    },
     "docSource": {
       "type": "string",
       "const": "canonical-json",

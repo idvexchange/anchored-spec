@@ -175,6 +175,29 @@ function runVerification(
         }
       }
 
+      // ─── 7. Requirement Dependencies ───────────────────────────────────────
+
+      if (requirements.length > 0) {
+        stats.checks++;
+        console.log(chalk.dim(`  Checking requirement dependencies...`));
+        const depErrors = checkDependencies(requirements);
+        const depWarnings = depErrors.filter((e) => e.severity === "warning");
+        const depErrs = depErrors.filter((e) => e.severity === "error");
+        if (depErrors.length === 0) {
+          stats.passed++;
+        } else {
+          if (depErrs.length > 0) {
+            allErrors.push(...depErrs);
+            stats.errors++;
+          }
+          if (depWarnings.length > 0) {
+            allWarnings.push(...depWarnings);
+            stats.warnings++;
+          }
+          if (depErrs.length === 0) stats.passed++;
+        }
+      }
+
       // ─── Report ───────────────────────────────────────────────────────────
 
       console.log("");
@@ -348,4 +371,87 @@ function checkLifecycleRules(
   }
 
   return errors;
+}
+
+// ─── Dependency Checks ─────────────────────────────────────────────────────────
+
+function checkDependencies(requirements: Requirement[]): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const reqMap = new Map(requirements.map((r) => [r.id, r]));
+
+  for (const req of requirements) {
+    for (const depId of req.dependsOn ?? []) {
+      if (!reqMap.has(depId)) {
+        errors.push({
+          path: req.id,
+          message: `Depends on non-existent requirement "${depId}"`,
+          severity: "error",
+          rule: "dependency:missing-ref",
+        });
+      }
+    }
+  }
+
+  const cycles = detectCycles(requirements);
+  for (const cycle of cycles) {
+    errors.push({
+      path: cycle[0]!,
+      message: `Circular dependency detected: ${cycle.join(" → ")} → ${cycle[0]}`,
+      severity: "error",
+      rule: "dependency:cycle",
+    });
+  }
+
+  for (const req of requirements) {
+    if (req.status !== "active" && req.status !== "shipped") continue;
+    for (const depId of req.dependsOn ?? []) {
+      const dep = reqMap.get(depId);
+      if (!dep) continue;
+      if (dep.status === "draft" || dep.status === "deferred") {
+        errors.push({
+          path: req.id,
+          message: `Active/shipped requirement depends on ${dep.status} requirement "${depId}"`,
+          severity: "warning",
+          rule: "dependency:blocked",
+        });
+      }
+    }
+  }
+
+  return errors;
+}
+
+function detectCycles(requirements: Requirement[]): string[][] {
+  const cycles: string[][] = [];
+  const visited = new Set<string>();
+  const inStack = new Set<string>();
+  const path: string[] = [];
+  const reqMap = new Map(requirements.map((r) => [r.id, r]));
+
+  function dfs(id: string): void {
+    if (inStack.has(id)) {
+      const cycleStart = path.indexOf(id);
+      if (cycleStart !== -1) {
+        cycles.push(path.slice(cycleStart));
+      }
+      return;
+    }
+    if (visited.has(id)) return;
+    visited.add(id);
+    inStack.add(id);
+    path.push(id);
+    const req = reqMap.get(id);
+    if (req) {
+      for (const depId of req.dependsOn ?? []) {
+        dfs(depId);
+      }
+    }
+    path.pop();
+    inStack.delete(id);
+  }
+
+  for (const req of requirements) {
+    dfs(req.id);
+  }
+  return cycles;
 }

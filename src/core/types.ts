@@ -81,6 +81,7 @@ export interface Requirement {
   tags?: string[];
   supersedes?: string | null;
   supersededBy?: string | null;
+  dependsOn?: string[];
   docSource?: "canonical-json";
 }
 
