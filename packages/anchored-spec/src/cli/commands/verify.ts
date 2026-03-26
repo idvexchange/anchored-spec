@@ -17,8 +17,8 @@ import {
   validateChange,
   validateDecision,
   validateWorkflowPolicy,
-} from "@anchored-spec/core";
-import type { ValidationError, Requirement, Change } from "@anchored-spec/core";
+} from "../../core/index.js";
+import type { ValidationError, Requirement, Change } from "../../core/index.js";
 
 interface VerifyStats {
   checks: number;

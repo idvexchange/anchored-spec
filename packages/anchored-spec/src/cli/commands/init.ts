@@ -62,11 +62,10 @@ export function initCommand(): Command {
         console.log(chalk.green(`  ✓ Created .anchored-spec/config.json`));
       }
 
-      // 3. Copy schemas from core package
-      const corePackageDir = resolve(__dirname, "..", "..", "..", "core");
+      // 3. Copy schemas — resolve from sibling core directory
       const possibleSchemaDirs = [
-        join(corePackageDir, "dist", "schemas"),
-        join(corePackageDir, "src", "schemas"),
+        resolve(__dirname, "..", "..", "core", "schemas"),  // dist/core/schemas (built)
+        resolve(__dirname, "..", "..", "..", "src", "core", "schemas"),  // src/core/schemas (dev)
       ];
       const schemasSource = possibleSchemaDirs.find((d) => existsSync(d));
       const schemasTarget = join(cwd, specRoot, "schemas");
@@ -86,7 +85,7 @@ export function initCommand(): Command {
             console.log(chalk.green(`  ✓ Copied ${specRoot}/schemas/${schemaFile}`));
           }
         } else if (!existsSync(dest)) {
-          console.log(chalk.yellow(`  ⚠ Schema source not found: ${schemaFile} (install @anchored-spec/core)`));
+          console.log(chalk.yellow(`  ⚠ Schema source not found: ${schemaFile}`));
         }
       }
 

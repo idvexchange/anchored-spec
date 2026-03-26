@@ -6,8 +6,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { SpecRoot } from "@anchored-spec/core";
-import type { Requirement, Change, Decision, WorkflowPolicy } from "@anchored-spec/core";
+import { SpecRoot } from "../../core/index.js";
+import type { Requirement, Change, Decision, WorkflowPolicy } from "../../core/index.js";
 
 export function statusCommand(): Command {
   return new Command("status")

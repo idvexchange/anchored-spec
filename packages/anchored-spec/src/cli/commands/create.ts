@@ -9,7 +9,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { SpecRoot } from "@anchored-spec/core";
+import { SpecRoot } from "../../core/index.js";
 
 // ─── ID Generation ─────────────────────────────────────────────────────────────
 

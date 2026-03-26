@@ -1,5 +1,5 @@
 {
-  "name": "anchored-spec",
+  "name": "anchored-spec-monorepo",
   "private": true,
   "scripts": {
     "build": "turbo run build",

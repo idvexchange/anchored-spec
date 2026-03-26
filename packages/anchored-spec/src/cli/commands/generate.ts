@@ -15,7 +15,7 @@ import {
   generateDecisionsMarkdown,
   generateChangesMarkdown,
   generateStatusMarkdown,
-} from "@anchored-spec/core";
+} from "../../core/index.js";
 
 export function generateCommand(): Command {
   return new Command("generate")
