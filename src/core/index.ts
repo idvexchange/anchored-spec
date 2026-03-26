@@ -44,6 +44,8 @@ export type {
   HookEvent,
   HookDefinition,
   TestMetadataConfig,
+  ChangeVerification,
+  ChangeVerificationCommand,
 } from "./types.js";
 
 // Validation

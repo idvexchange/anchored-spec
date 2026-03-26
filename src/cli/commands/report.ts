@@ -10,7 +10,7 @@ import chalk from "chalk";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
-import type { Requirement, Change, Decision } from "../../core/types.js";
+import type { Requirement, Change, Decision, ChangeVerification } from "../../core/types.js";
 import { CliError } from "../errors.js";
 
 // ─── Report Data Structures ─────────────────────────────────────────────────────
@@ -27,6 +27,16 @@ interface TraceRow {
   dependsOn: string[];
 }
 
+interface ChangeVerificationSummary {
+  changeId: string;
+  totalCommands: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  skipped: number;
+  allPassed: boolean;
+}
+
 interface ReportData {
   trace: TraceRow[];
   statusBreakdown: Record<string, number>;
@@ -37,6 +47,7 @@ interface ReportData {
   totalRequirements: number;
   totalChanges: number;
   totalDecisions: number;
+  changeVerifications: ChangeVerificationSummary[];
 }
 
 // ─── Report Building ────────────────────────────────────────────────────────────
@@ -45,6 +56,7 @@ function buildReport(
   requirements: Requirement[],
   changes: Change[],
   decisions: Decision[],
+  verifications: ChangeVerification[],
 ): ReportData {
   const statusBreakdown: Record<string, number> = {};
   const priorityBreakdown: Record<string, number> = {};
@@ -95,6 +107,23 @@ function buildReport(
     .filter((d) => !linkedDecisionIds.has(d.id))
     .map((d) => d.id);
 
+  // Change verification summaries
+  const changeVerifications: ChangeVerificationSummary[] = verifications.map((v) => {
+    const passed = v.commands.filter((c) => c.status === "passed").length;
+    const failed = v.commands.filter((c) => c.status === "failed").length;
+    const skipped = v.commands.filter((c) => c.status === "skipped").length;
+    const pending = v.commands.filter((c) => !c.status || c.status === "pending").length;
+    return {
+      changeId: v.changeId,
+      totalCommands: v.commands.length,
+      passed,
+      failed,
+      pending,
+      skipped,
+      allPassed: failed === 0 && pending === 0 && v.commands.length > 0,
+    };
+  });
+
   return {
     trace,
     statusBreakdown,
@@ -105,6 +134,7 @@ function buildReport(
     totalRequirements: requirements.length,
     totalChanges: changes.length,
     totalDecisions: decisions.length,
+    changeVerifications,
   };
 }
 
@@ -168,6 +198,21 @@ function renderMarkdown(data: ReportData): string {
   }
   lines.push("");
 
+  // Change Verification
+  if (data.changeVerifications.length > 0) {
+    lines.push("## Change Verification");
+    lines.push("");
+    lines.push("| Change | Commands | Passed | Failed | Pending | Skipped | Status |");
+    lines.push("| :--- | ---: | ---: | ---: | ---: | ---: | :--- |");
+    for (const v of data.changeVerifications) {
+      const status = v.allPassed ? "✅ Ready" : v.failed > 0 ? "❌ Failed" : "⏳ Pending";
+      lines.push(
+        `| ${v.changeId} | ${v.totalCommands} | ${v.passed} | ${v.failed} | ${v.pending} | ${v.skipped} | ${status} |`,
+      );
+    }
+    lines.push("");
+  }
+
   // Orphans
   if (data.orphanChanges.length > 0 || data.orphanDecisions.length > 0) {
     lines.push("## Orphaned Artifacts");
@@ -204,7 +249,8 @@ export function reportCommand(): Command {
       const requirements = spec.loadRequirements();
       const changes = spec.loadChanges();
       const decisions = spec.loadDecisions();
-      const report = buildReport(requirements, changes, decisions);
+      const verifications = spec.loadChangeVerifications();
+      const report = buildReport(requirements, changes, decisions, verifications);
 
       if (opts.json) {
         console.log(JSON.stringify(report, null, 2));

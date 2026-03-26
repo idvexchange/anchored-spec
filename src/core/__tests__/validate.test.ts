@@ -703,6 +703,24 @@ describe("extensions support", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("accepts decision with extensions", () => {
+    const decision = {
+      id: "ADR-1",
+      title: "Test decision with extensions",
+      slug: "test-decision-ext",
+      status: "accepted",
+      decision: "We decided to use X for this test.",
+      context: "Because Y needed proper extension support.",
+      rationale: "Z was better suited for our extension needs.",
+      alternatives: [{ name: "Alt", verdict: "rejected", reason: "Not applicable" }],
+      relatedRequirements: [],
+      docSource: "canonical-json",
+      extensions: { jira: { issueKey: "PROJ-456" }, custom: { flag: true } },
+    };
+    const result = validateSchema(decision, "decision");
+    expect(result.valid).toBe(true);
+  });
+
   it("rejects extensions on workflow-policy (not allowed)", () => {
     const policy = {
       workflowVariants: [

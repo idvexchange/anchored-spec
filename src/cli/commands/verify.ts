@@ -11,6 +11,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   SpecRoot,
   validateRequirement,
@@ -22,6 +24,7 @@ import {
   checkDependencies,
   checkFilePaths,
   checkTestLinking,
+  validateEvidence,
   resolveConfig,
 } from "../../core/index.js";
 import type { ValidationError } from "../../core/index.js";
@@ -239,6 +242,31 @@ function runVerification(
             });
           }
           stats.warnings++;
+        }
+      }
+
+      // ─── 10. Evidence Validation ──────────────────────────────────────────
+
+      const evidencePath = join(spec.specRoot, "generated", "evidence.json");
+      if (existsSync(evidencePath)) {
+        stats.checks++;
+        console.log(chalk.dim(`  Validating evidence...`));
+        const evidenceErrors = validateEvidence(evidencePath, requirements);
+        if (evidenceErrors.length === 0) {
+          stats.passed++;
+        } else {
+          for (const e of evidenceErrors) {
+            if (e.severity === "error") {
+              allErrors.push(e);
+            } else {
+              allWarnings.push(e);
+            }
+          }
+          if (evidenceErrors.some((e) => e.severity === "error")) {
+            stats.errors++;
+          } else {
+            stats.warnings++;
+          }
         }
       }
 

@@ -13,6 +13,7 @@ import type {
   Change,
   Decision,
   WorkflowPolicy,
+  ChangeVerification,
 } from "./types.js";
 
 // ─── Default Configuration ─────────────────────────────────────────────────────
@@ -175,6 +176,22 @@ export class SpecRoot {
     const policyPath = this.workflowPolicyPath;
     if (!existsSync(policyPath)) return null;
     return loadJsonFile<WorkflowPolicy>(policyPath);
+  }
+
+  loadChangeVerifications(): ChangeVerification[] {
+    const changesDir = this.changesDir;
+    if (!existsSync(changesDir)) return [];
+    const verifications: ChangeVerification[] = [];
+    for (const entry of readdirSync(changesDir)) {
+      const fullPath = join(changesDir, entry);
+      if (statSync(fullPath).isDirectory()) {
+        const verifyPath = join(fullPath, "verification.json");
+        if (existsSync(verifyPath)) {
+          verifications.push(loadJsonFile<ChangeVerification>(verifyPath));
+        }
+      }
+    }
+    return verifications;
   }
 
   /**

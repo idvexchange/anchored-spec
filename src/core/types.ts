@@ -347,3 +347,25 @@ export interface TestMetadataConfig {
   /** Regex pattern to extract requirement IDs from test files */
   requirementPattern?: string;
 }
+
+// ─── Change Verification ──────────────────────────────────────────────────────
+
+export interface ChangeVerificationCommand {
+  name: string;
+  command: string;
+  required: boolean;
+  status?: "pending" | "passed" | "failed" | "skipped";
+  ranAt?: string | null;
+}
+
+export interface ChangeVerification {
+  $schema?: string;
+  schemaVersion?: string;
+  changeId: string;
+  commands: ChangeVerificationCommand[];
+  driftChecks?: string[];
+  evidence?: {
+    collected: boolean;
+    collectedAt?: string | null;
+  };
+}
