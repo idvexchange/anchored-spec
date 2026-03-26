@@ -1,20 +1,68 @@
 {
-  "name": "anchored-spec-monorepo",
-  "private": true,
+  "name": "anchored-spec",
+  "version": "0.1.0",
+  "description": "Spec-driven development framework — specs as living contracts",
+  "type": "module",
+  "bin": {
+    "anchored-spec": "./dist/cli/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./schemas/*": "./dist/core/schemas/*"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "check-types": "turbo run check-types",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "verify": "turbo run build && turbo run test && turbo run check-types && turbo run lint"
+    "build": "tsc && cp -r src/core/schemas dist/core/",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "verify": "tsc && vitest run && eslint .",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "minimatch": "^10.0.1",
+    "ora": "^8.2.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-only-warn": "^1.1.0",
+    "eslint-plugin-turbo": "^2.7.1",
     "prettier": "^3.7.4",
-    "turbo": "^2.8.20",
-    "typescript": "5.9.2"
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.50.0",
+    "vitest": "^3.2.1"
   },
-  "packageManager": "pnpm@9.0.0",
+  "keywords": [
+    "spec-driven",
+    "requirements",
+    "architecture-decision-records",
+    "adr",
+    "ears",
+    "behavioral-requirements",
+    "governance",
+    "spec-anchored"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/idvexchange/anchored-spec"
+  },
   "engines": {
     "node": ">=18"
   }
