@@ -7,7 +7,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/index.js";
 import type { Change, ChangePhase } from "../../core/index.js";
@@ -164,6 +164,29 @@ export function transitionCommand(): Command {
       if (options.dryRun) {
         console.log(chalk.yellow(`\n  [DRY RUN] Would update phase to "${targetPhase}".`));
         return;
+      }
+
+      // Check verification.json sidecar on "done" transition
+      if (targetPhase === "done" && !options.force) {
+        const verifyPath = changePath.replace("change.json", "verification.json");
+        if (existsSync(verifyPath)) {
+          try {
+            const vf = JSON.parse(readFileSync(verifyPath, "utf-8"));
+            const pendingRequired = (vf.commands ?? []).filter(
+              (c: { required?: boolean; status?: string }) => c.required && c.status !== "passed",
+            );
+            if (pendingRequired.length > 0) {
+              console.log(chalk.yellow(`\n  ⚠ ${pendingRequired.length} required verification command(s) not yet passed:`));
+              for (const c of pendingRequired) {
+                console.log(chalk.yellow(`    • ${c.name}: ${c.status ?? "pending"}`));
+              }
+            }
+          } catch {
+            // Malformed verification.json — warn but don't block
+          }
+        } else {
+          console.log(chalk.dim(`  ℹ No verification.json sidecar found.`));
+        }
       }
 
       // Update the change

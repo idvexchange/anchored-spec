@@ -109,5 +109,13 @@ export { runHooks } from "./hooks.js";
 export { checkTestLinking } from "./test-linking.js";
 export type { TestLinkReport, TestLinkFinding } from "./test-linking.js";
 
+// Evidence Pipeline
+export { collectEvidence, writeEvidence, validateEvidence, loadEvidence, VitestParser } from "./evidence.js";
+export type { Evidence, EvidenceRecord, EvidenceParser } from "./evidence.js";
+
+// Impact Analysis
+export { analyzeImpact, generateImpactMap } from "./impact.js";
+export type { ImpactResult, ImpactMatch, ImpactMap } from "./impact.js";
+
 // Loader
 export { SpecRoot, resolveConfig, findProjectRoot } from "./loader.js";

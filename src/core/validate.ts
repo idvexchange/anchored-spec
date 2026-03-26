@@ -39,13 +39,15 @@ function getAjv(): Ajv {
     ajvInstance.addSchema(loadSchema("change"), "change");
     ajvInstance.addSchema(loadSchema("decision"), "decision");
     ajvInstance.addSchema(loadSchema("workflow-policy"), "workflow-policy");
+    ajvInstance.addSchema(loadSchema("evidence"), "evidence");
+    ajvInstance.addSchema(loadSchema("change-verification"), "change-verification");
   }
   return ajvInstance;
 }
 
 // ─── Schema Validation ─────────────────────────────────────────────────────────
 
-export type SchemaName = "requirement" | "change" | "decision" | "workflow-policy";
+export type SchemaName = "requirement" | "change" | "decision" | "workflow-policy" | "evidence" | "change-verification";
 
 /**
  * Validate a JSON object against one of the built-in schemas.

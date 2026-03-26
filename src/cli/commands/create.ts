@@ -263,6 +263,24 @@ export function createCommand(): Command {
       const filePath = join(changeDir, "change.json");
       if (!dryRun) {
         writeFileSync(filePath, JSON.stringify(change, null, 2) + "\n");
+
+        // Generate verification sidecar
+        const verification = {
+          $schema: "../../schemas/change-verification.schema.json",
+          changeId: id,
+          commands: [
+            { name: "verify", command: "anchored-spec verify --strict", required: true, status: "pending" },
+            ...(isChore
+              ? []
+              : [{ name: "drift", command: "anchored-spec drift --fail-on-missing", required: true, status: "pending" }]),
+          ],
+          driftChecks: isChore ? [] : ["semantic"],
+          evidence: { collected: false, collectedAt: null },
+        };
+        writeFileSync(
+          join(changeDir, "verification.json"),
+          JSON.stringify(verification, null, 2) + "\n",
+        );
       }
 
       console.log(chalk.green(`${dryRun ? "→" : "✓"} ${dryRun ? "Would create" : "Created"} ${id}: ${options.title}`));

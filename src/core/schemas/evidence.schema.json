@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Evidence",
+  "description": "Test evidence artifact — machine-verifiable proof that tests pass.",
+  "type": "object",
+  "required": ["generatedAt", "source", "records"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of evidence generation"
+    },
+    "source": {
+      "type": "string",
+      "description": "Test runner that produced this evidence (vitest, jest, junit)",
+      "enum": ["vitest", "jest", "junit", "custom"]
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["requirementId", "testFile", "kind", "status", "recordedAt"],
+        "additionalProperties": false,
+        "properties": {
+          "requirementId": {
+            "type": "string",
+            "pattern": "^REQ-[1-9][0-9]*$"
+          },
+          "testFile": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["passed", "failed", "skipped", "error"]
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Test duration in milliseconds"
+          }
+        }
+      }
+    }
+  }
+}

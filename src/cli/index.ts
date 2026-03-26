@@ -22,6 +22,8 @@ import { migrateCommand } from "./commands/migrate.js";
 import { driftCommand } from "./commands/drift.js";
 import { importCommand } from "./commands/import-cmd.js";
 import { reportCommand } from "./commands/report.js";
+import { evidenceCommand } from "./commands/evidence.js";
+import { impactCommand } from "./commands/impact.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -54,6 +56,8 @@ program.addCommand(migrateCommand());
 program.addCommand(driftCommand());
 program.addCommand(importCommand());
 program.addCommand(reportCommand());
+program.addCommand(evidenceCommand());
+program.addCommand(impactCommand());
 
 async function main(): Promise<void> {
   try {

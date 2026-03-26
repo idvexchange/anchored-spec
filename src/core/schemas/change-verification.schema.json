@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Change Verification",
+  "description": "Sidecar verification tracking for a change record.",
+  "type": "object",
+  "required": ["changeId", "commands"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "changeId": {
+      "type": "string",
+      "pattern": "^CHG-\\d{4}-\\d{4}-.+$",
+      "description": "ID of the change this verification belongs to"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed", "skipped"],
+            "default": "pending"
+          },
+          "ranAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "driftChecks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Types of drift checks required"
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "collected": { "type": "boolean" },
+        "collectedAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
+  }
+}
