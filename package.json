@@ -6,12 +6,19 @@
   "bin": {
     "anchored-spec": "./dist/cli/index.js"
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./schemas/*": "./dist/core/schemas/*"
   },
@@ -21,12 +28,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && cp -r src/core/schemas dist/core/",
+    "build": "tsup && cp -r src/core/schemas dist/core/",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
     "verify": "tsc && vitest run && eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "prepublishOnly": "pnpm verify"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -42,8 +50,8 @@
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-only-warn": "^1.1.0",
-    "eslint-plugin-turbo": "^2.7.1",
     "prettier": "^3.7.4",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.50.0",
     "vitest": "^3.2.1"

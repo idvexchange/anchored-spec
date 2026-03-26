@@ -47,9 +47,14 @@ export function resolveConfig(projectRoot: string): AnchoredSpecConfig {
 
 // ─── JSON File Loading ─────────────────────────────────────────────────────────
 
-function loadJsonFile<T>(path: string): T {
-  const content = readFileSync(path, "utf-8");
-  return JSON.parse(content) as T;
+function loadJsonFile<T>(filePath: string): T {
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    return JSON.parse(content) as T;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse ${filePath}: ${message}`);
+  }
 }
 
 function loadJsonFilesFromDir<T>(dirPath: string, pattern?: RegExp): T[] {
@@ -147,6 +152,7 @@ export class SpecRoot {
 
   /**
    * Get a summary of what's in the spec root.
+   * Uses directory listing for counts to avoid full JSON parsing.
    */
   getSummary(): {
     initialized: boolean;
@@ -155,11 +161,37 @@ export class SpecRoot {
     decisionCount: number;
     hasPolicy: boolean;
   } {
+    if (!this.isInitialized()) {
+      return {
+        initialized: false,
+        requirementCount: 0,
+        changeCount: 0,
+        decisionCount: 0,
+        hasPolicy: false,
+      };
+    }
+
+    const countFiles = (dir: string, pattern: RegExp): number => {
+      if (!existsSync(dir)) return 0;
+      return readdirSync(dir).filter((f) => pattern.test(f)).length;
+    };
+
+    const countChangeDirs = (dir: string): number => {
+      if (!existsSync(dir)) return 0;
+      return readdirSync(dir).filter((entry) => {
+        const fullPath = join(dir, entry);
+        return (
+          (statSync(fullPath).isDirectory() && existsSync(join(fullPath, "change.json"))) ||
+          (statSync(fullPath).isFile() && entry.endsWith(".json"))
+        );
+      }).length;
+    };
+
     return {
-      initialized: this.isInitialized(),
-      requirementCount: this.isInitialized() ? this.loadRequirements().length : 0,
-      changeCount: this.isInitialized() ? this.loadChanges().length : 0,
-      decisionCount: this.isInitialized() ? this.loadDecisions().length : 0,
+      initialized: true,
+      requirementCount: countFiles(this.requirementsDir, /^REQ-.*\.json$/),
+      changeCount: countChangeDirs(this.changesDir),
+      decisionCount: countFiles(this.decisionsDir, /^ADR-.*\.json$/),
       hasPolicy: existsSync(this.workflowPolicyPath),
     };
   }

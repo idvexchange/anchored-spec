@@ -10,7 +10,7 @@ import addFormats from "ajv-formats";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ValidationResult, ValidationError, Requirement } from "./types.js";
+import type { ValidationResult, ValidationError, Requirement, WorkflowPolicy } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMAS_DIR = join(__dirname, "schemas");
@@ -198,6 +198,51 @@ export function checkRequirementQuality(req: Requirement): ValidationError[] {
     });
   }
 
+  // Check 7: Duplicate behavior statement IDs
+  const bsIds = req.behaviorStatements.map((bs) => bs.id);
+  const bsDuplicates = bsIds.filter((id, i) => bsIds.indexOf(id) !== i);
+  for (const dupId of [...new Set(bsDuplicates)]) {
+    issues.push({
+      path: `/behaviorStatements`,
+      message: `Duplicate behavior statement ID: "${dupId}". Each BS-* ID must be unique within a requirement.`,
+      severity: "error",
+      rule: "quality:unique-bs-ids",
+    });
+  }
+
+  return issues;
+}
+
+/**
+ * Run quality checks on a workflow policy beyond schema validation.
+ */
+export function checkPolicyQuality(policy: WorkflowPolicy): ValidationError[] {
+  const issues: ValidationError[] = [];
+
+  // Check 1: Duplicate workflow variant IDs
+  const variantIds = policy.workflowVariants.map((v) => v.id);
+  const variantDups = variantIds.filter((id, i) => variantIds.indexOf(id) !== i);
+  for (const dupId of [...new Set(variantDups)]) {
+    issues.push({
+      path: `/workflowVariants`,
+      message: `Duplicate workflow variant ID: "${dupId}". Each variant must have a unique ID.`,
+      severity: "error",
+      rule: "quality:unique-variant-ids",
+    });
+  }
+
+  // Check 2: Duplicate change-required rule IDs
+  const ruleIds = policy.changeRequiredRules.map((r) => r.id);
+  const ruleDups = ruleIds.filter((id, i) => ruleIds.indexOf(id) !== i);
+  for (const dupId of [...new Set(ruleDups)]) {
+    issues.push({
+      path: `/changeRequiredRules`,
+      message: `Duplicate change-required rule ID: "${dupId}". Each rule must have a unique ID.`,
+      severity: "error",
+      rule: "quality:unique-rule-ids",
+    });
+  }
+
   return issues;
 }
 
@@ -238,8 +283,21 @@ export function validateDecision(data: unknown): ValidationResult {
 }
 
 /**
- * Validate a workflow policy: schema only.
+ * Validate a workflow policy: schema + quality checks.
  */
 export function validateWorkflowPolicy(data: unknown): ValidationResult {
-  return validateSchema(data, "workflow-policy");
+  const schemaResult = validateSchema(data, "workflow-policy");
+  if (!schemaResult.valid) {
+    return schemaResult;
+  }
+
+  const qualityIssues = checkPolicyQuality(data as WorkflowPolicy);
+  const warnings = qualityIssues.filter((i) => i.severity === "warning");
+  const errors = qualityIssues.filter((i) => i.severity === "error");
+
+  return {
+    valid: errors.length === 0,
+    errors: [...schemaResult.errors, ...errors],
+    warnings: [...schemaResult.warnings, ...warnings],
+  };
 }

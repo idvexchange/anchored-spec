@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   validateSchema,
   validateRequirement,
+  validateWorkflowPolicy,
   checkRequirementQuality,
+  checkPolicyQuality,
 } from "../validate.js";
-import type { Requirement } from "../types.js";
+import type { Requirement, WorkflowPolicy } from "../types.js";
 
 // ─── Requirement Schema Validation ─────────────────────────────────────────────
 
@@ -346,5 +348,205 @@ describe("validateRequirement", () => {
     const result = validateRequirement(req);
     expect(result.valid).toBe(true); // Schema valid
     expect(result.warnings.length).toBeGreaterThan(0); // Quality warnings
+  });
+});
+
+// ─── Duplicate BS ID Detection ─────────────────────────────────────────────────
+
+describe("checkRequirementQuality — duplicate BS IDs", () => {
+  it("detects duplicate behavior statement IDs", () => {
+    const req: Requirement = {
+      id: "REQ-1",
+      title: "Test requirement",
+      summary: "Testing duplicate BS IDs.",
+      priority: "must",
+      status: "draft",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "When event A occurs, the system shall do X.",
+          format: "EARS",
+          trigger: "event A occurs",
+          response: "the system shall do X",
+        },
+        {
+          id: "BS-1",
+          text: "When event B occurs, the system shall do Y.",
+          format: "EARS",
+          trigger: "event B occurs",
+          response: "the system shall do Y",
+        },
+      ],
+      owners: ["team"],
+    };
+    const issues = checkRequirementQuality(req);
+    expect(issues.some((i) => i.rule === "quality:unique-bs-ids")).toBe(true);
+  });
+
+  it("allows unique behavior statement IDs", () => {
+    const req: Requirement = {
+      id: "REQ-1",
+      title: "Test requirement",
+      summary: "Testing unique BS IDs.",
+      priority: "must",
+      status: "draft",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "When event A occurs, the system shall do X.",
+          format: "EARS",
+          trigger: "event A occurs",
+          response: "the system shall do X",
+        },
+        {
+          id: "BS-2",
+          text: "When event B occurs, the system shall do Y.",
+          format: "EARS",
+          trigger: "event B occurs",
+          response: "the system shall do Y",
+        },
+      ],
+      owners: ["team"],
+    };
+    const issues = checkRequirementQuality(req);
+    expect(issues.some((i) => i.rule === "quality:unique-bs-ids")).toBe(false);
+  });
+});
+
+// ─── Policy Quality Checks ─────────────────────────────────────────────────────
+
+describe("checkPolicyQuality", () => {
+  it("detects duplicate workflow variant IDs", () => {
+    const policy: WorkflowPolicy = {
+      workflowVariants: [
+        { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: [] },
+        { id: "feature", name: "Feature Dup", defaultTypes: ["refactor"], artifacts: [] },
+      ],
+      changeRequiredRules: [],
+      trivialExemptions: [],
+      lifecycleRules: {},
+    };
+    const issues = checkPolicyQuality(policy);
+    expect(issues.some((i) => i.rule === "quality:unique-variant-ids")).toBe(true);
+  });
+
+  it("detects duplicate change-required rule IDs", () => {
+    const policy: WorkflowPolicy = {
+      workflowVariants: [
+        { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: [] },
+      ],
+      changeRequiredRules: [
+        { id: "source", include: ["src/**"] },
+        { id: "source", include: ["lib/**"] },
+      ],
+      trivialExemptions: [],
+      lifecycleRules: {},
+    };
+    const issues = checkPolicyQuality(policy);
+    expect(issues.some((i) => i.rule === "quality:unique-rule-ids")).toBe(true);
+  });
+
+  it("passes with unique IDs", () => {
+    const policy: WorkflowPolicy = {
+      workflowVariants: [
+        { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: [] },
+        { id: "fix", name: "Fix", defaultTypes: ["fix"], artifacts: [] },
+      ],
+      changeRequiredRules: [
+        { id: "source", include: ["src/**"] },
+        { id: "lib", include: ["lib/**"] },
+      ],
+      trivialExemptions: [],
+      lifecycleRules: {},
+    };
+    const issues = checkPolicyQuality(policy);
+    expect(issues).toHaveLength(0);
+  });
+});
+
+// ─── validateWorkflowPolicy with quality checks ───────────────────────────────
+
+describe("validateWorkflowPolicy", () => {
+  it("catches duplicate variant IDs as errors", () => {
+    const policy = {
+      workflowVariants: [
+        { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: [] },
+        { id: "feature", name: "Feature Dup", defaultTypes: ["refactor"], artifacts: [] },
+      ],
+      changeRequiredRules: [],
+      trivialExemptions: [],
+      lifecycleRules: {},
+    };
+    const result = validateWorkflowPolicy(policy);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.rule === "quality:unique-variant-ids")).toBe(true);
+  });
+});
+
+// ─── Decision Schema Edge Cases ────────────────────────────────────────────────
+
+describe("validateSchema — decision edge cases", () => {
+  it("rejects empty alternatives array", () => {
+    const decision = {
+      id: "ADR-1",
+      title: "Decision with no alternatives",
+      slug: "no-alternatives",
+      status: "accepted",
+      decision: "We decided something without considering alternatives.",
+      context: "Some context for the decision.",
+      rationale: "Some rationale for the decision.",
+      alternatives: [],
+      relatedRequirements: [],
+    };
+    const result = validateSchema(decision, "decision");
+    expect(result.valid).toBe(false);
+  });
+});
+
+// ─── Shipped Requirement Edge Cases ────────────────────────────────────────────
+
+describe("validateSchema — shipped requirement edge cases", () => {
+  it("rejects shipped requirement with coverage: none", () => {
+    const req = {
+      id: "REQ-1",
+      title: "Shipped with no coverage",
+      summary: "A shipped requirement that has no test coverage.",
+      priority: "must",
+      status: "shipped",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "When triggered, the system shall respond.",
+          format: "EARS",
+          response: "the system shall respond",
+        },
+      ],
+      owners: ["team"],
+      verification: { coverageStatus: "none" },
+    };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts shipped requirement with partial coverage", () => {
+    const req = {
+      id: "REQ-1",
+      title: "Shipped with partial coverage",
+      summary: "A shipped requirement that has partial test coverage.",
+      priority: "must",
+      status: "shipped",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "When triggered, the system shall respond.",
+          format: "EARS",
+          response: "the system shall respond",
+        },
+      ],
+      owners: ["team"],
+      verification: { coverageStatus: "partial" },
+    };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
   });
 });

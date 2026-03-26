@@ -43,6 +43,7 @@ export {
   validateDecision,
   validateWorkflowPolicy,
   checkRequirementQuality,
+  checkPolicyQuality,
 } from "./validate.js";
 export type { SchemaName } from "./validate.js";
 

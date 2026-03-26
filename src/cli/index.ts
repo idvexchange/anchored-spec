@@ -8,18 +8,22 @@
  */
 
 import { Command } from "commander";
+import { createRequire } from "node:module";
 import { initCommand } from "./commands/init.js";
 import { createCommand } from "./commands/create.js";
 import { verifyCommand } from "./commands/verify.js";
 import { generateCommand } from "./commands/generate.js";
 import { statusCommand } from "./commands/status.js";
 
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json") as { version: string };
+
 const program = new Command();
 
 program
   .name("anchored-spec")
   .description("Spec-driven development framework — specs as living contracts")
-  .version("0.1.0");
+  .version(pkg.version);
 
 program.addCommand(initCommand());
 program.addCommand(createCommand());

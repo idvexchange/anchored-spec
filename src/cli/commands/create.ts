@@ -58,9 +58,11 @@ export function createCommand(): Command {
     .requiredOption("--title <title>", "Requirement title")
     .option("--priority <priority>", "Priority (must, should, could, wont)", "should")
     .option("--owner <owner>", "Owner", "team")
+    .option("--dry-run", "Show what would be created without writing")
     .action((options) => {
       const cwd = process.cwd();
       const spec = new SpecRoot(cwd);
+      const dryRun = options.dryRun as boolean;
 
       if (!spec.isInitialized()) {
         console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
@@ -109,9 +111,11 @@ export function createCommand(): Command {
       };
 
       const filePath = join(spec.requirementsDir, `${id}.json`);
-      writeFileSync(filePath, JSON.stringify(requirement, null, 2) + "\n");
+      if (!dryRun) {
+        writeFileSync(filePath, JSON.stringify(requirement, null, 2) + "\n");
+      }
 
-      console.log(chalk.green(`✓ Created ${id}: ${options.title}`));
+      console.log(chalk.green(`${dryRun ? "→" : "✓"} ${dryRun ? "Would create" : "Created"} ${id}: ${options.title}`));
       console.log(chalk.dim(`  File: ${filePath}`));
       console.log(chalk.dim(`\nNext: Edit the behavior statements to describe observable behavior.`));
       console.log(chalk.dim(`  Tip: Use EARS notation — "When <event>, the system shall <response>"`));
@@ -127,9 +131,11 @@ export function createCommand(): Command {
     .requiredOption("--slug <slug>", "URL-safe short name")
     .option("--scope <globs...>", "Glob patterns for files in scope", ["src/**"])
     .option("--owner <owner>", "Owner", "team")
+    .option("--dry-run", "Show what would be created without writing")
     .action((options) => {
       const cwd = process.cwd();
       const spec = new SpecRoot(cwd);
+      const dryRun = options.dryRun as boolean;
 
       if (!spec.isInitialized()) {
         console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
@@ -193,12 +199,16 @@ export function createCommand(): Command {
 
       // Create change directory and file
       const changeDir = join(spec.changesDir, id);
-      mkdirSync(changeDir, { recursive: true });
+      if (!dryRun) {
+        mkdirSync(changeDir, { recursive: true });
+      }
 
       const filePath = join(changeDir, "change.json");
-      writeFileSync(filePath, JSON.stringify(change, null, 2) + "\n");
+      if (!dryRun) {
+        writeFileSync(filePath, JSON.stringify(change, null, 2) + "\n");
+      }
 
-      console.log(chalk.green(`✓ Created ${id}: ${options.title}`));
+      console.log(chalk.green(`${dryRun ? "→" : "✓"} ${dryRun ? "Would create" : "Created"} ${id}: ${options.title}`));
       console.log(chalk.dim(`  File: ${filePath}`));
       console.log(chalk.dim(`  Type: ${options.type} | Variant: ${workflowVariant ?? "chore"}`));
 
@@ -218,9 +228,11 @@ export function createCommand(): Command {
     .requiredOption("--title <title>", "Decision title")
     .requiredOption("--slug <slug>", "URL-safe short name")
     .option("--domain <domain>", "Domain category")
+    .option("--dry-run", "Show what would be created without writing")
     .action((options) => {
       const cwd = process.cwd();
       const spec = new SpecRoot(cwd);
+      const dryRun = options.dryRun as boolean;
 
       if (!spec.isInitialized()) {
         console.error(chalk.red("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first."));
@@ -252,9 +264,11 @@ export function createCommand(): Command {
       };
 
       const filePath = join(spec.decisionsDir, `${id}.json`);
-      writeFileSync(filePath, JSON.stringify(decision, null, 2) + "\n");
+      if (!dryRun) {
+        writeFileSync(filePath, JSON.stringify(decision, null, 2) + "\n");
+      }
 
-      console.log(chalk.green(`✓ Created ${id}: ${options.title}`));
+      console.log(chalk.green(`${dryRun ? "→" : "✓"} ${dryRun ? "Would create" : "Created"} ${id}: ${options.title}`));
       console.log(chalk.dim(`  File: ${filePath}`));
       console.log(chalk.dim(`\nNext: Fill in decision, context, rationale, and alternatives.`));
     });

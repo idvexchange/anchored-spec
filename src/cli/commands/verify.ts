@@ -204,7 +204,7 @@ function checkCrossReferences(
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 
-  // Check: CHG references REQ → REQ should reference back via implementation.activeChanges
+  // Check: CHG references REQ → REQ should exist
   for (const chg of changes) {
     if (chg.status !== "active") continue;
     for (const reqId of chg.requirements ?? []) {
@@ -230,6 +230,43 @@ function checkCrossReferences(
           message: `References non-existent change ${chgId}`,
           severity: "warning",
           rule: "cross-ref:requirement-to-change",
+        });
+      }
+    }
+  }
+
+  // Bidirectional consistency: if CHG-X references REQ-Y,
+  // REQ-Y.implementation.activeChanges should include CHG-X
+  for (const chg of changes) {
+    if (chg.status !== "active") continue;
+    for (const reqId of chg.requirements ?? []) {
+      const req = requirements.find((r) => r.id === reqId);
+      if (!req) continue;
+      const activeChanges = req.implementation?.activeChanges ?? [];
+      if (!activeChanges.includes(chg.id)) {
+        errors.push({
+          path: reqId,
+          message: `${chg.id} references this requirement, but it is not listed in implementation.activeChanges`,
+          severity: "warning",
+          rule: "cross-ref:bidirectional-consistency",
+        });
+      }
+    }
+  }
+
+  // Reverse: if REQ-Y.activeChanges includes CHG-X,
+  // CHG-X.requirements should include REQ-Y
+  for (const req of requirements) {
+    for (const chgId of req.implementation?.activeChanges ?? []) {
+      const chg = changes.find((c) => c.id === chgId);
+      if (!chg) continue;
+      const chgReqs = chg.requirements ?? [];
+      if (!chgReqs.includes(req.id)) {
+        errors.push({
+          path: chgId,
+          message: `${req.id} lists this change in activeChanges, but the change does not reference it in requirements`,
+          severity: "warning",
+          rule: "cross-ref:bidirectional-consistency",
         });
       }
     }

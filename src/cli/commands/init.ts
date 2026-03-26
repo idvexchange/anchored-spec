@@ -19,12 +19,18 @@ export function initCommand(): Command {
     .description("Initialize spec infrastructure in the current project")
     .option("--spec-root <path>", "Root directory for specs", "specs")
     .option("--no-scripts", "Skip adding scripts to package.json")
+    .option("--no-examples", "Skip creating starter example files")
     .option("--force", "Overwrite existing files")
+    .option("--dry-run", "Show what would be created without writing")
     .action(async (options) => {
       const cwd = process.cwd();
       const specRoot = options.specRoot as string;
+      const dryRun = options.dryRun as boolean;
 
       console.log(chalk.blue("🔗 Anchored Spec — Initializing spec infrastructure\n"));
+      if (dryRun) {
+        console.log(chalk.yellow("  [DRY RUN] No files will be written.\n"));
+      }
 
       // 1. Create directory structure
       const dirs = [
@@ -39,8 +45,8 @@ export function initCommand(): Command {
       for (const dir of dirs) {
         const fullPath = join(cwd, dir);
         if (!existsSync(fullPath)) {
-          mkdirSync(fullPath, { recursive: true });
-          console.log(chalk.green(`  ✓ Created ${dir}/`));
+          if (!dryRun) mkdirSync(fullPath, { recursive: true });
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${dir}/`));
         } else {
           console.log(chalk.dim(`  · ${dir}/ already exists`));
         }
@@ -58,8 +64,8 @@ export function initCommand(): Command {
           workflowPolicyPath: `${specRoot}/workflow-policy.json`,
           generatedDir: `${specRoot}/generated`,
         };
-        writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
-        console.log(chalk.green(`  ✓ Created .anchored-spec/config.json`));
+        if (!dryRun) writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .anchored-spec/config.json`));
       }
 
       // 3. Copy schemas — resolve from sibling core directory
@@ -81,8 +87,8 @@ export function initCommand(): Command {
         if (schemasSource) {
           const src = join(schemasSource, schemaFile);
           if (existsSync(src) && (!existsSync(dest) || options.force)) {
-            copyFileSync(src, dest);
-            console.log(chalk.green(`  ✓ Copied ${specRoot}/schemas/${schemaFile}`));
+            if (!dryRun) copyFileSync(src, dest);
+            console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Copy ${specRoot}/schemas/${schemaFile}`));
           }
         } else if (!existsSync(dest)) {
           console.log(chalk.yellow(`  ⚠ Schema source not found: ${schemaFile}`));
@@ -155,19 +161,84 @@ export function initCommand(): Command {
             deprecatedRequiresReason: true,
           },
         };
-        writeFileSync(policyPath, JSON.stringify(starterPolicy, null, 2) + "\n");
-        console.log(chalk.green(`  ✓ Created ${specRoot}/workflow-policy.json`));
+        if (!dryRun) writeFileSync(policyPath, JSON.stringify(starterPolicy, null, 2) + "\n");
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${specRoot}/workflow-policy.json`));
       }
 
       // 5. Create starter .gitkeep files so empty dirs are tracked
       for (const dir of ["requirements", "changes", "decisions"]) {
         const keepFile = join(cwd, specRoot, dir, ".gitkeep");
         if (!existsSync(keepFile)) {
-          writeFileSync(keepFile, "");
+          if (!dryRun) writeFileSync(keepFile, "");
         }
       }
 
-      // 6. Add scripts to package.json
+      // 6. Create starter example requirement
+      if (options.examples !== false) {
+        const exampleReqPath = join(cwd, specRoot, "requirements", "REQ-1.json");
+        if (!existsSync(exampleReqPath) || options.force) {
+          const exampleReq = {
+            id: "REQ-1",
+            title: "Example Requirement",
+            summary: "TODO: Describe what this feature does in behavioral terms. Replace this with your first real requirement.",
+            priority: "should",
+            status: "draft",
+            behaviorStatements: [
+              {
+                id: "BS-1",
+                text: "When a user performs an action, the system shall produce an observable result.",
+                format: "EARS",
+                trigger: "a user performs an action",
+                response: "the system shall produce an observable result",
+              },
+            ],
+            traceRefs: [],
+            semanticRefs: {
+              interfaces: [],
+              routes: [],
+              errorCodes: [],
+              symbols: [],
+            },
+            verification: {
+              requiredTestKinds: ["unit"],
+              coverageStatus: "none",
+              testFiles: [],
+              testRefs: [],
+            },
+            implementation: {
+              activeChanges: [],
+              shippedBy: null,
+              deprecatedBy: null,
+            },
+            owners: ["team"],
+            tags: [],
+            supersedes: null,
+            supersededBy: null,
+            docSource: "canonical-json",
+          };
+          if (!dryRun) writeFileSync(exampleReqPath, JSON.stringify(exampleReq, null, 2) + "\n");
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${specRoot}/requirements/REQ-1.json (starter example)`));
+        }
+      }
+
+      // 7. Add specs/generated/ to .gitignore
+      const gitignorePath = join(cwd, ".gitignore");
+      const generatedIgnore = `${specRoot}/generated/`;
+      if (existsSync(gitignorePath)) {
+        const gitignoreContent = readFileSync(gitignorePath, "utf-8");
+        if (!gitignoreContent.includes(generatedIgnore)) {
+          if (!dryRun) {
+            const separator = gitignoreContent.endsWith("\n") ? "" : "\n";
+            writeFileSync(gitignorePath, gitignoreContent + separator + `\n# Anchored Spec generated files\n${generatedIgnore}\n`);
+          }
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Add ${generatedIgnore} to .gitignore`));
+        }
+      } else {
+        if (!dryRun) writeFileSync(gitignorePath, `# Anchored Spec generated files\n${generatedIgnore}\n`);
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .gitignore with ${generatedIgnore}`));
+      }
+
+      // 8. Add scripts to package.json
       if (options.scripts !== false) {
         const pkgPath = join(cwd, "package.json");
         if (existsSync(pkgPath)) {
@@ -194,8 +265,8 @@ export function initCommand(): Command {
 
           if (updated) {
             pkg.scripts = scripts;
-            writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-            console.log(chalk.green(`  ✓ Added spec scripts to package.json`));
+            if (!dryRun) writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+            console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Add spec scripts to package.json`));
           }
         }
       }
