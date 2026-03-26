@@ -162,6 +162,40 @@ describe("TypeScript AST Drift Resolver", () => {
     expect(result).toContain("src/schema.ts");
   });
 
+  it("does not false-positive on partial schema name matches", () => {
+    const filePath = join(TMP, "src/schema.ts");
+    writeFileSync(filePath, `const schema = loadSchema("UserCreateRequest");`);
+
+    const ctx = makeCtx([{ path: filePath, relativePath: "src/schema.ts" }]);
+    const result = typescriptAstResolver.resolve("schema", "User", ctx);
+
+    expect(result).toBeNull();
+  });
+
+  it("resolves compound Class.method symbols", () => {
+    const filePath = join(TMP, "src/auth.ts");
+    writeFileSync(filePath, `
+      export class AuthService {
+        login(email: string) { return true; }
+        logout() {}
+      }
+    `);
+
+    const ctx = makeCtx([{ path: filePath, relativePath: "src/auth.ts" }]);
+
+    const loginResult = typescriptAstResolver.resolve("symbol", "AuthService.login", ctx);
+    expect(loginResult).not.toBeNull();
+    expect(loginResult).toContain("src/auth.ts");
+
+    resetProjectCache();
+    const logoutResult = typescriptAstResolver.resolve("symbol", "AuthService.logout", ctx);
+    expect(logoutResult).not.toBeNull();
+
+    resetProjectCache();
+    const missingResult = typescriptAstResolver.resolve("symbol", "AuthService.nonExistent", ctx);
+    expect(missingResult).toBeNull();
+  });
+
   it("returns null for missing symbol", () => {
     const filePath = join(TMP, "src/empty.ts");
     writeFileSync(filePath, `export const unrelated = true;`);

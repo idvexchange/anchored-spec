@@ -31,6 +31,10 @@ let tsMorphModule: typeof import("ts-morph") | null = null;
 let cachedProject: Project | null = null;
 let cachedProjectRoot: string | null = null;
 
+// Cached lookup indexes — built once per project, invalidated with resetProjectCache()
+let exportIndex: Map<string, string[]> | null = null;
+let classMethodIndex: Map<string, string[]> | null = null;
+
 function loadTsMorph(): typeof import("ts-morph") {
   if (tsMorphModule) return tsMorphModule;
   try {
@@ -85,6 +89,50 @@ function getProject(ctx: DriftResolveContext): Project {
   return cachedProject;
 }
 
+// ─── Lookup indexes ─────────────────────────────────────────────────────────────
+
+function getExportIndex(project: Project, ctx: DriftResolveContext): Map<string, string[]> {
+  if (exportIndex) return exportIndex;
+  exportIndex = new Map();
+  for (const sf of project.getSourceFiles()) {
+    const relPath = relative(ctx.projectRoot, sf.getFilePath());
+    for (const [name] of sf.getExportedDeclarations()) {
+      const paths = exportIndex.get(name) ?? [];
+      paths.push(relPath);
+      exportIndex.set(name, paths);
+    }
+  }
+  return exportIndex;
+}
+
+function getClassMethodIndex(project: Project, ctx: DriftResolveContext): Map<string, string[]> {
+  if (classMethodIndex) return classMethodIndex;
+  const { SyntaxKind } = loadTsMorph();
+  classMethodIndex = new Map();
+  for (const sf of project.getSourceFiles()) {
+    const relPath = relative(ctx.projectRoot, sf.getFilePath());
+    for (const [name, decls] of sf.getExportedDeclarations()) {
+      for (const decl of decls) {
+        if (decl.isKind(SyntaxKind.ClassDeclaration)) {
+          for (const method of decl.getMethods()) {
+            const key = `${name}.${method.getName()}`;
+            const paths = classMethodIndex.get(key) ?? [];
+            paths.push(relPath);
+            classMethodIndex.set(key, paths);
+          }
+          for (const prop of decl.getProperties()) {
+            const key = `${name}.${prop.getName()}`;
+            const paths = classMethodIndex.get(key) ?? [];
+            paths.push(relPath);
+            classMethodIndex.set(key, paths);
+          }
+        }
+      }
+    }
+  }
+  return classMethodIndex;
+}
+
 // ─── Per-kind resolution ────────────────────────────────────────────────────────
 
 function resolveExportedDeclaration(
@@ -92,16 +140,17 @@ function resolveExportedDeclaration(
   project: Project,
   ctx: DriftResolveContext,
 ): string[] | null {
-  const foundFiles: string[] = [];
-
-  for (const sourceFile of project.getSourceFiles()) {
-    const exports = sourceFile.getExportedDeclarations();
-    if (exports.has(ref)) {
-      foundFiles.push(relative(ctx.projectRoot, sourceFile.getFilePath()));
-    }
+  // AST-3: Support compound Class.method symbols
+  if (ref.includes(".")) {
+    const idx = getClassMethodIndex(project, ctx);
+    const files = idx.get(ref);
+    return files && files.length > 0 ? [...files] : null;
   }
 
-  return foundFiles.length > 0 ? foundFiles : null;
+  // Use cached export index for O(1) lookups
+  const idx = getExportIndex(project, ctx);
+  const files = idx.get(ref);
+  return files && files.length > 0 ? [...files] : null;
 }
 
 function resolveRoute(
@@ -242,10 +291,10 @@ function resolveSchema(
   for (const sourceFile of project.getSourceFiles()) {
     let found = false;
 
-    // Check string literals containing the schema name
+    // Check string literals matching the schema name exactly
     const stringLiterals = sourceFile.getDescendantsOfKind(SyntaxKind.StringLiteral);
     for (const lit of stringLiterals) {
-      if (lit.getLiteralValue().includes(ref)) {
+      if (lit.getLiteralValue() === ref) {
         found = true;
         break;
       }
@@ -305,8 +354,10 @@ const typescriptAstResolver: DriftResolver = {
 
 export default typescriptAstResolver;
 
-/** Reset the cached project (useful for testing). */
+/** Reset the cached project and lookup indexes (useful for testing). */
 export function resetProjectCache(): void {
   cachedProject = null;
   cachedProjectRoot = null;
+  exportIndex = null;
+  classMethodIndex = null;
 }

@@ -979,4 +979,50 @@ describe("CLI: verify integrity checks", () => {
     const result = runCLI("verify", tempDir);
     expect(result.stdout).toContain("Circular dependency");
   });
+
+  it("validates evidence when evidence.json exists", () => {
+    // Create a requirement that requires evidence
+    const req = {
+      $schema: "../schemas/requirement.schema.json",
+      id: "REQ-1",
+      title: "Evidence Test Req",
+      summary: "Test evidence validation in verify pipeline.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-1", text: "When testing, the system shall validate evidence.", format: "EARS", response: "The system shall validate evidence" },
+      ],
+      traceRefs: [],
+      semanticRefs: { interfaces: [], routes: [], errorCodes: [], symbols: [] },
+      verification: {
+        requiredTestKinds: [],
+        coverageStatus: "none",
+        testFiles: [],
+        testRefs: [],
+        executionPolicy: { requiresEvidence: true },
+      },
+      implementation: { activeChanges: [], shippedBy: null, deprecatedBy: null },
+      owners: ["team"],
+      tags: [],
+      supersedes: null,
+      supersededBy: null,
+      docSource: "canonical-json",
+    };
+    writeFileSync(
+      join(tempDir, "specs", "requirements", "REQ-1.json"),
+      JSON.stringify(req, null, 2),
+    );
+
+    // Create evidence file with no records for REQ-1 → should trigger error
+    mkdirSync(join(tempDir, "specs", "generated"), { recursive: true });
+    writeFileSync(
+      join(tempDir, "specs", "generated", "evidence.json"),
+      JSON.stringify({ generatedAt: new Date().toISOString(), records: [] }, null, 2),
+    );
+
+    const result = runCLI("verify", tempDir);
+    // verify should report evidence issue for REQ-1
+    expect(result.stdout).toContain("REQ-1");
+    expect(result.stdout).toContain("evidence");
+  });
 });
