@@ -92,6 +92,16 @@ Full documentation is in the [`docs/`](docs/) directory:
 | AST drift detection | ✅ ts-morph resolver | ❌ | ❌ | ❌ |
 | Evidence pipeline | ✅ Vitest/Jest/JUnit | ❌ | ❌ | ❌ |
 
+## AI Agent Skill
+
+Anchored Spec ships with **[SKILL.md](SKILL.md)** — an agent-agnostic instruction set that teaches AI coding agents to enforce SDD workflows. It works with GitHub Copilot, Cursor, Cline, Windsurf, Aider, and any other agent that reads project-root markdown.
+
+To activate, add one line to your agent's configuration (e.g., `.github/copilot-instructions.md`, `.cursorrules`, `.clinerules`):
+
+```
+Read and follow the rules in SKILL.md for all code changes in this repository.
+```
+
 ## Development
 
 ```bash
