@@ -83,6 +83,8 @@ export interface Requirement {
   supersededBy?: string | null;
   dependsOn?: string[];
   docSource?: "canonical-json";
+  schemaVersion?: string;
+  extensions?: Record<string, unknown>;
 }
 
 // ─── Change Record ─────────────────────────────────────────────────────────────
@@ -132,6 +134,8 @@ export interface Change {
   bugfixSpec?: BugfixSpec;
   tags?: string[];
   docSource?: "canonical-json";
+  schemaVersion?: string;
+  extensions?: Record<string, unknown>;
 }
 
 // ─── Decision (ADR) ────────────────────────────────────────────────────────────
@@ -157,6 +161,8 @@ export interface Decision {
   supersedes?: string | null;
   supersededBy?: string | null;
   docSource?: "canonical-json";
+  schemaVersion?: string;
+  extensions?: Record<string, unknown>;
 }
 
 // ─── Workflow Policy ───────────────────────────────────────────────────────────
@@ -247,6 +253,9 @@ export interface AnchoredSpecConfig {
   sourceRoots?: string[];
   sourceGlobs?: string[];
   plugins?: string[];
+  quality?: {
+    validateFilePaths?: boolean;
+  };
 }
 
 // ─── Plugin System ─────────────────────────────────────────────────────────────

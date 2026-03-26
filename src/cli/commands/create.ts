@@ -148,6 +148,7 @@ export function createCommand(): Command {
         supersedes: null,
         supersededBy: null,
         docSource: "canonical-json",
+        schemaVersion: "0.2.0",
       };
 
       const filePath = join(spec.requirementsDir, `${id}.json`);
@@ -223,6 +224,7 @@ export function createCommand(): Command {
         },
         owners: [options.owner],
         docSource: "canonical-json",
+        schemaVersion: "0.2.0",
       };
 
       if (!isChore) {
@@ -308,6 +310,7 @@ export function createCommand(): Command {
         supersedes: null,
         supersededBy: null,
         docSource: "canonical-json",
+        schemaVersion: "0.2.0",
       };
 
       const filePath = join(spec.decisionsDir, `${id}.json`);

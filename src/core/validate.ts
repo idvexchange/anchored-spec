@@ -7,7 +7,7 @@
 
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ValidationResult, ValidationError, Requirement, WorkflowPolicy } from "./types.js";
@@ -214,6 +214,26 @@ export function checkRequirementQuality(req: Requirement): ValidationError[] {
     });
   }
 
+  // Check 8: Test kind coverage — requiredTestKinds vs testRefs
+  if (
+    (req.status === "active" || req.status === "shipped") &&
+    req.verification?.requiredTestKinds &&
+    req.verification.requiredTestKinds.length > 0 &&
+    req.verification?.testRefs
+  ) {
+    const coveredKinds = new Set(req.verification.testRefs.map((r) => r.kind));
+    for (const kind of req.verification.requiredTestKinds) {
+      if (!coveredKinds.has(kind)) {
+        issues.push({
+          path: `/verification`,
+          message: `Missing testRef for required kind "${kind}". Has: ${[...coveredKinds].join(", ") || "none"}. Needs: ${req.verification.requiredTestKinds.join(", ")}.`,
+          severity: req.status === "shipped" ? "error" : "warning",
+          rule: "quality:test-kind-coverage",
+        });
+      }
+    }
+  }
+
   return issues;
 }
 
@@ -304,4 +324,54 @@ export function validateWorkflowPolicy(data: unknown): ValidationResult {
     errors: [...schemaResult.errors, ...errors],
     warnings: [...schemaResult.warnings, ...warnings],
   };
+}
+
+// ─── File Path Existence Check ─────────────────────────────────────────────────
+
+/**
+ * Check that file paths referenced in requirements exist on disk.
+ * Separate from quality checks because this performs I/O.
+ */
+export function checkFilePaths(
+  requirements: Requirement[],
+  projectRoot: string,
+): ValidationError[] {
+  const issues: ValidationError[] = [];
+
+  for (const req of requirements) {
+    for (const ref of req.verification?.testRefs ?? []) {
+      if (!existsSync(join(projectRoot, ref.path))) {
+        issues.push({
+          path: `${req.id}/verification/testRefs`,
+          message: `Test file not found: "${ref.path}"`,
+          severity: "warning",
+          rule: "quality:file-path-exists",
+        });
+      }
+    }
+
+    for (const ref of req.traceRefs ?? []) {
+      if (!existsSync(join(projectRoot, ref.path))) {
+        issues.push({
+          path: `${req.id}/traceRefs`,
+          message: `Trace reference not found: "${ref.path}"`,
+          severity: "warning",
+          rule: "quality:file-path-exists",
+        });
+      }
+    }
+
+    for (const file of req.verification?.testFiles ?? []) {
+      if (!existsSync(join(projectRoot, file))) {
+        issues.push({
+          path: `${req.id}/verification/testFiles`,
+          message: `Test file not found: "${file}"`,
+          severity: "warning",
+          rule: "quality:file-path-exists",
+        });
+      }
+    }
+  }
+
+  return issues;
 }

@@ -134,6 +134,10 @@
       },
       "additionalProperties": false,
       "description": "Machine-enforced lifecycle transition gates"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
     }
   },
   "additionalProperties": false

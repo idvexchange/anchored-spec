@@ -20,6 +20,8 @@ import {
   checkCrossReferences,
   checkLifecycleRules,
   checkDependencies,
+  checkFilePaths,
+  resolveConfig,
 } from "../../core/index.js";
 import type { ValidationError } from "../../core/index.js";
 import { watchSpecs } from "../watch.js";
@@ -48,12 +50,12 @@ export function verifyCommand(): Command {
 
       if (options.watch) {
         watchSpecs(spec.specRoot, () => {
-          runVerification(spec, options);
+          runVerification(spec, options, cwd);
         }, "verify");
         return;
       }
 
-      const hasFailure = runVerification(spec, options);
+      const hasFailure = runVerification(spec, options, cwd);
       if (hasFailure) {
         throw new CliError("", 1);
       }
@@ -62,7 +64,8 @@ export function verifyCommand(): Command {
 
 function runVerification(
   spec: SpecRoot,
-  options: { strict?: boolean; quiet?: boolean }
+  options: { strict?: boolean; quiet?: boolean },
+  cwd: string,
 ): boolean {
 
       console.log(chalk.blue("🔍 Anchored Spec — Verification\n"));
@@ -198,6 +201,21 @@ function runVerification(
             stats.warnings++;
           }
           if (depErrs.length === 0) stats.passed++;
+        }
+      }
+
+      // ─── 8. File Path Existence ─────────────────────────────────────────
+
+      const config = resolveConfig(cwd);
+      if (config.quality?.validateFilePaths !== false && requirements.length > 0) {
+        stats.checks++;
+        console.log(chalk.dim(`  Checking file path references...`));
+        const fpErrors = checkFilePaths(requirements, cwd);
+        if (fpErrors.length === 0) {
+          stats.passed++;
+        } else {
+          allWarnings.push(...fpErrors);
+          stats.warnings++;
         }
       }
 

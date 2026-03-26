@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { SpecRoot } from "../../core/index.js";
 import { CliError } from "../errors.js";
 
-const CURRENT_SCHEMA_VERSION = "1.0";
+const CURRENT_SCHEMA_VERSION = "0.2.0";
 
 interface MigrationFn {
   from: string;
@@ -23,13 +23,16 @@ interface MigrationFn {
 
 // Registry of migrations — add new ones here as schemas evolve
 const MIGRATIONS: MigrationFn[] = [
-  // Example for future use:
-  // {
-  //   from: "1.0",
-  //   to: "1.1",
-  //   description: "Add dependsOn field to requirements",
-  //   migrate: (data) => ({ ...data, dependsOn: data.dependsOn ?? [] }),
-  // },
+  {
+    from: "1.0",
+    to: "0.2.0",
+    description: "Add schemaVersion and extensions fields",
+    migrate: (data) => ({
+      ...data,
+      schemaVersion: "0.2.0",
+      extensions: data.extensions ?? undefined,
+    }),
+  },
 ];
 
 function detectVersion(data: Record<string, unknown>): string {

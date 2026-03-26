@@ -50,6 +50,7 @@ export {
   validateWorkflowPolicy,
   checkRequirementQuality,
   checkPolicyQuality,
+  checkFilePaths,
 } from "./validate.js";
 export type { SchemaName } from "./validate.js";
 

@@ -216,6 +216,7 @@ export function initCommand(): Command {
             supersedes: null,
             supersededBy: null,
             docSource: "canonical-json",
+            schemaVersion: "0.2.0",
           };
           if (!dryRun) writeFileSync(exampleReqPath, JSON.stringify(exampleReq, null, 2) + "\n");
           console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${specRoot}/requirements/REQ-1.json (starter example)`));

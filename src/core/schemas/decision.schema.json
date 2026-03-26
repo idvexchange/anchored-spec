@@ -97,6 +97,15 @@
     "docSource": {
       "type": "string",
       "const": "canonical-json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Project-specific custom fields"
     }
   },
   "additionalProperties": false,

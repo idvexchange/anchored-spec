@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import {
   validateSchema,
   validateRequirement,
@@ -548,5 +548,360 @@ describe("validateSchema — shipped requirement edge cases", () => {
     };
     const result = validateSchema(req, "requirement");
     expect(result.valid).toBe(true);
+  });
+});
+
+// ─── Schema Version & Extensions ──────────────────────────────────────────────
+
+describe("schemaVersion support", () => {
+  const baseReq = {
+    id: "REQ-1",
+    title: "Test requirement",
+    summary: "Test summary for validation.",
+    priority: "must",
+    status: "draft",
+    behaviorStatements: [
+      {
+        id: "BS-1",
+        text: "When triggered, the system shall respond.",
+        format: "EARS",
+        trigger: "triggered",
+        response: "the system shall respond",
+      },
+    ],
+    owners: ["team"],
+    docSource: "canonical-json",
+  };
+
+  it("accepts requirement with schemaVersion", () => {
+    const result = validateSchema({ ...baseReq, schemaVersion: "0.2.0" }, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts requirement without schemaVersion (optional)", () => {
+    const result = validateSchema(baseReq, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts change with schemaVersion", () => {
+    const change = {
+      id: "CHG-2025-0001-test-ver",
+      title: "Test change for version",
+      slug: "test-ver",
+      type: "feature",
+      workflowVariant: "feature-behavior-first",
+      phase: "design",
+      status: "active",
+      scope: { include: ["src/"] },
+      requirements: ["REQ-1"],
+      branch: null,
+      timestamps: { createdAt: "2025-01-01" },
+      owners: ["team"],
+      docSource: "canonical-json",
+      schemaVersion: "0.2.0",
+    };
+    const result = validateSchema(change, "change");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts decision with schemaVersion", () => {
+    const decision = {
+      id: "ADR-1",
+      title: "Test decision for versioning",
+      slug: "test-decision",
+      status: "accepted",
+      decision: "We decided to use X for versioning.",
+      context: "Because Y needed proper version tracking.",
+      rationale: "Z was better suited for our workflow.",
+      alternatives: [{ name: "Alt", verdict: "rejected", reason: "Not applicable" }],
+      relatedRequirements: [],
+      docSource: "canonical-json",
+      schemaVersion: "0.2.0",
+    };
+    const result = validateSchema(decision, "decision");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts workflow-policy with schemaVersion", () => {
+    const policy = {
+      schemaVersion: "0.2.0",
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          artifacts: ["requirements"],
+        },
+      ],
+      changeRequiredRules: [],
+      trivialExemptions: [],
+      lifecycleRules: {},
+    };
+    const result = validateSchema(policy, "workflow-policy");
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("extensions support", () => {
+  const baseReq = {
+    id: "REQ-1",
+    title: "Test requirement",
+    summary: "Test summary for validation.",
+    priority: "must",
+    status: "draft",
+    behaviorStatements: [
+      {
+        id: "BS-1",
+        text: "When triggered, the system shall respond.",
+        format: "EARS",
+        trigger: "triggered",
+        response: "the system shall respond",
+      },
+    ],
+    owners: ["team"],
+    docSource: "canonical-json",
+  };
+
+  it("accepts requirement with extensions", () => {
+    const result = validateSchema(
+      { ...baseReq, extensions: { myTool: { enabled: true } } },
+      "requirement"
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts empty extensions", () => {
+    const result = validateSchema({ ...baseReq, extensions: {} }, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("round-trips extensions through validation", () => {
+    const data = { ...baseReq, extensions: { jira: { issueKey: "PROJ-123" }, custom: [1, 2, 3] } };
+    const result = validateSchema(data, "requirement");
+    expect(result.valid).toBe(true);
+    expect((data as any).extensions.jira.issueKey).toBe("PROJ-123");
+  });
+
+  it("accepts change with extensions", () => {
+    const change = {
+      id: "CHG-2025-0001-ext-test",
+      title: "Test extensions on change",
+      slug: "ext-test",
+      type: "feature",
+      workflowVariant: "feature-behavior-first",
+      phase: "design",
+      status: "active",
+      scope: { include: ["src/"] },
+      requirements: ["REQ-1"],
+      branch: null,
+      timestamps: { createdAt: "2025-01-01" },
+      owners: ["team"],
+      docSource: "canonical-json",
+      extensions: { github: { prNumber: 42 } },
+    };
+    const result = validateSchema(change, "change");
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects extensions on workflow-policy (not allowed)", () => {
+    const policy = {
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          artifacts: ["requirements"],
+        },
+      ],
+      changeRequiredRules: [],
+      trivialExemptions: [],
+      lifecycleRules: {},
+      extensions: { bad: true },
+    };
+    const result = validateSchema(policy, "workflow-policy");
+    expect(result.valid).toBe(false);
+  });
+});
+
+// ─── Test Kind Coverage Check ─────────────────────────────────────────────────
+
+describe("quality:test-kind-coverage", () => {
+  const makeReq = (overrides: Partial<Requirement>): Requirement =>
+    ({
+      id: "REQ-1",
+      title: "Test requirement",
+      summary: "Test summary for validation.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "When triggered, the system shall produce an observable result.",
+          format: "EARS",
+          trigger: "triggered",
+          response: "the system shall produce an observable result",
+        },
+      ],
+      owners: ["team"],
+      traceRefs: [{ path: "docs/arch.md", role: "architecture" }],
+      semanticRefs: { interfaces: ["IFoo"], routes: [], errorCodes: [], symbols: [] },
+      docSource: "canonical-json",
+      ...overrides,
+    }) as Requirement;
+
+  it("reports missing test kind for active requirement", () => {
+    const req = makeReq({
+      verification: {
+        requiredTestKinds: ["unit", "integration"],
+        coverageStatus: "partial",
+        testRefs: [{ kind: "unit", path: "tests/foo.test.ts" }],
+      },
+    });
+    const issues = checkRequirementQuality(req);
+    const tkIssues = issues.filter((i) => i.rule === "quality:test-kind-coverage");
+    expect(tkIssues).toHaveLength(1);
+    expect(tkIssues[0].message).toContain("integration");
+  });
+
+  it("passes when all required kinds covered", () => {
+    const req = makeReq({
+      verification: {
+        requiredTestKinds: ["unit"],
+        coverageStatus: "full",
+        testRefs: [{ kind: "unit", path: "tests/foo.test.ts" }],
+      },
+    });
+    const issues = checkRequirementQuality(req);
+    const tkIssues = issues.filter((i) => i.rule === "quality:test-kind-coverage");
+    expect(tkIssues).toHaveLength(0);
+  });
+
+  it("reports error (not warning) for shipped requirement", () => {
+    const req = makeReq({
+      status: "shipped",
+      verification: {
+        requiredTestKinds: ["unit", "e2e"],
+        coverageStatus: "partial",
+        testRefs: [{ kind: "unit", path: "tests/foo.test.ts" }],
+      },
+    });
+    const issues = checkRequirementQuality(req);
+    const tkIssues = issues.filter((i) => i.rule === "quality:test-kind-coverage");
+    expect(tkIssues).toHaveLength(1);
+    expect(tkIssues[0].severity).toBe("error");
+  });
+
+  it("skips check for draft requirements", () => {
+    const req = makeReq({
+      status: "draft",
+      verification: {
+        requiredTestKinds: ["unit"],
+        coverageStatus: "none",
+        testRefs: [],
+      },
+    });
+    const issues = checkRequirementQuality(req);
+    const tkIssues = issues.filter((i) => i.rule === "quality:test-kind-coverage");
+    expect(tkIssues).toHaveLength(0);
+  });
+
+  it("skips check when no requiredTestKinds", () => {
+    const req = makeReq({
+      verification: {
+        coverageStatus: "full",
+        testRefs: [{ kind: "unit", path: "tests/foo.test.ts" }],
+      },
+    });
+    const issues = checkRequirementQuality(req);
+    const tkIssues = issues.filter((i) => i.rule === "quality:test-kind-coverage");
+    expect(tkIssues).toHaveLength(0);
+  });
+});
+
+// ─── File Path Existence Check ────────────────────────────────────────────────
+
+import { checkFilePaths } from "../validate.js";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+describe("checkFilePaths", () => {
+  const tmpRoot = join(tmpdir(), "anchored-spec-fp-test-" + process.pid);
+
+  const makeReq = (overrides: Partial<Requirement>): Requirement =>
+    ({
+      id: "REQ-1",
+      title: "Test requirement",
+      summary: "Test summary for validation.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [],
+      owners: ["team"],
+      docSource: "canonical-json",
+      ...overrides,
+    }) as Requirement;
+
+  beforeAll(() => {
+    mkdirSync(join(tmpRoot, "tests"), { recursive: true });
+    mkdirSync(join(tmpRoot, "docs"), { recursive: true });
+    writeFileSync(join(tmpRoot, "tests/foo.test.ts"), "test");
+    writeFileSync(join(tmpRoot, "docs/arch.md"), "arch");
+  });
+
+  afterAll(() => {
+    rmSync(tmpRoot, { recursive: true, force: true });
+  });
+
+  it("returns no issues when all paths exist", () => {
+    const req = makeReq({
+      verification: {
+        coverageStatus: "full",
+        testRefs: [{ kind: "unit", path: "tests/foo.test.ts" }],
+        testFiles: ["tests/foo.test.ts"],
+      },
+      traceRefs: [{ path: "docs/arch.md", role: "architecture" }],
+    });
+    const issues = checkFilePaths([req], tmpRoot);
+    expect(issues).toHaveLength(0);
+  });
+
+  it("reports missing testRef path", () => {
+    const req = makeReq({
+      verification: {
+        coverageStatus: "partial",
+        testRefs: [{ kind: "unit", path: "tests/missing.test.ts" }],
+      },
+    });
+    const issues = checkFilePaths([req], tmpRoot);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].rule).toBe("quality:file-path-exists");
+    expect(issues[0].message).toContain("missing.test.ts");
+  });
+
+  it("reports missing traceRef path", () => {
+    const req = makeReq({
+      traceRefs: [{ path: "docs/nonexistent.md", role: "architecture" }],
+    });
+    const issues = checkFilePaths([req], tmpRoot);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toContain("nonexistent.md");
+  });
+
+  it("reports missing testFiles path", () => {
+    const req = makeReq({
+      verification: {
+        coverageStatus: "partial",
+        testFiles: ["tests/gone.test.ts"],
+      },
+    });
+    const issues = checkFilePaths([req], tmpRoot);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toContain("gone.test.ts");
+  });
+
+  it("handles requirement with no paths", () => {
+    const req = makeReq({});
+    const issues = checkFilePaths([req], tmpRoot);
+    expect(issues).toHaveLength(0);
   });
 });

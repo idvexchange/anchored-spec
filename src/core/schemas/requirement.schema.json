@@ -241,6 +241,15 @@
       "type": "string",
       "const": "canonical-json",
       "description": "Always canonical-json — JSON is the source of truth"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Project-specific custom fields. Not validated by built-in schemas."
     }
   },
   "additionalProperties": false,
