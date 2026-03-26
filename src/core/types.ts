@@ -260,8 +260,8 @@ export interface AnchoredSpecConfig {
   quality?: {
     validateFilePaths?: boolean;
   };
-  /** Pluggable drift resolvers (tried before built-in scanner). */
-  driftResolvers?: DriftResolver[];
+  /** Pluggable drift resolver module paths (.js/.mjs/.cjs files exporting DriftResolver). */
+  driftResolvers?: string[];
   /** Lifecycle hooks. */
   hooks?: HookDefinition[];
   /** Test metadata linking configuration. */
@@ -332,7 +332,7 @@ export interface DriftResolver {
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
-export type HookEvent = "post-create" | "post-transition";
+export type HookEvent = "post-create" | "post-transition" | `post-create:${string}` | `post-transition:${string}`;
 
 export interface HookDefinition {
   event: HookEvent;

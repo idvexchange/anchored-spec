@@ -185,9 +185,7 @@ export function validateEvidence(
 
   // Check requirements with executionPolicy
   for (const req of requirements) {
-    const policy = (req.verification as Record<string, unknown> | undefined)?.executionPolicy as
-      | { requiresEvidence?: boolean; requiredKinds?: string[] }
-      | undefined;
+    const policy = req.verification?.executionPolicy;
     if (!policy?.requiresEvidence) continue;
 
     const reqRecords = evidence.records.filter((r) => r.requirementId === req.id);

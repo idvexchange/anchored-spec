@@ -905,3 +905,55 @@ describe("checkFilePaths", () => {
     expect(issues).toHaveLength(0);
   });
 });
+
+// ─── BUG-1: executionPolicy in schema ───────────────────────────────────────────
+
+describe("executionPolicy schema validation", () => {
+  it("accepts requirement with executionPolicy", () => {
+    const req = {
+      id: "REQ-1",
+      title: "Test requirement",
+      summary: "A test requirement for execution policy.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-1", text: "When evidence is required, the system shall collect it.", format: "EARS", response: "the system shall collect it" },
+      ],
+      owners: ["team"],
+      docSource: "canonical-json",
+      verification: {
+        coverageStatus: "full",
+        executionPolicy: {
+          requiresEvidence: true,
+          requiredKinds: ["unit", "integration"],
+        },
+      },
+    };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects unknown fields inside executionPolicy", () => {
+    const req = {
+      id: "REQ-1",
+      title: "Test requirement",
+      summary: "A test requirement for execution policy.",
+      priority: "must",
+      status: "active",
+      behaviorStatements: [
+        { id: "BS-1", text: "When evidence is required, the system shall reject unknowns.", format: "EARS", response: "the system shall reject unknowns" },
+      ],
+      owners: ["team"],
+      docSource: "canonical-json",
+      verification: {
+        executionPolicy: {
+          requiresEvidence: true,
+          unknownField: "bad",
+        },
+      },
+    };
+    const result = validateSchema(req, "requirement");
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.message.includes("additional"))).toBe(true);
+  });
+});

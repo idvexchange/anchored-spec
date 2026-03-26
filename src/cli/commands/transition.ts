@@ -163,6 +163,15 @@ export function transitionCommand(): Command {
 
       if (options.dryRun) {
         console.log(chalk.yellow(`\n  [DRY RUN] Would update phase to "${targetPhase}".`));
+        if (options.hooks !== false) {
+          const config = resolveConfig(cwd);
+          runHooks(`post-transition:${targetPhase}`, config, {
+            ANCHORED_SPEC_EVENT: "post-transition",
+            ANCHORED_SPEC_ID: changeId,
+            ANCHORED_SPEC_TYPE: "change",
+            ANCHORED_SPEC_STATUS: targetPhase,
+          }, { cwd, dryRun: true });
+        }
         return;
       }
 
@@ -216,7 +225,7 @@ export function transitionCommand(): Command {
 
       if (options.hooks !== false) {
         const config = resolveConfig(cwd);
-        runHooks("post-transition", config, {
+        runHooks(`post-transition:${updated.phase}`, config, {
           ANCHORED_SPEC_EVENT: "post-transition",
           ANCHORED_SPEC_ID: changeId,
           ANCHORED_SPEC_TYPE: "change",

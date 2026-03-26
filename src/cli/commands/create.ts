@@ -163,13 +163,13 @@ export function createCommand(): Command {
       console.log(chalk.dim(`\nNext: Edit the behavior statements to describe observable behavior.`));
       console.log(chalk.dim(`  Tip: Use EARS notation — "When <event>, the system shall <response>"`));
 
-      if (!dryRun && cmd.opts().hooks !== false) {
+      if (cmd.opts().hooks !== false) {
         const config = resolveConfig(cwd);
-        runHooks("post-create", config, {
+        runHooks("post-create:requirement", config, {
           ANCHORED_SPEC_EVENT: "post-create",
           ANCHORED_SPEC_ID: id,
           ANCHORED_SPEC_TYPE: "requirement",
-        }, { cwd });
+        }, { cwd, dryRun });
       }
     });
 
@@ -294,13 +294,13 @@ export function createCommand(): Command {
         console.log(chalk.dim(`  3. Start work:         Update phase to "implementation"`));
       }
 
-      if (!dryRun && cmd.opts().hooks !== false) {
+      if (cmd.opts().hooks !== false) {
         const config = resolveConfig(cwd);
-        runHooks("post-create", config, {
+        runHooks("post-create:change", config, {
           ANCHORED_SPEC_EVENT: "post-create",
           ANCHORED_SPEC_ID: id,
           ANCHORED_SPEC_TYPE: "change",
-        }, { cwd });
+        }, { cwd, dryRun });
       }
     });
 
@@ -360,13 +360,13 @@ export function createCommand(): Command {
       console.log(chalk.dim(`  File: ${filePath}`));
       console.log(chalk.dim(`\nNext: Fill in decision, context, rationale, and alternatives.`));
 
-      if (!dryRun && cmd.opts().hooks !== false) {
+      if (cmd.opts().hooks !== false) {
         const config = resolveConfig(cwd);
-        runHooks("post-create", config, {
+        runHooks("post-create:decision", config, {
           ANCHORED_SPEC_EVENT: "post-create",
           ANCHORED_SPEC_ID: id,
           ANCHORED_SPEC_TYPE: "decision",
-        }, { cwd });
+        }, { cwd, dryRun });
       }
     });
 

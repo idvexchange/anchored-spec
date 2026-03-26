@@ -184,6 +184,17 @@
             },
             "additionalProperties": false
           }
+        },
+        "executionPolicy": {
+          "type": "object",
+          "properties": {
+            "requiresEvidence": { "type": "boolean" },
+            "requiredKinds": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false,

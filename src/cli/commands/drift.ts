@@ -11,8 +11,33 @@ import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { SpecRoot, resolveConfig } from "../../core/loader.js";
 import { detectDrift } from "../../core/drift.js";
-import type { DriftFinding, DriftReport } from "../../core/types.js";
+import type { DriftFinding, DriftReport, DriftResolver } from "../../core/types.js";
 import { CliError } from "../errors.js";
+
+const RESOLVER_EXT_PATTERN = /\.(js|mjs|cjs)$/;
+
+async function loadResolvers(paths: string[], projectRoot: string): Promise<DriftResolver[]> {
+  const resolvers: DriftResolver[] = [];
+  for (const p of paths) {
+    if (!RESOLVER_EXT_PATTERN.test(p)) {
+      throw new CliError(`Invalid drift resolver path "${p}". Must be a .js, .mjs, or .cjs file.`);
+    }
+    const absPath = join(projectRoot, p);
+    try {
+      const mod = await import(absPath);
+      const resolver: DriftResolver = mod.default ?? mod;
+      if (typeof resolver.resolve !== "function") {
+        throw new CliError(`Drift resolver "${p}" does not export a resolve() function.`);
+      }
+      resolvers.push(resolver);
+    } catch (err) {
+      if (err instanceof CliError) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new CliError(`Failed to load drift resolver "${p}": ${message}`);
+    }
+  }
+  return resolvers;
+}
 
 export function driftCommand(): Command {
   const cmd = new Command("drift")
@@ -26,7 +51,8 @@ export function driftCommand(): Command {
     )
     .option("--generate-map", "Write semantic-links.json to generated dir")
     .option("--check-map", "Check if semantic-links.json is stale")
-    .action(async (opts: { root: string; json?: boolean; failOnMissing?: boolean; generateMap?: boolean; checkMap?: boolean }) => {
+    .option("--resolver <path...>", "Additional drift resolver module paths")
+    .action(async (opts: { root: string; json?: boolean; failOnMissing?: boolean; generateMap?: boolean; checkMap?: boolean; resolver?: string[] }) => {
       const projectRoot = process.cwd();
       const config = resolveConfig(projectRoot);
       const spec = new SpecRoot(projectRoot, config);
@@ -50,10 +76,21 @@ export function driftCommand(): Command {
       }
 
       const sourceRoots = opts.root.split(",").map((r) => r.trim());
+
+      // Load resolvers from config + CLI flag
+      const resolverPaths = [
+        ...(config.driftResolvers ?? []),
+        ...(opts.resolver ?? []),
+      ];
+      const resolvers = resolverPaths.length > 0
+        ? await loadResolvers(resolverPaths, projectRoot)
+        : undefined;
+
       const report = detectDrift(requirements, {
         projectRoot,
         sourceRoots,
         sourceGlobs: config.sourceGlobs,
+        resolvers,
       });
 
       if (opts.json) {
@@ -132,7 +169,7 @@ export function driftCommand(): Command {
   return cmd;
 }
 
-function buildSemanticLinkMap(report: DriftReport) {
+export function buildSemanticLinkMap(report: DriftReport) {
   const byReq = new Map<string, DriftFinding[]>();
   for (const f of report.findings) {
     const arr = byReq.get(f.reqId) ?? [];

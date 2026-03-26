@@ -19,6 +19,9 @@ export interface HookEnv {
 
 /**
  * Run all hooks matching the given event.
+ * Supports compound events (e.g., "post-create:requirement"):
+ * 1. Exact match hooks fire first
+ * 2. Base event hooks (e.g., "post-create") fire as fallback
  * Hooks run sequentially; a failing hook logs a warning but does not abort.
  */
 export function runHooks(
@@ -27,15 +30,25 @@ export function runHooks(
   env: HookEnv,
   options?: { dryRun?: boolean; cwd?: string },
 ): void {
-  const hooks = (config.hooks ?? []).filter(
-    (h: HookDefinition) => h.event === event,
-  );
-  if (hooks.length === 0) return;
+  const allHooks = config.hooks ?? [];
+  const baseEvent = event.includes(":") ? event.split(":")[0] : null;
+
+  // Exact match first, then base-event fallback (deduplicated)
+  const matched = allHooks.filter((h: HookDefinition) => h.event === event);
+  if (baseEvent) {
+    for (const h of allHooks) {
+      if (h.event === baseEvent && !matched.includes(h)) {
+        matched.push(h);
+      }
+    }
+  }
+
+  if (matched.length === 0) return;
 
   const mergedEnv = { ...process.env, ...env };
   const cwd = options?.cwd ?? process.cwd();
 
-  for (const hook of hooks) {
+  for (const hook of matched) {
     if (options?.dryRun) {
       console.log(`[hook:${event}] Would run: ${hook.run}`);
       continue;

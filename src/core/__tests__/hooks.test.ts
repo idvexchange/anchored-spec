@@ -97,4 +97,63 @@ describe("runHooks", () => {
       });
     }).not.toThrow();
   });
+
+  it("matches compound event exactly", () => {
+    const marker = join(TMP, "compound-exact.txt");
+    const config = makeConfig([
+      { event: "post-create:requirement", run: `echo "req" > "${marker}"` },
+      { event: "post-create:change", run: `echo "chg" > "${marker}"` },
+    ]);
+
+    runHooks("post-create:requirement", config, {
+      ANCHORED_SPEC_EVENT: "post-create",
+    }, { cwd: TMP });
+
+    expect(existsSync(marker)).toBe(true);
+    expect(readFileSync(marker, "utf-8").trim()).toBe("req");
+  });
+
+  it("falls back to base event when no compound match", () => {
+    const marker = join(TMP, "compound-fallback.txt");
+    const config = makeConfig([
+      { event: "post-create", run: `echo "base" > "${marker}"` },
+    ]);
+
+    // Fire compound event — should fall back to base "post-create"
+    runHooks("post-create:decision", config, {
+      ANCHORED_SPEC_EVENT: "post-create",
+    }, { cwd: TMP });
+
+    expect(existsSync(marker)).toBe(true);
+    expect(readFileSync(marker, "utf-8").trim()).toBe("base");
+  });
+
+  it("fires compound match and base event both", () => {
+    const exactMarker = join(TMP, "both-exact.txt");
+    const baseMarker = join(TMP, "both-base.txt");
+    const config = makeConfig([
+      { event: "post-create:requirement", run: `echo "exact" > "${exactMarker}"` },
+      { event: "post-create", run: `echo "base" > "${baseMarker}"` },
+    ]);
+
+    runHooks("post-create:requirement", config, {
+      ANCHORED_SPEC_EVENT: "post-create",
+    }, { cwd: TMP });
+
+    expect(existsSync(exactMarker)).toBe(true);
+    expect(existsSync(baseMarker)).toBe(true);
+  });
+
+  it("does not fire compound hook for wrong entity type", () => {
+    const marker = join(TMP, "wrong-type.txt");
+    const config = makeConfig([
+      { event: "post-create:requirement", run: `echo "wrong" > "${marker}"` },
+    ]);
+
+    runHooks("post-create:change", config, {
+      ANCHORED_SPEC_EVENT: "post-create",
+    }, { cwd: TMP });
+
+    expect(existsSync(marker)).toBe(false);
+  });
 });

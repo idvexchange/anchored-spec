@@ -112,4 +112,38 @@ describe("checkTestLinking", () => {
     const report = checkTestLinking([req], TMP);
     expect(report.summary.reqsMissingTests).toBeGreaterThanOrEqual(1);
   });
+
+  it("rejects false positives from substring matches and REQ-0", () => {
+    const tmpFp = join(TMP, "false-pos");
+    mkdirSync(join(tmpFp, "tests"), { recursive: true });
+    writeFileSync(
+      join(tmpFp, "tests/fp.test.ts"),
+      '// PREREQ-123\n// SOME_REQ-42_OTHER\n// REQ-0\nconst UNREQ-5 = true;',
+    );
+    const req = makeReq({ id: "REQ-123" });
+    const report = checkTestLinking([req], tmpFp);
+    // None of the false positives should produce a test→req match for REQ-123
+    const matches = report.findings.filter(
+      (f) => f.direction === "test-to-req" && f.reqId === "REQ-123" && f.status === "linked",
+    );
+    expect(matches).toHaveLength(0);
+  });
+
+  it("matches valid word-boundary requirement IDs", () => {
+    const tmpWb = join(TMP, "word-boundary");
+    mkdirSync(join(tmpWb, "tests"), { recursive: true });
+    writeFileSync(
+      join(tmpWb, "tests/valid.test.ts"),
+      '// REQ-1 and REQ-42 are tested here',
+    );
+    const req1 = makeReq({ id: "REQ-1" });
+    const req42 = makeReq({ id: "REQ-42" });
+    const report = checkTestLinking([req1, req42], tmpWb);
+    // Both REQ-1 and REQ-42 should be matched from the test file (test→req direction)
+    const testToReqFindings = report.findings.filter(
+      (f) => f.direction === "test-to-req",
+    );
+    expect(testToReqFindings).toHaveLength(2);
+    expect(testToReqFindings.map((f) => f.reqId).sort()).toEqual(["REQ-1", "REQ-42"]);
+  });
 });

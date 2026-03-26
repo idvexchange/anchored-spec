@@ -22,8 +22,8 @@ const DEFAULT_TEST_GLOBS = [
   "**/*.spec.jsx",
 ];
 
-// Default pattern matches: REQ-1, REQ-123, etc.
-const DEFAULT_REQ_PATTERN = /REQ-\d+/g;
+// Default pattern matches: REQ-1, REQ-123, etc. (with word boundaries, no leading zeros)
+const DEFAULT_REQ_PATTERN = /\bREQ-[1-9][0-9]*\b/g;
 
 export interface TestLinkFinding {
   reqId: string;

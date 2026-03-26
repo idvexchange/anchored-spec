@@ -16,6 +16,10 @@ import {
   generateChangesMarkdown,
   generateStatusMarkdown,
 } from "../../core/index.js";
+import { resolveConfig } from "../../core/loader.js";
+import { detectDrift } from "../../core/drift.js";
+import { generateImpactMap } from "../../core/impact.js";
+import { buildSemanticLinkMap } from "./drift.js";
 import { watchSpecs } from "../watch.js";
 import { CliError } from "../errors.js";
 
@@ -128,8 +132,65 @@ function runCheckGeneration(spec: SpecRoot): number {
       }
     }
   }
+
+  // Check JSON artifacts (semantic-links.json and impact-map.json)
+  // These use content-based comparison (ignoring generatedAt timestamps)
+  staleCount += checkJsonArtifact(spec, "semantic-links.json", () => {
+    const config = resolveConfig(spec.projectRoot);
+    const requirements = spec.loadRequirements();
+    const activeReqs = requirements.filter(
+      (r) => r.status === "active" || r.status === "shipped",
+    );
+    if (activeReqs.length === 0) return null;
+    const report = detectDrift(requirements, {
+      projectRoot: spec.projectRoot,
+      sourceRoots: config.sourceRoots ?? ["src"],
+      sourceGlobs: config.sourceGlobs,
+    });
+    return buildSemanticLinkMap(report);
+  });
+
+  staleCount += checkJsonArtifact(spec, "impact-map.json", () => {
+    const config = resolveConfig(spec.projectRoot);
+    const requirements = spec.loadRequirements();
+    const changes = spec.loadChanges();
+    if (requirements.length === 0 && changes.length === 0) return null;
+    return generateImpactMap(requirements, changes, spec.projectRoot, config.sourceRoots);
+  });
+
   if (artifacts.length === 0) {
     console.log(chalk.dim("  No spec artifacts found to generate from."));
   }
   return staleCount;
+}
+
+function checkJsonArtifact(
+  spec: SpecRoot,
+  name: string,
+  generate: () => object | null,
+): number {
+  const artifactPath = join(spec.generatedDir, name);
+  if (!existsSync(artifactPath)) {
+    // JSON artifacts are opt-in — only flag as stale if the file already exists
+    return 0;
+  }
+
+  const fresh = generate();
+  if (fresh === null) {
+    console.log(chalk.green(`  ✓ Up-to-date: ${name}`));
+    return 0;
+  }
+
+  // Compare ignoring generatedAt timestamp
+  const existing = JSON.parse(readFileSync(artifactPath, "utf-8"));
+  const existingData = { ...existing };
+  const freshData = { ...fresh } as Record<string, unknown>;
+  delete existingData.generatedAt;
+  delete freshData.generatedAt;
+  if (JSON.stringify(existingData) !== JSON.stringify(freshData)) {
+    console.log(chalk.yellow(`  ⚠ Stale: ${name}`));
+    return 1;
+  }
+  console.log(chalk.green(`  ✓ Up-to-date: ${name}`));
+  return 0;
 }
