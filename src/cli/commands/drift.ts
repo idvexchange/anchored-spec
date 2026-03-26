@@ -48,7 +48,7 @@ async function loadResolvers(paths: string[], projectRoot: string): Promise<Drif
 export function driftCommand(): Command {
   const cmd = new Command("drift")
     .description("Detect semantic drift between specs and source code")
-    .option("--root <dir>", "Source root(s) to scan (comma-separated)", "src")
+    .option("--root <dir>", "Source root(s) to scan (comma-separated)")
     .option("--json", "Output as JSON")
     .option(
       "--fail-on-missing",
@@ -58,7 +58,7 @@ export function driftCommand(): Command {
     .option("--generate-map", "Write semantic-links.json to generated dir")
     .option("--check-map", "Check if semantic-links.json is stale")
     .option("--resolver <path...>", "Additional drift resolver module paths")
-    .action(async (opts: { root: string; json?: boolean; failOnMissing?: boolean; generateMap?: boolean; checkMap?: boolean; resolver?: string[] }) => {
+    .action(async (opts: { root?: string; json?: boolean; failOnMissing?: boolean; generateMap?: boolean; checkMap?: boolean; resolver?: string[] }) => {
       const projectRoot = process.cwd();
       const config = resolveConfig(projectRoot);
       const spec = new SpecRoot(projectRoot, config);
@@ -81,7 +81,9 @@ export function driftCommand(): Command {
         return;
       }
 
-      const sourceRoots = opts.root.split(",").map((r) => r.trim());
+      const sourceRoots = opts.root
+        ? opts.root.split(",").map((r) => r.trim())
+        : config.sourceRoots ?? ["src"];
 
       // Load resolvers from config + CLI flag
       const resolverPaths = [
