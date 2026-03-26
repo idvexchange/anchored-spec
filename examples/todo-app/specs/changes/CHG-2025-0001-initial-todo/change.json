@@ -1,0 +1,23 @@
+{
+  "id": "CHG-2025-0001-initial-todo",
+  "title": "Implement core to-do list features",
+  "slug": "initial-todo",
+  "type": "feature",
+  "workflowVariant": "feature-behavior-first",
+  "phase": "done",
+  "status": "complete",
+  "scope": {
+    "include": ["src/**"],
+    "exclude": ["src/**/*.test.*"]
+  },
+  "requirements": ["REQ-1", "REQ-2", "REQ-3", "REQ-4", "REQ-5"],
+  "branch": "feat/initial-todo",
+  "timestamps": {
+    "createdAt": "2025-06-01",
+    "updatedAt": "2025-06-15"
+  },
+  "owners": ["todo-team"],
+  "designDoc": null,
+  "tags": ["mvp"],
+  "schemaVersion": "0.2.0"
+}

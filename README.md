@@ -115,6 +115,10 @@ pnpm verify         # All of the above
 
 See [Contributing](docs/contributing.md) for the full development guide.
 
+## Example Project
+
+The [`examples/todo-app/`](examples/todo-app/) directory contains a complete to-do list application demonstrating the full Feature (Behavior First) workflow — 5 EARS requirements, an architecture decision, a shipped change record, bidirectional test linking, and semantic refs anchoring specs to source code. See its [README](examples/todo-app/README.md) for a guided walkthrough.
+
 ## License
 
 [MIT](LICENSE)

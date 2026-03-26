@@ -1,0 +1,50 @@
+{
+  "id": "REQ-5",
+  "title": "Filter Tasks by Status",
+  "summary": "Users can filter the visible task list to show all tasks, only active (incomplete) tasks, or only completed tasks.",
+  "priority": "should",
+  "status": "shipped",
+  "behaviorStatements": [
+    {
+      "id": "BS-1",
+      "text": "When a user selects the 'All' filter, the system shall display every task regardless of completion state.",
+      "format": "EARS",
+      "trigger": "user selects the 'All' filter",
+      "response": "the system shall display every task regardless of completion state"
+    },
+    {
+      "id": "BS-2",
+      "text": "When a user selects the 'Active' filter, the system shall display only tasks that are not complete.",
+      "format": "EARS",
+      "trigger": "user selects the 'Active' filter",
+      "response": "the system shall display only tasks that are not complete"
+    },
+    {
+      "id": "BS-3",
+      "text": "When a user selects the 'Completed' filter, the system shall display only tasks that are complete.",
+      "format": "EARS",
+      "trigger": "user selects the 'Completed' filter",
+      "response": "the system shall display only tasks that are complete"
+    }
+  ],
+  "traceRefs": [
+    { "path": "docs/features.md", "role": "normative", "label": "Feature spec" }
+  ],
+  "semanticRefs": {
+    "interfaces": ["TodoFilter"],
+    "symbols": ["filterTasks", "FilterMode"]
+  },
+  "verification": {
+    "coverageStatus": "full",
+    "testRefs": [
+      { "path": "src/__tests__/todo.test.ts", "kind": "unit", "notes": "Covers all three filter modes" }
+    ]
+  },
+  "implementation": {
+    "shippedBy": "CHG-2025-0001-initial-todo"
+  },
+  "owners": ["todo-team"],
+  "tags": ["ux", "filtering"],
+  "dependsOn": ["REQ-2"],
+  "schemaVersion": "0.2.0"
+}

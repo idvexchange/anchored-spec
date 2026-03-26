@@ -1,0 +1,42 @@
+{
+  "id": "REQ-2",
+  "title": "Display Task List",
+  "summary": "The application renders all tasks as a visible list. Each task shows its title and current completion state.",
+  "priority": "must",
+  "status": "shipped",
+  "behaviorStatements": [
+    {
+      "id": "BS-1",
+      "text": "While tasks exist, the system shall display each task with its title and a visual indicator of its completion state.",
+      "format": "EARS",
+      "precondition": "tasks exist",
+      "response": "the system shall display each task with its title and a visual indicator of its completion state"
+    },
+    {
+      "id": "BS-2",
+      "text": "While no tasks exist, the system shall display an empty state message.",
+      "format": "EARS",
+      "precondition": "no tasks exist",
+      "response": "the system shall display an empty state message"
+    }
+  ],
+  "traceRefs": [
+    { "path": "docs/features.md", "role": "normative", "label": "Feature spec" }
+  ],
+  "semanticRefs": {
+    "interfaces": ["TodoList"],
+    "symbols": ["TaskItem"]
+  },
+  "verification": {
+    "coverageStatus": "full",
+    "testRefs": [
+      { "path": "src/__tests__/todo.test.ts", "kind": "unit", "notes": "Covers list rendering + empty state" }
+    ]
+  },
+  "implementation": {
+    "shippedBy": "CHG-2025-0001-initial-todo"
+  },
+  "owners": ["todo-team"],
+  "tags": ["core", "display"],
+  "schemaVersion": "0.2.0"
+}

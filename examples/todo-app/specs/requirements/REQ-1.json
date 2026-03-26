@@ -1,0 +1,42 @@
+{
+  "id": "REQ-1",
+  "title": "Add New Tasks",
+  "summary": "Users can create new to-do items by entering a title. Each task starts in an incomplete state.",
+  "priority": "must",
+  "status": "shipped",
+  "behaviorStatements": [
+    {
+      "id": "BS-1",
+      "text": "When a user submits a non-empty task title, the system shall add a new task to the list with the given title and an incomplete status.",
+      "format": "EARS",
+      "trigger": "user submits a non-empty task title",
+      "response": "the system shall add a new task to the list with the given title and an incomplete status"
+    },
+    {
+      "id": "BS-2",
+      "text": "When a user submits an empty task title, the system shall reject the submission and not add a task.",
+      "format": "EARS",
+      "trigger": "user submits an empty task title",
+      "response": "the system shall reject the submission and not add a task"
+    }
+  ],
+  "traceRefs": [
+    { "path": "docs/features.md", "role": "normative", "label": "Feature spec" }
+  ],
+  "semanticRefs": {
+    "interfaces": ["TodoInput"],
+    "symbols": ["addTask", "TaskItem"]
+  },
+  "verification": {
+    "coverageStatus": "full",
+    "testRefs": [
+      { "path": "src/__tests__/todo.test.ts", "kind": "unit", "notes": "Covers add + empty rejection" }
+    ]
+  },
+  "implementation": {
+    "shippedBy": "CHG-2025-0001-initial-todo"
+  },
+  "owners": ["todo-team"],
+  "tags": ["core", "input"],
+  "schemaVersion": "0.2.0"
+}

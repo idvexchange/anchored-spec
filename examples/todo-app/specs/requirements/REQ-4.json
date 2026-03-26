@@ -1,0 +1,41 @@
+{
+  "id": "REQ-4",
+  "title": "Delete Tasks",
+  "summary": "Users can permanently remove a task from the list. Deletion is immediate and the list updates without a page reload.",
+  "priority": "must",
+  "status": "shipped",
+  "behaviorStatements": [
+    {
+      "id": "BS-1",
+      "text": "When a user deletes a task, the system shall remove it from the list immediately.",
+      "format": "EARS",
+      "trigger": "user deletes a task",
+      "response": "the system shall remove it from the list immediately"
+    },
+    {
+      "id": "BS-2",
+      "text": "When the last task is deleted, the system shall display the empty state message.",
+      "format": "EARS",
+      "trigger": "the last task is deleted",
+      "response": "the system shall display the empty state message"
+    }
+  ],
+  "traceRefs": [
+    { "path": "docs/features.md", "role": "normative", "label": "Feature spec" }
+  ],
+  "semanticRefs": {
+    "symbols": ["deleteTask", "TaskItem"]
+  },
+  "verification": {
+    "coverageStatus": "full",
+    "testRefs": [
+      { "path": "src/__tests__/todo.test.ts", "kind": "unit", "notes": "Covers delete + empty state fallback" }
+    ]
+  },
+  "implementation": {
+    "shippedBy": "CHG-2025-0001-initial-todo"
+  },
+  "owners": ["todo-team"],
+  "tags": ["core", "interaction"],
+  "schemaVersion": "0.2.0"
+}
