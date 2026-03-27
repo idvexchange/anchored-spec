@@ -245,7 +245,7 @@ import type {
 
   // Requirement parts
   BehaviorStatement, TraceRef, TestRef, SemanticRefs,
-  Verification, Implementation, RequirementStatus,
+  Verification, Implementation, RequirementStatus, RequirementCategory,
 
   // Change parts
   ChangeType, ChangePhase, ChangeStatus, ChangeScope,

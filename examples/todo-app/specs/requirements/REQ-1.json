@@ -4,6 +4,7 @@
   "summary": "Users can create new to-do items by entering a title. Each task starts in an incomplete state.",
   "priority": "must",
   "status": "shipped",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",

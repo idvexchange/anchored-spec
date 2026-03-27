@@ -125,6 +125,7 @@ This creates `specs/requirements/REQ-2.json` with TODO placeholders. Open it and
   "summary": "New users register with an email and password. The system sends a verification email. Unverified accounts cannot access protected resources.",
   "priority": "must",
   "status": "draft",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",

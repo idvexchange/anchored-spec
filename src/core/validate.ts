@@ -240,6 +240,32 @@ export function checkRequirementQuality(req: Requirement): ValidationError[] {
     }
   }
 
+  // Check 9: NFR measurability — non-functional requirements should have measurable thresholds
+  const MEASURABLE_PATTERNS = [
+    /\b\d+\s*(?:ms|milliseconds?|seconds?|s|minutes?|min)\b/i,
+    /\b\d+\s*%/,
+    /\bp\d{1,2}\b/i,  // p95, p99
+    /\b\d+\s*(?:req(?:uests?)?|rps|tps|qps)\s*\/\s*(?:s|sec|second|min|minute)\b/i,
+    /\b(?:at least|at most|no more than|within|under|less than|greater than|maximum|minimum)\s+\d/i,
+    /\b\d+\s*(?:MB|GB|KB|bytes?)\b/i,
+    /\b99(?:\.\d+)?%/,  // 99.9% availability
+  ];
+
+  if (req.category === "non-functional") {
+    const hasMeasurable = req.behaviorStatements.some((bs) =>
+      MEASURABLE_PATTERNS.some((p) => p.test(bs.text))
+    );
+    if (!hasMeasurable) {
+      issues.push({
+        path: `/behaviorStatements`,
+        message: `Non-functional requirement has no measurable threshold in behavior statements. NFRs should include numeric targets (e.g., "within 200ms", "at least 99.9%", "under 50MB").`,
+        severity: "warning",
+        rule: "quality:nfr-measurability",
+        suggestion: `Add a measurable constraint to at least one behavior statement (time, throughput, size, percentage)`,
+      });
+    }
+  }
+
   return issues;
 }
 

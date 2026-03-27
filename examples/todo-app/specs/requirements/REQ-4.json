@@ -4,6 +4,7 @@
   "summary": "Users can permanently remove a task from the list. Deletion is immediate and the list updates without a page reload.",
   "priority": "must",
   "status": "shipped",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",

@@ -4,6 +4,7 @@
   "summary": "Users can mark tasks as complete or revert them to incomplete. The visual state updates immediately.",
   "priority": "must",
   "status": "shipped",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",

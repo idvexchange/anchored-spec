@@ -46,6 +46,7 @@ function outputJson(
       total: requirements.length,
       byStatus: groupBy(requirements, (r) => r.status),
       byPriority: groupBy(requirements, (r) => r.priority),
+      byCategory: groupBy(requirements, (r) => r.category ?? "functional"),
       coverage: {
         none: requirements.filter((r) => (r.verification?.coverageStatus ?? "none") === "none").length,
         partial: requirements.filter((r) => r.verification?.coverageStatus === "partial").length,
@@ -91,6 +92,12 @@ function outputHuman(
       .map(([status, count]) => `${status}: ${count}`)
       .join(" | ");
     console.log(`  Total: ${requirements.length} — ${parts}`);
+
+    const categoryCounts = groupBy(requirements, (r) => r.category ?? "functional");
+    const catParts = Object.entries(categoryCounts)
+      .map(([cat, count]) => `${cat}: ${count}`)
+      .join(" | ");
+    console.log(`  Categories: ${catParts}`);
 
     const coverageCount = requirements.filter(
       (r) => r.verification?.coverageStatus && r.verification.coverageStatus !== "none"

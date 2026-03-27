@@ -4,6 +4,7 @@
   "summary": "Users can filter the visible task list to show all tasks, only active (incomplete) tasks, or only completed tasks.",
   "priority": "should",
   "status": "shipped",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",

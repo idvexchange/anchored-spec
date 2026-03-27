@@ -99,6 +99,7 @@ export function createCommand(): Command {
     .description("Create a new requirement")
     .requiredOption("--title <title>", "Requirement title")
     .option("--priority <priority>", "Priority (must, should, could, wont)", "should")
+    .option("--category <category>", "Category (functional, non-functional, policy)", "functional")
     .option("--owner <owner>", "Owner", "team")
     .option("--dry-run", "Show what would be created without writing")
     .action((options) => {
@@ -110,6 +111,11 @@ export function createCommand(): Command {
         throw new CliError("Error: Spec infrastructure not initialized. Run 'anchored-spec init' first.");
       }
 
+      const validCategories = ["functional", "non-functional", "policy"];
+      if (!validCategories.includes(options.category)) {
+        throw new CliError(`Error: Invalid category "${options.category}". Must be one of: ${validCategories.join(", ")}`);
+      }
+
       const id = getNextReqId(spec.requirementsDir);
       const requirement = {
         $schema: "../schemas/requirement.schema.json",
@@ -118,6 +124,7 @@ export function createCommand(): Command {
         summary: `TODO: Describe what ${options.title} does in behavioral terms.`,
         priority: options.priority,
         status: "draft",
+        category: options.category,
         behaviorStatements: [
           {
             id: "BS-1",

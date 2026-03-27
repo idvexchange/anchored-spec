@@ -14,6 +14,7 @@ export type {
   Verification,
   Implementation,
   RequirementStatus,
+  RequirementCategory,
   Change,
   ChangeType,
   ChangePhase,

@@ -1124,3 +1124,153 @@ describe("executionPolicy schema validation", () => {
     expect(result.errors.some((e) => e.message.includes("additional"))).toBe(true);
   });
 });
+
+// ─── Requirement Category ─────────────────────────────────────────────────────
+
+describe("validateSchema — requirement category", () => {
+  const baseReq = {
+    id: "REQ-1",
+    title: "User can log in",
+    summary: "Users can authenticate with email and password.",
+    priority: "must",
+    status: "draft",
+    behaviorStatements: [
+      {
+        id: "BS-1",
+        text: "When a user submits valid credentials, the system shall return an auth token.",
+        format: "EARS",
+        trigger: "user submits valid credentials",
+        response: "the system shall return an auth token",
+      },
+    ],
+    owners: ["team-auth"],
+  };
+
+  it("accepts 'functional' category", () => {
+    const result = validateSchema({ ...baseReq, category: "functional" }, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts 'non-functional' category", () => {
+    const result = validateSchema({ ...baseReq, category: "non-functional" }, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts 'policy' category", () => {
+    const result = validateSchema({ ...baseReq, category: "policy" }, "requirement");
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects invalid category value", () => {
+    const result = validateSchema({ ...baseReq, category: "performance" }, "requirement");
+    expect(result.valid).toBe(false);
+    expect(result.errors[0].message).toContain("allowed values");
+  });
+
+  it("accepts requirement without category (optional, defaults to functional)", () => {
+    const result = validateSchema(baseReq, "requirement");
+    expect(result.valid).toBe(true);
+  });
+});
+
+// ─── NFR Measurability Quality Rule ───────────────────────────────────────────
+
+describe("checkRequirementQuality — NFR measurability", () => {
+  const nfrBase: Requirement = {
+    id: "REQ-50",
+    title: "API Response Time",
+    summary: "API response time should meet performance targets.",
+    priority: "must",
+    status: "active",
+    category: "non-functional",
+    behaviorStatements: [
+      {
+        id: "BS-1",
+        text: "The system shall respond to API requests within 200ms at p95.",
+        format: "EARS",
+        response: "respond to API requests within 200ms at p95",
+      },
+    ],
+    owners: ["platform-team"],
+    semanticRefs: { routes: ["GET /api/v1/health"] },
+  };
+
+  it("passes when NFR has measurable threshold", () => {
+    const issues = checkRequirementQuality(nfrBase);
+    expect(issues.find((i) => i.rule === "quality:nfr-measurability")).toBeUndefined();
+  });
+
+  it("warns when NFR lacks measurable threshold", () => {
+    const req: Requirement = {
+      ...nfrBase,
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "The system shall have good performance under load.",
+          format: "EARS",
+          response: "have good performance under load",
+        },
+      ],
+    };
+    const issues = checkRequirementQuality(req);
+    const nfrIssue = issues.find((i) => i.rule === "quality:nfr-measurability");
+    expect(nfrIssue).toBeDefined();
+    expect(nfrIssue!.severity).toBe("warning");
+  });
+
+  it("does not fire for functional requirements", () => {
+    const req: Requirement = {
+      ...nfrBase,
+      category: "functional",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "When a user clicks save, the system shall persist the data.",
+          format: "EARS",
+          trigger: "user clicks save",
+          response: "persist the data",
+        },
+      ],
+    };
+    const issues = checkRequirementQuality(req);
+    expect(issues.find((i) => i.rule === "quality:nfr-measurability")).toBeUndefined();
+  });
+
+  it("does not fire for policy requirements", () => {
+    const req: Requirement = {
+      ...nfrBase,
+      category: "policy",
+      behaviorStatements: [
+        {
+          id: "BS-1",
+          text: "The system shall log all authentication attempts.",
+          format: "EARS",
+          response: "log all authentication attempts",
+        },
+      ],
+    };
+    const issues = checkRequirementQuality(req);
+    expect(issues.find((i) => i.rule === "quality:nfr-measurability")).toBeUndefined();
+  });
+
+  it("recognizes various measurable patterns", () => {
+    const patterns = [
+      "The system shall respond within 500ms.",
+      "The system shall maintain at least 99.9% uptime.",
+      "The system shall handle 1000 requests/second.",
+      "The system shall use no more than 512 MB of memory.",
+      "The system shall process under 5 seconds.",
+    ];
+    for (const text of patterns) {
+      const req: Requirement = {
+        ...nfrBase,
+        behaviorStatements: [{ id: "BS-1", text, format: "EARS", response: text }],
+      };
+      const issues = checkRequirementQuality(req);
+      expect(
+        issues.find((i) => i.rule === "quality:nfr-measurability"),
+        `Expected no NFR warning for: "${text}"`,
+      ).toBeUndefined();
+    }
+  });
+});

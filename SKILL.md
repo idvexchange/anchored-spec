@@ -35,6 +35,22 @@ Requirements describe **what** the system does, never **how**. They use [EARS no
 | **Unwanted** | _If \<condition\>, then the system shall \<response\>._ | Error handling, edge cases |
 | **Optional** | _Where \<feature\>, the system shall \<response\>._ | Configurable or optional behavior |
 | **Complex** | _While \<state\>, when \<trigger\>, the system shall \<response\>._ | Combination of state + event |
+| **Ubiquitous** | _The system shall \<response\>._ | System-wide constraints, NFRs, policies (no trigger/precondition) |
+
+### Requirement Categories
+
+Classify each requirement by `category`:
+
+| Category | When to Use | Quality Rule |
+|---|---|---|
+| **`functional`** (default) | Observable behavior with trigger/state | Standard checks |
+| **`non-functional`** | Quality attributes (performance, security, availability) | `quality:nfr-measurability` — must include measurable thresholds |
+| **`policy`** | Cross-cutting system constraints | Standard checks |
+
+```bash
+anchored-spec create requirement --title "API Performance SLA" --category non-functional
+anchored-spec create requirement --title "Audit Logging" --category policy
+```
 
 ### The Functional/Technical Boundary
 
@@ -90,6 +106,7 @@ Edit the created `REQ-*.json` to include:
   - `trigger` or `precondition`: The When/While clause
   - `response`: The "shall" clause — what the system does
 - **`priority`** — `must` / `should` / `could` / `wont` (MoSCoW)
+- **`category`** — `functional` (default) / `non-functional` / `policy`
 - **`owners`** — Who is responsible
 
 **Do NOT fill in** `semanticRefs`, `verification.testRefs`, or `implementation` at this stage. Those come later.
@@ -293,6 +310,7 @@ These rules are enforced by `anchored-spec verify`. When you see violations, fix
 | `quality:semantic-refs-populated` | warning | Active/shipped requirements need semantic refs |
 | `quality:missing-test-refs` | warning | Active/shipped requirements should have test references |
 | `quality:test-linking` | warning | Tests mentioning REQ-* should be in testRefs |
+| `quality:nfr-measurability` | warning | Non-functional requirements must include measurable thresholds |
 | `dependency:missing-ref` | error | `dependsOn` targets must exist |
 | `dependency:cycle` | error | No circular dependencies |
 

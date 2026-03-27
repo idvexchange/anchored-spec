@@ -13,6 +13,7 @@ Requirements describe **what** the system does — never **how**. They use [EARS
   "summary": "Users can authenticate with email and password.",
   "priority": "must",
   "status": "active",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",
@@ -37,6 +38,35 @@ Requirements describe **what** the system does — never **how**. They use [EARS
 - **Requirements stay functional forever.** Acceptance criteria describe observable behavior, not implementation details.
 - **Technical detail goes in `semanticRefs`** — these are code anchors that bind functional intent to specific interfaces, routes, error codes, and symbols in your codebase.
 - **Statuses track lifecycle:** `draft` → `active` → `shipped` → (optionally `deprecated`).
+
+### Requirement Categories
+
+Requirements are classified by `category` to enable category-aware validation and reporting:
+
+| Category | Description | EARS Pattern | Example |
+|---|---|---|---|
+| **`functional`** (default) | Observable behavior triggered by events/states | Event, State, Unwanted, Complex | "When a user logs in, the system shall return a token" |
+| **`non-functional`** | Quality attributes with measurable thresholds | Ubiquitous (with metric) | "The system shall respond to API requests within 200ms at p95" |
+| **`policy`** | Cross-cutting constraints that apply unconditionally | Ubiquitous (unconditional) | "The system shall log all authentication attempts" |
+
+```json
+{
+  "category": "non-functional",
+  "behaviorStatements": [{
+    "id": "BS-1",
+    "text": "The system shall respond to API requests within 200ms at p95.",
+    "format": "EARS",
+    "response": "respond to API requests within 200ms at p95"
+  }]
+}
+```
+
+**Key differences:**
+- **Functional** requirements use Event/State/Unwanted/Complex EARS patterns (with `trigger` and/or `precondition`).
+- **Non-functional** requirements use the Ubiquitous pattern (no trigger/precondition) and **must include measurable thresholds** — the `quality:nfr-measurability` rule warns when they don't.
+- **Policy** requirements use the Ubiquitous pattern for unconditional system-wide constraints.
+
+The `category` field is optional and defaults to `"functional"` — all existing requirements remain valid.
 
 ### Semantic Refs
 

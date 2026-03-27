@@ -4,6 +4,7 @@
   "summary": "The application renders all tasks as a visible list. Each task shows its title and current completion state.",
   "priority": "must",
   "status": "shipped",
+  "category": "functional",
   "behaviorStatements": [
     {
       "id": "BS-1",

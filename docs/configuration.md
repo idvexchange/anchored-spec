@@ -191,6 +191,7 @@ Override the severity of any built-in or plugin verification rule:
       "quality:no-vague-language": "off",
       "quality:semantic-refs-populated": "error",
       "quality:missing-test-refs": "warn",
+      "quality:nfr-measurability": "warn",
       "plugin:my-plugin/custom-check": "off"
     }
   }

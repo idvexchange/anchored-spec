@@ -71,6 +71,8 @@ export type RequirementStatus =
   | "deferred"
   | "deprecated";
 
+export type RequirementCategory = "functional" | "non-functional" | "policy";
+
 export interface Requirement {
   id: string;
   title: string;
@@ -78,6 +80,7 @@ export interface Requirement {
   description?: string;
   priority: "must" | "should" | "could" | "wont";
   status: RequirementStatus;
+  category?: RequirementCategory;
   statusReason?: string;
   behaviorStatements: BehaviorStatement[];
   traceRefs?: TraceRef[];

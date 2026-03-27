@@ -48,6 +48,12 @@
       "enum": ["draft", "planned", "active", "shipped", "deferred", "deprecated"],
       "description": "Lifecycle status"
     },
+    "category": {
+      "type": "string",
+      "enum": ["functional", "non-functional", "policy"],
+      "default": "functional",
+      "description": "Requirement category: functional (default), non-functional (quality attributes), or policy (cross-cutting constraints)"
+    },
     "statusReason": {
       "type": "string",
       "description": "Why the requirement is in its current status"

@@ -33,6 +33,7 @@ Types: `requirement`, `change`, `decision`
 |--------|-------------|
 | `--title <text>` | Title for the artifact (prompted if omitted) |
 | `--type <type>` | Change type: `feature`, `fix`, `refactor`, `chore`, or any custom type from `customChangeTypes` (changes only) |
+| `--category <cat>` | Requirement category: `functional` (default), `non-functional`, `policy` (requirements only) |
 | `--slug <slug>` | URL-friendly identifier (auto-derived from title if omitted) |
 | `--dry-run` | Preview without writing files |
 | `--no-hooks` | Skip lifecycle hooks |
