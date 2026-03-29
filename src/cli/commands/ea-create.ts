@@ -172,6 +172,22 @@ function getKindSpecificYaml(kind: string): string | null {
       return "  appliesTo: []\n  retention:\n    duration: TODO\n    basis: TODO\n  disposal:\n    method: delete";
     case "glossary-term":
       return "  definition: TODO\n  domain: TODO";
+    case "mission":
+      return "  timeHorizon: long-term\n  keyResults: []\n  strategicThemes: []";
+    case "capability":
+      return "  level: 1";
+    case "value-stream":
+      return "  stages:\n    - id: stage-1\n      name: TODO\n      supportingCapabilities: []\n  customer: TODO\n  valueProposition: TODO";
+    case "process":
+      return "  steps: []\n  processOwner: TODO";
+    case "org-unit":
+      return "  unitType: team";
+    case "policy-objective":
+      return "  category: operational\n  objective: TODO";
+    case "business-service":
+      return "  serviceType: internal";
+    case "control":
+      return "  controlType: detective\n  implementation: automated\n  assertion: TODO";
     default:
       return null;
   }
@@ -215,6 +231,22 @@ function getKindSpecificJson(kind: string): Record<string, unknown> {
       return { appliesTo: [], retention: { duration: "TODO", basis: "TODO" }, disposal: { method: "delete" } };
     case "glossary-term":
       return { definition: "TODO", domain: "TODO" };
+    case "mission":
+      return { timeHorizon: "long-term", keyResults: [], strategicThemes: [] };
+    case "capability":
+      return { level: 1 };
+    case "value-stream":
+      return { stages: [{ id: "stage-1", name: "TODO", supportingCapabilities: [] }], customer: "TODO", valueProposition: "TODO" };
+    case "process":
+      return { steps: [], processOwner: "TODO" };
+    case "org-unit":
+      return { unitType: "team" };
+    case "policy-objective":
+      return { category: "operational", objective: "TODO" };
+    case "business-service":
+      return { serviceType: "internal" };
+    case "control":
+      return { controlType: "detective", implementation: "automated", assertion: "TODO" };
     default:
       return {};
   }

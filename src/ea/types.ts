@@ -597,6 +597,120 @@ export interface GlossaryTermArtifact extends EaArtifactBase {
   approvedBy?: string;
 }
 
+// ─── Business Domain ────────────────────────────────────────────────────────────
+
+export interface MissionArtifact extends EaArtifactBase {
+  kind: "mission";
+  timeHorizon?: "short-term" | "medium-term" | "long-term" | "perpetual";
+  keyResults?: Array<{
+    id: string;
+    description: string;
+    metric?: string;
+    target?: string;
+    currentValue?: string;
+  }>;
+  strategicThemes?: string[];
+  sponsor?: string;
+}
+
+export interface CapabilityArtifact extends EaArtifactBase {
+  kind: "capability";
+  level: number;
+  parentCapability?: string;
+  maturity?: "initial" | "developing" | "defined" | "managed" | "optimized";
+  strategicImportance?: "commodity" | "differentiating" | "core";
+  investmentProfile?: "invest" | "maintain" | "divest" | "evaluate";
+  heatMap?: {
+    businessValue?: "low" | "medium" | "high";
+    technicalHealth?: "poor" | "fair" | "good" | "excellent";
+    risk?: "low" | "medium" | "high" | "critical";
+  };
+}
+
+export interface ValueStreamArtifact extends EaArtifactBase {
+  kind: "value-stream";
+  stages: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    supportingCapabilities: string[];
+    duration?: string;
+    bottleneck?: boolean;
+  }>;
+  customer: string;
+  valueProposition: string;
+  trigger?: string;
+  outcome?: string;
+}
+
+export interface ProcessArtifact extends EaArtifactBase {
+  kind: "process";
+  steps?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    actor?: string;
+    systemRef?: string;
+    automated?: boolean;
+  }>;
+  implementsCapabilities?: string[];
+  trigger?: string;
+  outcome?: string;
+  frequency?: string;
+  processOwner?: string;
+  regulated?: boolean;
+}
+
+export interface OrgUnitArtifact extends EaArtifactBase {
+  kind: "org-unit";
+  unitType: "team" | "department" | "division" | "business-unit" | "guild" | "chapter" | "other";
+  parentUnit?: string;
+  lead?: string;
+  size?: number;
+  locations?: string[];
+  costCenter?: string;
+}
+
+export interface PolicyObjectiveArtifact extends EaArtifactBase {
+  kind: "policy-objective";
+  category: "sla" | "compliance" | "security" | "operational" | "financial" | "data-governance" | "other";
+  objective: string;
+  target?: {
+    metric: string;
+    threshold: string;
+    currentValue?: string;
+  };
+  enforcedBy?: string[];
+  regulatoryRef?: string;
+  reviewCadence?: string;
+}
+
+export interface BusinessServiceArtifact extends EaArtifactBase {
+  kind: "business-service";
+  serviceType: "customer-facing" | "internal" | "partner" | "shared";
+  channels?: string[];
+  revenueImpact?: "direct" | "indirect" | "cost-center";
+  serviceLevel?: string;
+  implementedByCapabilities?: string[];
+}
+
+export interface ControlArtifact extends EaArtifactBase {
+  kind: "control";
+  controlType: "preventive" | "detective" | "corrective" | "directive";
+  implementation: "automated" | "manual" | "hybrid";
+  assertion: string;
+  mechanism?: string;
+  frequency?: "continuous" | "hourly" | "daily" | "weekly" | "monthly" | "on-demand" | "event-triggered";
+  producesEvidence?: string;
+  onViolation?: {
+    action: "block" | "alert" | "escalate" | "log" | "auto-remediate";
+    target?: string;
+    description?: string;
+  };
+  lastExecutedAt?: string;
+  frameworks?: string[];
+}
+
 // ─── Union Type ─────────────────────────────────────────────────────────────────
 
 /** Discriminated union of all artifact types. */
@@ -628,7 +742,15 @@ export type EaArtifact =
   | InformationExchangeArtifact
   | ClassificationArtifact
   | RetentionPolicyArtifact
-  | GlossaryTermArtifact;
+  | GlossaryTermArtifact
+  | MissionArtifact
+  | CapabilityArtifact
+  | ValueStreamArtifact
+  | ProcessArtifact
+  | OrgUnitArtifact
+  | PolicyObjectiveArtifact
+  | BusinessServiceArtifact
+  | ControlArtifact;
 
 // ─── Kind Taxonomy ──────────────────────────────────────────────────────────────
 
@@ -674,6 +796,15 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "classification", prefix: "CLASS", domain: "information", description: "A data classification level with required controls" },
   { kind: "retention-policy", prefix: "RET", domain: "information", description: "A data retention policy with duration and disposal rules" },
   { kind: "glossary-term", prefix: "TERM", domain: "information", description: "A canonical glossary term with definition and domain" },
+  // Business domain
+  { kind: "mission", prefix: "MISSION", domain: "business", description: "A strategic mission or objective with key results" },
+  { kind: "capability", prefix: "CAP", domain: "business", description: "A business capability with maturity and heat map" },
+  { kind: "value-stream", prefix: "VS", domain: "business", description: "A value stream with stages and customer value" },
+  { kind: "process", prefix: "PROC", domain: "business", description: "A business process with steps and automation" },
+  { kind: "org-unit", prefix: "ORG", domain: "business", description: "An organizational unit (team, department, etc.)" },
+  { kind: "policy-objective", prefix: "POL", domain: "business", description: "A policy objective with target metrics and enforcement" },
+  { kind: "business-service", prefix: "BSVC", domain: "business", description: "A business service delivered to customers or partners" },
+  { kind: "control", prefix: "CTRL", domain: "business", description: "A governance control with assertion and enforcement" },
 ] as const;
 
 /** Lookup helpers. */

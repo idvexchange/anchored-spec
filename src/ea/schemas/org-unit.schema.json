@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/org-unit.schema.json",
+  "title": "Anchored Spec — EA Organization Unit",
+  "description": "An organizational unit (team, department, division, etc.).",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["unitType"],
+  "properties": {
+    "kind": { "const": "org-unit" },
+    "unitType": {
+      "type": "string",
+      "enum": ["team", "department", "division", "business-unit", "guild", "chapter", "other"],
+      "description": "Type of organizational unit"
+    },
+    "parentUnit": { "type": "string", "description": "Parent organization unit ID" },
+    "lead": { "type": "string", "description": "Unit lead" },
+    "size": { "type": "integer", "minimum": 0, "description": "Team size" },
+    "locations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Office locations"
+    },
+    "costCenter": { "type": "string", "description": "Cost center code" }
+  }
+}

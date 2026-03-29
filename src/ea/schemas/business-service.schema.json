@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/business-service.schema.json",
+  "title": "Anchored Spec — EA Business Service",
+  "description": "A business service delivered to customers, partners, or internal consumers.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["serviceType"],
+  "properties": {
+    "kind": { "const": "business-service" },
+    "serviceType": {
+      "type": "string",
+      "enum": ["customer-facing", "internal", "partner", "shared"],
+      "description": "Service type"
+    },
+    "channels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Delivery channels"
+    },
+    "revenueImpact": {
+      "type": "string",
+      "enum": ["direct", "indirect", "cost-center"],
+      "description": "Revenue impact classification"
+    },
+    "serviceLevel": { "type": "string", "description": "Service level commitment" },
+    "implementedByCapabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Capability IDs that implement this service"
+    }
+  }
+}

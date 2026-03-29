@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/capability.schema.json",
+  "title": "Anchored Spec — EA Capability",
+  "description": "A business capability with maturity, strategic importance, and heat map.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["level"],
+  "properties": {
+    "kind": { "const": "capability" },
+    "level": { "type": "integer", "minimum": 1, "description": "Capability level (1 = top-level)" },
+    "parentCapability": { "type": "string", "description": "Parent capability ID" },
+    "maturity": {
+      "type": "string",
+      "enum": ["initial", "developing", "defined", "managed", "optimized"],
+      "description": "Capability maturity level"
+    },
+    "strategicImportance": {
+      "type": "string",
+      "enum": ["commodity", "differentiating", "core"],
+      "description": "Strategic importance classification"
+    },
+    "investmentProfile": {
+      "type": "string",
+      "enum": ["invest", "maintain", "divest", "evaluate"],
+      "description": "Investment profile"
+    },
+    "heatMap": {
+      "type": "object",
+      "properties": {
+        "businessValue": { "type": "string", "enum": ["low", "medium", "high"] },
+        "technicalHealth": { "type": "string", "enum": ["poor", "fair", "good", "excellent"] },
+        "risk": { "type": "string", "enum": ["low", "medium", "high", "critical"] }
+      },
+      "additionalProperties": false,
+      "description": "Heat map indicators"
+    }
+  }
+}

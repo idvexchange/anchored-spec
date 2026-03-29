@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/value-stream.schema.json",
+  "title": "Anchored Spec — EA Value Stream",
+  "description": "A value stream with stages, customer, and value proposition.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["stages", "customer", "valueProposition"],
+  "properties": {
+    "kind": { "const": "value-stream" },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "supportingCapabilities"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "supportingCapabilities": { "type": "array", "items": { "type": "string" } },
+          "duration": { "type": "string" },
+          "bottleneck": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Value stream stages"
+    },
+    "customer": { "type": "string", "minLength": 1, "description": "Customer segment" },
+    "valueProposition": { "type": "string", "minLength": 1, "description": "Value delivered" },
+    "trigger": { "type": "string", "description": "What triggers this value stream" },
+    "outcome": { "type": "string", "description": "Expected outcome" }
+  }
+}
