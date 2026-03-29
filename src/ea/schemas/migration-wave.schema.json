@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/migration-wave.schema.json",
+  "title": "Anchored Spec — EA Migration Wave",
+  "description": "A batch of related changes within a transition plan.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["transitionPlan", "milestones", "sequenceOrder", "scope"],
+  "properties": {
+    "kind": { "const": "migration-wave" },
+    "transitionPlan": { "type": "string", "description": "ID of the parent transition plan" },
+    "milestones": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Milestone IDs this wave addresses"
+    },
+    "sequenceOrder": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Execution order within the transition plan"
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "create": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact IDs to be created"
+        },
+        "modify": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact IDs to be modified"
+        },
+        "retire": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact IDs to be retired"
+        }
+      },
+      "additionalProperties": false
+    },
+    "preconditions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Precondition artifact IDs that must exist before this wave"
+    },
+    "rollbackStrategy": { "type": "string", "description": "Description of rollback approach" }
+  }
+}

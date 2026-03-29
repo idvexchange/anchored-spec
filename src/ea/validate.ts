@@ -35,6 +35,11 @@ import type {
   PolicyObjectiveArtifact,
   ControlArtifact,
   MissionArtifact,
+  BaselineArtifact,
+  TargetArtifact,
+  TransitionPlanArtifact,
+  MigrationWaveArtifact,
+  ExceptionArtifact,
 } from "./types.js";
 import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
@@ -96,7 +101,12 @@ export type EaSchemaName =
   | "org-unit"
   | "policy-objective"
   | "business-service"
-  | "control";
+  | "control"
+  | "baseline"
+  | "target"
+  | "transition-plan"
+  | "migration-wave"
+  | "exception";
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "artifact-base",
@@ -138,6 +148,11 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "policy-objective",
   "business-service",
   "control",
+  "baseline",
+  "target",
+  "transition-plan",
+  "migration-wave",
+  "exception",
 ];
 
 function getEaAjv(): Ajv {
@@ -757,6 +772,57 @@ export function validateEaArtifacts(
           a.id,
           `Artifact "${a.id}" has no relations and is not referenced by any other artifact`
         );
+      }
+    }
+
+    // ── ea:quality:baseline-empty-refs ──────────────────────────────────────
+    if (a.kind === "baseline") {
+      const bl = a as unknown as BaselineArtifact;
+      const blSev = ruleSeverity("ea:quality:baseline-empty-refs", "warning", q);
+      if (!bl.artifactRefs || bl.artifactRefs.length === 0) {
+        push(blSev, "ea:quality:baseline-empty-refs", a.id, `Baseline "${a.id}" has no artifact references`);
+      }
+    }
+
+    // ── ea:quality:target-missing-metrics ───────────────────────────────────
+    if (a.kind === "target") {
+      const tgt = a as unknown as TargetArtifact;
+      const tgtSev = ruleSeverity("ea:quality:target-missing-metrics", "warning", q);
+      if (!tgt.successMetrics || tgt.successMetrics.length === 0) {
+        push(tgtSev, "ea:quality:target-missing-metrics", a.id, `Target "${a.id}" has no success metrics defined`);
+      }
+    }
+
+    // ── ea:quality:plan-empty-milestones ────────────────────────────────────
+    if (a.kind === "transition-plan") {
+      const plan = a as unknown as TransitionPlanArtifact;
+      const planSev = ruleSeverity("ea:quality:plan-empty-milestones", "warning", q);
+      if (!plan.milestones || plan.milestones.length === 0) {
+        push(planSev, "ea:quality:plan-empty-milestones", a.id, `Transition plan "${a.id}" has no milestones`);
+      }
+    }
+
+    // ── ea:quality:exception-empty-scope ────────────────────────────────────
+    if (a.kind === "exception") {
+      const exc = a as unknown as ExceptionArtifact;
+      const excSev = ruleSeverity("ea:quality:exception-empty-scope", "error", q);
+      const hasScope = (exc.scope?.artifactIds?.length ?? 0) > 0 ||
+        (exc.scope?.rules?.length ?? 0) > 0 ||
+        (exc.scope?.domains?.length ?? 0) > 0;
+      if (!hasScope) {
+        push(excSev, "ea:quality:exception-empty-scope", a.id, `Exception "${a.id}" has empty scope (would suppress everything)`);
+      }
+    }
+
+    // ── ea:quality:wave-empty-scope ─────────────────────────────────────────
+    if (a.kind === "migration-wave") {
+      const wave = a as unknown as MigrationWaveArtifact;
+      const waveSev = ruleSeverity("ea:quality:wave-empty-scope", "warning", q);
+      const hasScope = (wave.scope?.create?.length ?? 0) > 0 ||
+        (wave.scope?.modify?.length ?? 0) > 0 ||
+        (wave.scope?.retire?.length ?? 0) > 0;
+      if (!hasScope) {
+        push(waveSev, "ea:quality:wave-empty-scope", a.id, `Migration wave "${a.id}" has empty scope (no create/modify/retire)`);
       }
     }
   }

@@ -51,6 +51,13 @@ export type {
   PolicyObjectiveArtifact,
   BusinessServiceArtifact,
   ControlArtifact,
+  BaselineArtifact,
+  TargetArtifact,
+  TransitionPlanArtifact,
+  TransitionMilestone,
+  TransitionRisk,
+  MigrationWaveArtifact,
+  ExceptionArtifact,
   EaArtifact,
   EaKindEntry,
 } from "./types.js";

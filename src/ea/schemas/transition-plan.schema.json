@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/transition-plan.schema.json",
+  "title": "Anchored Spec — EA Transition Plan",
+  "description": "A plan to move from a baseline to a target architecture state.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["baseline", "target", "milestones"],
+  "properties": {
+    "kind": { "const": "transition-plan" },
+    "baseline": { "type": "string", "description": "ID of the baseline artifact" },
+    "target": { "type": "string", "description": "ID of the target artifact" },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "deliverables"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "deliverables": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Artifact IDs delivered by this milestone"
+          },
+          "generates": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Change records or requirements generated"
+          },
+          "criteria": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Acceptance criteria"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in-progress", "complete", "blocked"]
+          },
+          "blockedReason": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Ordered milestones in the transition"
+    },
+    "milestoneDependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["milestone", "dependsOn"],
+        "properties": {
+          "milestone": { "type": "string" },
+          "dependsOn": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Dependencies between milestones"
+    },
+    "riskRegister": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "likelihood", "impact", "mitigation"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "likelihood": { "type": "string", "enum": ["low", "medium", "high"] },
+          "impact": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "mitigation": { "type": "string" },
+          "owner": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "mitigated", "accepted", "closed"] }
+        },
+        "additionalProperties": false
+      },
+      "description": "Risk register for this transition"
+    },
+    "approvalPolicy": {
+      "type": "object",
+      "required": ["requiredApprovers"],
+      "properties": {
+        "requiredApprovers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "approvedAt": { "type": "string" },
+        "approvedBy": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Approval policy and status"
+    }
+  }
+}

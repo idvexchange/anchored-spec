@@ -711,6 +711,107 @@ export interface ControlArtifact extends EaArtifactBase {
   frameworks?: string[];
 }
 
+// ─── Transitions Domain ─────────────────────────────────────────────────────────
+
+export interface BaselineArtifact extends EaArtifactBase {
+  kind: "baseline";
+  scope: {
+    domains?: EaDomain[];
+    kinds?: string[];
+    tags?: string[];
+    description: string;
+  };
+  capturedAt: string;
+  artifactRefs: string[];
+  assumptions?: string[];
+  exceptions?: string[];
+  baselineVersion?: string;
+}
+
+export interface TargetArtifact extends EaArtifactBase {
+  kind: "target";
+  scope: {
+    domains?: EaDomain[];
+    kinds?: string[];
+    tags?: string[];
+    description: string;
+  };
+  effectiveBy: string;
+  artifactRefs: string[];
+  principles?: string[];
+  successMetrics?: Array<{
+    id: string;
+    metric: string;
+    target: string;
+    currentValue?: string;
+  }>;
+}
+
+export interface TransitionMilestone {
+  id: string;
+  title: string;
+  deliverables: string[];
+  generates?: string[];
+  criteria?: string[];
+  status?: "pending" | "in-progress" | "complete" | "blocked";
+  blockedReason?: string;
+}
+
+export interface TransitionRisk {
+  id: string;
+  description: string;
+  likelihood: "low" | "medium" | "high";
+  impact: "low" | "medium" | "high" | "critical";
+  mitigation: string;
+  owner?: string;
+  status?: "open" | "mitigated" | "accepted" | "closed";
+}
+
+export interface TransitionPlanArtifact extends EaArtifactBase {
+  kind: "transition-plan";
+  baseline: string;
+  target: string;
+  milestones: TransitionMilestone[];
+  milestoneDependencies?: Array<{
+    milestone: string;
+    dependsOn: string;
+  }>;
+  riskRegister?: TransitionRisk[];
+  approvalPolicy?: {
+    requiredApprovers: string[];
+    approvedAt?: string;
+    approvedBy?: string[];
+  };
+}
+
+export interface MigrationWaveArtifact extends EaArtifactBase {
+  kind: "migration-wave";
+  transitionPlan: string;
+  milestones: string[];
+  sequenceOrder: number;
+  scope: {
+    create?: string[];
+    modify?: string[];
+    retire?: string[];
+  };
+  preconditions?: string[];
+  rollbackStrategy?: string;
+}
+
+export interface ExceptionArtifact extends EaArtifactBase {
+  kind: "exception";
+  scope: {
+    artifactIds?: string[];
+    rules?: string[];
+    domains?: EaDomain[];
+  };
+  approvedBy: string;
+  approvedAt: string;
+  expiresAt: string;
+  reason: string;
+  reviewSchedule?: "weekly" | "monthly" | "quarterly";
+}
+
 // ─── Union Type ─────────────────────────────────────────────────────────────────
 
 /** Discriminated union of all artifact types. */
@@ -750,7 +851,12 @@ export type EaArtifact =
   | OrgUnitArtifact
   | PolicyObjectiveArtifact
   | BusinessServiceArtifact
-  | ControlArtifact;
+  | ControlArtifact
+  | BaselineArtifact
+  | TargetArtifact
+  | TransitionPlanArtifact
+  | MigrationWaveArtifact
+  | ExceptionArtifact;
 
 // ─── Kind Taxonomy ──────────────────────────────────────────────────────────────
 
@@ -805,6 +911,12 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "policy-objective", prefix: "POL", domain: "business", description: "A policy objective with target metrics and enforcement" },
   { kind: "business-service", prefix: "BSVC", domain: "business", description: "A business service delivered to customers or partners" },
   { kind: "control", prefix: "CTRL", domain: "business", description: "A governance control with assertion and enforcement" },
+  // Transitions domain
+  { kind: "baseline", prefix: "BASELINE", domain: "transitions", description: "A point-in-time architecture snapshot" },
+  { kind: "target", prefix: "TARGET", domain: "transitions", description: "A desired future architecture state" },
+  { kind: "transition-plan", prefix: "PLAN", domain: "transitions", description: "A plan to move from baseline to target" },
+  { kind: "migration-wave", prefix: "WAVE", domain: "transitions", description: "A batch of related changes within a transition" },
+  { kind: "exception", prefix: "EXCEPT", domain: "transitions", description: "An approved exception to architecture policy" },
 ] as const;
 
 /** Lookup helpers. */
