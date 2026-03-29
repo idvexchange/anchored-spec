@@ -58,6 +58,10 @@ export type {
   TransitionRisk,
   MigrationWaveArtifact,
   ExceptionArtifact,
+  RequirementArtifact,
+  ChangeArtifact,
+  DecisionArtifact,
+  EaBehaviorStatement,
   EaArtifact,
   EaKindEntry,
 } from "./types.js";
@@ -127,3 +131,7 @@ export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extrac
 // Generators
 export type { EaGenerator, EaGeneratorContext, GeneratedOutput, GenerationDrift, GeneratorConfig, EaGeneratorOptions, GenerationReport } from "./generators/index.js";
 export { runGenerators, renderGenerationReportMarkdown, registerGenerator, getGenerator, listGenerators, resolveGenerators, openapiGenerator, jsonSchemaGenerator } from "./generators/index.js";
+
+// Migration
+export type { MigrationOptions, MigratedArtifact, MigrationResult } from "./migrate-legacy.js";
+export { migrateLegacyArtifacts, migrateRequirement, migrateChange, migrateDecision, mapSemanticRefsToAnchors, renderMigrationReportMarkdown } from "./migrate-legacy.js";

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/decision.schema.json",
+  "title": "Anchored Spec — EA Decision (Legacy Subsumption)",
+  "description": "An architecture decision record migrated from the legacy ADR format.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "decision" },
+    "decision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The decision statement"
+    },
+    "context": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Context and problem statement"
+    },
+    "rationale": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Rationale for the decision"
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "verdict"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "verdict": { "type": "string", "enum": ["chosen", "rejected", "deferred"] },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Alternatives considered"
+    },
+    "relatedRequirements": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Legacy requirement IDs related to this decision"
+    },
+    "adDomain": {
+      "type": "string",
+      "description": "Architecture decision domain (from legacy 'domain' field)"
+    },
+    "implications": {
+      "type": "string",
+      "description": "Known implications of this decision"
+    }
+  }
+}

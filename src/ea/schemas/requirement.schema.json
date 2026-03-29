@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/requirement.schema.json",
+  "title": "Anchored Spec — EA Requirement (Legacy Subsumption)",
+  "description": "A behavioral software requirement migrated from the legacy REQ format.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "requirement" },
+    "behaviorStatements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "format", "response"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "format": { "type": "string", "enum": ["EARS"] },
+          "trigger": { "type": "string" },
+          "precondition": { "type": "string" },
+          "response": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "EARS-format behavior statements"
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "coverageStatus": {
+          "type": "string",
+          "enum": ["none", "partial", "covered"]
+        },
+        "testRefs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Verification status and test references"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["functional", "non-functional", "policy"],
+      "description": "Requirement category"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must", "should", "could", "wont"],
+      "description": "MoSCoW priority"
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "ID of the artifact that supersedes this one"
+    },
+    "statusReason": {
+      "type": "string",
+      "description": "Reason for current status (e.g., why deprecated)"
+    }
+  }
+}

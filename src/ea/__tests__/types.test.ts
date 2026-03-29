@@ -21,7 +21,7 @@ import type {
 // ─── Domain Constants ───────────────────────────────────────────────────────────
 
 describe("EA_DOMAINS", () => {
-  it("contains all six domains", () => {
+  it("contains all seven domains", () => {
     expect(EA_DOMAINS).toEqual([
       "systems",
       "delivery",
@@ -29,6 +29,7 @@ describe("EA_DOMAINS", () => {
       "information",
       "business",
       "transitions",
+      "legacy",
     ]);
   });
 });
@@ -37,7 +38,7 @@ describe("EA_DOMAINS", () => {
 
 describe("EA_KIND_REGISTRY", () => {
   it("contains 41 kinds (15 Phase A + 7 Data + 6 Information + 8 Business + 5 Transitions)", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(41);
+    expect(EA_KIND_REGISTRY).toHaveLength(44);
   });
 
   it("has 7 systems kinds, 8 delivery kinds, and 7 data kinds", () => {
