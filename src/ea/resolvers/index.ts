@@ -46,3 +46,24 @@ export {
   loadTerraformState,
   flattenResources,
 } from "./terraform.js";
+
+// SQL DDL Resolver
+export type { ParsedTable, ParsedColumn } from "./sql-ddl.js";
+export {
+  SqlDdlResolver,
+  parseDdl,
+  findSqlFiles,
+  loadSqlTables,
+} from "./sql-ddl.js";
+
+// dbt Resolver
+export type { DbtManifest, DbtNode, DbtSource, DbtExposure } from "./dbt.js";
+export {
+  DbtResolver,
+  findDbtManifests,
+  loadDbtManifest,
+  extractModels,
+  extractTests,
+  extractSources,
+  extractExposures,
+} from "./dbt.js";

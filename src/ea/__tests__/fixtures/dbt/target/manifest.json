@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v11.json",
+    "dbt_version": "1.7.0",
+    "project_name": "analytics",
+    "generated_at": "2024-01-15T10:30:00Z"
+  },
+  "nodes": {
+    "model.analytics.dim_users": {
+      "unique_id": "model.analytics.dim_users",
+      "name": "dim_users",
+      "resource_type": "model",
+      "description": "User dimension table",
+      "schema": "analytics",
+      "database": "warehouse",
+      "depends_on": {
+        "nodes": ["source.analytics.raw.users"]
+      },
+      "tags": ["dimension", "core"],
+      "config": {
+        "materialized": "table",
+        "tags": ["dimension"]
+      },
+      "columns": {
+        "user_id": { "name": "user_id", "description": "Primary key", "data_type": "uuid" },
+        "email": { "name": "email", "description": "User email", "data_type": "varchar" },
+        "created_at": { "name": "created_at", "description": "Registration date", "data_type": "timestamp" }
+      }
+    },
+    "model.analytics.fct_orders": {
+      "unique_id": "model.analytics.fct_orders",
+      "name": "fct_orders",
+      "resource_type": "model",
+      "description": "Order fact table",
+      "schema": "analytics",
+      "database": "warehouse",
+      "depends_on": {
+        "nodes": ["model.analytics.dim_users", "source.analytics.raw.orders"]
+      },
+      "tags": ["fact", "core"],
+      "config": {
+        "materialized": "incremental"
+      },
+      "columns": {
+        "order_id": { "name": "order_id", "data_type": "uuid" },
+        "user_id": { "name": "user_id", "data_type": "uuid" },
+        "total": { "name": "total", "data_type": "decimal" }
+      }
+    },
+    "model.analytics.mart_revenue": {
+      "unique_id": "model.analytics.mart_revenue",
+      "name": "mart_revenue",
+      "resource_type": "model",
+      "description": "Revenue aggregation mart",
+      "schema": "marts",
+      "database": "warehouse",
+      "depends_on": {
+        "nodes": ["model.analytics.fct_orders"]
+      },
+      "tags": ["mart"],
+      "config": {
+        "materialized": "table"
+      }
+    },
+    "test.analytics.not_null_dim_users_user_id": {
+      "unique_id": "test.analytics.not_null_dim_users_user_id",
+      "name": "not_null_dim_users_user_id",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.dim_users"]
+      },
+      "tags": ["schema"],
+      "test_metadata": {
+        "name": "not_null",
+        "kwargs": { "column_name": "user_id", "model": "ref('dim_users')" }
+      }
+    },
+    "test.analytics.unique_dim_users_email": {
+      "unique_id": "test.analytics.unique_dim_users_email",
+      "name": "unique_dim_users_email",
+      "resource_type": "test",
+      "depends_on": {
+        "nodes": ["model.analytics.dim_users"]
+      },
+      "tags": ["schema"],
+      "test_metadata": {
+        "name": "unique",
+        "kwargs": { "column_name": "email", "model": "ref('dim_users')" }
+      }
+    }
+  },
+  "sources": {
+    "source.analytics.raw.users": {
+      "unique_id": "source.analytics.raw.users",
+      "name": "users",
+      "source_name": "raw",
+      "source_description": "Raw operational database",
+      "description": "Raw users table from production",
+      "schema": "public",
+      "database": "production"
+    },
+    "source.analytics.raw.orders": {
+      "unique_id": "source.analytics.raw.orders",
+      "name": "orders",
+      "source_name": "raw",
+      "source_description": "Raw operational database",
+      "description": "Raw orders table from production",
+      "schema": "public",
+      "database": "production"
+    }
+  },
+  "exposures": {
+    "exposure.analytics.revenue_dashboard": {
+      "unique_id": "exposure.analytics.revenue_dashboard",
+      "name": "revenue_dashboard",
+      "type": "dashboard",
+      "description": "Executive revenue dashboard",
+      "depends_on": {
+        "nodes": ["model.analytics.mart_revenue"]
+      },
+      "owner": {
+        "name": "Data Team",
+        "email": "data@example.com"
+      }
+    }
+  }
+}
