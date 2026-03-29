@@ -378,10 +378,45 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
   },
 ];
 
-/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C + 2D). */
+// ─── Phase 2E: Transition Relations ─────────────────────────────────────────────
+
+const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
+  {
+    type: "supersedes",
+    inverse: "supersededBy",
+    validSourceKinds: "*",
+    validTargetKinds: "*",
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "none",
+    description: "Source artifact supersedes target (newer version or replacement).",
+  },
+  {
+    type: "generates",
+    inverse: "generatedBy",
+    validSourceKinds: ["transition-plan", "migration-wave"],
+    validTargetKinds: "*",
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Transition plan or migration wave generates change records.",
+  },
+  {
+    type: "mitigates",
+    inverse: "mitigatedBy",
+    validSourceKinds: ["exception"],
+    validTargetKinds: "*",
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "none",
+    description: "Exception mitigates (suppresses) drift findings for target artifacts.",
+  },
+];
+
+/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C + 2D + 2E). */
 export function createDefaultRegistry(): RelationRegistry {
   const registry = new RelationRegistry();
-  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS, ...PHASE_2C_RELATIONS, ...PHASE_2D_RELATIONS]) {
+  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS, ...PHASE_2C_RELATIONS, ...PHASE_2D_RELATIONS, ...PHASE_2E_RELATIONS]) {
     registry.register(entry);
   }
   return registry;

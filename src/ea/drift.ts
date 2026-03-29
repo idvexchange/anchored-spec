@@ -28,6 +28,11 @@ import type {
   PolicyObjectiveArtifact,
   ControlArtifact,
   MissionArtifact,
+  BaselineArtifact,
+  TargetArtifact,
+  TransitionPlanArtifact,
+  MigrationWaveArtifact,
+  ExceptionArtifact,
 } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
@@ -1283,6 +1288,277 @@ const qualityRuleNotEnforced: EaDriftRule = {
   },
 };
 
+// ─── Phase 2E: Transition Drift Rules ───────────────────────────────────────────
+
+const baselineMissingArtifacts: EaDriftRule = {
+  id: "ea:transition/baseline-missing-artifacts",
+  severity: "warning",
+  description: "Baseline artifactRefs references artifacts that don't exist.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "baseline") continue;
+      const bl = a as unknown as BaselineArtifact;
+      for (const ref of bl.artifactRefs ?? []) {
+        if (!ctx.artifactMap.has(ref)) {
+          results.push({
+            path: a.id,
+            message: `Baseline "${a.id}" references artifact "${ref}" which does not exist`,
+            severity: "warning",
+            rule: "ea:transition/baseline-missing-artifacts",
+          });
+        }
+      }
+    }
+    return results;
+  },
+};
+
+const baselineStale: EaDriftRule = {
+  id: "ea:transition/baseline-stale",
+  severity: "warning",
+  description: "Baseline capturedAt is more than 90 days old.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const now = Date.now();
+    const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "baseline") continue;
+      const bl = a as unknown as BaselineArtifact;
+      if (!bl.capturedAt) continue;
+      const capturedDate = new Date(bl.capturedAt).getTime();
+      if (!isNaN(capturedDate) && now - capturedDate > ninetyDays) {
+        results.push({
+          path: a.id,
+          message: `Baseline "${a.id}" was captured more than 90 days ago (${bl.capturedAt})`,
+          severity: "warning",
+          rule: "ea:transition/baseline-stale",
+        });
+      }
+    }
+    return results;
+  },
+};
+
+const invalidTargetReference: EaDriftRule = {
+  id: "ea:transition/invalid-target-reference",
+  severity: "error",
+  description: "Target artifactRefs references non-existent artifact.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "target") continue;
+      const tgt = a as unknown as TargetArtifact;
+      for (const ref of tgt.artifactRefs ?? []) {
+        const target = ctx.artifactMap.get(ref);
+        if (!target) {
+          results.push({
+            path: a.id,
+            message: `Target "${a.id}" references artifact "${ref}" which does not exist`,
+            severity: "error",
+            rule: "ea:transition/invalid-target-reference",
+          });
+        }
+      }
+    }
+    return results;
+  },
+};
+
+const expiredTarget: EaDriftRule = {
+  id: "ea:transition/expired-target",
+  severity: "warning",
+  description: "Target effectiveBy date is in the past.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const now = Date.now();
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "target" || a.status === "retired") continue;
+      const tgt = a as unknown as TargetArtifact;
+      if (!tgt.effectiveBy) continue;
+      const effectiveDate = new Date(tgt.effectiveBy).getTime();
+      if (!isNaN(effectiveDate) && effectiveDate < now) {
+        results.push({
+          path: a.id,
+          message: `Target "${a.id}" has expired (effectiveBy: ${tgt.effectiveBy})`,
+          severity: "warning",
+          rule: "ea:transition/expired-target",
+        });
+      }
+    }
+    return results;
+  },
+};
+
+const missingBaseline: EaDriftRule = {
+  id: "ea:transition/missing-baseline",
+  severity: "error",
+  description: "Transition plan references non-existent baseline.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "transition-plan") continue;
+      const plan = a as unknown as TransitionPlanArtifact;
+      if (plan.baseline && !ctx.artifactMap.has(plan.baseline)) {
+        results.push({
+          path: a.id,
+          message: `Transition plan "${a.id}" references baseline "${plan.baseline}" which does not exist`,
+          severity: "error",
+          rule: "ea:transition/missing-baseline",
+        });
+      }
+    }
+    return results;
+  },
+};
+
+const missingTarget: EaDriftRule = {
+  id: "ea:transition/missing-target",
+  severity: "error",
+  description: "Transition plan references non-existent target.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "transition-plan") continue;
+      const plan = a as unknown as TransitionPlanArtifact;
+      if (plan.target && !ctx.artifactMap.has(plan.target)) {
+        results.push({
+          path: a.id,
+          message: `Transition plan "${a.id}" references target "${plan.target}" which does not exist`,
+          severity: "error",
+          rule: "ea:transition/missing-target",
+        });
+      }
+    }
+    return results;
+  },
+};
+
+const milestoneOnRetiredArtifact: EaDriftRule = {
+  id: "ea:transition/milestone-on-retired-artifact",
+  severity: "error",
+  description: "Milestone deliverable is a retired artifact.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "transition-plan") continue;
+      const plan = a as unknown as TransitionPlanArtifact;
+      for (const ms of plan.milestones ?? []) {
+        for (const deliverable of ms.deliverables ?? []) {
+          const target = ctx.artifactMap.get(deliverable);
+          if (target && target.status === "retired") {
+            results.push({
+              path: a.id,
+              message: `Milestone "${ms.id}" in plan "${a.id}" delivers retired artifact "${deliverable}"`,
+              severity: "error",
+              rule: "ea:transition/milestone-on-retired-artifact",
+            });
+          }
+        }
+      }
+    }
+    return results;
+  },
+};
+
+const orphanWave: EaDriftRule = {
+  id: "ea:transition/orphan-wave",
+  severity: "warning",
+  description: "Migration wave not referenced by any transition plan.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const plans = ctx.artifacts.filter((a) => a.kind === "transition-plan") as unknown as TransitionPlanArtifact[];
+    const referencedWaves = new Set<string>();
+    for (const plan of plans) {
+      if (plan.relations) {
+        for (const rel of plan.relations) {
+          if (rel.type === "generates") referencedWaves.add(rel.target);
+        }
+      }
+    }
+    // Also check waves that reference plans via transitionPlan field
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "migration-wave") continue;
+      const wave = a as unknown as MigrationWaveArtifact;
+      if (wave.transitionPlan && ctx.artifactMap.has(wave.transitionPlan)) {
+        referencedWaves.add(a.id);
+      }
+    }
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "migration-wave") continue;
+      if (!referencedWaves.has(a.id)) {
+        results.push({
+          path: a.id,
+          message: `Migration wave "${a.id}" is not referenced by any transition plan`,
+          severity: "warning",
+          rule: "ea:transition/orphan-wave",
+        });
+      }
+    }
+    return results;
+  },
+};
+
+const exceptionExpired: EaDriftRule = {
+  id: "ea:exception/expired",
+  severity: "warning",
+  description: "Exception expiresAt is in the past.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const now = Date.now();
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "exception" || a.status === "retired") continue;
+      const exc = a as unknown as ExceptionArtifact;
+      if (!exc.expiresAt) continue;
+      const expiryDate = new Date(exc.expiresAt).getTime();
+      if (!isNaN(expiryDate) && expiryDate < now) {
+        results.push({
+          path: a.id,
+          message: `Exception "${a.id}" has expired (expiresAt: ${exc.expiresAt})`,
+          severity: "warning",
+          rule: "ea:exception/expired",
+        });
+      }
+    }
+    return results;
+  },
+};
+
+const exceptionMissingScope: EaDriftRule = {
+  id: "ea:exception/missing-scope",
+  severity: "error",
+  description: "Exception with empty scope would suppress everything.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "exception") continue;
+      const exc = a as unknown as ExceptionArtifact;
+      const hasScope = (exc.scope?.artifactIds?.length ?? 0) > 0 ||
+        (exc.scope?.rules?.length ?? 0) > 0 ||
+        (exc.scope?.domains?.length ?? 0) > 0;
+      if (!hasScope) {
+        results.push({
+          path: a.id,
+          message: `Exception "${a.id}" has empty scope (would suppress everything)`,
+          severity: "error",
+          rule: "ea:exception/missing-scope",
+        });
+      }
+    }
+    return results;
+  },
+};
+
 // ─── Rule Registry & Runner ─────────────────────────────────────────────────────
 
 /** All registered EA drift rules. */
@@ -1318,6 +1594,17 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
   controlOverdue,
   valueStreamBottleneck,
   unownedCriticalSystem,
+  // Phase 2E — Transitions
+  baselineMissingArtifacts,
+  baselineStale,
+  invalidTargetReference,
+  expiredTarget,
+  missingBaseline,
+  missingTarget,
+  milestoneOnRetiredArtifact,
+  orphanWave,
+  exceptionExpired,
+  exceptionMissingScope,
   // Resolver-dependent stubs (Phase 2F)
   unmodeledExternalDependency,
   unmodeledCloudResource,
