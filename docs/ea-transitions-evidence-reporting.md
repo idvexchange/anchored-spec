@@ -329,7 +329,7 @@ The `ea create migration-wave` command can optionally scaffold corresponding cha
 
 ```bash
 # Create a migration wave and scaffold change records for its scope
-anchored-spec ea create migration-wave \
+anchored-spec create migration-wave \
   --title "Extract Payment Service" \
   --plan transitions/PLAN-2026-modernize-orders \
   --scaffold-changes
@@ -365,7 +365,7 @@ The target gap report compares baseline and target to identify:
 
 ## Evidence Model Extension
 
-The EA extension reuses the existing evidence pipeline rather than forking it. The existing `Evidence` and `EvidenceRecord` types in `src/core/evidence.ts` are extended with new evidence kinds.
+The EA evidence pipeline provides `Evidence` and `EvidenceRecord` types in `src/ea/evidence.ts` with evidence kinds for architecture validation.
 
 ### Extended Evidence Kinds
 
@@ -441,13 +441,13 @@ New evidence sources for EA:
 
 ```bash
 # Ingest contract evidence from an OpenAPI lint report
-anchored-spec ea evidence ingest --kind contract --source spectral-report.json --artifact systems/API-orders-api
+anchored-spec evidence ingest --kind contract --source spectral-report.json --artifact systems/API-orders-api
 
 # Ingest deployment evidence from a K8s health check
-anchored-spec ea evidence ingest --kind deployment --source healthcheck-results.json --artifact delivery/DEPLOY-order-service-prod
+anchored-spec evidence ingest --kind deployment --source healthcheck-results.json --artifact delivery/DEPLOY-order-service-prod
 
 # Ingest inventory evidence from a cloud snapshot
-anchored-spec ea evidence ingest --kind inventory --source aws-inventory.json
+anchored-spec evidence ingest --kind inventory --source aws-inventory.json
 ```
 
 Evidence is written to the existing `specs/generated/evidence.json` file with the extended kind values. No separate EA evidence file.
@@ -545,21 +545,21 @@ Available after Phase E.
 
 ```bash
 # Generate all reports
-anchored-spec ea report
+anchored-spec report
 
 # Generate specific view
-anchored-spec ea report --view capability-map
-anchored-spec ea report --view system-data-matrix
-anchored-spec ea report --view target-gap
-anchored-spec ea report --view drift
-anchored-spec ea report --view exceptions
+anchored-spec report --view capability-map
+anchored-spec report --view system-data-matrix
+anchored-spec report --view target-gap
+anchored-spec report --view drift
+anchored-spec report --view exceptions
 
 # Output format
-anchored-spec ea report --json
-anchored-spec ea report --view target-gap --json
+anchored-spec report --json
+anchored-spec report --view target-gap --json
 
 # Filter by domain
-anchored-spec ea report --domain systems
+anchored-spec report --domain systems
 ```
 
 ### Report Generation Pipeline

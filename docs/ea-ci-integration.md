@@ -24,15 +24,15 @@ jobs:
 
       # Stage 1: Schema and quality validation
       - name: Validate EA artifacts
-        run: npx anchored-spec ea validate --strict --json > ea-validate.json
+        run: npx anchored-spec validate --strict --json > ea-validate.json
 
       # Stage 2: Relation graph integrity
       - name: Validate relation graph
-        run: npx anchored-spec ea graph --format json > /dev/null
+        run: npx anchored-spec graph --format json > /dev/null
 
       # Stage 3: Check generated outputs are up to date
       - name: Check generation freshness
-        run: npx anchored-spec ea generate --check
+        run: npx anchored-spec generate --check
 
       # Stage 4: Run existing spec checks alongside EA
       - name: Verify all specs (legacy + EA)
@@ -59,7 +59,7 @@ jobs:
 
       # Run drift detection with resolvers
       - name: Detect EA drift
-        run: npx anchored-spec ea drift --json > ea-drift.json
+        run: npx anchored-spec drift --json > ea-drift.json
 
       # Fail on errors, warn on warnings
       - name: Check drift results
@@ -97,7 +97,7 @@ jobs:
 
       # Generate all EA reports
       - name: Generate EA reports
-        run: npx anchored-spec ea report --all --json
+        run: npx anchored-spec report --all --json
 
       # Upload generated reports
       - name: Upload EA reports
@@ -112,7 +112,7 @@ jobs:
 ### Stage 1: Validation (Every PR)
 
 ```bash
-npx anchored-spec ea validate --strict --json
+npx anchored-spec validate --strict --json
 ```
 
 **What it checks:**
@@ -129,7 +129,7 @@ npx anchored-spec ea validate --strict --json
 ### Stage 2: Graph Integrity (Every PR)
 
 ```bash
-npx anchored-spec ea graph --format json > /dev/null
+npx anchored-spec graph --format json > /dev/null
 ```
 
 **What it checks:**
@@ -144,7 +144,7 @@ npx anchored-spec ea graph --format json > /dev/null
 ### Stage 3: Generation Freshness (Every PR)
 
 ```bash
-npx anchored-spec ea generate --check
+npx anchored-spec generate --check
 ```
 
 **What it checks:**
@@ -156,7 +156,7 @@ npx anchored-spec ea generate --check
 ### Stage 4: Full Drift Detection (Main Branch or Scheduled)
 
 ```bash
-npx anchored-spec ea drift --json
+npx anchored-spec drift --json
 ```
 
 **What it checks:**
@@ -172,7 +172,7 @@ npx anchored-spec ea drift --json
 ### Stage 5: Report Generation (Main Branch Only)
 
 ```bash
-npx anchored-spec ea report --all --json
+npx anchored-spec report --all --json
 ```
 
 **What it produces:**
@@ -194,35 +194,35 @@ Teams don't need to enable all stages at once. Recommended rollout:
 ### Week 1: Validation Only
 
 ```yaml
-- run: npx anchored-spec ea validate --json
+- run: npx anchored-spec validate --json
   # Don't use --strict yet — fix warnings gradually
 ```
 
 ### Week 2: Add Strict Mode
 
 ```yaml
-- run: npx anchored-spec ea validate --strict --json
+- run: npx anchored-spec validate --strict --json
 ```
 
 ### Week 3: Add Graph Checks
 
 ```yaml
-- run: npx anchored-spec ea validate --strict --json
-- run: npx anchored-spec ea graph --format json > /dev/null
+- run: npx anchored-spec validate --strict --json
+- run: npx anchored-spec graph --format json > /dev/null
 ```
 
 ### Week 4: Add Drift Detection (Non-Blocking)
 
 ```yaml
 - name: Detect drift (advisory)
-  run: npx anchored-spec ea drift --json || true
+  run: npx anchored-spec drift --json || true
 ```
 
 ### Week 5+: Make Drift Blocking
 
 ```yaml
 - name: Detect drift (blocking)
-  run: npx anchored-spec ea drift --fail-on-warning
+  run: npx anchored-spec drift --fail-on-warning
 ```
 
 ## PR Comment Integration
@@ -280,7 +280,7 @@ jobs:
       - run: npm ci
 
       - name: Run full drift with fresh resolver data
-        run: npx anchored-spec ea drift --no-cache --json > ea-drift.json
+        run: npx anchored-spec drift --no-cache --json > ea-drift.json
 
       - name: Create issue if drift detected
         if: always()
@@ -321,8 +321,8 @@ jobs:
       - run: npx anchored-spec drift --fail-on-missing
 
       # EA checks (additive)
-      - run: npx anchored-spec ea validate --strict
-      - run: npx anchored-spec ea drift --json || true  # Advisory until confident
+      - run: npx anchored-spec validate --strict
+      - run: npx anchored-spec drift --json || true  # Advisory until confident
 ```
 
 Both pipelines produce independent results. They share the same `.anchored-spec/config.json` — the `ea.enabled` flag controls whether EA checks are active.

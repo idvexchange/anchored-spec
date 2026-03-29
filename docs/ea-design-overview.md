@@ -32,14 +32,7 @@ Read these documents in order for full implementation context:
 ### Reference
 
 - [examples/ea/](../examples/ea/) — 15-artifact e-commerce platform fixture set
-- [SKILL.md](../SKILL.md) Section 13 — AI agent skill rules for EA workflows
-
-### Existing Core Documentation
-
-- [concepts.md](./concepts.md) — existing requirement, change, and decision model
-- [drift-detection.md](./drift-detection.md) — existing semantic drift engine
-- [plugins-and-hooks.md](./plugins-and-hooks.md) — existing plugin and hook system
-- [evidence-pipeline.md](./evidence-pipeline.md) — existing test evidence pipeline
+- [SKILL.md](../SKILL.md) — AI agent skill rules for EA workflows
 
 ## Purpose
 

@@ -5,7 +5,7 @@
  * Each adapter transforms format-specific test results into a normalized
  * list of EA evidence artifacts.
  *
- * This is the EA replacement for src/core/evidence.ts VitestParser.
+ * This is the EA EA-native evidence adapter framework VitestParser.
  */
 
 import { readFileSync, existsSync } from "node:fs";

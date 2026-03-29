@@ -53,7 +53,6 @@ src/
 ├── cli/                      # CLI interface (commander)
 │   ├── commands/             # init, create, validate, graph, report, evidence,
 │   │                         # drift, discover, generate, impact, status, transition
-│   ├── watch.ts              # File watcher for --watch modes
 │   ├── errors.ts             # CliError class for testable exits
 │   └── __tests__/            # CLI integration tests
 ├── resolvers/                # Optional drift resolvers

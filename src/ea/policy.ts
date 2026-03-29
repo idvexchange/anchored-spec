@@ -5,7 +5,7 @@
  * from EaRoot (JSON or YAML), evaluates path-based rules, validates
  * workflow entry against active change artifacts.
  *
- * This is the EA replacement for src/core/policy.ts and src/core/check.ts.
+ * This is the EA EA-native workflow policy engine and src/core/check.ts.
  */
 
 import { minimatch } from "minimatch";
