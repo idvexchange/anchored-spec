@@ -6,11 +6,14 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   EaRoot,
   resolveEaConfig,
   detectEaDrift,
   EA_DOMAINS,
+  createResolverCache,
 } from "../../ea/index.js";
 import type { ExceptionArtifact } from "../../ea/types.js";
 import { CliError } from "../errors.js";
@@ -24,6 +27,7 @@ export function eaDriftCommand(): Command {
     .option("--fail-on-warning", "Exit with code 1 on warnings (not just errors)")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
     .option("--no-cache", "Disable resolver cache")
+    .option("--from-snapshot <path>", "Use a snapshot file instead of live resolvers")
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
@@ -53,10 +57,33 @@ export function eaDriftCommand(): Command {
         (a): a is ExceptionArtifact => a.kind === "exception",
       );
 
+      // Build resolver cache
+      const cache = createResolverCache(process.cwd(), {
+        noCache: options.cache === false,
+        maxCacheAge: options.maxCacheAge ? parseInt(options.maxCacheAge as string, 10) : undefined,
+      });
+
+      // Load snapshot if provided
+      let snapshotData: Record<string, unknown> | undefined;
+      if (options.fromSnapshot) {
+        const snapPath = resolve(options.fromSnapshot as string);
+        if (!existsSync(snapPath)) {
+          throw new CliError(`Snapshot file not found: ${snapPath}`, 2);
+        }
+        try {
+          snapshotData = JSON.parse(readFileSync(snapPath, "utf-8")) as Record<string, unknown>;
+        } catch {
+          throw new CliError(`Failed to parse snapshot file: ${snapPath}`, 2);
+        }
+      }
+
       const report = detectEaDrift({
         artifacts: result.artifacts,
         exceptions,
         domains: domainFilter ? [domainFilter] : undefined,
+        includeResolverRules: !!options.fromSnapshot || options.cache !== false,
+        cache,
+        snapshot: snapshotData,
       });
 
       // Filter by severity

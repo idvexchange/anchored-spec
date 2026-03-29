@@ -420,7 +420,7 @@ describe("Phase 2A: Quality Rules", () => {
 // ─── Drift Rules ────────────────────────────────────────────────────────────────
 
 describe("Phase 2A: Drift Rules", () => {
-  describe("ea:drift:consumer-contract-version-mismatch", () => {
+  describe("ea:systems/consumer-contract-version-mismatch", () => {
     it("fires when consumer contractVersion differs from contract schemaVersion", () => {
       const artifacts = [
         makeArtifact({
@@ -438,7 +438,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:consumer-contract-version-mismatch",
+        (e) => e.rule === "ea:systems/consumer-contract-version-mismatch",
       );
       expect(warn).toBeDefined();
       expect(warn!.message).toContain("1.0.0");
@@ -462,7 +462,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:consumer-contract-version-mismatch",
+        (e) => e.rule === "ea:systems/consumer-contract-version-mismatch",
       );
       expect(warn).toBeUndefined();
     });
@@ -483,13 +483,13 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:consumer-contract-version-mismatch",
+        (e) => e.rule === "ea:systems/consumer-contract-version-mismatch",
       );
       expect(warn).toBeUndefined();
     });
   });
 
-  describe("ea:drift:technology-standard-violation", () => {
+  describe("ea:systems/technology-standard-violation", () => {
     it("fires when cloud resource uses unapproved technology", () => {
       const artifacts = [
         makeArtifact({
@@ -509,7 +509,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const err = result.errors.find(
-        (e) => e.rule === "ea:drift:technology-standard-violation",
+        (e) => e.rule === "ea:systems/technology-standard-violation",
       );
       expect(err).toBeDefined();
       expect(err!.message).toContain("MySQL");
@@ -534,7 +534,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const err = result.errors.find(
-        (e) => e.rule === "ea:drift:technology-standard-violation",
+        (e) => e.rule === "ea:systems/technology-standard-violation",
       );
       expect(err).toBeUndefined();
     });
@@ -558,13 +558,13 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const err = result.errors.find(
-        (e) => e.rule === "ea:drift:technology-standard-violation",
+        (e) => e.rule === "ea:systems/technology-standard-violation",
       );
       expect(err).toBeUndefined();
     });
   });
 
-  describe("ea:drift:deprecated-version-in-use", () => {
+  describe("ea:systems/deprecated-version-in-use", () => {
     it("fires when cloud resource uses deprecated version", () => {
       const artifacts = [
         makeArtifact({
@@ -586,7 +586,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:deprecated-version-in-use",
+        (e) => e.rule === "ea:systems/deprecated-version-in-use",
       );
       expect(warn).toBeDefined();
       expect(warn!.message).toContain("12");
@@ -613,13 +613,13 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:deprecated-version-in-use",
+        (e) => e.rule === "ea:systems/deprecated-version-in-use",
       );
       expect(warn).toBeUndefined();
     });
   });
 
-  describe("ea:drift:environment-promotion-gap", () => {
+  describe("ea:systems/environment-promotion-gap", () => {
     it("fires when promotesFrom references non-existent environment", () => {
       const artifacts = [
         makeArtifact({
@@ -632,7 +632,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:environment-promotion-gap",
+        (e) => e.rule === "ea:systems/environment-promotion-gap",
       );
       expect(warn).toBeDefined();
       expect(warn!.message).toContain("ENV-dev");
@@ -650,7 +650,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:environment-promotion-gap",
+        (e) => e.rule === "ea:systems/environment-promotion-gap",
       );
       expect(warn).toBeDefined();
       expect(warn!.message).toContain("ENV-production");
@@ -683,7 +683,7 @@ describe("Phase 2A: Drift Rules", () => {
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
-        (e) => e.rule === "ea:drift:environment-promotion-gap",
+        (e) => e.rule === "ea:systems/environment-promotion-gap",
       );
       expect(warn).toBeUndefined();
     });

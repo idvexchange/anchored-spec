@@ -105,7 +105,7 @@ export type { GraphNode, GraphEdge, MermaidOptions, DotOptions } from "./graph.j
 export { RelationGraph, buildRelationGraph } from "./graph.js";
 
 // Drift
-export type { EaDriftContext, EaDriftRule, EaDriftResult, EaDriftFinding, DomainDriftSummary, EaDriftReport, EaDriftOptions } from "./drift.js";
+export type { EaDriftContext, EaDriftRule, EaDriftResult, EaDriftFinding, DomainDriftSummary, EaDriftReport, EaDriftOptions, EaResolverObservedState } from "./drift.js";
 export { EA_DRIFT_RULES, evaluateEaDrift, detectEaDrift } from "./drift.js";
 
 // Reports

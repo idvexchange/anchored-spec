@@ -349,7 +349,7 @@ describe("Phase 2B: Quality Rules", () => {
 // ─── Data Layer Drift Rules ─────────────────────────────────────────────────────
 
 describe("Phase 2B: Drift Rules", () => {
-  describe("ea:drift:lineage-stale", () => {
+  describe("ea:data/lineage-stale", () => {
     it("fires when lineage source does not exist", () => {
       const artifacts = [
         makeArtifact({
@@ -362,7 +362,7 @@ describe("Phase 2B: Drift Rules", () => {
         makeArtifact({ id: "STORE-target", kind: "data-store" }),
       ];
       const result = evaluateEaDrift(artifacts);
-      const warn = result.warnings.find((e) => e.rule === "ea:drift:lineage-stale");
+      const warn = result.warnings.find((e) => e.rule === "ea:data/lineage-stale");
       expect(warn).toBeDefined();
       expect(warn!.message).toContain("STORE-deleted");
       expect(warn!.message).toContain("does not exist");
@@ -381,7 +381,7 @@ describe("Phase 2B: Drift Rules", () => {
         makeArtifact({ id: "STORE-retired", kind: "data-store", status: "retired" }),
       ];
       const result = evaluateEaDrift(artifacts);
-      const warn = result.warnings.find((e) => e.rule === "ea:drift:lineage-stale");
+      const warn = result.warnings.find((e) => e.rule === "ea:data/lineage-stale");
       expect(warn).toBeDefined();
       expect(warn!.message).toContain("retired");
     });
@@ -399,11 +399,11 @@ describe("Phase 2B: Drift Rules", () => {
         makeArtifact({ id: "STORE-dst", kind: "data-store" }),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:lineage-stale")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/lineage-stale")).toBeUndefined();
     });
   });
 
-  describe("ea:drift:orphan-store", () => {
+  describe("ea:data/orphan-store", () => {
     it("fires for disconnected data store", () => {
       const artifacts = [
         makeArtifact({
@@ -413,7 +413,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:orphan-store")).toBeDefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/orphan-store")).toBeDefined();
     });
 
     it("does not fire when store has relations", () => {
@@ -427,7 +427,7 @@ describe("Phase 2B: Drift Rules", () => {
         makeArtifact({ id: "PLAT-aws", kind: "platform" }),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:orphan-store")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/orphan-store")).toBeUndefined();
     });
 
     it("does not fire when store is a lineage endpoint", () => {
@@ -447,13 +447,13 @@ describe("Phase 2B: Drift Rules", () => {
         makeArtifact({ id: "STORE-target", kind: "data-store" }),
       ];
       const result = evaluateEaDrift(artifacts);
-      const orphanWarnings = result.warnings.filter((e) => e.rule === "ea:drift:orphan-store");
+      const orphanWarnings = result.warnings.filter((e) => e.rule === "ea:data/orphan-store");
       const storeInLineageOrphan = orphanWarnings.find((e) => e.path === "STORE-in-lineage");
       expect(storeInLineageOrphan).toBeUndefined();
     });
   });
 
-  describe("ea:drift:shared-store-no-steward", () => {
+  describe("ea:data/shared-store-no-steward", () => {
     it("fires for shared store without MDM", () => {
       const artifacts = [
         makeArtifact({
@@ -464,7 +464,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:shared-store-no-steward")).toBeDefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/shared-store-no-steward")).toBeDefined();
     });
 
     it("does not fire when MDM references shared store", () => {
@@ -484,7 +484,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:shared-store-no-steward")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/shared-store-no-steward")).toBeUndefined();
     });
 
     it("does not fire for non-shared stores", () => {
@@ -497,11 +497,11 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:shared-store-no-steward")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/shared-store-no-steward")).toBeUndefined();
     });
   });
 
-  describe("ea:drift:product-missing-sla", () => {
+  describe("ea:data/product-missing-sla", () => {
     it("fires for active data product without SLA", () => {
       const artifacts = [
         makeArtifact({
@@ -513,7 +513,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:product-missing-sla")).toBeDefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-sla")).toBeDefined();
     });
 
     it("does not fire when SLA present", () => {
@@ -528,7 +528,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:product-missing-sla")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-sla")).toBeUndefined();
     });
 
     it("does not fire for draft products", () => {
@@ -542,11 +542,11 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:product-missing-sla")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-sla")).toBeUndefined();
     });
   });
 
-  describe("ea:drift:product-missing-quality-rules", () => {
+  describe("ea:data/product-missing-quality-rules", () => {
     it("fires for active data product without quality rules", () => {
       const artifacts = [
         makeArtifact({
@@ -559,7 +559,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:product-missing-quality-rules")).toBeDefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-quality-rules")).toBeDefined();
     });
 
     it("does not fire when quality rules present", () => {
@@ -574,7 +574,7 @@ describe("Phase 2B: Drift Rules", () => {
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
-      expect(result.warnings.find((e) => e.rule === "ea:drift:product-missing-quality-rules")).toBeUndefined();
+      expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-quality-rules")).toBeUndefined();
     });
   });
 });

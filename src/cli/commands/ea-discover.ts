@@ -11,15 +11,35 @@ import {
   EaRoot,
   resolveEaConfig,
   discoverArtifacts,
-  createDraft,
   renderDiscoveryReportMarkdown,
+  createResolverCache,
+  OpenApiResolver,
+  KubernetesResolver,
+  TerraformResolver,
+  SqlDdlResolver,
+  DbtResolver,
+  silentLogger,
+  consoleLogger,
 } from "../../ea/index.js";
+import type { EaResolver } from "../../ea/resolvers/types.js";
+import type { EaArtifactDraft } from "../../ea/discovery.js";
 import { CliError } from "../errors.js";
+
+/** Map resolver names to their class constructors. */
+const RESOLVER_MAP: Record<string, new () => EaResolver> = {
+  openapi: OpenApiResolver,
+  kubernetes: KubernetesResolver,
+  terraform: TerraformResolver,
+  "sql-ddl": SqlDdlResolver,
+  dbt: DbtResolver,
+};
+
+const AVAILABLE_RESOLVERS = Object.keys(RESOLVER_MAP).join(", ");
 
 export function eaDiscoverCommand(): Command {
   return new Command("discover")
     .description("Discover EA artifacts from external sources")
-    .option("--resolver <name>", "Run a specific resolver (stub for now)")
+    .option("--resolver <name>", `Resolver to run: ${AVAILABLE_RESOLVERS}`)
     .option("--source <path>", "Source path to scan")
     .option("--dry-run", "Show what would be created without writing files")
     .option("--json", "Output discovery report as JSON")
@@ -40,23 +60,67 @@ export function eaDiscoverCommand(): Command {
 
       const result = await root.loadArtifacts();
 
-      // For now, resolvers are stubs — real resolvers come in later issues
-      const resolverName = (options.resolver as string) ?? "stub";
-      const drafts: ReturnType<typeof createDraft>[] = [];
+      // Build resolver cache
+      const cache = createResolverCache(cwd, {
+        noCache: options.cache === false,
+        maxCacheAge: options.maxCacheAge ? parseInt(options.maxCacheAge as string, 10) : undefined,
+      });
 
-      // If a source is provided but no real resolver exists yet, inform the user
-      if (options.source) {
-        console.log(
-          chalk.yellow(
-            `⚠ Resolver "${resolverName}" is a stub. Real resolvers (openapi, kubernetes, terraform) will be added in future phases.`,
-          ),
-        );
+      const logger = process.env.DEBUG ? consoleLogger : silentLogger;
+      const resolverName = (options.resolver as string | undefined);
+
+      // Instantiate resolver(s) and run discovery
+      const drafts: EaArtifactDraft[] = [];
+      const resolverNames: string[] = [];
+
+      if (resolverName) {
+        // Run specific resolver
+        const ResolverClass = RESOLVER_MAP[resolverName];
+        if (!ResolverClass) {
+          throw new CliError(
+            `Unknown resolver "${resolverName}". Available: ${AVAILABLE_RESOLVERS}`,
+            2,
+          );
+        }
+
+        const resolver = new ResolverClass();
+        resolverNames.push(resolver.name);
+
+        const discovered = resolver.discoverArtifacts?.({
+          projectRoot: cwd,
+          artifacts: result.artifacts,
+          cache,
+          logger,
+          source: options.source as string | undefined,
+        });
+
+        if (discovered) {
+          drafts.push(...discovered);
+        }
+      } else {
+        // No resolver specified — run all resolvers
+        for (const [, ResolverClass] of Object.entries(RESOLVER_MAP)) {
+          const resolver = new ResolverClass();
+          resolverNames.push(resolver.name);
+
+          const discovered = resolver.discoverArtifacts?.({
+            projectRoot: cwd,
+            artifacts: result.artifacts,
+            cache,
+            logger,
+            source: options.source as string | undefined,
+          });
+
+          if (discovered) {
+            drafts.push(...discovered);
+          }
+        }
       }
 
       const report = discoverArtifacts({
         existingArtifacts: result.artifacts,
         drafts,
-        resolverNames: [resolverName],
+        resolverNames,
         projectRoot: cwd,
         domainDirs: eaConfig.domains,
         dryRun: options.dryRun as boolean,
