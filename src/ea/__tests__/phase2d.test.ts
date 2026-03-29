@@ -791,3 +791,205 @@ describe("Phase 2D: Business Drift Rules", () => {
     expect(result.rulesSkipped).toBe(5);
   });
 });
+
+// ─── Phase 2D: Capability Map Report ────────────────────────────────────────────
+
+import { buildCapabilityMap, renderCapabilityMapMarkdown } from "../index.js";
+
+describe("Phase 2D: Capability Map Report", () => {
+  it("returns empty report when no capabilities exist", () => {
+    const report = buildCapabilityMap([]);
+    expect(report.missions).toHaveLength(0);
+    expect(report.unmappedCapabilities).toHaveLength(0);
+    expect(report.summary.capabilityCount).toBe(0);
+  });
+
+  it("builds hierarchy from parentCapability", () => {
+    const artifacts = [
+      makeArtifact({ id: "CAP-commerce", kind: "capability", level: 1 } as any),
+      makeArtifact({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+      makeArtifact({ id: "CAP-payments", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    expect(report.summary.capabilityCount).toBe(3);
+    // All unmapped since no mission
+    expect(report.unmappedCapabilities).toHaveLength(1);
+    expect(report.unmappedCapabilities[0].id).toBe("CAP-commerce");
+    expect(report.unmappedCapabilities[0].children).toHaveLength(2);
+  });
+
+  it("maps capabilities to missions via supports", () => {
+    const artifacts = [
+      makeArtifact({ id: "MISSION-digital", kind: "mission" }),
+      makeArtifact({
+        id: "CAP-commerce",
+        kind: "capability",
+        level: 1,
+        relations: [{ type: "supports", target: "MISSION-digital" }],
+      } as any),
+      makeArtifact({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    expect(report.missions).toHaveLength(1);
+    expect(report.missions[0].id).toBe("MISSION-digital");
+    expect(report.missions[0].capabilities).toHaveLength(1);
+    expect(report.missions[0].capabilities[0].id).toBe("CAP-commerce");
+    expect(report.missions[0].capabilities[0].children).toHaveLength(1);
+    expect(report.unmappedCapabilities).toHaveLength(0);
+  });
+
+  it("enriches capabilities with realizing systems", () => {
+    const artifacts = [
+      makeArtifact({ id: "CAP-orders", kind: "capability", level: 1 } as any),
+      makeArtifact({
+        id: "APP-orders",
+        kind: "application",
+        relations: [{ type: "realizes", target: "CAP-orders" }],
+      }),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    const cap = report.unmappedCapabilities[0];
+    expect(cap.realizingSystems).toEqual(["APP-orders"]);
+    expect(report.summary.realizingSystemCount).toBe(1);
+  });
+
+  it("enriches capabilities with processes", () => {
+    const artifacts = [
+      makeArtifact({ id: "CAP-orders", kind: "capability", level: 1 } as any),
+      makeArtifact({
+        id: "PROC-order-processing",
+        kind: "process",
+        relations: [{ type: "realizes", target: "CAP-orders" }],
+      }),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    expect(report.unmappedCapabilities[0].processes).toEqual(["PROC-order-processing"]);
+  });
+
+  it("enriches capabilities with controls via governedBy", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CAP-orders",
+        kind: "capability",
+        level: 1,
+        relations: [{ type: "governedBy", target: "CTRL-latency" }],
+      } as any),
+      makeArtifact({
+        id: "CTRL-latency",
+        kind: "control",
+        controlType: "detective",
+        implementation: "automated",
+        assertion: "latency < 200ms",
+      } as any),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    expect(report.unmappedCapabilities[0].controls).toEqual(["CTRL-latency"]);
+  });
+
+  it("enriches capabilities with owning org via owns", () => {
+    const artifacts = [
+      makeArtifact({ id: "CAP-orders", kind: "capability", level: 1 } as any),
+      makeArtifact({
+        id: "ORG-eng",
+        kind: "org-unit",
+        relations: [{ type: "owns", target: "CAP-orders" }],
+      }),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    expect(report.unmappedCapabilities[0].owningOrg).toBe("ORG-eng");
+  });
+
+  it("includes heatMap and maturity metadata", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CAP-orders",
+        kind: "capability",
+        level: 1,
+        maturity: "managed",
+        strategicImportance: "core",
+        investmentProfile: "invest",
+        heatMap: { businessValue: "high", technicalHealth: "fair", risk: "medium" },
+      } as any),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    const cap = report.unmappedCapabilities[0];
+    expect(cap.maturity).toBe("managed");
+    expect(cap.strategicImportance).toBe("core");
+    expect(cap.investmentProfile).toBe("invest");
+    expect(cap.heatMap).toEqual({ businessValue: "high", technicalHealth: "fair", risk: "medium" });
+  });
+
+  it("includes drift summary per capability", () => {
+    // Active capability with no realizing systems → should produce a drift warning
+    const artifacts = [
+      makeArtifact({ id: "CAP-lonely", kind: "capability", level: 1, status: "active" } as any),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    const cap = report.unmappedCapabilities[0];
+    expect(cap.driftSummary.warnings).toBeGreaterThan(0);
+    expect(report.summary.driftWarningCount).toBeGreaterThan(0);
+  });
+
+  it("computes maxDepth correctly", () => {
+    const artifacts = [
+      makeArtifact({ id: "CAP-l1", kind: "capability", level: 1 } as any),
+      makeArtifact({ id: "CAP-l2", kind: "capability", level: 2, parentCapability: "CAP-l1" } as any),
+      makeArtifact({ id: "CAP-l3", kind: "capability", level: 3, parentCapability: "CAP-l2" } as any),
+    ];
+    const report = buildCapabilityMap(artifacts);
+    expect(report.summary.maxDepth).toBe(3);
+  });
+
+  describe("renderCapabilityMapMarkdown", () => {
+    it("renders empty report", () => {
+      const report = buildCapabilityMap([]);
+      const md = renderCapabilityMapMarkdown(report);
+      expect(md).toContain("# Capability Map");
+      expect(md).toContain("_No capabilities found._");
+    });
+
+    it("renders missions with capability trees", () => {
+      const artifacts = [
+        makeArtifact({ id: "MISSION-digital", kind: "mission" }),
+        makeArtifact({
+          id: "CAP-commerce",
+          kind: "capability",
+          level: 1,
+          strategicImportance: "core",
+          investmentProfile: "invest",
+          maturity: "managed",
+          relations: [{ type: "supports", target: "MISSION-digital" }],
+        } as any),
+        makeArtifact({
+          id: "CAP-orders",
+          kind: "capability",
+          level: 2,
+          parentCapability: "CAP-commerce",
+        } as any),
+        makeArtifact({
+          id: "APP-orders",
+          kind: "application",
+          status: "active",
+          relations: [{ type: "realizes", target: "CAP-orders" }],
+        }),
+      ];
+      const report = buildCapabilityMap(artifacts);
+      const md = renderCapabilityMapMarkdown(report);
+      expect(md).toContain("## Mission: MISSION-digital");
+      expect(md).toContain("**L1: CAP-commerce**");
+      expect(md).toContain("core, invest, maturity: managed");
+      expect(md).toContain("Realized by:");
+      expect(md).toContain("`APP-orders`");
+      expect(md).toContain("## Summary");
+    });
+
+    it("renders unmapped capabilities section", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-orphan", kind: "capability", level: 1 } as any),
+      ];
+      const report = buildCapabilityMap(artifacts);
+      const md = renderCapabilityMapMarkdown(report);
+      expect(md).toContain("## Unmapped Capabilities");
+    });
+  });
+});
