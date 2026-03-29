@@ -37,3 +37,12 @@ export {
   extractImages,
   extractReplicas,
 } from "./kubernetes.js";
+
+// Terraform Resolver
+export type { TerraformState, TerraformModule, TerraformResource } from "./terraform.js";
+export {
+  TerraformResolver,
+  findTerraformStateFiles,
+  loadTerraformState,
+  flattenResources,
+} from "./terraform.js";

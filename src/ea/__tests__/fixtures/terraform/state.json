@@ -1,0 +1,110 @@
+{
+  "format_version": "1.0",
+  "terraform_version": "1.7.0",
+  "values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_rds_instance.main",
+          "type": "aws_rds_instance",
+          "name": "main",
+          "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+          "mode": "managed",
+          "values": {
+            "arn": "arn:aws:rds:us-east-1:123456789:db:orders-db",
+            "id": "orders-db",
+            "name": "orders-db",
+            "engine": "postgres",
+            "engine_version": "15.4",
+            "instance_class": "db.r6g.large",
+            "tags": {
+              "Team": "commerce",
+              "Environment": "production"
+            }
+          }
+        },
+        {
+          "address": "aws_s3_bucket.assets",
+          "type": "aws_s3_bucket",
+          "name": "assets",
+          "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+          "mode": "managed",
+          "values": {
+            "arn": "arn:aws:s3:::my-app-assets",
+            "bucket": "my-app-assets",
+            "tags": {
+              "Team": "platform"
+            }
+          }
+        },
+        {
+          "address": "aws_ecs_cluster.main",
+          "type": "aws_ecs_cluster",
+          "name": "main",
+          "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+          "mode": "managed",
+          "values": {
+            "arn": "arn:aws:ecs:us-east-1:123456789:cluster/main",
+            "name": "main-cluster"
+          }
+        },
+        {
+          "address": "aws_security_group.web",
+          "type": "aws_security_group",
+          "name": "web",
+          "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+          "mode": "managed",
+          "values": {
+            "id": "sg-0123456789",
+            "name": "web-sg",
+            "tags": {
+              "Name": "web-security-group"
+            }
+          }
+        },
+        {
+          "address": "aws_iam_role.app",
+          "type": "aws_iam_role",
+          "name": "app",
+          "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+          "mode": "managed",
+          "values": {
+            "arn": "arn:aws:iam::123456789:role/app-role",
+            "name": "app-role"
+          }
+        },
+        {
+          "address": "aws_lambda_function.processor",
+          "type": "aws_lambda_function",
+          "name": "processor",
+          "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+          "mode": "managed",
+          "values": {
+            "arn": "arn:aws:lambda:us-east-1:123456789:function:processor",
+            "function_name": "order-processor",
+            "name": "order-processor"
+          }
+        }
+      ],
+      "child_modules": [
+        {
+          "resources": [
+            {
+              "address": "module.cache.aws_elasticache_cluster.redis",
+              "type": "aws_elasticache_cluster",
+              "name": "redis",
+              "provider_name": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+              "mode": "managed",
+              "values": {
+                "id": "redis-cluster",
+                "engine": "redis",
+                "engine_version": "7.0",
+                "name": "app-cache"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
