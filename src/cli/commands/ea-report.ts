@@ -14,13 +14,15 @@ import {
   renderSystemDataMatrixMarkdown,
   buildClassificationCoverage,
   renderClassificationCoverageMarkdown,
+  buildCapabilityMap,
+  renderCapabilityMapMarkdown,
 } from "../../ea/index.js";
 import { CliError } from "../errors.js";
 
 export function eaReportCommand(): Command {
   return new Command("report")
     .description("Generate EA reports")
-    .requiredOption("--view <view>", "Report view: system-data-matrix, classification-coverage")
+    .requiredOption("--view <view>", "Report view: system-data-matrix, classification-coverage, capability-map")
     .option("--format <format>", "Output format: json, markdown", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--root-dir <path>", "EA root directory", "ea")
@@ -61,9 +63,18 @@ export function eaReportCommand(): Command {
           }
           break;
         }
+        case "capability-map": {
+          const report = buildCapabilityMap(result.artifacts);
+          if (format === "json") {
+            output = JSON.stringify(report, null, 2);
+          } else {
+            output = renderCapabilityMapMarkdown(report);
+          }
+          break;
+        }
         default:
           throw new CliError(
-            `Unknown report view "${view}". Available: system-data-matrix, classification-coverage`,
+            `Unknown report view "${view}". Available: system-data-matrix, classification-coverage, capability-map`,
             2
           );
       }
