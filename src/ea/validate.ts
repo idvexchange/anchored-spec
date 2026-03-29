@@ -23,6 +23,11 @@ import type {
   LineageArtifact,
   DataQualityRuleArtifact,
   DataProductArtifact,
+  CanonicalEntityArtifact,
+  InformationExchangeArtifact,
+  ClassificationArtifact,
+  RetentionPolicyArtifact,
+  GlossaryTermArtifact,
 } from "./types.js";
 import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
@@ -70,7 +75,13 @@ export type EaSchemaName =
   | "lineage"
   | "master-data-domain"
   | "data-quality-rule"
-  | "data-product";
+  | "data-product"
+  | "information-concept"
+  | "canonical-entity"
+  | "information-exchange"
+  | "classification"
+  | "retention-policy"
+  | "glossary-term";
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "artifact-base",
@@ -98,6 +109,12 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "master-data-domain",
   "data-quality-rule",
   "data-product",
+  "information-concept",
+  "canonical-entity",
+  "information-exchange",
+  "classification",
+  "retention-policy",
+  "glossary-term",
 ];
 
 function getEaAjv(): Ajv {
@@ -505,6 +522,102 @@ export function validateEaArtifacts(
           "ea:quality:data-product-missing-output-ports",
           a.id,
           `Data product "${a.id}" has no output ports defined`
+        );
+      }
+    }
+
+    // ── Phase 2C: Information Layer Quality Rules ────────────────────────────
+
+    // ── ea:quality:ce-missing-attributes ─────────────────────────────────────
+    if (a.kind === "canonical-entity") {
+      const ce = a as unknown as CanonicalEntityArtifact;
+      const ceSev = ruleSeverity("ea:quality:ce-missing-attributes", "error", q);
+      if (!ce.attributes || ce.attributes.length === 0) {
+        push(
+          ceSev,
+          "ea:quality:ce-missing-attributes",
+          a.id,
+          `Canonical entity "${a.id}" has no attributes defined`
+        );
+      }
+      // ── ea:quality:ce-attribute-missing-type ─────────────────────────────
+      if (ce.attributes) {
+        const attrSev = ruleSeverity("ea:quality:ce-attribute-missing-type", "error", q);
+        for (const attr of ce.attributes) {
+          if (!attr.type || attr.type.trim().length === 0) {
+            push(
+              attrSev,
+              "ea:quality:ce-attribute-missing-type",
+              a.id,
+              `Canonical entity "${a.id}" has attribute "${attr.name}" without a type`
+            );
+          }
+        }
+      }
+    }
+
+    // ── ea:quality:exchange-missing-source-destination ───────────────────────
+    if (a.kind === "information-exchange") {
+      const exch = a as unknown as InformationExchangeArtifact;
+      const exchSrcSev = ruleSeverity("ea:quality:exchange-missing-source-destination", "error", q);
+      if (!exch.source || !exch.destination) {
+        push(
+          exchSrcSev,
+          "ea:quality:exchange-missing-source-destination",
+          a.id,
+          `Information exchange "${a.id}" must specify both source and destination`
+        );
+      }
+      // ── ea:quality:exchange-missing-purpose ──────────────────────────────
+      const exchPurpSev = ruleSeverity("ea:quality:exchange-missing-purpose", "error", q);
+      if (!exch.purpose || exch.purpose.trim().length === 0) {
+        push(
+          exchPurpSev,
+          "ea:quality:exchange-missing-purpose",
+          a.id,
+          `Information exchange "${a.id}" must have a purpose`
+        );
+      }
+    }
+
+    // ── ea:quality:classification-missing-controls ───────────────────────────
+    if (a.kind === "classification") {
+      const cls = a as unknown as ClassificationArtifact;
+      const clsSev = ruleSeverity("ea:quality:classification-missing-controls", "error", q);
+      if (!cls.requiredControls || cls.requiredControls.length === 0) {
+        push(
+          clsSev,
+          "ea:quality:classification-missing-controls",
+          a.id,
+          `Classification "${a.id}" has no required controls defined`
+        );
+      }
+    }
+
+    // ── ea:quality:retention-missing-duration ────────────────────────────────
+    if (a.kind === "retention-policy") {
+      const ret = a as unknown as RetentionPolicyArtifact;
+      const retSev = ruleSeverity("ea:quality:retention-missing-duration", "error", q);
+      if (!ret.retention || !ret.retention.duration || ret.retention.duration.trim().length === 0) {
+        push(
+          retSev,
+          "ea:quality:retention-missing-duration",
+          a.id,
+          `Retention policy "${a.id}" must specify a retention duration`
+        );
+      }
+    }
+
+    // ── ea:quality:glossary-missing-definition ───────────────────────────────
+    if (a.kind === "glossary-term") {
+      const gt = a as unknown as GlossaryTermArtifact;
+      const gtSev = ruleSeverity("ea:quality:glossary-missing-definition", "error", q);
+      if (!gt.definition || gt.definition.trim().length === 0) {
+        push(
+          gtSev,
+          "ea:quality:glossary-missing-definition",
+          a.id,
+          `Glossary term "${a.id}" must have a definition`
         );
       }
     }

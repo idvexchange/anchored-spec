@@ -36,8 +36,8 @@ describe("EA_DOMAINS", () => {
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 
 describe("EA_KIND_REGISTRY", () => {
-  it("contains 22 kinds (15 Phase A + 7 Data)", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(22);
+  it("contains 28 kinds (15 Phase A + 7 Data + 6 Information)", () => {
+    expect(EA_KIND_REGISTRY).toHaveLength(28);
   });
 
   it("has 7 systems kinds, 8 delivery kinds, and 7 data kinds", () => {

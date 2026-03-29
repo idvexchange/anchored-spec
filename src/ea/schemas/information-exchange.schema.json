@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/information-exchange.schema.json",
+  "title": "Anchored Spec — EA Information Exchange",
+  "description": "A declared information exchange between two systems or domains.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["source", "destination", "exchangedEntities", "purpose"],
+  "properties": {
+    "kind": { "const": "information-exchange" },
+    "source": {
+      "type": "object",
+      "required": ["artifactId"],
+      "properties": {
+        "artifactId": { "type": "string", "minLength": 1, "description": "Source artifact ID" },
+        "role": { "type": "string", "description": "Role of the source in this exchange" }
+      },
+      "additionalProperties": false,
+      "description": "Source endpoint of the exchange"
+    },
+    "destination": {
+      "type": "object",
+      "required": ["artifactId"],
+      "properties": {
+        "artifactId": { "type": "string", "minLength": 1, "description": "Destination artifact ID" },
+        "role": { "type": "string", "description": "Role of the destination in this exchange" }
+      },
+      "additionalProperties": false,
+      "description": "Destination endpoint of the exchange"
+    },
+    "exchangedEntities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Entity or data element IDs being exchanged"
+    },
+    "purpose": { "type": "string", "minLength": 1, "description": "Why this exchange happens" },
+    "trigger": {
+      "type": "string",
+      "enum": ["event", "request", "scheduled", "manual"],
+      "description": "What triggers this exchange"
+    },
+    "implementingContracts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "API or event contract IDs implementing this exchange"
+    },
+    "classificationLevel": { "type": "string", "description": "Classification artifact reference" },
+    "legalBasis": { "type": "string", "description": "Consent or regulatory basis for this exchange" }
+  }
+}

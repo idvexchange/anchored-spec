@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/classification.schema.json",
+  "title": "Anchored Spec — EA Classification",
+  "description": "A data classification level with required controls and handling rules.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["level", "requiredControls"],
+  "properties": {
+    "kind": { "const": "classification" },
+    "level": { "type": "string", "minLength": 1, "description": "Classification level/category name" },
+    "requiredControls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["control", "description"],
+        "properties": {
+          "control": { "type": "string", "minLength": 1, "description": "Control name" },
+          "description": { "type": "string", "minLength": 1, "description": "Control description" },
+          "enforcedBy": { "type": "string", "description": "Reference to control artifact" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Controls required for this classification level"
+    },
+    "regulations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Regulatory framework names"
+    },
+    "handling": {
+      "type": "object",
+      "properties": {
+        "encryption": {
+          "type": "string",
+          "enum": ["at-rest", "in-transit", "both", "not-required"],
+          "description": "Encryption requirements"
+        },
+        "accessControl": { "type": "string", "description": "Access control requirements" },
+        "auditLogging": { "type": "boolean", "description": "Whether audit logging is required" },
+        "masking": { "type": "string", "description": "Data masking requirements" },
+        "crossBorderRestrictions": { "type": "string", "description": "Cross-border data transfer restrictions" }
+      },
+      "additionalProperties": false,
+      "description": "Data handling requirements"
+    },
+    "parentClassification": { "type": "string", "description": "Parent classification reference (hierarchical)" }
+  }
+}

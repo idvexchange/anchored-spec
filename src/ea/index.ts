@@ -37,6 +37,12 @@ export type {
   MasterDataDomainArtifact,
   DataQualityRuleArtifact,
   DataProductArtifact,
+  InformationConceptArtifact,
+  CanonicalEntityArtifact,
+  InformationExchangeArtifact,
+  ClassificationArtifact,
+  RetentionPolicyArtifact,
+  GlossaryTermArtifact,
   EaArtifact,
   EaKindEntry,
 } from "./types.js";

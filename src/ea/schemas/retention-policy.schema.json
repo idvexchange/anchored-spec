@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/retention-policy.schema.json",
+  "title": "Anchored Spec — EA Retention Policy",
+  "description": "A data retention policy defining duration, disposal method, and exceptions.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["appliesTo", "retention", "disposal"],
+  "properties": {
+    "kind": { "const": "retention-policy" },
+    "appliesTo": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Artifact IDs this policy covers"
+    },
+    "retention": {
+      "type": "object",
+      "required": ["duration", "basis"],
+      "properties": {
+        "duration": { "type": "string", "minLength": 1, "description": "Retention duration" },
+        "basis": { "type": "string", "minLength": 1, "description": "Legal or business basis for retention" },
+        "startEvent": { "type": "string", "description": "Event that starts the retention clock" }
+      },
+      "additionalProperties": false,
+      "description": "Retention requirements"
+    },
+    "disposal": {
+      "type": "object",
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["delete", "anonymize", "archive", "aggregate"],
+          "description": "Disposal method"
+        },
+        "description": { "type": "string", "description": "Disposal description" },
+        "automatedBy": { "type": "string", "description": "Automated disposal reference" }
+      },
+      "additionalProperties": false,
+      "description": "Disposal requirements"
+    },
+    "legalBasis": { "type": "string", "description": "Legal basis for this policy" },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["condition"],
+        "properties": {
+          "condition": { "type": "string", "minLength": 1, "description": "Exception condition" },
+          "extendedDuration": { "type": "string", "description": "Extended retention duration" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Exceptions to the standard retention period"
+    },
+    "lastVerifiedAt": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp of last verification" }
+  }
+}

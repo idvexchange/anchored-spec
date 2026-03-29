@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/canonical-entity.schema.json",
+  "title": "Anchored Spec — EA Canonical Entity",
+  "description": "A canonical data entity definition with typed attributes.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["attributes"],
+  "properties": {
+    "kind": { "const": "canonical-entity" },
+    "attributes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Attribute name" },
+          "type": { "type": "string", "minLength": 1, "description": "Attribute data type" },
+          "required": { "type": "boolean", "description": "Whether the attribute is required" },
+          "description": { "type": "string", "description": "Attribute description" },
+          "classification": { "type": "string", "description": "Reference to classification artifact" },
+          "example": { "type": "string", "description": "Example value" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Entity attributes"
+    },
+    "conceptRef": { "type": "string", "description": "Information concept this entity realizes" },
+    "entityVersion": { "type": "string", "description": "Version of this canonical definition" },
+    "governanceStatus": {
+      "type": "string",
+      "enum": ["proposed", "ratified", "under-review"],
+      "description": "Governance status of this entity definition"
+    }
+  }
+}
