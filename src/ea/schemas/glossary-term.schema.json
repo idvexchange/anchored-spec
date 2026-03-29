@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/glossary-term.schema.json",
+  "title": "Anchored Spec — EA Glossary Term",
+  "description": "A canonical glossary term with definition, domain, and related concepts.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["definition", "domain"],
+  "properties": {
+    "kind": { "const": "glossary-term" },
+    "definition": { "type": "string", "minLength": 1, "description": "The canonical definition" },
+    "domain": { "type": "string", "minLength": 1, "description": "Business domain" },
+    "synonyms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Known synonyms"
+    },
+    "antonymsOrConfusables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["term", "distinction"],
+        "properties": {
+          "term": { "type": "string", "minLength": 1, "description": "The confusable term" },
+          "distinction": { "type": "string", "minLength": 1, "description": "How it differs" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Terms commonly confused with this one"
+    },
+    "relatedConcepts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Related information concept IDs"
+    },
+    "examples": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Usage examples"
+    },
+    "approvedBy": { "type": "string", "description": "Who approved this definition" }
+  }
+}

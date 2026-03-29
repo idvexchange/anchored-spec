@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/information-concept.schema.json",
+  "title": "Anchored Spec — EA Information Concept",
+  "description": "A high-level information concept within a business domain.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["domain"],
+  "properties": {
+    "kind": { "const": "information-concept" },
+    "domain": { "type": "string", "minLength": 1, "description": "Business domain this concept belongs to" },
+    "glossaryTerms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Related glossary term IDs"
+    },
+    "decomposesInto": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Sub-concept IDs"
+    },
+    "specializationOf": { "type": "string", "description": "Parent concept ID" },
+    "synonyms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Known synonyms"
+    }
+  }
+}

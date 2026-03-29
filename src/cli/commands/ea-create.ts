@@ -160,6 +160,18 @@ function getKindSpecificYaml(kind: string): string | null {
       return "  ruleType: not-null\n  appliesTo: []\n  assertion: TODO\n  onFailure: alert";
     case "data-product":
       return "  domain: TODO\n  outputPorts:\n    - name: default\n      type: table";
+    case "information-concept":
+      return "  domain: TODO";
+    case "canonical-entity":
+      return "  attributes:\n    - name: id\n      type: string\n      required: true";
+    case "information-exchange":
+      return "  source:\n    artifactId: TODO\n  destination:\n    artifactId: TODO\n  exchangedEntities: []\n  purpose: TODO";
+    case "classification":
+      return "  level: TODO\n  requiredControls:\n    - control: TODO\n      description: TODO";
+    case "retention-policy":
+      return "  appliesTo: []\n  retention:\n    duration: TODO\n    basis: TODO\n  disposal:\n    method: delete";
+    case "glossary-term":
+      return "  definition: TODO\n  domain: TODO";
     default:
       return null;
   }
@@ -191,6 +203,18 @@ function getKindSpecificJson(kind: string): Record<string, unknown> {
       return { ruleType: "not-null", appliesTo: [], assertion: "TODO", onFailure: "alert" };
     case "data-product":
       return { domain: "TODO", outputPorts: [{ name: "default", type: "table" }] };
+    case "information-concept":
+      return { domain: "TODO" };
+    case "canonical-entity":
+      return { attributes: [{ name: "id", type: "string", required: true }] };
+    case "information-exchange":
+      return { source: { artifactId: "TODO" }, destination: { artifactId: "TODO" }, exchangedEntities: [], purpose: "TODO" };
+    case "classification":
+      return { level: "TODO", requiredControls: [{ control: "TODO", description: "TODO" }] };
+    case "retention-policy":
+      return { appliesTo: [], retention: { duration: "TODO", basis: "TODO" }, disposal: { method: "delete" } };
+    case "glossary-term":
+      return { definition: "TODO", domain: "TODO" };
     default:
       return {};
   }

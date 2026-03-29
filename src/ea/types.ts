@@ -505,6 +505,98 @@ export interface DataProductArtifact extends EaArtifactBase {
   catalog?: { catalogRef?: string; tags?: string[]; description?: string };
 }
 
+// ─── Information Domain ─────────────────────────────────────────────────────────
+
+export interface InformationConceptArtifact extends EaArtifactBase {
+  kind: "information-concept";
+  domain: string;
+  glossaryTerms?: string[];
+  decomposesInto?: string[];
+  specializationOf?: string;
+  synonyms?: string[];
+}
+
+export interface CanonicalEntityArtifact extends EaArtifactBase {
+  kind: "canonical-entity";
+  attributes: Array<{
+    name: string;
+    type: string;
+    required?: boolean;
+    description?: string;
+    classification?: string;
+    example?: string;
+  }>;
+  conceptRef?: string;
+  entityVersion?: string;
+  governanceStatus?: "proposed" | "ratified" | "under-review";
+}
+
+export interface InformationExchangeArtifact extends EaArtifactBase {
+  kind: "information-exchange";
+  source: { artifactId: string; role?: string };
+  destination: { artifactId: string; role?: string };
+  exchangedEntities: string[];
+  purpose: string;
+  trigger?: "event" | "request" | "scheduled" | "manual";
+  implementingContracts?: string[];
+  classificationLevel?: string;
+  legalBasis?: string;
+}
+
+export interface ClassificationArtifact extends EaArtifactBase {
+  kind: "classification";
+  level: string;
+  requiredControls: Array<{
+    control: string;
+    description: string;
+    enforcedBy?: string;
+  }>;
+  regulations?: string[];
+  handling?: {
+    encryption?: "at-rest" | "in-transit" | "both" | "not-required";
+    accessControl?: string;
+    auditLogging?: boolean;
+    masking?: string;
+    crossBorderRestrictions?: string;
+  };
+  parentClassification?: string;
+}
+
+export interface RetentionPolicyArtifact extends EaArtifactBase {
+  kind: "retention-policy";
+  appliesTo: string[];
+  retention: {
+    duration: string;
+    basis: string;
+    startEvent?: string;
+  };
+  disposal: {
+    method: "delete" | "anonymize" | "archive" | "aggregate";
+    description?: string;
+    automatedBy?: string;
+  };
+  legalBasis?: string;
+  exceptions?: Array<{
+    condition: string;
+    extendedDuration?: string;
+  }>;
+  lastVerifiedAt?: string;
+}
+
+export interface GlossaryTermArtifact extends EaArtifactBase {
+  kind: "glossary-term";
+  definition: string;
+  domain: string;
+  synonyms?: string[];
+  antonymsOrConfusables?: Array<{
+    term: string;
+    distinction: string;
+  }>;
+  relatedConcepts?: string[];
+  examples?: string[];
+  approvedBy?: string;
+}
+
 // ─── Union Type ─────────────────────────────────────────────────────────────────
 
 /** Discriminated union of all artifact types. */
@@ -530,7 +622,13 @@ export type EaArtifact =
   | LineageArtifact
   | MasterDataDomainArtifact
   | DataQualityRuleArtifact
-  | DataProductArtifact;
+  | DataProductArtifact
+  | InformationConceptArtifact
+  | CanonicalEntityArtifact
+  | InformationExchangeArtifact
+  | ClassificationArtifact
+  | RetentionPolicyArtifact
+  | GlossaryTermArtifact;
 
 // ─── Kind Taxonomy ──────────────────────────────────────────────────────────────
 
@@ -569,6 +667,13 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "master-data-domain", prefix: "MDM", domain: "data", description: "A master data domain with golden-source governance" },
   { kind: "data-quality-rule", prefix: "DQR", domain: "data", description: "A data quality rule defining assertions and enforcement" },
   { kind: "data-product", prefix: "DPROD", domain: "data", description: "A data product with defined ports, SLAs, and catalog metadata" },
+  // Information domain
+  { kind: "information-concept", prefix: "IC", domain: "information", description: "A high-level information concept within a business domain" },
+  { kind: "canonical-entity", prefix: "CE", domain: "information", description: "A canonical data entity definition with typed attributes" },
+  { kind: "information-exchange", prefix: "EXCH", domain: "information", description: "A declared information exchange between systems or domains" },
+  { kind: "classification", prefix: "CLASS", domain: "information", description: "A data classification level with required controls" },
+  { kind: "retention-policy", prefix: "RET", domain: "information", description: "A data retention policy with duration and disposal rules" },
+  { kind: "glossary-term", prefix: "TERM", domain: "information", description: "A canonical glossary term with definition and domain" },
 ] as const;
 
 /** Lookup helpers. */

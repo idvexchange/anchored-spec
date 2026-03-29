@@ -285,12 +285,12 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "implementedBy",
     inverse: "implements",
-    validSourceKinds: ["logical-data-model"],
-    validTargetKinds: ["physical-schema", "data-store", "application"],
+    validSourceKinds: ["logical-data-model", "information-concept"],
+    validTargetKinds: ["physical-schema", "data-store", "application", "canonical-entity"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
-    description: "Logical data model is implemented by a physical schema, data store, or application.",
+    description: "Logical data model or information concept is implemented by a physical artifact.",
   },
 ];
 
