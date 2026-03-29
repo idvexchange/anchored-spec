@@ -45,6 +45,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "prepare": "pnpm build",
     "build": "tsup && cp -r src/ea/schemas dist/ea/",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
