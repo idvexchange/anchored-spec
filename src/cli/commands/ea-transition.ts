@@ -12,6 +12,7 @@ import chalk from "chalk";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { EaRoot } from "../../ea/loader.js";
+import { resolveEaConfig } from "../../ea/config.js";
 import type { EaArtifactBase, ArtifactStatus } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
@@ -74,13 +75,15 @@ export function eaTransitionCommand(): Command {
     .description("Advance an EA artifact to a new lifecycle status")
     .argument("<artifact-id>", "EA artifact ID")
     .option("--to <status>", "Target status (default: next in lifecycle)")
+    .option("--root-dir <path>", "EA root directory", "ea")
     .option("--force", "Skip gate validation")
     .option("--dry-run", "Show what would happen without writing")
     .action(async (artifactId: string, options) => {
       const cwd = process.cwd();
-      const eaRoot = EaRoot.fromDirectory(cwd);
+      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
+      const eaRoot = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
 
-      if (!eaRoot || !eaRoot.isInitialized()) {
+      if (!eaRoot.isInitialized()) {
         throw new CliError("Error: EA not initialized. Run 'anchored-spec ea init' first.");
       }
 
