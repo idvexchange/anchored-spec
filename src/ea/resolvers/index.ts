@@ -26,3 +26,14 @@ export {
   extractAllEndpoints,
   parseSimpleYaml,
 } from "./openapi.js";
+
+// Kubernetes Resolver
+export type { K8sManifest } from "./kubernetes.js";
+export {
+  KubernetesResolver,
+  findK8sFiles,
+  loadK8sManifests,
+  k8sResourceId,
+  extractImages,
+  extractReplicas,
+} from "./kubernetes.js";
