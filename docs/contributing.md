@@ -58,6 +58,23 @@ src/
 ├── resolvers/        # Built-in drift resolvers
 │   ├── typescript-ast.ts  # ts-morph based AST resolver
 │   └── __tests__/    # Resolver tests
+├── ea/                   # Enterprise Architecture extension
+│   ├── types.ts          # 44 EA kinds, domain types, artifact interfaces
+│   ├── loader.ts         # EaRoot: loads/validates YAML/JSON artifacts
+│   ├── graph.ts          # RelationGraph: traversal, impact, cycle detection
+│   ├── drift.ts          # 42 drift rules across 7 domains
+│   ├── impact.ts         # Transitive impact analysis
+│   ├── validate.ts       # Schema + quality validation
+│   ├── evidence.ts       # Evidence collection and management
+│   ├── report.ts         # 6 report views
+│   ├── config.ts         # EA configuration resolution
+│   ├── cache.ts          # Resolver cache (disk + no-op)
+│   ├── discovery.ts      # Artifact discovery pipeline
+│   ├── migrate-legacy.ts # REQ/CHG/ADR → EA migration
+│   ├── relation-registry.ts # 27 relation types with virtual inverses
+│   ├── resolvers/        # 5 resolvers (openapi, kubernetes, terraform, sql-ddl, dbt)
+│   ├── generators/       # Generator framework + openapi, jsonschema generators
+│   └── schemas/          # 47 JSON Schema files
 └── index.ts          # Public library API (re-exports core)
 ```
 

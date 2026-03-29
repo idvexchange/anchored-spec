@@ -12,17 +12,18 @@ The [NIST Enterprise Architecture Model](https://www.nist.gov/publications/nist-
 
 | NIST Layer | NIST Description | Anchored-Spec Domain | Artifact Kinds |
 |---|---|---|---|
-| **Business Architecture** | Defines the business strategy, governance, organization, and key business processes | `business` | business-capability, business-process, business-service, business-rule, organization-unit, actor, value-stream, kpi |
-| **Information Architecture** | Describes the structure of an organization's logical and physical information assets and information management resources | `information` | information-object, information-flow, information-quality, vocabulary, classification-scheme, information-lifecycle |
-| **Data Architecture** | Describes the structure of an organization's logical and physical data assets and data management resources | `data` | data-store, data-object, data-flow, data-quality-rule, schema-registry, data-classification, retention-policy |
-| **Application Architecture** | Provides a blueprint for individual applications, their interactions, and their relationships to the core business processes | `systems` | application, service, api-contract, system-interface, consumer |
-| **Technology Architecture** | Describes the infrastructure needed to support the deployment of core applications | `delivery` | deployment, pipeline, cloud-resource, environment, technology-standard |
+| **Business Architecture** | Defines the business strategy, governance, organization, and key business processes | `business` (8 kinds) | mission, capability, value-stream, process, org-unit, policy-objective, business-service, control |
+| **Information Architecture** | Describes the structure of an organization's logical and physical information assets and information management resources | `information` (6 kinds) | information-concept, canonical-entity, information-exchange, classification, retention-policy, glossary-term |
+| **Data Architecture** | Describes the structure of an organization's logical and physical data assets and data management resources | `data` (7 kinds) | logical-data-model, physical-schema, data-store, lineage, master-data-domain, data-quality-rule, data-product |
+| **Application Architecture** | Provides a blueprint for individual applications, their interactions, and their relationships to the core business processes | `systems` (7 kinds) | application, service, api-contract, event-contract, integration, system-interface, consumer |
+| **Technology Architecture** | Describes the infrastructure needed to support the deployment of core applications | `delivery` (8 kinds) | platform, deployment, runtime-cluster, network-zone, identity-boundary, cloud-resource, environment, technology-standard |
 
 ### Additional Anchored-Spec Domains (Beyond NIST)
 
 | Domain | Purpose | Artifact Kinds |
 |---|---|---|
-| `transitions` | Strategic change management | baseline, target, transition-plan, migration-wave, exception |
+| `transitions` (5 kinds) | Strategic change management | baseline, target, transition-plan, migration-wave, exception |
+| `legacy` (3 kinds) | Legacy artifact types carried forward | requirement, change, decision |
 
 ---
 
@@ -104,7 +105,7 @@ The architecture as described in EA artifacts. The "should be" state. Contrasted
 The process of automatically creating EA artifact drafts from existing infrastructure. Resolvers examine real systems (OpenAPI specs, K8s clusters, Terraform state) and produce artifacts with `confidence: "inferred"` or `"observed"`. Run via `ea discover`.
 
 **Domain**
-A grouping of related artifact kinds. The six domains are: `systems`, `delivery`, `data`, `information`, `business`, `transitions`.
+A grouping of related artifact kinds. The seven domains are: `systems`, `delivery`, `data`, `information`, `business`, `transitions`, `legacy`.
 
 **Drift**
 A divergence between declared state (EA artifacts) and observed state (reality). Detected by `ea drift`. Examples: a declared API endpoint no longer exists, a deployed replica count doesn't match the declared count.
@@ -139,7 +140,7 @@ The component that assembles the relation graph from all loaded artifacts. Adds 
 ### H
 
 **Health Score**
-A 0-100 composite score measuring the overall health of the EA model across six dimensions: coverage, completeness, connectivity, drift health, freshness, adoption. Computed by `ea status`.
+A 0-100 composite score measuring the overall health of the EA model across six dimensions: coverage, completeness, connectivity, drift health, freshness, adoption. Available through `ea report` and `ea validate`.
 
 ### I
 

@@ -1,5 +1,7 @@
 # EA Implementation Guide
 
+> **Status:** All phases (1 through 3) are fully implemented. This document serves as an architectural reference for the module layout, config schema, and CLI design. The phase-by-phase instructions below were the original implementation plan executed by AI agents.
+
 This document provides step-by-step implementation instructions for each phase of the enterprise architecture extension. It is designed to be read by AI coding agents in fresh context windows.
 
 Read these documents first:

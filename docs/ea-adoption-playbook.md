@@ -5,8 +5,7 @@ This is a practical guide for teams adopting the enterprise architecture extensi
 ## Before You Start
 
 **You need:**
-- Phase 1 implemented (10 kinds, core infrastructure)
-- `anchored-spec` installed as a dev dependency
+- `anchored-spec` installed as a dev dependency (all phases are fully implemented — all 44 kinds, drift detection, discovery, reporting, and transitions are available)
 - A monorepo with at least a few services you want to model
 
 **You do NOT need:**
@@ -244,10 +243,11 @@ Every artifact needs an owning team. Unowned artifacts become stale. The `owners
 
 ## Measuring Progress
 
-Use `ea status` (Phase 2F) to track adoption metrics:
+Use `ea report` and `ea validate` to track adoption metrics:
 
 ```bash
-npx anchored-spec ea status
+npx anchored-spec ea report --all
+npx anchored-spec ea validate
 ```
 
 Key metrics to track:

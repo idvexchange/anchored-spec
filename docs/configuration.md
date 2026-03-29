@@ -225,3 +225,33 @@ All spec schemas include a `schemaVersion` field for migration tracking:
 ```
 
 When the schema version changes, run `anchored-spec migrate` to detect and apply migrations to your existing spec files.
+
+## Enterprise Architecture Configuration
+
+When EA is enabled, additional configuration is available under the `ea` key:
+
+```json
+{
+  "ea": {
+    "enabled": true,
+    "rootDir": "ea",
+    "domains": {
+      "systems": "ea/systems",
+      "delivery": "ea/delivery",
+      "data": "ea/data",
+      "information": "ea/information",
+      "business": "ea/business",
+      "transitions": "ea/transitions",
+      "legacy": "ea/legacy"
+    }
+  }
+}
+```
+
+| Key | Default | Description |
+|---|---|---|
+| `ea.enabled` | `false` | Enable the EA extension |
+| `ea.rootDir` | `"ea"` | Root directory for EA artifacts |
+| `ea.domains.*` | `"ea/{domain}"` | Per-domain directory paths |
+
+See [EA Design Overview](ea-design-overview.md) for full EA documentation.

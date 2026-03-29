@@ -475,6 +475,24 @@ The behavioral requirement (`REQ-2`) is **anchored** to your codebase through se
 
 ---
 
+## Enterprise Architecture
+
+For teams managing architecture beyond individual requirements, Anchored Spec includes an EA extension with 44 artifact kinds across 7 domains (systems, delivery, data, information, business, transitions, legacy).
+
+```bash
+# Initialize EA
+npx anchored-spec ea init
+
+# Create an application artifact
+npx anchored-spec ea create --kind application --id APP-my-service
+
+# Validate and visualize
+npx anchored-spec ea validate
+npx anchored-spec ea graph
+```
+
+See the [EA Adoption Playbook](ea-adoption-playbook.md) for a step-by-step brownfield adoption guide.
+
 ## Next Steps
 
 - Read [Core Concepts](concepts.md) to understand requirements, changes, and decisions

@@ -8,36 +8,26 @@ It is written as an implementation design document. The goal is to give human en
 
 Read these documents in order for full implementation context:
 
-### Core Design (Phase 1)
+### Core Design
 
-1. **This file** — overview, decisions, positioning, phase plan
+1. **This file** — overview, decisions, positioning
 2. [ea-unified-artifact-model.md](./ea-unified-artifact-model.md) — unified artifact base, kind taxonomy, ID scheme, subsumption path
 3. [ea-relationship-model.md](./ea-relationship-model.md) — relation types, directionality, registry, graph validation
 4. [ea-drift-resolvers-generators.md](./ea-drift-resolvers-generators.md) — drift detection, resolver interface, generator interface, discovery workflow
 5. [ea-transitions-evidence-reporting.md](./ea-transitions-evidence-reporting.md) — baseline/target/transition model, evidence extension, reporting views
-6. [ea-implementation-guide.md](./ea-implementation-guide.md) — phased plan, module layout, CLI design, config schema, agent handoff protocol
-
-### Phase 2 Expansion
-
-7. [ea-phase2-overview.md](./ea-phase2-overview.md) — Phase 2 master index, dependency graph, cumulative counts
-8. [ea-phase2a-systems-delivery-completion.md](./ea-phase2a-systems-delivery-completion.md) — 5 remaining systems/delivery kinds
-9. [ea-phase2b-data-layer.md](./ea-phase2b-data-layer.md) — 7 data kinds
-10. [ea-phase2c-information-layer.md](./ea-phase2c-information-layer.md) — 6 information kinds
-11. [ea-phase2d-business-layer.md](./ea-phase2d-business-layer.md) — 8 business kinds
-12. [ea-phase2e-transitions-evidence-reporting.md](./ea-phase2e-transitions-evidence-reporting.md) — 5 transition kinds
-13. [ea-phase2f-drift-generators-subsumption.md](./ea-phase2f-drift-generators-subsumption.md) — drift engine, resolvers, generators, REQ/CHG/ADR subsumption
+6. [ea-implementation-guide.md](./ea-implementation-guide.md) — phased plan, module layout, CLI design, config schema
 
 ### Supplementary
 
-14. [ea-ci-integration.md](./ea-ci-integration.md) — CI/CD pipeline integration, GitHub Actions examples, staged adoption
-15. [ea-adoption-playbook.md](./ea-adoption-playbook.md) — practical brownfield adoption guide, first 30 min to first month
-16. [ea-conflict-resolution.md](./ea-conflict-resolution.md) — declared vs observed vs inferred precedence, resolver chain conflicts
-17. [ea-model-health-metrics.md](./ea-model-health-metrics.md) — `ea status` command, 6 health dimensions, scoring algorithm
-18. [ea-schema-evolution.md](./ea-schema-evolution.md) — versioning model, migration strategies, `ea migrate` command
-19. [ea-testing-guide.md](./ea-testing-guide.md) — test patterns for schema, graph, anchors, drift, resolvers, generators
-20. [ea-multi-repo-federation.md](./ea-multi-repo-federation.md) — cross-repo references, federated graph, manifest publishing
-21. [ea-glossary.md](./ea-glossary.md) — NIST/TOGAF term mapping, comprehensive glossary
-22. [ea-visualization.md](./ea-visualization.md) — `ea graph` output formats, filtering, interactive HTML
+7. [ea-ci-integration.md](./ea-ci-integration.md) — CI/CD pipeline integration, GitHub Actions examples, staged adoption
+8. [ea-adoption-playbook.md](./ea-adoption-playbook.md) — practical brownfield adoption guide, first 30 min to first month
+9. [ea-conflict-resolution.md](./ea-conflict-resolution.md) — declared vs observed vs inferred precedence, resolver chain conflicts
+10. [ea-model-health-metrics.md](./ea-model-health-metrics.md) — model health dimensions, scoring algorithm
+11. [ea-schema-evolution.md](./ea-schema-evolution.md) — versioning model, migration strategies
+12. [ea-testing-guide.md](./ea-testing-guide.md) — test patterns for schema, graph, anchors, drift, resolvers, generators
+13. [ea-multi-repo-federation.md](./ea-multi-repo-federation.md) — cross-repo references, federated graph, manifest publishing
+14. [ea-glossary.md](./ea-glossary.md) — NIST/TOGAF term mapping, comprehensive glossary
+15. [ea-visualization.md](./ea-visualization.md) — `ea graph` output formats, filtering
 
 ### Reference
 

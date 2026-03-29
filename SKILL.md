@@ -538,7 +538,7 @@ relations:
 
 When a user asks to create a new EA artifact:
 
-1. **Determine the kind** — Ask which domain (systems, delivery, data, information, business) and kind the artifact represents
+1. **Determine the kind** — Ask which domain (systems, delivery, data, information, business, transitions, legacy) and kind the artifact represents
 2. **Generate the ID** — Use the appropriate prefix from the kind taxonomy (e.g., `APP-` for application, `SVC-` for service, `API-` for api-contract)
 3. **Fill the base shape** — Include all required fields: `apiVersion`, `kind`, `id`, `metadata` (name, summary, owners, confidence, status)
 4. **Add anchors** — If the artifact maps to code, add `anchors` with at least one anchor type (interfaces, apis, schemas, configs)
@@ -552,39 +552,54 @@ npx anchored-spec ea validate
 
 ### 13.5 EA Kind Taxonomy
 
+44 kinds across 7 domains:
+
 | Domain | Kind | ID Prefix | Description |
 |---|---|---|---|
-| **systems** | `application` | `APP-` | A runnable application or service |
-| **systems** | `service` | `SVC-` | An API service exposing endpoints |
-| **systems** | `api-contract` | `API-` | A versioned API interface specification |
-| **systems** | `system-interface` | `IFACE-` | An integration boundary (queues, events, files) |
-| **systems** | `consumer` | `CON-` | An external consumer of a system interface |
-| **delivery** | `deployment` | `DEP-` | A deployment unit (container, Lambda, VM) |
-| **delivery** | `pipeline` | `PIPE-` | A CI/CD pipeline |
-| **delivery** | `cloud-resource` | `CLOUD-` | A managed cloud resource |
-| **delivery** | `environment` | `ENV-` | A deployment environment (dev, staging, prod) |
-| **delivery** | `technology-standard` | `STD-` | An approved technology choice |
-| **data** | `data-store` | `STORE-` | A database or persistent store |
-| **data** | `data-object` | `DOBJ-` | A table, collection, or file |
-| **data** | `data-flow` | `DFLOW-` | A data pipeline or ETL process |
-| **data** | `data-quality-rule` | `DQR-` | A data quality constraint |
-| **data** | `schema-registry` | `SREG-` | An event/message schema registry |
-| **data** | `data-classification` | `DCLASS-` | A sensitivity classification policy |
-| **data** | `retention-policy` | `RPOL-` | A data retention/lifecycle policy |
-| **information** | `information-object` | `INFO-` | A logical business entity |
-| **information** | `information-flow` | `IFLOW-` | Movement of information between processes |
-| **information** | `information-quality` | `IQUAL-` | A quality metric for information |
-| **information** | `vocabulary` | `VOCAB-` | A controlled vocabulary or taxonomy |
-| **information** | `classification-scheme` | `CSCHEME-` | A classification taxonomy |
-| **information** | `information-lifecycle` | `ILC-` | Lifecycle stages for information objects |
-| **business** | `business-capability` | `CAP-` | A business capability |
-| **business** | `business-process` | `PROC-` | A business process (BPMN-mapped) |
-| **business** | `business-service` | `BSVC-` | A business service exposed to consumers |
-| **business** | `business-rule` | `RULE-` | A business decision rule |
-| **business** | `organization-unit` | `ORG-` | An org unit with responsibility |
-| **business** | `actor` | `ACTOR-` | A human or system actor |
-| **business** | `value-stream` | `VS-` | An end-to-end value delivery stream |
-| **business** | `kpi` | `KPI-` | A key performance indicator |
+| **systems** | `application` | `APP` | A deployable software system |
+| **systems** | `service` | `SVC` | A runtime service component |
+| **systems** | `api-contract` | `API` | An API specification (REST, GraphQL, gRPC) |
+| **systems** | `event-contract` | `EVT` | An async event/message contract |
+| **systems** | `integration` | `INT` | A declared integration between two systems |
+| **systems** | `system-interface` | `SIF` | An external system boundary interface |
+| **systems** | `consumer` | `CON` | A declared consumer of an API or event |
+| **delivery** | `platform` | `PLAT` | A runtime platform (K8s cluster, serverless) |
+| **delivery** | `deployment` | `DEPLOY` | A deployed instance of an application |
+| **delivery** | `runtime-cluster` | `CLUSTER` | A compute cluster |
+| **delivery** | `network-zone` | `ZONE` | A network security zone |
+| **delivery** | `identity-boundary` | `IDB` | An identity/auth boundary |
+| **delivery** | `cloud-resource` | `CLOUD` | A specific cloud resource |
+| **delivery** | `environment` | `ENV` | A deployment environment |
+| **delivery** | `technology-standard` | `TECH` | An approved technology standard |
+| **data** | `logical-data-model` | `LDM` | Logical data model with entity attributes |
+| **data** | `physical-schema` | `SCHEMA` | Physical database schema definition |
+| **data** | `data-store` | `STORE` | A data storage system |
+| **data** | `lineage` | `LINEAGE` | A data lineage path |
+| **data** | `master-data-domain` | `MDM` | A master data domain |
+| **data** | `data-quality-rule` | `DQR` | A data quality rule |
+| **data** | `data-product` | `DPROD` | A data product with SLAs |
+| **information** | `information-concept` | `IC` | A high-level information concept |
+| **information** | `canonical-entity` | `CE` | A canonical data entity with typed attributes |
+| **information** | `information-exchange` | `EXCH` | An information exchange between systems |
+| **information** | `classification` | `CLASS` | A data classification level |
+| **information** | `retention-policy` | `RET` | A data retention policy |
+| **information** | `glossary-term` | `TERM` | A canonical glossary term |
+| **business** | `mission` | `MISSION` | A strategic mission with key results |
+| **business** | `capability` | `CAP` | A business capability |
+| **business** | `value-stream` | `VS` | A value stream with stages |
+| **business** | `process` | `PROC` | A business process |
+| **business** | `org-unit` | `ORG` | An organizational unit |
+| **business** | `policy-objective` | `POL` | A policy objective |
+| **business** | `business-service` | `BSVC` | A business service |
+| **business** | `control` | `CTRL` | A governance control |
+| **transitions** | `baseline` | `BASELINE` | A point-in-time architecture snapshot |
+| **transitions** | `target` | `TARGET` | A desired future architecture state |
+| **transitions** | `transition-plan` | `PLAN` | A plan from baseline to target |
+| **transitions** | `migration-wave` | `WAVE` | A batch of changes in a transition |
+| **transitions** | `exception` | `EXCEPT` | An approved exception to policy |
+| **legacy** | `requirement` | `REQ` | Migrated behavioral requirement |
+| **legacy** | `change` | `CHG` | Migrated change record |
+| **legacy** | `decision` | `ADR` | Migrated architecture decision |
 
 ### 13.6 EA Workflow — Validate
 
@@ -608,22 +623,30 @@ Validation checks:
 Run drift detection to compare declared architecture with reality:
 
 ```bash
-npx anchored-spec ea drift                     # All domains
-npx anchored-spec ea drift --domain systems    # One domain
-npx anchored-spec ea drift --severity error    # Only errors
+npx anchored-spec ea drift                       # All domains
+npx anchored-spec ea drift --domain systems      # One domain
+npx anchored-spec ea drift --severity error      # Only errors
+npx anchored-spec ea drift --from-snapshot snap1 # Compare against snapshot
 ```
 
-Drift rules by domain:
+42 drift rules across 6 categories. Representative examples:
 
-| Domain | Rule | Severity | What it catches |
-|---|---|---|---|
-| systems | `missing-anchor` | error | Anchored file/route doesn't exist |
-| systems | `undocumented-api` | warning | API endpoint exists but has no api-contract |
-| systems | `interface-mismatch` | error | Interface signature changed |
-| delivery | `replica-drift` | warning | Declared replicas ≠ observed replicas |
-| delivery | `missing-deployment` | error | Application exists but no deployment artifact |
-| data | `schema-drift` | error | Declared schema ≠ actual DB schema |
-| data | `missing-classification` | warning | Data store has no classification |
+| Category | Rule | What it catches |
+|---|---|---|
+| systems | `ea:systems/consumer-contract-version-mismatch` | Consumer references an outdated contract version |
+| systems | `ea:systems/technology-standard-violation` | System uses a non-approved technology |
+| data | `ea:data/lineage-stale` | Lineage path hasn't been verified recently |
+| data | `ea:data/orphan-store` | Data store not referenced by any application |
+| information | `ea:information/classification-not-propagated` | Classification not applied to downstream stores |
+| information | `ea:information/exchange-missing-contract` | Information exchange has no backing API or event contract |
+| business | `ea:business/orphan-capability` | Capability not linked to any value stream |
+| business | `ea:business/control-missing-evidence` | Governance control has no evidence attached |
+| transitions | `ea:transition/baseline-stale` | Baseline snapshot is outdated |
+| transitions | `ea:transition/orphan-wave` | Migration wave not linked to a transition plan |
+| exception | `ea:exception/expired` | Exception past its expiry date |
+| exception | `ea:exception/missing-scope` | Exception lacks a defined scope |
+
+> 42 rules total — run `ea drift --help` for the full list.
 
 ### 13.8 EA Workflow — Discovery
 
@@ -633,6 +656,8 @@ Use discovery to bootstrap EA artifacts from existing systems:
 npx anchored-spec ea discover --resolver openapi --source ./openapi.yaml
 npx anchored-spec ea discover --resolver kubernetes --source ~/.kube/config
 npx anchored-spec ea discover --resolver terraform --source ./infrastructure/
+npx anchored-spec ea discover --resolver sql-ddl --source ./migrations/
+npx anchored-spec ea discover --resolver dbt --source ./dbt/models/
 ```
 
 Discovery rules:
@@ -659,20 +684,37 @@ Generation rules:
 
 ### 13.10 EA Relation Types
 
-Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
+27 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
-| Canonical | Inverse (Virtual) | Valid Sources → Targets |
-|---|---|---|
-| `dependsOn` | `dependedOnBy` | application, service → application, service, data-store |
-| `implements` | `implementedBy` | application → api-contract, business-service |
-| `deployedAs` | `deploys` | application → deployment |
-| `ownedBy` | `owns` | any → organization-unit, business-capability |
-| `consumedBy` | `consumes` | api-contract, system-interface → consumer |
-| `storesIn` | `storedBy` | application → data-store |
-| `flowsTo` | `receivesFrom` | data-flow, information-flow → data-store, application |
-| `governedBy` | `governs` | data-store → data-quality-rule, retention-policy, classification-scheme |
-| `triggers` | `triggeredBy` | business-process → business-process, application |
-| `measuredBy` | `measures` | business-capability, value-stream → kpi |
+| Canonical | Inverse (Virtual) |
+|---|---|
+| `realizes` | `realizedBy` |
+| `uses` | `usedBy` |
+| `exposes` | `exposedBy` |
+| `consumes` | `consumedBy` |
+| `dependsOn` | `dependedOnBy` |
+| `deploys` | `deployedBy` |
+| `runsOn` | `runs` |
+| `boundedBy` | `bounds` |
+| `authenticatedBy` | `authenticates` |
+| `deployedTo` | `hosts` |
+| `interfacesWith` | `interfacedBy` |
+| `standardizes` | `standardizedBy` |
+| `providedBy` | `provides` |
+| `stores` | `storedIn` |
+| `hostedOn` | `hostsData` |
+| `lineageFrom` | `lineageTo` |
+| `implementedBy` | `implements` |
+| `classifiedAs` | `classifies` |
+| `exchangedVia` | `exchanges` |
+| `retainedUnder` | `retains` |
+| `supports` | `supportedBy` |
+| `performedBy` | `performs` |
+| `governedBy` | `governs` |
+| `owns` | `ownedBy` |
+| `supersedes` | `supersededBy` |
+| `generates` | `generatedBy` |
+| `mitigates` | `mitigatedBy` |
 
 ### 13.11 EA Quality Rules
 
@@ -712,30 +754,37 @@ draft → active → deprecated → retired
 
 ### 13.13 EA and REQ/CHG/ADR Coexistence
 
-Until subsumption is complete (Phase H), EA and REQ/CHG/ADR workflows coexist:
+EA subsumes the legacy REQ/CHG/ADR artifact types. The `ea migrate-legacy` command converts existing artifacts to EA kinds:
 
-- **REQ artifacts** map to EA `business-rule` or `api-contract` kinds
-- **CHG artifacts** map to EA `transition-plan` or `migration-wave` kinds
-- **ADR artifacts** map to EA `technology-standard` kinds
+- **REQ artifacts** → EA `requirement` kind (legacy domain)
+- **CHG artifacts** → EA `change` kind (legacy domain)
+- **ADR artifacts** → EA `decision` kind (legacy domain)
 
-During coexistence:
-- Continue using REQ/CHG/ADR for existing workflows
-- Use EA for new architecture-level work
+```bash
+npx anchored-spec ea migrate-legacy              # Convert all REQ/CHG/ADR to EA kinds
+```
+
+Migration behavior:
+- Converted artifacts are placed in `ea/legacy/` with their original IDs preserved as prefixes (`REQ`, `CHG`, `ADR`)
+- Original metadata is carried forward into the EA artifact structure
+- Relations to other EA artifacts are created where mappings can be inferred
 - Do not create duplicate artifacts — if a REQ already covers a behavior, reference it from the EA artifact's `metadata.legacyRefs`
-- When subsumption ships, a migration tool (`ea migrate`) will convert existing REQ/CHG/ADR to EA kinds
 
 ### 13.14 EA Command Reference
 
 | Command | Description |
 |---|---|
+| `ea init` | Initialize EA directory structure |
+| `ea create` | Create a new EA artifact from template |
 | `ea validate` | Validate all EA artifacts against schemas and rules |
-| `ea drift` | Run drift detection comparing declared vs observed state |
-| `ea discover` | Discover artifacts from resolvers (OpenAPI, K8s, Terraform, etc.) |
-| `ea generate` | Generate derived files from EA artifacts |
-| `ea graph` | Export the relation graph (Mermaid, DOT, JSON) |
-| `ea status` | Show model health dashboard (coverage, completeness, drift, freshness) |
-| `ea report` | Generate reports (dependency matrix, capability map, risk register) |
-| `ea migrate` | Convert REQ/CHG/ADR to EA artifact kinds (when subsumption ships) |
+| `ea drift` | Run drift detection (supports `--from-snapshot`, `--domain`, `--severity`) |
+| `ea discover` | Discover artifacts from resolvers (openapi, kubernetes, terraform, sql-ddl, dbt) |
+| `ea generate` | Generate derived files from EA artifacts (OpenAPI, JSON Schema) |
+| `ea graph` | Export the relation graph (Mermaid, DOT, JSON; supports `--kind`, `--focus`, `--domain`) |
+| `ea impact` | Analyze transitive impact of changes to an artifact |
+| `ea report` | Generate reports (system-data-matrix, classification-coverage, capability-map, gap-analysis, exceptions, drift-heatmap; supports `--domain`) |
+| `ea evidence` | Manage EA evidence collection |
+| `ea migrate-legacy` | Convert REQ/CHG/ADR artifacts to EA kinds |
 
 ### 13.15 EA Anti-Patterns
 

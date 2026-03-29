@@ -12,7 +12,7 @@
 
 | Principle | What it means |
 |---|---|
-| **Spec-anchored** | Specs persist as living contracts — they evolve with code, never get deleted |
+| **Spec-anchored** | Specs persist as living contracts — supports both spec-anchored (REQ/CHG/ADR) and spec-as-source (EA) modes |
 | **JSON-first** | Machine-readable JSON is the source of truth; markdown is generated for humans |
 | **EARS notation** | Behavioral statements use structured "When/While/shall" format |
 | **Path-based enforcement** | Glob rules automatically detect which changes need formal governance |
@@ -60,8 +60,39 @@ your-repo/
 │   ├── decisions/           # ADR-*.json (architecture decisions)
 │   ├── generated/           # Generated markdown (gitignored)
 │   └── workflow-policy.json # Governance rules
+├── ea/                       # Enterprise Architecture artifacts
+│   ├── systems/              # Applications, services, APIs
+│   ├── delivery/             # Deployments, platforms, cloud resources
+│   ├── data/                 # Data stores, models, lineage
+│   ├── information/          # Entities, classifications, exchanges
+│   ├── business/             # Capabilities, processes, controls
+│   ├── transitions/          # Baselines, targets, migration plans
+│   └── legacy/               # Migrated REQ/CHG/ADR artifacts
 └── package.json             # Gets spec:* scripts added
 ```
+
+## Enterprise Architecture
+
+The EA extension adds **44 artifact kinds across 7 domains** (systems, delivery, data, information, business, transitions, legacy) with typed relations, drift detection, discovery, and generation — turning your repo into a living architecture model.
+
+```bash
+# Enable EA extension
+npx anchored-spec ea init
+
+# Create your first artifact
+npx anchored-spec ea create --kind application --id APP-my-service
+
+# Validate
+npx anchored-spec ea validate
+
+# View architecture graph
+npx anchored-spec ea graph
+
+# Run drift detection
+npx anchored-spec ea drift
+```
+
+See **[EA Design Overview](docs/ea-design-overview.md)** for full details.
 
 ## Documentation
 
@@ -77,6 +108,12 @@ Full documentation is in the [`docs/`](docs/) directory:
 - **[CI Integration](docs/ci-integration.md)** — GitHub Actions setup and pre-commit hooks
 - **[Programmatic API](docs/programmatic-api.md)** — TypeScript library API for programmatic use
 - **[Contributing](docs/contributing.md)** — Development setup, project structure, and guidelines
+
+### Enterprise Architecture
+
+- **[EA Design Overview](docs/ea-design-overview.md)** — Master index for EA extension docs
+- **[EA Adoption Playbook](docs/ea-adoption-playbook.md)** — Practical brownfield adoption guide
+- **[EA Testing Guide](docs/ea-testing-guide.md)** — Test patterns for EA artifacts
 
 ## Comparison with Other Tools
 
