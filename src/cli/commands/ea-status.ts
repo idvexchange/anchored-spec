@@ -8,6 +8,7 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
+import { resolveEaConfig } from "../../ea/config.js";
 import { getDomainForKind, EA_DOMAINS } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
@@ -16,11 +17,13 @@ export function eaStatusCommand(): Command {
     .description("Show EA artifact health dashboard")
     .option("--json", "Output as JSON")
     .option("--domain <domain>", "Filter by domain")
+    .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaRoot = EaRoot.fromDirectory(cwd);
+      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
+      const eaRoot = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
 
-      if (!eaRoot || !eaRoot.isInitialized()) {
+      if (!eaRoot.isInitialized()) {
         throw new CliError("Error: EA not initialized. Run 'anchored-spec ea init' first.");
       }
 
