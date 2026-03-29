@@ -1,7 +1,7 @@
 {
   "name": "anchored-spec",
   "version": "0.1.0",
-  "description": "Spec-driven development framework — specs as living contracts",
+  "description": "Spec-as-source enterprise architecture framework — architecture models as living code",
   "type": "module",
   "bin": {
     "anchored-spec": "./dist/cli/index.js"
