@@ -58,8 +58,16 @@ export { resolveEaConfig } from "./config.js";
 
 // Validation
 export type { EaSchemaName, EaValidationError, EaValidationResult, EaValidationOptions } from "./validate.js";
-export { validateEaSchema, validateEaArtifacts, getSchemaForKind, getEaSchemaNames } from "./validate.js";
+export { validateEaSchema, validateEaArtifacts, validateEaRelations, getSchemaForKind, getEaSchemaNames } from "./validate.js";
 
 // Loader
 export type { EaLoadedArtifact, EaLoadResult, EaSummary } from "./loader.js";
 export { EaRoot, normalizeArtifact } from "./loader.js";
+
+// Relation Registry
+export type { RelationRegistryEntry } from "./relation-registry.js";
+export { RelationRegistry, createDefaultRegistry } from "./relation-registry.js";
+
+// Graph
+export type { GraphNode, GraphEdge, MermaidOptions, DotOptions } from "./graph.js";
+export { RelationGraph, buildRelationGraph } from "./graph.js";
