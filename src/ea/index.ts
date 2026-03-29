@@ -121,5 +121,5 @@ export type { ResolverCache, CacheEntry, CacheStats } from "./cache.js";
 export { DiskResolverCache, NoOpCache, createResolverCache, DEFAULT_CACHE_DIR, DEFAULT_TTL_SECONDS } from "./cache.js";
 
 // Resolvers
-export type { EaResolver, EaResolverContext, EaAnchorResolution, ObservedEaState, ObservedEntity, ObservedRelationship, ResolverLogger, OpenApiSpec } from "./resolvers/index.js";
-export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extractAllEndpoints, parseSimpleYaml, consoleLogger, silentLogger } from "./resolvers/index.js";
+export type { EaResolver, EaResolverContext, EaAnchorResolution, ObservedEaState, ObservedEntity, ObservedRelationship, ResolverLogger, OpenApiSpec, K8sManifest } from "./resolvers/index.js";
+export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extractAllEndpoints, parseSimpleYaml, consoleLogger, silentLogger, KubernetesResolver, findK8sFiles, loadK8sManifests, k8sResourceId, extractImages, extractReplicas } from "./resolvers/index.js";
