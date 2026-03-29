@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/decision.schema.json",
   "title": "Anchored Spec — EA Decision",
-  "description": "An architecture decision record documenting a key design choice.",
+  "description": "An architecture decision record documenting a key design choice with NIST traceability.",
   "allOf": [
     { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
   ],
@@ -21,7 +21,7 @@
     "rationale": {
       "type": "string",
       "minLength": 1,
-      "description": "Rationale for the decision"
+      "description": "Rationale for the decision, including how it addresses NIST requirements"
     },
     "alternatives": {
       "type": "array",
@@ -40,7 +40,7 @@
     "relatedRequirements": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Requirement IDs related to this decision"
+      "description": "Requirement IDs related to this decision (REQ, SREQ, DREQ, TREQ, IREQ)"
     },
     "adDomain": {
       "type": "string",
@@ -49,6 +49,35 @@
     "implications": {
       "type": "string",
       "description": "Known implications of this decision"
+    },
+    "nistFunction": {
+      "type": "string",
+      "enum": ["identify", "protect", "detect", "respond", "recover", "govern"],
+      "description": "NIST Cybersecurity Framework (CSF) function this decision supports"
+    },
+    "riskFrameworkStep": {
+      "type": "string",
+      "enum": ["prepare", "categorize", "select", "implement", "assess", "authorize", "monitor"],
+      "description": "NIST Risk Management Framework (RMF) step that drove this decision"
+    },
+    "zeroTrustComponent": {
+      "type": "string",
+      "enum": ["policy-engine", "policy-administrator", "policy-enforcement-point", "data-plane", "control-plane"],
+      "description": "NIST SP 800-207 Zero Trust Architecture component affected by this decision"
+    },
+    "complianceFrameworks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Compliance frameworks this decision satisfies (e.g., NIST CSF, FedRAMP, SOC2)"
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["low", "moderate", "high", "critical"],
+      "description": "Risk level associated with this decision"
+    },
+    "governanceImpact": {
+      "type": "string",
+      "description": "How this decision affects security, operational resilience, and compliance posture"
     }
   }
 }

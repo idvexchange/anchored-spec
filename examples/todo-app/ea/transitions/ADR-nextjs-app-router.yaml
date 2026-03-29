@@ -38,6 +38,16 @@ spec:
       verdict: rejected
       reason: Legacy pattern without React Server Components support
   adDomain: systems
+  nistFunction: protect
+  riskFrameworkStep: select
+  riskLevel: moderate
+  complianceFrameworks:
+    - NIST CSF
+    - OWASP ASVS
+  governanceImpact: >
+    Framework choice determines attack surface, CSP headers, and
+    server-side rendering security model. Next.js server components
+    reduce client-side exposure of sensitive logic.
   implications: >
     All API endpoints live under app/api/. Server components are the default.
     Client components must be explicitly marked with "use client".
