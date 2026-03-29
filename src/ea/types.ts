@@ -925,6 +925,13 @@ export interface DecisionArtifact extends EaArtifactBase {
   relatedRequirements?: string[];
   adDomain?: string;
   implications?: string;
+  // NIST alignment
+  nistFunction?: "identify" | "protect" | "detect" | "respond" | "recover" | "govern";
+  riskFrameworkStep?: "prepare" | "categorize" | "select" | "implement" | "assess" | "authorize" | "monitor";
+  zeroTrustComponent?: "policy-engine" | "policy-administrator" | "policy-enforcement-point" | "data-plane" | "control-plane";
+  complianceFrameworks?: string[];
+  riskLevel?: "low" | "moderate" | "high" | "critical";
+  governanceImpact?: string;
 }
 
 // ─── Union Type ─────────────────────────────────────────────────────────────────
