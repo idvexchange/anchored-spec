@@ -352,3 +352,16 @@ export function resolveGenerators(configs: GeneratorConfig[]): EaGenerator[] {
   }
   return generators;
 }
+
+// ─── Built-in Generator Exports ─────────────────────────────────────────────────
+
+export { openapiGenerator } from "./openapi.js";
+export { jsonSchemaGenerator } from "./jsonschema.js";
+
+// ─── Auto-Register Built-in Generators ──────────────────────────────────────────
+
+import { openapiGenerator } from "./openapi.js";
+import { jsonSchemaGenerator } from "./jsonschema.js";
+
+registerGenerator("openapi", () => openapiGenerator);
+registerGenerator("jsonschema", () => jsonSchemaGenerator);
