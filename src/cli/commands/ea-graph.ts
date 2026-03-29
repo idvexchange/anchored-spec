@@ -1,0 +1,124 @@
+/**
+ * anchored-spec ea graph
+ *
+ * Build and export the EA relation graph in Mermaid, DOT, or JSON format.
+ */
+
+import { Command } from "commander";
+import chalk from "chalk";
+import { writeFileSync } from "node:fs";
+import {
+  EaRoot,
+  createDefaultRegistry,
+  buildRelationGraph,
+  resolveEaConfig,
+} from "../../ea/index.js";
+import type { EaDomain } from "../../ea/index.js";
+import { CliError } from "../errors.js";
+
+export function eaGraphCommand(): Command {
+  return new Command("graph")
+    .description("Export EA relation graph")
+    .option("--format <format>", "Output format: mermaid, dot, json", "mermaid")
+    .option("--output <file>", "Write to file instead of stdout")
+    .option("--domain <domain>", "Include only a specific domain")
+    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--direction <dir>", "Graph direction for Mermaid: TB or LR", "LR")
+    .option("--focus <id>", "Focus on a specific artifact and its neighbors")
+    .option("--depth <n>", "Depth for --focus traversal", "2")
+    .action(async (options) => {
+      const cwd = process.cwd();
+      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+
+      if (!root.isInitialized()) {
+        throw new CliError(
+          "EA not initialized. Run 'anchored-spec ea init' first.",
+          2
+        );
+      }
+
+      // Load artifacts
+      let result;
+      if (options.domain) {
+        result = await root.loadDomain(options.domain as EaDomain);
+      } else {
+        result = await root.loadArtifacts();
+      }
+
+      if (result.artifacts.length === 0) {
+        if (options.format === "json") {
+          process.stdout.write("{}\n");
+        } else if (options.format === "dot") {
+          process.stdout.write("digraph EA {\n}\n");
+        } else {
+          process.stdout.write("graph LR\n");
+        }
+        return;
+      }
+
+      // Build graph
+      const registry = createDefaultRegistry();
+      let graph = buildRelationGraph(result.artifacts, registry);
+
+      // Focus mode: build a subgraph around a specific artifact
+      if (options.focus) {
+        const focusId = options.focus as string;
+        const depth = parseInt(options.depth as string, 10) || 2;
+
+        if (!graph.node(focusId)) {
+          throw new CliError(`Artifact "${focusId}" not found in graph.`, 1);
+        }
+
+        // Collect all nodes within depth
+        const nodeIds = new Set<string>([focusId]);
+        const collectNeighbors = (id: string, remaining: number): void => {
+          if (remaining <= 0) return;
+          for (const edge of [...graph.outgoing(id), ...graph.incoming(id)]) {
+            const neighbor = edge.source === id ? edge.target : edge.source;
+            if (!nodeIds.has(neighbor)) {
+              nodeIds.add(neighbor);
+              collectNeighbors(neighbor, remaining - 1);
+            }
+          }
+        };
+        collectNeighbors(focusId, depth);
+
+        // Rebuild graph with only the focused artifacts
+        const focused = result.artifacts.filter((a) => nodeIds.has(a.id));
+        graph = buildRelationGraph(focused, registry);
+      }
+
+      // Export
+      const format = options.format as string;
+      let output: string;
+
+      switch (format) {
+        case "mermaid":
+          output = graph.toMermaid({
+            direction: (options.direction as "TB" | "LR") ?? "LR",
+          });
+          break;
+        case "dot":
+          output = graph.toDot();
+          break;
+        case "json":
+          output = JSON.stringify(graph.toAdjacencyJson(), null, 2);
+          break;
+        default:
+          throw new CliError(
+            `Unknown format "${format}". Use: mermaid, dot, json`,
+            2
+          );
+      }
+
+      if (options.output) {
+        writeFileSync(options.output as string, output + "\n");
+        console.error(
+          chalk.green(`✓ Graph written to ${options.output} (${format})`)
+        );
+      } else {
+        process.stdout.write(output + "\n");
+      }
+    });
+}

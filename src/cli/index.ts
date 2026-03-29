@@ -24,6 +24,7 @@ import { importCommand } from "./commands/import-cmd.js";
 import { reportCommand } from "./commands/report.js";
 import { evidenceCommand } from "./commands/evidence.js";
 import { impactCommand } from "./commands/impact.js";
+import { eaCommand } from "./commands/ea.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -58,6 +59,7 @@ program.addCommand(importCommand());
 program.addCommand(reportCommand());
 program.addCommand(evidenceCommand());
 program.addCommand(impactCommand());
+program.addCommand(eaCommand());
 
 async function main(): Promise<void> {
   try {
