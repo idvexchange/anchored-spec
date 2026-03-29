@@ -317,8 +317,8 @@ describe("Phase 2E: Transition Quality Rules", () => {
 describe("Phase 2E: Transition Relations", () => {
   const registry = createDefaultRegistry();
 
-  it("has 27 total relation types after Phase 2E", () => {
-    expect(registry.allTypes()).toHaveLength(27);
+  it("has 28 total relation types after Phase 2E", () => {
+    expect(registry.allTypes()).toHaveLength(28);
   });
 
   describe("supersedes", () => {

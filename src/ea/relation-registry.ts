@@ -411,6 +411,16 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
     driftStrategy: "none",
     description: "Exception mitigates (suppresses) drift findings for target artifacts.",
   },
+  {
+    type: "targets",
+    inverse: "targetedBy",
+    validSourceKinds: ["transition-plan", "migration-wave", "baseline", "target", "change", "decision", "exception"],
+    validTargetKinds: "*",
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Transition artifact targets a future-state artifact or goal.",
+  },
 ];
 
 /** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C + 2D + 2E). */
