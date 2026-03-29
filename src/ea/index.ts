@@ -140,8 +140,8 @@ export type { ResolverCache, CacheEntry, CacheStats } from "./cache.js";
 export { DiskResolverCache, NoOpCache, createResolverCache, DEFAULT_CACHE_DIR, DEFAULT_TTL_SECONDS } from "./cache.js";
 
 // Resolvers
-export type { EaResolver, EaResolverContext, EaAnchorResolution, ObservedEaState, ObservedEntity, ObservedRelationship, ResolverLogger, OpenApiSpec, K8sManifest, TerraformState, TerraformModule, TerraformResource, ParsedTable, ParsedColumn, DbtManifest, DbtNode, DbtSource, DbtExposure } from "./resolvers/index.js";
-export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extractAllEndpoints, parseSimpleYaml, consoleLogger, silentLogger, KubernetesResolver, findK8sFiles, loadK8sManifests, k8sResourceId, extractImages, extractReplicas, TerraformResolver, findTerraformStateFiles, loadTerraformState, flattenResources, SqlDdlResolver, parseDdl, findSqlFiles, loadSqlTables, DbtResolver, findDbtManifests, loadDbtManifest, extractModels, extractTests, extractSources, extractExposures } from "./resolvers/index.js";
+export type { EaResolver, EaResolverContext, EaAnchorResolution, ObservedEaState, ObservedEntity, ObservedRelationship, ResolverLogger, OpenApiSpec, K8sManifest, TerraformState, TerraformModule, TerraformResource, ParsedTable, ParsedColumn, DbtManifest, DbtNode, DbtSource, DbtExposure, AnchorMatch, AnchorScanResult } from "./resolvers/index.js";
+export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extractAllEndpoints, parseSimpleYaml, consoleLogger, silentLogger, KubernetesResolver, findK8sFiles, loadK8sManifests, k8sResourceId, extractImages, extractReplicas, TerraformResolver, findTerraformStateFiles, loadTerraformState, flattenResources, SqlDdlResolver, parseDdl, findSqlFiles, loadSqlTables, DbtResolver, findDbtManifests, loadDbtManifest, extractModels, extractTests, extractSources, extractExposures, AnchorsResolver, scanAnchors } from "./resolvers/index.js";
 
 // Generators
 export type { EaGenerator, EaGeneratorContext, GeneratedOutput, GenerationDrift, GeneratorConfig, EaGeneratorOptions, GenerationReport } from "./generators/index.js";
@@ -150,3 +150,19 @@ export { runGenerators, renderGenerationReportMarkdown, registerGenerator, getGe
 // Migration
 export type { MigrationOptions, MigratedArtifact, MigrationResult } from "./migrate-legacy.js";
 export { migrateLegacyArtifacts, migrateRequirement, migrateChange, migrateDecision, mapSemanticRefsToAnchors, renderMigrationReportMarkdown } from "./migrate-legacy.js";
+
+// Policy Engine (EA-native)
+export type { EaWorkflowPolicy, EaWorkflowVariant, EaChangeRequiredRule, EaLifecycleRules, EaPolicyMatchResult, EaPolicyEvaluationResult, EaCheckResult } from "./policy.js";
+export { evaluateEaPolicy, checkEaPaths, isTrivialPath, matchRules, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeArtifact, loadEaWorkflowPolicy } from "./policy.js";
+
+// Plugin System (EA-native)
+export type { EaPlugin, EaPluginCheck, EaPluginHooks, EaPluginContext } from "./plugins.js";
+export { loadEaPlugin, loadEaPlugins, runEaPluginChecks } from "./plugins.js";
+
+// Evidence Adapters
+export type { EaTestRecord, EaEvidenceAdapterResult, EvidenceAdapter } from "./evidence-adapters/index.js";
+export { VitestEaAdapter, collectEaTestEvidence, registerEvidenceAdapter, getAvailableAdapters } from "./evidence-adapters/index.js";
+
+// Verification Engine (EA-native)
+export type { EaVerificationOptions, EaVerificationSummary, EaVerificationResult } from "./verify.js";
+export { runEaVerification } from "./verify.js";

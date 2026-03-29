@@ -67,3 +67,7 @@ export {
   extractSources,
   extractExposures,
 } from "./dbt.js";
+
+// Anchors Resolver (code-symbol scanning)
+export type { AnchorMatch, AnchorScanResult } from "./anchors.js";
+export { AnchorsResolver, scanAnchors } from "./anchors.js";
