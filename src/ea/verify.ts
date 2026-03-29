@@ -118,11 +118,11 @@ function checkLifecycleConsistency(artifacts: EaArtifactBase[]): EaValidationErr
 
     // Active artifacts in transitions domain must have a target date or link
     if (artifact.status === "active" && getDomainForKind(artifact.kind) === "transitions") {
-      const hasTarget = artifact.relations?.some((r) => r.type === "targets" || r.type === "implements");
+      const hasTarget = artifact.relations?.some((r) => r.type === "targets" || r.type === "implementedBy");
       if (!hasTarget) {
         errors.push({
           path: artifact.id,
-          message: `Active transition artifact "${artifact.id}" should have a "targets" or "implements" relation`,
+          message: `Active transition artifact "${artifact.id}" should have a "targets" or "implementedBy" relation`,
           severity: "warning",
           rule: "ea:verify:transition-needs-target",
         });
