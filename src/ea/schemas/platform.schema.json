@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/platform.schema.json",
+  "title": "Anchored Spec — EA Platform",
+  "description": "A runtime platform (K8s cluster, serverless platform, etc.).",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "platform" },
+    "platformType": {
+      "type": "string",
+      "enum": ["kubernetes", "serverless", "vm", "bare-metal", "paas", "custom"],
+      "description": "Type of platform"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Cloud or infrastructure provider"
+    },
+    "region": {
+      "type": "string",
+      "description": "Deployment region"
+    }
+  }
+}

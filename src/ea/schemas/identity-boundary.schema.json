@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/identity-boundary.schema.json",
+  "title": "Anchored Spec — EA Identity Boundary",
+  "description": "An identity/auth boundary.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "identity-boundary" },
+    "boundaryType": {
+      "type": "string",
+      "enum": ["oauth2", "saml", "mtls", "iam-role", "service-account", "custom"],
+      "description": "Type of identity boundary"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Identity provider"
+    },
+    "scope": {
+      "type": "string",
+      "description": "Scope or realm of this boundary"
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/consumer.schema.json",
+  "title": "Anchored Spec — EA Consumer",
+  "description": "A declared consumer of an API or event.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["consumesContracts", "consumerType"],
+  "properties": {
+    "kind": { "const": "consumer" },
+    "consumesContracts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "Artifact IDs of consumed API/event contracts"
+    },
+    "consumerType": {
+      "type": "string",
+      "enum": ["internal", "external", "partner"],
+      "description": "Type of consumer"
+    },
+    "contact": {
+      "type": "object",
+      "properties": {
+        "team": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "slackChannel": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Consumer contact information"
+    },
+    "quotas": {
+      "type": "object",
+      "properties": {
+        "rateLimit": { "type": "string" },
+        "dailyLimit": { "type": "integer", "minimum": 0 },
+        "burstLimit": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "description": "Rate limiting and quota configuration"
+    },
+    "contractVersion": {
+      "type": "string",
+      "description": "Version of the consumed contract"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/system-interface.schema.json",
+  "title": "Anchored Spec — EA System Interface",
+  "description": "An external system boundary interface.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["direction", "ownership"],
+  "properties": {
+    "kind": { "const": "system-interface" },
+    "direction": {
+      "type": "string",
+      "enum": ["inbound", "outbound", "bidirectional"],
+      "description": "Direction of the interface"
+    },
+    "protocol": {
+      "type": "string",
+      "enum": ["rest", "graphql", "grpc", "soap", "sftp", "mq", "custom"],
+      "description": "Interface protocol"
+    },
+    "externalSystem": {
+      "type": "string",
+      "description": "Name or ID of the external system"
+    },
+    "ownership": {
+      "type": "string",
+      "enum": ["owned", "external", "shared"],
+      "description": "Who owns and maintains this interface"
+    },
+    "sla": {
+      "type": "object",
+      "properties": {
+        "availability": { "type": "string" },
+        "latencyP99": { "type": "string" },
+        "throughput": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Service level agreement"
+    }
+  }
+}

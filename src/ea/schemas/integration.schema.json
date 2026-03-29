@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/integration.schema.json",
+  "title": "Anchored Spec — EA Integration",
+  "description": "A declared integration between two systems.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "integration" },
+    "sourceSystem": {
+      "type": "string",
+      "description": "Source system artifact ID"
+    },
+    "targetSystem": {
+      "type": "string",
+      "description": "Target system artifact ID"
+    },
+    "pattern": {
+      "type": "string",
+      "enum": ["sync-request", "async-event", "batch", "streaming", "file-transfer"],
+      "description": "Integration pattern"
+    },
+    "protocol": {
+      "type": "string",
+      "description": "Integration protocol"
+    }
+  }
+}

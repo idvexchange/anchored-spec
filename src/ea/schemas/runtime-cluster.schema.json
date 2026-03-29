@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/runtime-cluster.schema.json",
+  "title": "Anchored Spec — EA Runtime Cluster",
+  "description": "A compute cluster.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "runtime-cluster" },
+    "clusterType": {
+      "type": "string",
+      "enum": ["kubernetes", "ecs", "nomad", "swarm", "custom"],
+      "description": "Cluster orchestration type"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Cloud or infrastructure provider"
+    },
+    "region": {
+      "type": "string",
+      "description": "Deployment region"
+    },
+    "nodeCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of nodes in the cluster"
+    }
+  }
+}

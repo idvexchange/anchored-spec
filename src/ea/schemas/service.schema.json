@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/service.schema.json",
+  "title": "Anchored Spec — EA Service",
+  "description": "A runtime service component within an application.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "service" },
+    "protocol": {
+      "type": "string",
+      "description": "Service protocol if known (e.g., HTTP, gRPC, TCP)"
+    }
+  }
+}

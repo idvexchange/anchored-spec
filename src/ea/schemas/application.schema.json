@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/application.schema.json",
+  "title": "Anchored Spec — EA Application",
+  "description": "A deployable software system.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "application" },
+    "technology": {
+      "type": "object",
+      "properties": {
+        "language": { "type": "string", "description": "Primary programming language" },
+        "framework": { "type": "string", "description": "Application framework" },
+        "runtime": { "type": "string", "description": "Runtime environment" }
+      },
+      "additionalProperties": false
+    },
+    "repository": {
+      "type": "string",
+      "description": "Repository URL"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/deployment.schema.json",
+  "title": "Anchored Spec — EA Deployment",
+  "description": "A deployed instance of an application.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "deployment" },
+    "environment": {
+      "type": "string",
+      "description": "Target environment name or artifact ID"
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of replicas"
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Resource requests/limits (e.g., cpu: '500m', memory: '512Mi')"
+    }
+  }
+}
