@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/physical-schema.schema.json",
+  "title": "Anchored Spec — EA Physical Schema",
+  "description": "A physical database schema definition.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["engine"],
+  "properties": {
+    "kind": { "const": "physical-schema" },
+    "engine": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Database engine (e.g., postgresql, mysql, mongodb)"
+    },
+    "schemaName": { "type": "string", "description": "Schema name within the database" },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "columns"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "columns": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "type": { "type": "string", "minLength": 1 },
+                "nullable": { "type": "boolean" },
+                "primaryKey": { "type": "boolean" },
+                "foreignKey": {
+                  "type": "object",
+                  "required": ["table", "column"],
+                  "properties": {
+                    "table": { "type": "string", "minLength": 1 },
+                    "column": { "type": "string", "minLength": 1 }
+                  },
+                  "additionalProperties": false
+                },
+                "description": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "indexes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "columns"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "columns": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "minLength": 1 }
+                },
+                "unique": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Table definitions"
+    },
+    "managedBy": {
+      "type": "string",
+      "enum": ["migrations", "orm", "manual", "schema-registry", "other"],
+      "description": "How the schema is managed"
+    },
+    "sourcePath": { "type": "string", "description": "Path to schema source files" }
+  }
+}

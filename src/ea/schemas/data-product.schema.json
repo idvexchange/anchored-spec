@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/data-product.schema.json",
+  "title": "Anchored Spec — EA Data Product",
+  "description": "A data product with defined input/output ports, SLAs, and catalog metadata.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["domain", "outputPorts"],
+  "properties": {
+    "kind": { "const": "data-product" },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Business domain this data product belongs to"
+    },
+    "outputPorts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": {
+            "type": "string",
+            "enum": ["api", "table", "file", "stream", "dataset"]
+          },
+          "format": { "type": "string" },
+          "location": { "type": "string" },
+          "contractRef": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Output ports exposing data to consumers"
+    },
+    "inputPorts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "sourceRef"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "sourceRef": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Input ports consuming data from sources"
+    },
+    "sla": {
+      "type": "object",
+      "properties": {
+        "freshness": { "type": "string" },
+        "availability": { "type": "string" },
+        "quality": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Service level agreements"
+    },
+    "qualityRules": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "References to data quality rule artifact IDs"
+    },
+    "catalog": {
+      "type": "object",
+      "properties": {
+        "catalogRef": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Data catalog metadata"
+    }
+  }
+}

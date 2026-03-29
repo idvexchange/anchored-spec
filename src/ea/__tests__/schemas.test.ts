@@ -26,9 +26,9 @@ function validBase(kind: string, extra: Record<string, unknown> = {}): Record<st
 // ─── Schema Registry ────────────────────────────────────────────────────────────
 
 describe("getEaSchemaNames", () => {
-  it("returns 18 schema names (3 base + 15 kinds)", () => {
+  it("returns 25 schema names (3 base + 22 kinds)", () => {
     const names = getEaSchemaNames();
-    expect(names).toHaveLength(18);
+    expect(names).toHaveLength(25);
     expect(names).toContain("artifact-base");
     expect(names).toContain("relation");
     expect(names).toContain("anchors");
@@ -558,5 +558,319 @@ describe("schema coverage", () => {
     for (const entry of EA_KIND_REGISTRY) {
       expect(schemaNames).toContain(entry.kind);
     }
+  });
+});
+
+// ─── Kind-Specific Schema Tests (Data) ──────────────────────────────────────────
+
+describe("logical-data-model schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("logical-data-model", {
+        attributes: [{ name: "id", type: "string", required: true }],
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing attributes", () => {
+    const result = validateEaSchema(validBase("logical-data-model"));
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with entityRelations and boundedContext", () => {
+    const result = validateEaSchema(
+      validBase("logical-data-model", {
+        attributes: [{ name: "id", type: "uuid" }],
+        entityRelations: [{ target: "Address", cardinality: "1:N" }],
+        boundedContext: "orders",
+        isAggregateRoot: true,
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("physical-schema schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("physical-schema", { engine: "postgresql" })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing engine", () => {
+    const result = validateEaSchema(validBase("physical-schema"));
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with tables", () => {
+    const result = validateEaSchema(
+      validBase("physical-schema", {
+        engine: "postgresql",
+        tables: [{
+          name: "orders",
+          columns: [
+            { name: "id", type: "uuid", primaryKey: true },
+            { name: "customer_id", type: "uuid", foreignKey: { table: "customers", column: "id" } },
+          ],
+          indexes: [{ name: "idx_customer", columns: ["customer_id"], unique: false }],
+        }],
+        managedBy: "migrations",
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("data-store schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("data-store", {
+        technology: { engine: "postgresql", category: "relational" },
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing technology", () => {
+    const result = validateEaSchema(validBase("data-store"));
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with volume and backup", () => {
+    const result = validateEaSchema(
+      validBase("data-store", {
+        technology: { engine: "redis", version: "7.0", category: "cache" },
+        dataVolume: { sizeOnDisk: "50GB", growthRate: "5%/month" },
+        backup: { frequency: "hourly", pointInTimeRecovery: true },
+        isShared: true,
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("lineage schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("lineage", {
+        source: { artifactId: "data/STORE-orders-db" },
+        destination: { artifactId: "data/STORE-warehouse" },
+        mechanism: "etl",
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing source", () => {
+    const result = validateEaSchema(
+      validBase("lineage", {
+        destination: { artifactId: "data/STORE-warehouse" },
+        mechanism: "etl",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing destination", () => {
+    const result = validateEaSchema(
+      validBase("lineage", {
+        source: { artifactId: "data/STORE-orders-db" },
+        mechanism: "etl",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing mechanism", () => {
+    const result = validateEaSchema(
+      validBase("lineage", {
+        source: { artifactId: "data/STORE-orders-db" },
+        destination: { artifactId: "data/STORE-warehouse" },
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with all optional fields", () => {
+    const result = validateEaSchema(
+      validBase("lineage", {
+        source: { artifactId: "data/STORE-orders-db", description: "Orders DB" },
+        destination: { artifactId: "data/STORE-warehouse", description: "Data warehouse" },
+        mechanism: "streaming",
+        executedBy: "kafka-connect",
+        transformation: "flatten nested orders",
+        schedule: "real-time",
+        latency: "<5s",
+        qualityChecks: ["row-count", "schema-match"],
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("master-data-domain schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("master-data-domain", {
+        entities: ["Customer"],
+        steward: { team: "data-governance" },
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing entities", () => {
+    const result = validateEaSchema(
+      validBase("master-data-domain", {
+        steward: { team: "data-governance" },
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing steward", () => {
+    const result = validateEaSchema(
+      validBase("master-data-domain", {
+        entities: ["Customer"],
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with optional fields", () => {
+    const result = validateEaSchema(
+      validBase("master-data-domain", {
+        entities: ["Customer", "Product"],
+        steward: { team: "data-governance", contact: "dg@example.com" },
+        goldenSource: "data/STORE-crm",
+        governanceRules: ["no-PII-in-analytics"],
+        matchingStrategy: "fuzzy-name-match",
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("data-quality-rule schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("data-quality-rule", {
+        ruleType: "not-null",
+        appliesTo: ["data/STORE-orders"],
+        assertion: "order_id must not be null",
+        onFailure: "alert",
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing ruleType", () => {
+    const result = validateEaSchema(
+      validBase("data-quality-rule", {
+        appliesTo: ["data/STORE-orders"],
+        assertion: "order_id must not be null",
+        onFailure: "alert",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing appliesTo", () => {
+    const result = validateEaSchema(
+      validBase("data-quality-rule", {
+        ruleType: "not-null",
+        assertion: "order_id must not be null",
+        onFailure: "alert",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing assertion", () => {
+    const result = validateEaSchema(
+      validBase("data-quality-rule", {
+        ruleType: "not-null",
+        appliesTo: ["data/STORE-orders"],
+        onFailure: "alert",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing onFailure", () => {
+    const result = validateEaSchema(
+      validBase("data-quality-rule", {
+        ruleType: "not-null",
+        appliesTo: ["data/STORE-orders"],
+        assertion: "order_id must not be null",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with threshold", () => {
+    const result = validateEaSchema(
+      validBase("data-quality-rule", {
+        ruleType: "freshness",
+        appliesTo: ["data/STORE-orders"],
+        assertion: "Data must be < 1 hour old",
+        onFailure: "block",
+        threshold: { maxFailureRate: 0.01, maxFailureCount: 100 },
+        expression: "age < interval '1 hour'",
+        executor: "great-expectations",
+        schedule: "hourly",
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("data-product schema", () => {
+  it("accepts valid with required fields", () => {
+    const result = validateEaSchema(
+      validBase("data-product", {
+        domain: "orders",
+        outputPorts: [{ name: "orders-table", type: "table" }],
+      })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing domain", () => {
+    const result = validateEaSchema(
+      validBase("data-product", {
+        outputPorts: [{ name: "orders-table", type: "table" }],
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("rejects missing outputPorts", () => {
+    const result = validateEaSchema(
+      validBase("data-product", {
+        domain: "orders",
+      })
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with all optional fields", () => {
+    const result = validateEaSchema(
+      validBase("data-product", {
+        domain: "orders",
+        outputPorts: [
+          { name: "orders-api", type: "api", format: "json", location: "/api/v1/orders", contractRef: "systems/API-orders" },
+        ],
+        inputPorts: [
+          { name: "raw-events", sourceRef: "data/STORE-events", description: "Raw order events" },
+        ],
+        sla: { freshness: "< 5 min", availability: "99.9%", quality: "99.5%" },
+        qualityRules: ["data/DQR-orders-not-null"],
+        catalog: { catalogRef: "datahub:orders", tags: ["pii", "revenue"], description: "Order data product" },
+      })
+    );
+    expect(result.valid).toBe(true);
   });
 });

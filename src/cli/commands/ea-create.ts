@@ -146,6 +146,20 @@ function getKindSpecificYaml(kind: string): string | null {
       return "  tier: development\n  isProduction: false";
     case "technology-standard":
       return "  category: framework\n  technology: TODO";
+    case "logical-data-model":
+      return "  attributes:\n    - name: id\n      type: string\n      required: true";
+    case "physical-schema":
+      return "  engine: postgresql";
+    case "data-store":
+      return "  technology:\n    engine: postgresql\n    category: relational";
+    case "lineage":
+      return "  source:\n    artifactId: TODO\n  destination:\n    artifactId: TODO\n  mechanism: etl";
+    case "master-data-domain":
+      return "  entities: []\n  steward:\n    team: your-team";
+    case "data-quality-rule":
+      return "  ruleType: not-null\n  appliesTo: []\n  assertion: TODO\n  onFailure: alert";
+    case "data-product":
+      return "  domain: TODO\n  outputPorts:\n    - name: default\n      type: table";
     default:
       return null;
   }
@@ -163,6 +177,20 @@ function getKindSpecificJson(kind: string): Record<string, unknown> {
       return { tier: "development", isProduction: false };
     case "technology-standard":
       return { category: "framework", technology: "TODO" };
+    case "logical-data-model":
+      return { attributes: [{ name: "id", type: "string", required: true }] };
+    case "physical-schema":
+      return { engine: "postgresql" };
+    case "data-store":
+      return { technology: { engine: "postgresql", category: "relational" } };
+    case "lineage":
+      return { source: { artifactId: "TODO" }, destination: { artifactId: "TODO" }, mechanism: "etl" };
+    case "master-data-domain":
+      return { entities: [], steward: { team: "your-team" } };
+    case "data-quality-rule":
+      return { ruleType: "not-null", appliesTo: [], assertion: "TODO", onFailure: "alert" };
+    case "data-product":
+      return { domain: "TODO", outputPorts: [{ name: "default", type: "table" }] };
     default:
       return {};
   }

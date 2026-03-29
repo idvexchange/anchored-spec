@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/data-quality-rule.schema.json",
+  "title": "Anchored Spec — EA Data Quality Rule",
+  "description": "A data quality rule defining assertions and enforcement policy.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["ruleType", "appliesTo", "assertion", "onFailure"],
+  "properties": {
+    "kind": { "const": "data-quality-rule" },
+    "ruleType": {
+      "type": "string",
+      "enum": ["not-null", "unique", "referential-integrity", "range", "format", "freshness", "row-count", "custom"],
+      "description": "Type of quality rule"
+    },
+    "appliesTo": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Artifact IDs or field paths this rule applies to"
+    },
+    "assertion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable assertion statement"
+    },
+    "expression": { "type": "string", "description": "Machine-readable expression" },
+    "executor": { "type": "string", "description": "System that executes this rule" },
+    "schedule": { "type": "string", "description": "Execution schedule" },
+    "onFailure": {
+      "type": "string",
+      "enum": ["block", "alert", "log"],
+      "description": "Action to take on rule failure"
+    },
+    "threshold": {
+      "type": "object",
+      "properties": {
+        "maxFailureRate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "maxFailureCount": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "description": "Failure thresholds"
+    }
+  }
+}

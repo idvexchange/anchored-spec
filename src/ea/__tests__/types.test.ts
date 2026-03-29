@@ -36,15 +36,17 @@ describe("EA_DOMAINS", () => {
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 
 describe("EA_KIND_REGISTRY", () => {
-  it("contains 15 Phase A kinds", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(15);
+  it("contains 22 kinds (15 Phase A + 7 Data)", () => {
+    expect(EA_KIND_REGISTRY).toHaveLength(22);
   });
 
-  it("has 7 systems kinds and 8 delivery kinds", () => {
+  it("has 7 systems kinds, 8 delivery kinds, and 7 data kinds", () => {
     const systems = EA_KIND_REGISTRY.filter((e) => e.domain === "systems");
     const delivery = EA_KIND_REGISTRY.filter((e) => e.domain === "delivery");
+    const data = EA_KIND_REGISTRY.filter((e) => e.domain === "data");
     expect(systems).toHaveLength(7);
     expect(delivery).toHaveLength(8);
+    expect(data).toHaveLength(7);
   });
 
   it("has unique prefixes", () => {
@@ -81,9 +83,11 @@ describe("getKindsByDomain", () => {
     expect(kinds.map((k) => k.kind)).toContain("api-contract");
   });
 
-  it("returns empty for domains with no registered kinds", () => {
+  it("returns data domain kinds", () => {
     const kinds = getKindsByDomain("data");
-    expect(kinds).toEqual([]);
+    expect(kinds).toHaveLength(7);
+    expect(kinds.map((k) => k.kind)).toContain("logical-data-model");
+    expect(kinds.map((k) => k.kind)).toContain("data-product");
   });
 });
 

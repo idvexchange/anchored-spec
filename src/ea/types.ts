@@ -387,9 +387,127 @@ export interface TechnologyStandardArtifact extends EaArtifactBase {
   rationale?: string;
 }
 
+// ─── Kind-Specific Artifact Types (Phase 2B — Data) ────────────────────────────
+
+export interface LogicalDataModelArtifact extends EaArtifactBase {
+  kind: "logical-data-model";
+  attributes: Array<{
+    name: string;
+    type: string;
+    required?: boolean;
+    description?: string;
+    classification?: string;
+  }>;
+  entityRelations?: Array<{
+    target: string;
+    cardinality: "1:1" | "1:N" | "N:1" | "N:M";
+    description?: string;
+  }>;
+  boundedContext?: string;
+  isAggregateRoot?: boolean;
+}
+
+export interface PhysicalSchemaArtifact extends EaArtifactBase {
+  kind: "physical-schema";
+  engine: string;
+  schemaName?: string;
+  tables?: Array<{
+    name: string;
+    columns: Array<{
+      name: string;
+      type: string;
+      nullable?: boolean;
+      primaryKey?: boolean;
+      foreignKey?: { table: string; column: string };
+      description?: string;
+    }>;
+    indexes?: Array<{
+      name: string;
+      columns: string[];
+      unique?: boolean;
+    }>;
+  }>;
+  managedBy?: "migrations" | "orm" | "manual" | "schema-registry" | "other";
+  sourcePath?: string;
+}
+
+export interface DataStoreArtifact extends EaArtifactBase {
+  kind: "data-store";
+  technology: {
+    engine: string;
+    version?: string;
+    category: "relational" | "document" | "key-value" | "graph" | "columnar" | "time-series" | "search" | "cache" | "message-store" | "object-store" | "data-lake" | "data-warehouse" | "other";
+  };
+  environment?: string;
+  dataVolume?: {
+    rowCount?: string;
+    sizeOnDisk?: string;
+    growthRate?: string;
+  };
+  backup?: {
+    frequency?: string;
+    retentionPeriod?: string;
+    pointInTimeRecovery?: boolean;
+  };
+  isShared?: boolean;
+}
+
+export interface LineageArtifact extends EaArtifactBase {
+  kind: "lineage";
+  source: { artifactId: string; description?: string };
+  destination: { artifactId: string; description?: string };
+  mechanism: "etl" | "elt" | "streaming" | "cdc" | "api-pull" | "replication" | "manual" | "other";
+  executedBy?: string;
+  transformation?: string;
+  schedule?: "real-time" | "hourly" | "daily" | "weekly" | "on-demand" | "custom";
+  latency?: string;
+  qualityChecks?: string[];
+}
+
+export interface MasterDataDomainArtifact extends EaArtifactBase {
+  kind: "master-data-domain";
+  entities: string[];
+  steward: { team: string; contact?: string };
+  goldenSource?: string;
+  governanceRules?: string[];
+  matchingStrategy?: string;
+}
+
+export interface DataQualityRuleArtifact extends EaArtifactBase {
+  kind: "data-quality-rule";
+  ruleType: "not-null" | "unique" | "referential-integrity" | "range" | "format" | "freshness" | "row-count" | "custom";
+  appliesTo: string[];
+  assertion: string;
+  expression?: string;
+  executor?: string;
+  schedule?: string;
+  onFailure: "block" | "alert" | "log";
+  threshold?: { maxFailureRate?: number; maxFailureCount?: number };
+}
+
+export interface DataProductArtifact extends EaArtifactBase {
+  kind: "data-product";
+  domain: string;
+  outputPorts: Array<{
+    name: string;
+    type: "api" | "table" | "file" | "stream" | "dataset";
+    format?: string;
+    location?: string;
+    contractRef?: string;
+  }>;
+  inputPorts?: Array<{
+    name: string;
+    sourceRef: string;
+    description?: string;
+  }>;
+  sla?: { freshness?: string; availability?: string; quality?: string };
+  qualityRules?: string[];
+  catalog?: { catalogRef?: string; tags?: string[]; description?: string };
+}
+
 // ─── Union Type ─────────────────────────────────────────────────────────────────
 
-/** Discriminated union of all Phase A (systems + delivery) artifact types. */
+/** Discriminated union of all artifact types. */
 export type EaArtifact =
   | ApplicationArtifact
   | ServiceArtifact
@@ -405,7 +523,14 @@ export type EaArtifact =
   | IdentityBoundaryArtifact
   | CloudResourceArtifact
   | EnvironmentArtifact
-  | TechnologyStandardArtifact;
+  | TechnologyStandardArtifact
+  | LogicalDataModelArtifact
+  | PhysicalSchemaArtifact
+  | DataStoreArtifact
+  | LineageArtifact
+  | MasterDataDomainArtifact
+  | DataQualityRuleArtifact
+  | DataProductArtifact;
 
 // ─── Kind Taxonomy ──────────────────────────────────────────────────────────────
 
@@ -417,7 +542,7 @@ export interface EaKindEntry {
   description: string;
 }
 
-/** All Phase A (systems + delivery) kinds and their metadata. */
+/** All registered kinds and their metadata. */
 export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   // Systems domain
   { kind: "application", prefix: "APP", domain: "systems", description: "A deployable software system" },
@@ -436,6 +561,14 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "cloud-resource", prefix: "CLOUD", domain: "delivery", description: "A specific cloud resource (RDS instance, S3 bucket, etc.)" },
   { kind: "environment", prefix: "ENV", domain: "delivery", description: "A deployment environment (prod, staging, dev)" },
   { kind: "technology-standard", prefix: "TECH", domain: "delivery", description: "An approved technology standard" },
+  // Data domain
+  { kind: "logical-data-model", prefix: "LDM", domain: "data", description: "A logical data model describing entity attributes and relationships" },
+  { kind: "physical-schema", prefix: "SCHEMA", domain: "data", description: "A physical database schema definition" },
+  { kind: "data-store", prefix: "STORE", domain: "data", description: "A data storage system (database, cache, object store, etc.)" },
+  { kind: "lineage", prefix: "LINEAGE", domain: "data", description: "A data lineage path from source to destination" },
+  { kind: "master-data-domain", prefix: "MDM", domain: "data", description: "A master data domain with golden-source governance" },
+  { kind: "data-quality-rule", prefix: "DQR", domain: "data", description: "A data quality rule defining assertions and enforcement" },
+  { kind: "data-product", prefix: "DPROD", domain: "data", description: "A data product with defined ports, SLAs, and catalog metadata" },
 ] as const;
 
 /** Lookup helpers. */

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/logical-data-model.schema.json",
+  "title": "Anchored Spec — EA Logical Data Model",
+  "description": "A logical data model describing entity attributes and relationships.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["attributes"],
+  "properties": {
+    "kind": { "const": "logical-data-model" },
+    "attributes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "minLength": 1 },
+          "required": { "type": "boolean" },
+          "description": { "type": "string" },
+          "classification": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Entity attributes"
+    },
+    "entityRelations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target", "cardinality"],
+        "properties": {
+          "target": { "type": "string", "minLength": 1 },
+          "cardinality": {
+            "type": "string",
+            "enum": ["1:1", "1:N", "N:1", "N:M"]
+          },
+          "description": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Relationships to other entities"
+    },
+    "boundedContext": { "type": "string", "description": "DDD bounded context this model belongs to" },
+    "isAggregateRoot": { "type": "boolean", "description": "Whether this entity is an aggregate root" }
+  }
+}

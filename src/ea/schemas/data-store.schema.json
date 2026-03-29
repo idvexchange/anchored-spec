@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/data-store.schema.json",
+  "title": "Anchored Spec — EA Data Store",
+  "description": "A data storage system (database, cache, object store, etc.).",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["technology"],
+  "properties": {
+    "kind": { "const": "data-store" },
+    "technology": {
+      "type": "object",
+      "required": ["engine", "category"],
+      "properties": {
+        "engine": { "type": "string", "minLength": 1, "description": "Storage engine name" },
+        "version": { "type": "string", "description": "Engine version" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "relational", "document", "key-value", "graph", "columnar",
+            "time-series", "search", "cache", "message-store", "object-store",
+            "data-lake", "data-warehouse", "other"
+          ],
+          "description": "Storage category"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Technology details for this data store"
+    },
+    "environment": { "type": "string", "description": "Deployment environment" },
+    "dataVolume": {
+      "type": "object",
+      "properties": {
+        "rowCount": { "type": "string" },
+        "sizeOnDisk": { "type": "string" },
+        "growthRate": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Data volume metrics"
+    },
+    "backup": {
+      "type": "object",
+      "properties": {
+        "frequency": { "type": "string" },
+        "retentionPeriod": { "type": "string" },
+        "pointInTimeRecovery": { "type": "boolean" }
+      },
+      "additionalProperties": false,
+      "description": "Backup configuration"
+    },
+    "isShared": { "type": "boolean", "description": "Whether this store is shared across services" }
+  }
+}

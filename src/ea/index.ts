@@ -30,6 +30,13 @@ export type {
   CloudResourceArtifact,
   EnvironmentArtifact,
   TechnologyStandardArtifact,
+  LogicalDataModelArtifact,
+  PhysicalSchemaArtifact,
+  DataStoreArtifact,
+  LineageArtifact,
+  MasterDataDomainArtifact,
+  DataQualityRuleArtifact,
+  DataProductArtifact,
   EaArtifact,
   EaKindEntry,
 } from "./types.js";
