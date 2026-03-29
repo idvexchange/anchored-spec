@@ -123,3 +123,7 @@ export { DiskResolverCache, NoOpCache, createResolverCache, DEFAULT_CACHE_DIR, D
 // Resolvers
 export type { EaResolver, EaResolverContext, EaAnchorResolution, ObservedEaState, ObservedEntity, ObservedRelationship, ResolverLogger, OpenApiSpec, K8sManifest, TerraformState, TerraformModule, TerraformResource, ParsedTable, ParsedColumn, DbtManifest, DbtNode, DbtSource, DbtExposure } from "./resolvers/index.js";
 export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extractAllEndpoints, parseSimpleYaml, consoleLogger, silentLogger, KubernetesResolver, findK8sFiles, loadK8sManifests, k8sResourceId, extractImages, extractReplicas, TerraformResolver, findTerraformStateFiles, loadTerraformState, flattenResources, SqlDdlResolver, parseDdl, findSqlFiles, loadSqlTables, DbtResolver, findDbtManifests, loadDbtManifest, extractModels, extractTests, extractSources, extractExposures } from "./resolvers/index.js";
+
+// Generators
+export type { EaGenerator, EaGeneratorContext, GeneratedOutput, GenerationDrift, GeneratorConfig, EaGeneratorOptions, GenerationReport } from "./generators/index.js";
+export { runGenerators, renderGenerationReportMarkdown, registerGenerator, getGenerator, listGenerators, resolveGenerators } from "./generators/index.js";
