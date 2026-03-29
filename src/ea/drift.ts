@@ -1,11 +1,9 @@
 /**
  * Anchored Spec — EA Drift Rules
  *
- * Static-analysis drift rules that detect architectural inconsistencies
- * by examining EA artifacts without external resolvers.
- *
- * Resolver-dependent drift rules (e.g., comparing Terraform state to models)
- * are planned for Phase 2F when the resolver framework is built.
+ * Drift rules that detect architectural inconsistencies by examining
+ * EA artifacts. Includes both static-analysis rules and resolver-dependent
+ * rules that compare declared state against live infrastructure.
  */
 
 import type {
@@ -1777,7 +1775,7 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
   orphanWave,
   exceptionExpired,
   exceptionMissingScope,
-  // Resolver-dependent stubs (Phase 2F)
+  // Resolver-dependent rules (require EaResolverObservedState data)
   unmodeledExternalDependency,
   unmodeledCloudResource,
   logicalPhysicalMismatch,
