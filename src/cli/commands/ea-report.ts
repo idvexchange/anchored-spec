@@ -6,7 +6,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import {
   EaRoot,
   resolveEaConfig,
@@ -18,15 +19,21 @@ import {
   renderCapabilityMapMarkdown,
   buildGapAnalysis,
   renderGapAnalysisMarkdown,
+  buildExceptionReport,
+  renderExceptionReportMarkdown,
+  buildReportIndex,
+  REPORT_VIEWS,
 } from "../../ea/index.js";
 import { CliError } from "../errors.js";
 
 export function eaReportCommand(): Command {
   return new Command("report")
     .description("Generate EA reports")
-    .requiredOption("--view <view>", "Report view: system-data-matrix, classification-coverage, capability-map, gap-analysis")
+    .option("--view <view>", `Report view: ${REPORT_VIEWS.join(", ")}`)
+    .option("--all", "Generate all available reports to output directory")
     .option("--format <format>", "Output format: json, markdown", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
+    .option("--output-dir <dir>", "Output directory for --all", "ea/generated")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--baseline <id>", "Baseline artifact ID (for gap-analysis)")
     .option("--target <id>", "Target artifact ID (for gap-analysis)")
@@ -43,8 +50,65 @@ export function eaReportCommand(): Command {
         );
       }
 
+      if (!options.view && !options.all) {
+        throw new CliError(
+          `Specify --view <view> or --all. Available views: ${REPORT_VIEWS.join(", ")}`,
+          2
+        );
+      }
+
       const result = await root.loadArtifacts();
 
+      // --all: generate all reports to output directory
+      if (options.all) {
+        const outputDir = join(cwd, options.outputDir as string);
+        mkdirSync(outputDir, { recursive: true });
+
+        const format = options.format as string;
+        const ext = format === "json" ? ".json" : ".md";
+        let count = 0;
+
+        // System-data matrix
+        const sdm = buildSystemDataMatrix(result.artifacts);
+        const sdmContent = format === "json"
+          ? JSON.stringify(sdm, null, 2)
+          : renderSystemDataMatrixMarkdown(sdm);
+        writeFileSync(join(outputDir, `system-data-matrix${ext}`), sdmContent + "\n");
+        count++;
+
+        // Classification coverage
+        const cc = buildClassificationCoverage(result.artifacts);
+        const ccContent = format === "json"
+          ? JSON.stringify(cc, null, 2)
+          : renderClassificationCoverageMarkdown(cc);
+        writeFileSync(join(outputDir, `classification-coverage${ext}`), ccContent + "\n");
+        count++;
+
+        // Capability map
+        const cm = buildCapabilityMap(result.artifacts);
+        const cmContent = format === "json"
+          ? JSON.stringify(cm, null, 2)
+          : renderCapabilityMapMarkdown(cm);
+        writeFileSync(join(outputDir, `capability-map${ext}`), cmContent + "\n");
+        count++;
+
+        // Exception report
+        const er = buildExceptionReport(result.artifacts);
+        const erContent = format === "json"
+          ? JSON.stringify(er, null, 2)
+          : renderExceptionReportMarkdown(er);
+        writeFileSync(join(outputDir, `exception-report${ext}`), erContent + "\n");
+        count++;
+
+        // Report index (always JSON)
+        const index = buildReportIndex(result.artifacts);
+        writeFileSync(join(outputDir, "report-index.json"), JSON.stringify(index, null, 2) + "\n");
+
+        console.log(chalk.green(`✓ Generated ${count} reports + index to ${outputDir}`));
+        return;
+      }
+
+      // Single report
       const view = options.view as string;
       const format = options.format as string;
       let output: string;
@@ -96,9 +160,18 @@ export function eaReportCommand(): Command {
           }
           break;
         }
+        case "exceptions": {
+          const report = buildExceptionReport(result.artifacts);
+          if (format === "json") {
+            output = JSON.stringify(report, null, 2);
+          } else {
+            output = renderExceptionReportMarkdown(report);
+          }
+          break;
+        }
         default:
           throw new CliError(
-            `Unknown report view "${view}". Available: system-data-matrix, classification-coverage, capability-map, gap-analysis`,
+            `Unknown report view "${view}". Available: ${REPORT_VIEWS.join(", ")}`,
             2
           );
       }

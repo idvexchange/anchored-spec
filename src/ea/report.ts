@@ -6,6 +6,7 @@
  */
 
 import type { EaArtifactBase } from "./types.js";
+import { getDomainForKind } from "./types.js";
 import type {
   LogicalDataModelArtifact,
   ClassificationArtifact,
@@ -18,6 +19,7 @@ import type {
   TargetArtifact,
   TransitionPlanArtifact,
   MigrationWaveArtifact,
+  ExceptionArtifact,
 } from "./types.js";
 import { evaluateEaDrift } from "./drift.js";
 
@@ -1151,4 +1153,248 @@ export function renderGapAnalysisMarkdown(report: GapAnalysisReport): string {
   }
 
   return lines.join("\n") + "\n";
+}
+
+// ─── Exception Report ───────────────────────────────────────────────────────────
+
+/** Status classification for an exception. */
+export type ExceptionStatus = "active" | "expired" | "expiring-soon";
+
+/** A row in the exception report. */
+export interface ExceptionReportEntry {
+  id: string;
+  name: string;
+  status: ExceptionStatus;
+  reason: string;
+  approvedBy: string;
+  approvedAt: string;
+  expiresAt: string;
+  daysRemaining: number;
+  scopeArtifactCount: number;
+  scopeRuleCount: number;
+  scopeDomainCount: number;
+  reviewSchedule: string | null;
+}
+
+/** Full exception report output. */
+export interface ExceptionReport {
+  generatedAt: string;
+  summary: {
+    total: number;
+    active: number;
+    expired: number;
+    expiringSoon: number;
+  };
+  exceptions: ExceptionReportEntry[];
+}
+
+/**
+ * Build an exception report from loaded artifacts.
+ *
+ * Classifies exceptions as:
+ * - **expired**: expiresAt is in the past
+ * - **expiring-soon**: expiresAt is within threshold (default 30 days)
+ * - **active**: valid and not expiring soon
+ */
+export function buildExceptionReport(
+  artifacts: EaArtifactBase[],
+  options?: { expiringThresholdDays?: number },
+): ExceptionReport {
+  const now = Date.now();
+  const thresholdMs = (options?.expiringThresholdDays ?? 30) * 24 * 60 * 60 * 1000;
+
+  const exceptions = artifacts.filter(
+    (a): a is ExceptionArtifact => a.kind === "exception",
+  );
+
+  const entries: ExceptionReportEntry[] = exceptions.map((exc) => {
+    const expiresMs = new Date(exc.expiresAt).getTime();
+    const daysRemaining = Math.ceil((expiresMs - now) / (24 * 60 * 60 * 1000));
+
+    let status: ExceptionStatus;
+    if (isNaN(expiresMs) || expiresMs < now) {
+      status = "expired";
+    } else if (expiresMs - now < thresholdMs) {
+      status = "expiring-soon";
+    } else {
+      status = "active";
+    }
+
+    return {
+      id: exc.id,
+      name: exc.title,
+      status,
+      reason: exc.reason,
+      approvedBy: exc.approvedBy,
+      approvedAt: exc.approvedAt,
+      expiresAt: exc.expiresAt,
+      daysRemaining,
+      scopeArtifactCount: exc.scope.artifactIds?.length ?? 0,
+      scopeRuleCount: exc.scope.rules?.length ?? 0,
+      scopeDomainCount: exc.scope.domains?.length ?? 0,
+      reviewSchedule: exc.reviewSchedule ?? null,
+    };
+  });
+
+  // Sort: expired first, then expiring-soon, then active (by daysRemaining ascending)
+  entries.sort((a, b) => {
+    const order: Record<ExceptionStatus, number> = { expired: 0, "expiring-soon": 1, active: 2 };
+    const diff = order[a.status] - order[b.status];
+    if (diff !== 0) return diff;
+    return a.daysRemaining - b.daysRemaining;
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      total: entries.length,
+      active: entries.filter((e) => e.status === "active").length,
+      expired: entries.filter((e) => e.status === "expired").length,
+      expiringSoon: entries.filter((e) => e.status === "expiring-soon").length,
+    },
+    exceptions: entries,
+  };
+}
+
+/**
+ * Render an exception report as Markdown.
+ */
+export function renderExceptionReportMarkdown(report: ExceptionReport): string {
+  const lines: string[] = [];
+
+  lines.push("# Exception Report");
+  lines.push("");
+  lines.push(`> Generated: ${report.generatedAt}`);
+  lines.push("");
+
+  // Summary
+  lines.push("## Summary");
+  lines.push("");
+  lines.push("| Status | Count |");
+  lines.push("|--------|-------|");
+  lines.push(`| Active | ${report.summary.active} |`);
+  lines.push(`| Expiring soon | ${report.summary.expiringSoon} |`);
+  lines.push(`| Expired | ${report.summary.expired} |`);
+  lines.push(`| **Total** | **${report.summary.total}** |`);
+  lines.push("");
+
+  if (report.exceptions.length === 0) {
+    lines.push("_No exceptions found._");
+    lines.push("");
+    return lines.join("\n") + "\n";
+  }
+
+  // Exceptions table
+  lines.push("## Exceptions");
+  lines.push("");
+  lines.push("| ID | Name | Status | Expires | Days Left | Approved By | Scope | Review |");
+  lines.push("|-----|------|--------|---------|-----------|-------------|-------|--------|");
+
+  for (const exc of report.exceptions) {
+    const statusIcon = exc.status === "expired" ? "❌" : exc.status === "expiring-soon" ? "⚠️" : "✅";
+    const scopeParts: string[] = [];
+    if (exc.scopeArtifactCount > 0) scopeParts.push(`${exc.scopeArtifactCount} artifacts`);
+    if (exc.scopeRuleCount > 0) scopeParts.push(`${exc.scopeRuleCount} rules`);
+    if (exc.scopeDomainCount > 0) scopeParts.push(`${exc.scopeDomainCount} domains`);
+    const scope = scopeParts.length > 0 ? scopeParts.join(", ") : "—";
+
+    lines.push(
+      `| \`${exc.id}\` | ${exc.name} | ${statusIcon} ${exc.status} | ${exc.expiresAt} | ${exc.daysRemaining} | ${exc.approvedBy} | ${scope} | ${exc.reviewSchedule ?? "—"} |`,
+    );
+  }
+  lines.push("");
+
+  return lines.join("\n") + "\n";
+}
+
+// ─── Report Registry & Index ────────────────────────────────────────────────────
+
+/** Metadata for a report in the index. */
+export interface ReportIndexEntry {
+  name: string;
+  description: string;
+  stats: Record<string, number>;
+}
+
+/** Full report index. */
+export interface ReportIndex {
+  generatedAt: string;
+  reports: ReportIndexEntry[];
+  summary: {
+    totalArtifacts: number;
+    byDomain: Record<string, number>;
+  };
+}
+
+/** Available report view names. */
+export const REPORT_VIEWS = [
+  "system-data-matrix",
+  "classification-coverage",
+  "capability-map",
+  "gap-analysis",
+  "exceptions",
+] as const;
+
+export type ReportView = (typeof REPORT_VIEWS)[number];
+
+/**
+ * Build a report index by generating all available reports.
+ *
+ * Gap analysis is skipped in --all mode since it requires specific
+ * baseline/target IDs.
+ */
+export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
+  const byDomain: Record<string, number> = {};
+  for (const a of artifacts) {
+    const domain = getDomainForKind(a.kind) ?? "unknown";
+    byDomain[domain] = (byDomain[domain] ?? 0) + 1;
+  }
+
+  const reports: ReportIndexEntry[] = [];
+
+  // System-data matrix
+  const sdm = buildSystemDataMatrix(artifacts);
+  reports.push({
+    name: "system-data-matrix",
+    description: "Applications → data stores → models → classifications",
+    stats: { connections: sdm.matrix.length },
+  });
+
+  // Classification coverage
+  const cc = buildClassificationCoverage(artifacts);
+  reports.push({
+    name: "classification-coverage",
+    description: "Classifications → entities → enforcement gaps",
+    stats: { classifications: cc.classifications.length },
+  });
+
+  // Capability map
+  const cm = buildCapabilityMap(artifacts);
+  reports.push({
+    name: "capability-map",
+    description: "Mission → capability → system hierarchy",
+    stats: { missions: cm.missions.length, capabilities: cm.missions.reduce((sum, m) => sum + m.capabilities.length, 0) },
+  });
+
+  // Exception report
+  const er = buildExceptionReport(artifacts);
+  reports.push({
+    name: "exceptions",
+    description: "Active/expired architecture exceptions",
+    stats: {
+      total: er.summary.total,
+      active: er.summary.active,
+      expired: er.summary.expired,
+      expiringSoon: er.summary.expiringSoon,
+    },
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    reports,
+    summary: {
+      totalArtifacts: artifacts.length,
+      byDomain,
+    },
+  };
 }
