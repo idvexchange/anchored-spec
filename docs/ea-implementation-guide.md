@@ -12,17 +12,14 @@ Read these documents first:
 4. [ea-drift-resolvers-generators.md](./ea-drift-resolvers-generators.md) — resolvers, generators, discovery
 5. [ea-transitions-evidence-reporting.md](./ea-transitions-evidence-reporting.md) — transitions, evidence, reporting
 
-Also read the existing core code and documentation:
+Also review the current EA implementation:
 
-- [concepts.md](./concepts.md) — existing model
-- [drift-detection.md](./drift-detection.md) — existing drift engine
-- [plugins-and-hooks.md](./plugins-and-hooks.md) — existing plugins
-- `src/core/types.ts` — all current TypeScript interfaces
-- `src/core/loader.ts` — SpecRoot class and config resolution
-- `src/core/drift.ts` — existing drift detection
-- `src/core/evidence.ts` — existing evidence pipeline
-- `src/core/validate.ts` — existing schema validation
-- `src/cli/commands/` — existing CLI commands
+- `src/ea/types.ts` — all EA TypeScript interfaces
+- `src/ea/loader.ts` — EaRoot class and config resolution
+- `src/ea/drift.ts` — EA drift detection (42 rules)
+- `src/ea/evidence.ts` — evidence pipeline
+- `src/ea/validate.ts` — schema validation (51 schemas)
+- `src/cli/commands/` — CLI commands
 
 ## Repository Structure
 
@@ -106,7 +103,7 @@ src/cli/commands/
 Update `tsup.config.ts` to include `src/ea/**/*.ts` in the entry points. Update the build script to copy EA schemas:
 
 ```bash
-tsup && cp -r src/core/schemas dist/core/ && cp -r src/ea/schemas dist/ea/
+tsup && cp -r src/ea/schemas dist/ea/
 ```
 
 Update `package.json` exports to include:
@@ -285,7 +282,7 @@ export function registerEaCommands(program: Command): void {
 
 ### Init Command Behavior
 
-`anchored-spec ea init` should:
+`anchored-spec init` should:
 
 1. Create `specs/ea/` directory structure (only the configured/enabled domains)
 2. Add EA schemas to the project (or reference them from the package)
@@ -293,12 +290,12 @@ export function registerEaCommands(program: Command): void {
 4. Optionally create example artifacts:
 
 ```bash
-anchored-spec ea init --with-examples
+anchored-spec init --with-examples
 ```
 
 ### Create Command Behavior
 
-`anchored-spec ea create <kind>` should:
+`anchored-spec create <kind>` should:
 
 1. Resolve the domain from the kind (using the kind taxonomy)
 2. Generate an ID from the title: `{domain}/{PREFIX}-{kebab-slug}`
@@ -309,7 +306,7 @@ anchored-spec ea init --with-examples
 Example:
 
 ```bash
-$ anchored-spec ea create application --title "Order Service"
+$ anchored-spec create application --title "Order Service"
 Created: specs/ea/systems/APP-order-service.json (systems/APP-order-service)
 ```
 
@@ -325,7 +322,7 @@ This is the first implementation phase. One PR should cover one sub-section.
 - `src/ea/index.ts` — barrel export
 
 **Files to modify:**
-- `src/core/types.ts` — add `ea?: EaConfig` to `AnchoredSpecConfig`
+- `src/ea/config.ts` — EA configuration types
 
 **Schemas to create:**
 - `src/ea/schemas/artifact-base.schema.json`
@@ -567,8 +564,8 @@ Follow the existing CLI patterns:
 
 **Acceptance criteria:**
 - All four commands work from the CLI
-- `anchored-spec ea init && anchored-spec ea create application --title "Test" && anchored-spec ea validate` succeeds
-- `anchored-spec ea graph --format mermaid` produces valid Mermaid
+- `anchored-spec init && anchored-spec create application --title "Test" && anchored-spec validate` succeeds
+- `anchored-spec graph --format mermaid` produces valid Mermaid
 
 ## Phase B: Data Layer
 
@@ -635,11 +632,11 @@ Implement all transition drift rules from [ea-transitions-evidence-reporting.md]
 
 ### PR E3: Evidence Extension
 
-Extend existing `src/core/evidence.ts`:
+Extend `src/ea/evidence.ts`:
 - Add new evidence kinds
 - Add evidence ingestion for EA artifacts
 - Add evidence policy validation
-- Update `anchored-spec ea evidence` CLI
+- Update `anchored-spec evidence` CLI
 
 ### PR E4: Report Generation
 
@@ -647,7 +644,7 @@ Implement report generation:
 - System-data matrix
 - Target gap report
 - Exception report
-- Add `anchored-spec ea report` CLI with all view options
+- Add `anchored-spec report` CLI with all view options
 
 ## Phase F: Drift Engine and Resolvers
 
@@ -659,7 +656,7 @@ Implement `src/ea/drift.ts`:
 - Observed state collection
 - Finding generation
 - Exception suppression
-- `anchored-spec ea drift` CLI fully functional
+- `anchored-spec drift` CLI fully functional
 
 ### PR F2: Discovery Pipeline
 
@@ -668,7 +665,7 @@ Implement `src/ea/discovery.ts`:
 - Deduplication against existing artifacts
 - Draft artifact writing
 - Discovery report generation
-- `anchored-spec ea discover` CLI
+- `anchored-spec discover` CLI
 
 ### PR F3: Resolver Cache
 
@@ -696,7 +693,7 @@ Implement `src/ea/generator.ts`:
 - Generator interface loading
 - Generation pipeline
 - Generation drift detection
-- `anchored-spec ea generate` CLI
+- `anchored-spec generate` CLI
 
 ### PR G2: OpenAPI Generator
 
@@ -714,15 +711,14 @@ Create `requirement.schema.json`, `change.schema.json`, `decision.schema.json` t
 
 ### PR H2: Migration Tooling
 
-Implement `anchored-spec ea migrate-legacy`:
-- Read existing REQ/CHG/ADR artifacts
-- Transform to EA format (map semanticRefs → anchors, etc.)
-- Write to `specs/ea/legacy/` directory
-- Update relations and cross-references
+> **Note:** Legacy artifact migration was available in v0.x via `migrate-legacy` but was removed in v1.0
+> when `src/core/` was deleted. Users migrating from v0.x should use the v0.1.0 release to convert
+> artifacts before upgrading. See [migration-from-v0.md](./migration-from-v0.md).
 
-### PR H3: Backward-Compatible Loaders
+### PR H3: Config Migration
 
-Update `SpecRoot` to optionally load legacy artifacts through the EA pipeline when `ea.enabled` is true.
+The `anchored-spec migrate-config` command converts v0.x config files to v1.0 format.
+The `anchored-spec init --migrate` flag also handles this during project initialization.
 
 ## Testing Strategy
 
@@ -784,16 +780,13 @@ When an agent works on this extension in a fresh context window, it should recov
 
 ### Step 2: Read Existing Code
 
-3. Read [docs/concepts.md](./concepts.md) — understand existing model
-4. Inspect existing code:
-   - `src/core/types.ts` — current type definitions
-   - `src/core/loader.ts` — how SpecRoot works
-   - `src/core/validate.ts` — how validation works
-   - `src/core/drift.ts` — how drift detection works
-5. If EA code already exists, inspect:
-   - `src/ea/index.ts` — what's already exported
-   - `src/ea/types.ts` — what types exist
-   - `src/ea/__tests__/` — what's already tested
+3. Inspect EA implementation:
+   - `src/ea/types.ts` — all EA type definitions
+   - `src/ea/loader.ts` — how EaRoot works
+   - `src/ea/validate.ts` — how validation works (51 schemas)
+   - `src/ea/drift.ts` — how drift detection works (42 rules)
+   - `src/ea/index.ts` — what's exported
+   - `src/ea/__tests__/` — what's tested
 
 ### Step 3: Determine Current State
 
@@ -813,7 +806,7 @@ When an agent works on this extension in a fresh context window, it should recov
 ### Agent Rules
 
 Agents should:
-- **Follow existing code patterns** — match the style of `src/core/` modules
+- **Follow existing code patterns** — match the style of `src/ea/` modules
 - **Keep CLI thin** — all logic in `src/ea/`, CLI commands only parse args and format output
 - **Write tests** — every module gets tests, follow existing vitest patterns
 - **Not mix phases** — don't implement Phase B code in a Phase A PR

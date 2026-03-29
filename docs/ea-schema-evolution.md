@@ -115,9 +115,9 @@ Automated transformation of all artifacts in a single commit.
 
 ```
 1. Write a codemod function: (oldArtifact) => newArtifact
-2. Run: npx anchored-spec ea migrate --from v1 --to v2 --dry-run
+2. Run: npx anchored-spec migrate --from v1 --to v2 --dry-run
 3. Review the diff
-4. Run: npx anchored-spec ea migrate --from v1 --to v2
+4. Run: npx anchored-spec migrate --from v1 --to v2
 5. Commit all changes in a single PR
 6. Update apiVersion in all affected artifacts
 ```
@@ -167,11 +167,11 @@ export const EA_MIGRATIONS: EaMigration[] = [
 Some changes require human judgment. The tool identifies affected artifacts but cannot auto-migrate.
 
 ```
-1. Run: npx anchored-spec ea migrate --from v1 --to v2 --dry-run
+1. Run: npx anchored-spec migrate --from v1 --to v2 --dry-run
 2. Tool outputs list of artifacts needing manual review
 3. For each artifact, tool explains what changed and why review is needed
 4. Human updates each artifact
-5. Run: npx anchored-spec ea validate to confirm all pass
+5. Run: npx anchored-spec validate to confirm all pass
 ```
 
 **When to use:** Kind removal, relation semantic changes, validation tightening.
@@ -221,16 +221,16 @@ interface DeprecationWarning {
 
 ```bash
 # Preview what would change
-npx anchored-spec ea migrate --from v1 --to v2 --dry-run
+npx anchored-spec migrate --from v1 --to v2 --dry-run
 
 # Run the migration
-npx anchored-spec ea migrate --from v1 --to v2
+npx anchored-spec migrate --from v1 --to v2
 
 # Migrate a specific domain only
-npx anchored-spec ea migrate --from v1 --to v2 --domain systems
+npx anchored-spec migrate --from v1 --to v2 --domain systems
 
 # Migrate a single artifact
-npx anchored-spec ea migrate --from v1 --to v2 --artifact APP-order-service
+npx anchored-spec migrate --from v1 --to v2 --artifact APP-order-service
 ```
 
 **Output (dry-run):**

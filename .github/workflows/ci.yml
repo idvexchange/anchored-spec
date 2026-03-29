@@ -38,9 +38,9 @@ jobs:
 
       - run: pnpm run lint
 
-      # Dogfood: verify our own spec infrastructure if present
-      - run: node dist/cli/index.js verify --strict || true
-        name: Dogfood verify
+      # Dogfood: validate our own EA artifacts if present
+      - run: node dist/cli/index.js validate || true
+        name: Dogfood validate
 
   publish:
     name: Publish

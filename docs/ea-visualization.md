@@ -10,28 +10,28 @@ Read [ea-design-overview.md](./ea-design-overview.md) and [ea-relationship-model
 
 ```bash
 # Default: Mermaid output to stdout
-npx anchored-spec ea graph
+npx anchored-spec graph
 
 # Specific output format
-npx anchored-spec ea graph --format mermaid
-npx anchored-spec ea graph --format dot
-npx anchored-spec ea graph --format json
-npx anchored-spec ea graph --format html
+npx anchored-spec graph --format mermaid
+npx anchored-spec graph --format dot
+npx anchored-spec graph --format json
+npx anchored-spec graph --format html
 
 # Write to file
-npx anchored-spec ea graph --format mermaid --output architecture.md
-npx anchored-spec ea graph --format html --output architecture.html
+npx anchored-spec graph --format mermaid --output architecture.md
+npx anchored-spec graph --format html --output architecture.html
 
 # Filtering
-npx anchored-spec ea graph --domain systems
-npx anchored-spec ea graph --domain systems,delivery
-npx anchored-spec ea graph --kind application,service
-npx anchored-spec ea graph --focus APP-order-service --depth 2
-npx anchored-spec ea graph --status active
-npx anchored-spec ea graph --exclude-virtual
+npx anchored-spec graph --domain systems
+npx anchored-spec graph --domain systems,delivery
+npx anchored-spec graph --kind application,service
+npx anchored-spec graph --focus APP-order-service --depth 2
+npx anchored-spec graph --status active
+npx anchored-spec graph --exclude-virtual
 
 # Federation
-npx anchored-spec ea graph --federated
+npx anchored-spec graph --federated
 ```
 
 ---
@@ -43,7 +43,7 @@ npx anchored-spec ea graph --federated
 [Mermaid](https://mermaid.js.org/) diagrams render in GitHub, GitLab, Notion, and many documentation tools.
 
 ```bash
-npx anchored-spec ea graph --format mermaid
+npx anchored-spec graph --format mermaid
 ```
 
 **Output:**
@@ -109,7 +109,7 @@ graph LR
 For high-quality static diagrams using [Graphviz](https://graphviz.org/).
 
 ```bash
-npx anchored-spec ea graph --format dot --output architecture.dot
+npx anchored-spec graph --format dot --output architecture.dot
 dot -Tpng architecture.dot -o architecture.png
 dot -Tsvg architecture.dot -o architecture.svg
 ```
@@ -170,7 +170,7 @@ digraph EA {
 Machine-readable format for custom visualization tools or analysis scripts.
 
 ```bash
-npx anchored-spec ea graph --format json
+npx anchored-spec graph --format json
 ```
 
 **Output:**
@@ -236,7 +236,7 @@ npx anchored-spec ea graph --format json
 A self-contained HTML file with an interactive, zoomable, filterable graph using [D3.js](https://d3js.org/) force-directed layout.
 
 ```bash
-npx anchored-spec ea graph --format html --output architecture.html
+npx anchored-spec graph --format html --output architecture.html
 ```
 
 **Features:**
@@ -303,7 +303,7 @@ The `--focus` + `--depth` combination produces a subgraph centered on one artifa
 
 ```bash
 # Show APP-order-service and everything within 2 hops
-npx anchored-spec ea graph --focus APP-order-service --depth 2
+npx anchored-spec graph --focus APP-order-service --depth 2
 ```
 
 **Algorithm:**
@@ -372,7 +372,7 @@ Beyond the general `ea graph`, specific reports produce specialized visualizatio
 ### 7.1 Dependency Matrix
 
 ```bash
-npx anchored-spec ea report --type dependency-matrix --format html
+npx anchored-spec report --type dependency-matrix --format html
 ```
 
 A grid/matrix where rows and columns are artifacts, and cells indicate relation types. Useful for spotting unexpected dependencies and circular references.
@@ -388,7 +388,7 @@ DEP-order-service-k8s  —          —            —              —
 ### 7.2 Capability Map
 
 ```bash
-npx anchored-spec ea report --type capability-map --format html
+npx anchored-spec report --type capability-map --format html
 ```
 
 A treemap or nested box visualization showing business capabilities and the systems/services that realize them.
@@ -410,7 +410,7 @@ A treemap or nested box visualization showing business capabilities and the syst
 ### 7.3 Transition Timeline
 
 ```bash
-npx anchored-spec ea report --type transition-timeline --format html
+npx anchored-spec report --type transition-timeline --format html
 ```
 
 A Gantt-like visualization showing migration waves on a timeline:
@@ -426,7 +426,7 @@ Apr        May        Jun        Jul        Aug        Sep
 ### 7.4 Drift Heatmap
 
 ```bash
-npx anchored-spec ea report --type drift-heatmap --format html
+npx anchored-spec report --type drift-heatmap --format html
 ```
 
 A heatmap showing drift severity by artifact. Red = errors, yellow = warnings, green = clean.

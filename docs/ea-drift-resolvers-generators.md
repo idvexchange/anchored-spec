@@ -440,7 +440,7 @@ The drift engine checks loaded `exception` artifacts before emitting findings:
 
 ### Drift Engine Extension
 
-The EA drift engine extends, not replaces, the existing `detectDrift()` function in `src/core/drift.ts`.
+The EA drift engine in `src/ea/drift.ts` provides domain-specific drift detection with 42 rules.
 
 ```typescript
 // In src/ea/drift.ts
@@ -499,25 +499,25 @@ export async function detectEaDrift(options: EaDriftOptions): Promise<EaDriftRep
 
 ```bash
 # Run all EA drift checks
-anchored-spec ea drift
+anchored-spec drift
 
 # Filter to specific domain
-anchored-spec ea drift --domain systems
-anchored-spec ea drift --domain delivery
+anchored-spec drift --domain systems
+anchored-spec drift --domain delivery
 
 # Output formats
-anchored-spec ea drift --json
-anchored-spec ea drift --json > drift-report.json
+anchored-spec drift --json
+anchored-spec drift --json > drift-report.json
 
 # Fail CI on warnings
-anchored-spec ea drift --fail-on-warning
+anchored-spec drift --fail-on-warning
 
 # Use external snapshot instead of live resolvers
-anchored-spec ea drift --from-snapshot ./snapshots/kubernetes-state.json
+anchored-spec drift --from-snapshot ./snapshots/kubernetes-state.json
 
 # Control cache behavior
-anchored-spec ea drift --max-cache-age 3600
-anchored-spec ea drift --no-cache
+anchored-spec drift --max-cache-age 3600
+anchored-spec drift --no-cache
 ```
 
 ## Generator Framework
@@ -655,20 +655,20 @@ Generators are registered in the EA config:
 
 ```bash
 # Generate all outputs from all generators
-anchored-spec ea generate
+anchored-spec generate
 
 # Generate only from specific kinds
-anchored-spec ea generate --kind api-contract
-anchored-spec ea generate --kind canonical-entity
+anchored-spec generate --kind api-contract
+anchored-spec generate --kind canonical-entity
 
 # Generate with specific generator
-anchored-spec ea generate --generator openapi
+anchored-spec generate --generator openapi
 
 # Dry run — show what would be generated without writing
-anchored-spec ea generate --dry-run
+anchored-spec generate --dry-run
 
 # Check for generation drift (generated files modified manually)
-anchored-spec ea generate --check
+anchored-spec generate --check
 ```
 
 ### Example Generator: OpenAPI from api-contract
@@ -745,20 +745,20 @@ Matches are reported but not overwritten. New anchors found during discovery can
 
 ```bash
 # Discover from all configured resolvers
-anchored-spec ea discover
+anchored-spec discover
 
 # Discover from specific resolver
-anchored-spec ea discover --resolver kubernetes
-anchored-spec ea discover --resolver terraform
+anchored-spec discover --resolver kubernetes
+anchored-spec discover --resolver terraform
 
 # Discover from a snapshot file
-anchored-spec ea discover --from-snapshot ./snapshots/k8s-inventory.json
+anchored-spec discover --from-snapshot ./snapshots/k8s-inventory.json
 
 # Dry run — show what would be created
-anchored-spec ea discover --dry-run
+anchored-spec discover --dry-run
 
 # Output discovery report
-anchored-spec ea discover --json
+anchored-spec discover --json
 ```
 
 ### Discovery Report

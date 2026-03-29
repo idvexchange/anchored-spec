@@ -2,7 +2,7 @@
  * Anchored Spec — EA Verification Engine
  *
  * Runs all EA validation checks and returns structured results.
- * This is the EA replacement for src/core/verify.ts.
+ * This is the EA EA-native verification engine.
  *
  * Checks include:
  *   1. JSON Schema validation (per artifact)

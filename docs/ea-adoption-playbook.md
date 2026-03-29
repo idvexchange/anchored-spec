@@ -18,7 +18,7 @@ This is a practical guide for teams adopting the enterprise architecture extensi
 ### Step 1: Initialize EA (2 min)
 
 ```bash
-npx anchored-spec ea init
+npx anchored-spec init
 ```
 
 This creates the `specs/ea/` directory structure and adds the `ea` section to your config.
@@ -29,19 +29,19 @@ If you have OpenAPI specs, K8s manifests, or Terraform state:
 
 ```bash
 # Discover from OpenAPI specs in the repo
-npx anchored-spec ea discover --resolver openapi --dry-run
+npx anchored-spec discover --resolver openapi --dry-run
 
 # Discover from Kubernetes manifests
-npx anchored-spec ea discover --resolver kubernetes --dry-run
+npx anchored-spec discover --resolver kubernetes --dry-run
 
 # Discover from Terraform state
-npx anchored-spec ea discover --resolver terraform --from-snapshot terraform.tfstate.json --dry-run
+npx anchored-spec discover --resolver terraform --from-snapshot terraform.tfstate.json --dry-run
 ```
 
 Review the dry-run output. If it looks reasonable:
 
 ```bash
-npx anchored-spec ea discover
+npx anchored-spec discover
 ```
 
 This creates draft artifacts in `specs/ea/`. They'll have `status: "draft"` and `confidence: "inferred"` or `"observed"`.
@@ -55,9 +55,9 @@ Don't try to model everything. Pick **one service you know well** and model:
 3. Its primary deployment
 
 ```bash
-npx anchored-spec ea create application --title "Order Service"
-npx anchored-spec ea create api-contract --title "Orders API"
-npx anchored-spec ea create deployment --title "Order Service Prod"
+npx anchored-spec create application --title "Order Service"
+npx anchored-spec create api-contract --title "Orders API"
+npx anchored-spec create deployment --title "Order Service Prod"
 ```
 
 Edit each JSON file to fill in:
@@ -76,13 +76,13 @@ Edit each JSON file to fill in:
 ### Step 4: Validate (3 min)
 
 ```bash
-npx anchored-spec ea validate
+npx anchored-spec validate
 ```
 
 Fix any errors. Warnings are OK for now.
 
 ```bash
-npx anchored-spec ea graph --format mermaid
+npx anchored-spec graph --format mermaid
 ```
 
 You should see a small connected graph. Copy-paste the Mermaid output into a markdown file or Mermaid live editor to visualize.
@@ -102,8 +102,8 @@ A good target is 5-10 applications with their APIs. Don't model internal impleme
 Model where things run:
 
 ```bash
-npx anchored-spec ea create platform --title "Production Kubernetes"
-npx anchored-spec ea create deployment --title "Order Service Prod"
+npx anchored-spec create platform --title "Production Kubernetes"
+npx anchored-spec create deployment --title "Order Service Prod"
 ```
 
 Connect with `deployedTo` and `runsOn` relations.
@@ -113,7 +113,7 @@ Connect with `deployedTo` and `runsOn` relations.
 For every service-to-service call, create an `integration` artifact:
 
 ```bash
-npx anchored-spec ea create integration --title "Order to Payment"
+npx anchored-spec create integration --title "Order to Payment"
 ```
 
 Or model it via `uses` relations between applications. Either pattern works — integrations are for cases where the connection itself has governance metadata (SLA, criticality, etc.).
@@ -123,7 +123,7 @@ Or model it via `uses` relations between applications. Either pattern works — 
 Add validation to your CI pipeline (see [ea-ci-integration.md](./ea-ci-integration.md)):
 
 ```yaml
-- run: npx anchored-spec ea validate --strict
+- run: npx anchored-spec validate --strict
 ```
 
 This prevents invalid EA artifacts from being merged.
@@ -143,14 +143,14 @@ You should have:
 Model your databases and data flows:
 
 ```bash
-npx anchored-spec ea create data-store --title "Orders PostgreSQL"
-npx anchored-spec ea create physical-schema --title "Orders Table"
+npx anchored-spec create data-store --title "Orders PostgreSQL"
+npx anchored-spec create physical-schema --title "Orders Table"
 ```
 
 Connect with `uses`, `stores`, `hostedOn` relations. This gives you the system-data matrix report:
 
 ```bash
-npx anchored-spec ea report --view system-data-matrix
+npx anchored-spec report --view system-data-matrix
 ```
 
 ### Week 3: Add Drift Detection
@@ -159,16 +159,16 @@ Configure at least one resolver and run drift:
 
 ```bash
 # Check if declared APIs exist in OpenAPI specs
-npx anchored-spec ea drift --domain systems
+npx anchored-spec drift --domain systems
 
 # Check if declared deployments exist in K8s manifests
-npx anchored-spec ea drift --domain delivery
+npx anchored-spec drift --domain delivery
 ```
 
 Address the high-severity findings. Create `exception` artifacts for known gaps you can't fix immediately:
 
 ```bash
-npx anchored-spec ea create exception --title "Legacy Billing API"
+npx anchored-spec create exception --title "Legacy Billing API"
 ```
 
 ### Week 4: Share with the Team
@@ -176,7 +176,7 @@ npx anchored-spec ea create exception --title "Legacy Billing API"
 Generate reports and share at your architecture review:
 
 ```bash
-npx anchored-spec ea report --all
+npx anchored-spec report --all
 ```
 
 The system-data matrix and drift report are the most immediately useful views.
@@ -246,8 +246,8 @@ Every artifact needs an owning team. Unowned artifacts become stale. The `owners
 Use `ea report` and `ea validate` to track adoption metrics:
 
 ```bash
-npx anchored-spec ea report --all
-npx anchored-spec ea validate
+npx anchored-spec report --all
+npx anchored-spec validate
 ```
 
 Key metrics to track:

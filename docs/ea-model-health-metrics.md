@@ -311,7 +311,7 @@ Metrics can optionally be written to a history file for trend tracking:
 
 ```bash
 # Append current metrics to history
-npx anchored-spec ea report --save-history
+npx anchored-spec report --save-history
 ```
 
 History is stored at `.anchored-spec/ea-metrics-history.json`:

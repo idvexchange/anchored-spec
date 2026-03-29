@@ -160,16 +160,16 @@ The `local` type is useful in monorepos where sub-packages have their own EA art
 
 ```bash
 # Build graph from local artifacts only (default)
-npx anchored-spec ea graph
+npx anchored-spec graph
 
 # Build graph including remote artifacts
-npx anchored-spec ea graph --federated
+npx anchored-spec graph --federated
 
 # Build graph from all repos in the federation
-npx anchored-spec ea graph --federated --all-remotes
+npx anchored-spec graph --federated --all-remotes
 
 # Build graph focusing on a specific remote
-npx anchored-spec ea graph --federated --remote payment-service
+npx anchored-spec graph --federated --remote payment-service
 ```
 
 ### Assembly Algorithm
@@ -213,7 +213,7 @@ interface FederatedGraphNode extends GraphNode {
 
 ```bash
 # Validate including remote target existence
-npx anchored-spec ea validate --federated
+npx anchored-spec validate --federated
 ```
 
 In federated mode, validation:
@@ -241,7 +241,7 @@ Each repo runs drift detection on its own artifacts. Cross-repo relations are no
 ### Federated Drift
 
 ```bash
-npx anchored-spec ea drift --federated
+npx anchored-spec drift --federated
 ```
 
 Federated drift additionally checks:
@@ -302,10 +302,10 @@ For repos that want to make their EA artifacts available without requiring git a
 
 ```bash
 # Generate manifest from local artifacts
-npx anchored-spec ea manifest --output ea-manifest.json
+npx anchored-spec manifest --output ea-manifest.json
 
 # Publish to a URL (team-managed hosting)
-npx anchored-spec ea manifest --output ea-manifest.json
+npx anchored-spec manifest --output ea-manifest.json
 # Then upload to S3, GitHub Pages, etc.
 ```
 

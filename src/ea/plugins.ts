@@ -2,9 +2,9 @@
  * Anchored Spec — EA Plugin System
  *
  * Load and execute custom checks from EA-aware plugins.
- * Plugins receive EaRoot context instead of SpecRoot context.
+ * Plugins receive EaRoot context.
  *
- * This is the EA replacement for src/core/plugins.ts.
+ * This is the EA EA-native plugin system.
  */
 
 import { resolve, join, relative } from "node:path";
