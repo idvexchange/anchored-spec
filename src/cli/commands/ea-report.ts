@@ -12,13 +12,15 @@ import {
   resolveEaConfig,
   buildSystemDataMatrix,
   renderSystemDataMatrixMarkdown,
+  buildClassificationCoverage,
+  renderClassificationCoverageMarkdown,
 } from "../../ea/index.js";
 import { CliError } from "../errors.js";
 
 export function eaReportCommand(): Command {
   return new Command("report")
     .description("Generate EA reports")
-    .requiredOption("--view <view>", "Report view: system-data-matrix")
+    .requiredOption("--view <view>", "Report view: system-data-matrix, classification-coverage")
     .option("--format <format>", "Output format: json, markdown", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--root-dir <path>", "EA root directory", "ea")
@@ -50,9 +52,18 @@ export function eaReportCommand(): Command {
           }
           break;
         }
+        case "classification-coverage": {
+          const report = buildClassificationCoverage(result.artifacts);
+          if (format === "json") {
+            output = JSON.stringify(report, null, 2);
+          } else {
+            output = renderClassificationCoverageMarkdown(report);
+          }
+          break;
+        }
         default:
           throw new CliError(
-            `Unknown report view "${view}". Available: system-data-matrix`,
+            `Unknown report view "${view}". Available: system-data-matrix, classification-coverage`,
             2
           );
       }
