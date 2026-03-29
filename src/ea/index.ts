@@ -57,5 +57,9 @@ export type {
 export { resolveEaConfig } from "./config.js";
 
 // Validation
-export type { EaSchemaName, EaValidationError, EaValidationResult } from "./validate.js";
-export { validateEaSchema, getSchemaForKind, getEaSchemaNames } from "./validate.js";
+export type { EaSchemaName, EaValidationError, EaValidationResult, EaValidationOptions } from "./validate.js";
+export { validateEaSchema, validateEaArtifacts, getSchemaForKind, getEaSchemaNames } from "./validate.js";
+
+// Loader
+export type { EaLoadedArtifact, EaLoadResult, EaSummary } from "./loader.js";
+export { EaRoot, normalizeArtifact } from "./loader.js";
