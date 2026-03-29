@@ -17,6 +17,12 @@ import type {
   CloudResourceArtifact,
   EnvironmentArtifact,
   TechnologyStandardArtifact,
+  LogicalDataModelArtifact,
+  PhysicalSchemaArtifact,
+  DataStoreArtifact,
+  LineageArtifact,
+  DataQualityRuleArtifact,
+  DataProductArtifact,
 } from "./types.js";
 import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
@@ -416,6 +422,90 @@ export function validateEaArtifacts(
             `Technology standard "${a.id}" has passed its review date (${tech.reviewBy})`
           );
         }
+      }
+    }
+
+    // ── ea:quality:ldm-missing-attributes ──────────────────────────────────
+    if (a.kind === "logical-data-model") {
+      const ldm = a as unknown as LogicalDataModelArtifact;
+      const ldmSev = ruleSeverity("ea:quality:ldm-missing-attributes", "warning", q);
+      if (!ldm.attributes || ldm.attributes.length === 0) {
+        push(
+          ldmSev,
+          "ea:quality:ldm-missing-attributes",
+          a.id,
+          `Logical data model "${a.id}" has no attributes defined`
+        );
+      }
+    }
+
+    // ── ea:quality:physical-schema-missing-tables ────────────────────────────
+    if (a.kind === "physical-schema") {
+      const ps = a as unknown as PhysicalSchemaArtifact;
+      const psSev = ruleSeverity("ea:quality:physical-schema-missing-tables", "warning", q);
+      if (!ps.tables || ps.tables.length === 0) {
+        push(
+          psSev,
+          "ea:quality:physical-schema-missing-tables",
+          a.id,
+          `Physical schema "${a.id}" has no tables defined`
+        );
+      }
+    }
+
+    // ── ea:quality:data-store-missing-technology ─────────────────────────────
+    if (a.kind === "data-store") {
+      const ds = a as unknown as DataStoreArtifact;
+      const dsSev = ruleSeverity("ea:quality:data-store-missing-technology", "error", q);
+      if (!ds.technology) {
+        push(
+          dsSev,
+          "ea:quality:data-store-missing-technology",
+          a.id,
+          `Data store "${a.id}" must specify a technology (engine + category)`
+        );
+      }
+    }
+
+    // ── ea:quality:lineage-missing-source-destination ────────────────────────
+    if (a.kind === "lineage") {
+      const lin = a as unknown as LineageArtifact;
+      const linSev = ruleSeverity("ea:quality:lineage-missing-source-destination", "error", q);
+      if (!lin.source || !lin.destination) {
+        push(
+          linSev,
+          "ea:quality:lineage-missing-source-destination",
+          a.id,
+          `Lineage "${a.id}" must specify both source and destination`
+        );
+      }
+    }
+
+    // ── ea:quality:dqr-missing-assertion ─────────────────────────────────────
+    if (a.kind === "data-quality-rule") {
+      const dqr = a as unknown as DataQualityRuleArtifact;
+      const dqrSev = ruleSeverity("ea:quality:dqr-missing-assertion", "error", q);
+      if (!dqr.assertion || dqr.assertion.trim().length === 0) {
+        push(
+          dqrSev,
+          "ea:quality:dqr-missing-assertion",
+          a.id,
+          `Data quality rule "${a.id}" must have an assertion`
+        );
+      }
+    }
+
+    // ── ea:quality:data-product-missing-output-ports ─────────────────────────
+    if (a.kind === "data-product") {
+      const dp = a as unknown as DataProductArtifact;
+      const dpSev = ruleSeverity("ea:quality:data-product-missing-output-ports", "warning", q);
+      if (!dp.outputPorts || dp.outputPorts.length === 0) {
+        push(
+          dpSev,
+          "ea:quality:data-product-missing-output-ports",
+          a.id,
+          `Data product "${a.id}" has no output ports defined`
+        );
       }
     }
 

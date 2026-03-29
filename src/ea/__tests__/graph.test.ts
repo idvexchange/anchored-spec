@@ -189,9 +189,9 @@ describe("RelationRegistry", () => {
 // ─── createDefaultRegistry ──────────────────────────────────────────────────────
 
 describe("createDefaultRegistry", () => {
-  it("contains 13 relation types (Phase A + Phase 2A)", () => {
+  it("contains 17 relation types (Phase A + Phase 2A + Phase 2B)", () => {
     const registry = createDefaultRegistry();
-    expect(registry.allTypes()).toHaveLength(13);
+    expect(registry.allTypes()).toHaveLength(17);
   });
 
   it("includes all expected canonical types", () => {
@@ -212,6 +212,11 @@ describe("createDefaultRegistry", () => {
     expect(types).toContain("interfacesWith");
     expect(types).toContain("standardizes");
     expect(types).toContain("providedBy");
+    // Phase 2B
+    expect(types).toContain("stores");
+    expect(types).toContain("hostedOn");
+    expect(types).toContain("lineageFrom");
+    expect(types).toContain("implementedBy");
   });
 
   it("all entries have valid inverse names", () => {
@@ -235,10 +240,14 @@ describe("createDefaultRegistry", () => {
     expect(registry.get("deployedTo")!.allowExplicitInverse).toBe(true);
   });
 
-  it("no Phase A relations allow cycles", () => {
+  it("only lineageFrom allows cycles", () => {
     const registry = createDefaultRegistry();
     for (const entry of registry.allEntries()) {
-      expect(entry.allowCycles).toBe(false);
+      if (entry.type === "lineageFrom") {
+        expect(entry.allowCycles).toBe(true);
+      } else {
+        expect(entry.allowCycles).toBe(false);
+      }
     }
   });
 });

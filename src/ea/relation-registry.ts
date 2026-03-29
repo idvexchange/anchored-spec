@@ -126,7 +126,7 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
     type: "uses",
     inverse: "usedBy",
     validSourceKinds: ["application", "service", "integration"],
-    validTargetKinds: ["data-store", "application", "service", "api-contract"],
+    validTargetKinds: ["data-store", "data-product", "application", "service", "api-contract"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -249,10 +249,55 @@ const PHASE_2A_RELATIONS: RelationRegistryEntry[] = [
   },
 ];
 
-/** Create a registry pre-loaded with all current relations (Phase A + Phase 2A). */
+// ─── Phase 2B Relations (Data Layer) ────────────────────────────────────────────
+
+const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
+  {
+    type: "stores",
+    inverse: "storedIn",
+    validSourceKinds: ["data-store"],
+    validTargetKinds: ["logical-data-model", "physical-schema", "canonical-entity"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "anchor-resolution",
+    description: "Data store stores a logical data model, physical schema, or canonical entity.",
+  },
+  {
+    type: "hostedOn",
+    inverse: "hostsData",
+    validSourceKinds: ["data-store"],
+    validTargetKinds: ["platform", "cloud-resource", "runtime-cluster"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "anchor-resolution",
+    description: "Data store is hosted on a platform, cloud resource, or cluster.",
+  },
+  {
+    type: "lineageFrom",
+    inverse: "lineageTo",
+    validSourceKinds: ["lineage", "data-product"],
+    validTargetKinds: ["data-store", "logical-data-model", "data-product"],
+    allowCycles: true,
+    allowExplicitInverse: false,
+    driftStrategy: "external-topology",
+    description: "Lineage or data product traces data flow from a source.",
+  },
+  {
+    type: "implementedBy",
+    inverse: "implements",
+    validSourceKinds: ["logical-data-model"],
+    validTargetKinds: ["physical-schema", "data-store", "application"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "anchor-resolution",
+    description: "Logical data model is implemented by a physical schema, data store, or application.",
+  },
+];
+
+/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B). */
 export function createDefaultRegistry(): RelationRegistry {
   const registry = new RelationRegistry();
-  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS]) {
+  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS]) {
     registry.register(entry);
   }
   return registry;
