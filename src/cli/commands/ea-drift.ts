@@ -22,6 +22,8 @@ export function eaDriftCommand(): Command {
     .option("--severity <level>", "Filter findings by minimum severity: error, warning, info")
     .option("--json", "Output as JSON")
     .option("--fail-on-warning", "Exit with code 1 on warnings (not just errors)")
+    .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
+    .option("--no-cache", "Disable resolver cache")
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();

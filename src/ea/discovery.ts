@@ -105,6 +105,8 @@ export interface DiscoveryOptions {
   domainDirs: Record<string, string>;
   /** If true, don't write files — just report. */
   dryRun?: boolean;
+  /** Resolver cache for caching observed state. */
+  cache?: import("./cache.js").ResolverCache;
 }
 
 /** Interface for a discovery resolver. */

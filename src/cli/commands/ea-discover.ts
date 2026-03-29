@@ -23,6 +23,8 @@ export function eaDiscoverCommand(): Command {
     .option("--source <path>", "Source path to scan")
     .option("--dry-run", "Show what would be created without writing files")
     .option("--json", "Output discovery report as JSON")
+    .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
+    .option("--no-cache", "Disable resolver cache")
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
