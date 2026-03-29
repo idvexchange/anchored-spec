@@ -7,6 +7,8 @@
  *  - 7 quality rules for information-layer artifacts
  *  - ea create templates for all 6 kinds
  *  - implementedBy relation extension (information-concept → canonical-entity)
+ *  - 3 new relations (classifiedAs, exchangedVia, retainedUnder)
+ *  - 8 information drift rules including classification propagation
  */
 
 import { describe, it, expect } from "vitest";
@@ -18,6 +20,7 @@ import {
   validateEaArtifacts,
   validateEaRelations,
   validateEaSchema,
+  evaluateEaDrift,
 } from "../index.js";
 import type { EaArtifactBase } from "../index.js";
 
@@ -550,5 +553,392 @@ describe("Phase 2C: implementedBy Extension", () => {
 
   it("still accepts logical-data-model as source for implementedBy", () => {
     expect(registry.isValidSource("implementedBy", "logical-data-model")).toBe(true);
+  });
+});
+
+// ─── Phase 2C: New Relations ────────────────────────────────────────────────────
+
+describe("Phase 2C: New Relations", () => {
+  const registry = createDefaultRegistry();
+
+  describe("classifiedAs", () => {
+    it("is registered with correct source and target kinds", () => {
+      const entry = registry.get("classifiedAs");
+      expect(entry).toBeDefined();
+      expect(entry!.inverse).toBe("classifies");
+      expect(entry!.validSourceKinds).toContain("canonical-entity");
+      expect(entry!.validSourceKinds).toContain("data-store");
+      expect(entry!.validSourceKinds).toContain("information-exchange");
+      expect(entry!.validTargetKinds).toEqual(["classification"]);
+    });
+
+    it("validates CE → classification via classifiedAs", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        } as any),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("rejects invalid source kind for classifiedAs", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "APP-frontend",
+          kind: "application",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        }),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors.find((e) => e.rule === "ea:relation:invalid-source")).toBeDefined();
+    });
+
+    it("rejects invalid target kind for classifiedAs", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "classifiedAs", target: "APP-backend" }],
+        } as any),
+        makeArtifact({ id: "APP-backend", kind: "application" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors.find((e) => e.rule === "ea:relation:invalid-target")).toBeDefined();
+    });
+  });
+
+  describe("exchangedVia", () => {
+    it("is registered with correct source and target kinds", () => {
+      const entry = registry.get("exchangedVia");
+      expect(entry).toBeDefined();
+      expect(entry!.inverse).toBe("exchanges");
+      expect(entry!.validSourceKinds).toContain("canonical-entity");
+      expect(entry!.validSourceKinds).toContain("information-concept");
+      expect(entry!.validTargetKinds).toContain("information-exchange");
+      expect(entry!.validTargetKinds).toContain("api-contract");
+    });
+
+    it("validates CE → information-exchange via exchangedVia", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "exchangedVia", target: "EXCH-onboarding" }],
+        } as any),
+        makeArtifact({ id: "EXCH-onboarding", kind: "information-exchange" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+
+  describe("retainedUnder", () => {
+    it("is registered with correct source and target kinds", () => {
+      const entry = registry.get("retainedUnder");
+      expect(entry).toBeDefined();
+      expect(entry!.inverse).toBe("retains");
+      expect(entry!.validSourceKinds).toContain("data-store");
+      expect(entry!.validSourceKinds).toContain("data-product");
+      expect(entry!.validTargetKinds).toEqual(["retention-policy"]);
+    });
+
+    it("validates data-store → retention-policy via retainedUnder", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "STORE-orders",
+          kind: "data-store",
+          relations: [{ type: "retainedUnder", target: "RET-7y" }],
+        } as any),
+        makeArtifact({ id: "RET-7y", kind: "retention-policy" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+});
+
+// ─── Phase 2C: Drift Rules ──────────────────────────────────────────────────────
+
+describe("Phase 2C: Information Drift Rules", () => {
+
+  describe("ea:information/entity-missing-implementation", () => {
+    it("fires when CE has no implementedBy relation", () => {
+      const artifacts = [
+        makeArtifact({ id: "CE-orphan", kind: "canonical-entity" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/entity-missing-implementation")).toBeDefined();
+    });
+
+    it("does not fire when CE has implementedBy", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "implementedBy", target: "SCHEMA-customers" }],
+        } as any),
+        makeArtifact({ id: "SCHEMA-customers", kind: "physical-schema" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/entity-missing-implementation")).toBeUndefined();
+    });
+  });
+
+  describe("ea:information/exchange-missing-contract", () => {
+    it("fires when exchange has no implementing contracts", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "EXCH-bad",
+          kind: "information-exchange",
+          source: { artifactId: "APP-a" },
+          destination: { artifactId: "APP-b" },
+          exchangedEntities: ["CE-x"],
+          purpose: "test",
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.errors.find((e) => e.rule === "ea:information/exchange-missing-contract")).toBeDefined();
+    });
+
+    it("does not fire when exchange has implementingContracts", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "EXCH-good",
+          kind: "information-exchange",
+          source: { artifactId: "APP-a" },
+          destination: { artifactId: "APP-b" },
+          exchangedEntities: ["CE-x"],
+          purpose: "test",
+          implementingContracts: ["API-customer"],
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.errors.find((e) => e.rule === "ea:information/exchange-missing-contract")).toBeUndefined();
+    });
+  });
+
+  describe("ea:information/classification-not-propagated", () => {
+    it("fires when entity classified but downstream store is not", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [
+            { type: "classifiedAs", target: "CLASS-pii" },
+            { type: "implementedBy", target: "SCHEMA-customers" },
+          ],
+        } as any),
+        makeArtifact({ id: "SCHEMA-customers", kind: "physical-schema" }),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      const finding = result.warnings.find((w) => w.rule === "ea:information/classification-not-propagated");
+      expect(finding).toBeDefined();
+      expect(finding!.path).toBe("SCHEMA-customers");
+    });
+
+    it("does not fire when downstream store carries same classification", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [
+            { type: "classifiedAs", target: "CLASS-pii" },
+            { type: "implementedBy", target: "SCHEMA-customers" },
+          ],
+        } as any),
+        makeArtifact({
+          id: "SCHEMA-customers",
+          kind: "physical-schema",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        } as any),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/classification-not-propagated")).toBeUndefined();
+    });
+
+    it("detects multi-hop propagation gap via stores relation", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        } as any),
+        makeArtifact({
+          id: "STORE-orders",
+          kind: "data-store",
+          relations: [{ type: "stores", target: "CE-customer" }],
+        } as any),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      const finding = result.warnings.find((w) => w.rule === "ea:information/classification-not-propagated");
+      expect(finding).toBeDefined();
+      expect(finding!.path).toBe("STORE-orders");
+    });
+  });
+
+  describe("ea:information/retention-not-enforced", () => {
+    it("fires when retention policy has no enforcement evidence", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "RET-7y",
+          kind: "retention-policy",
+          appliesTo: ["STORE-orders"],
+          retention: { duration: "7 years", basis: "tax" },
+          disposal: { method: "delete" },
+        } as any),
+        makeArtifact({ id: "STORE-orders", kind: "data-store" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/retention-not-enforced")).toBeDefined();
+    });
+
+    it("does not fire when store has retainedUnder relation", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "RET-7y",
+          kind: "retention-policy",
+          appliesTo: ["STORE-orders"],
+          retention: { duration: "7 years", basis: "tax" },
+          disposal: { method: "delete" },
+        } as any),
+        makeArtifact({
+          id: "STORE-orders",
+          kind: "data-store",
+          relations: [{ type: "retainedUnder", target: "RET-7y" }],
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/retention-not-enforced")).toBeUndefined();
+    });
+
+    it("does not fire when disposal is automated", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "RET-auto",
+          kind: "retention-policy",
+          appliesTo: ["STORE-orders"],
+          retention: { duration: "7 years", basis: "tax" },
+          disposal: { method: "delete", automatedBy: "cron-purge-job" },
+        } as any),
+        makeArtifact({ id: "STORE-orders", kind: "data-store" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/retention-not-enforced")).toBeUndefined();
+    });
+  });
+
+  describe("ea:information/concept-not-materialized", () => {
+    it("fires when concept has no CE or LDM", () => {
+      const artifacts = [
+        makeArtifact({ id: "IC-orphan", kind: "information-concept" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/concept-not-materialized")).toBeDefined();
+    });
+
+    it("does not fire when a CE references the concept", () => {
+      const artifacts = [
+        makeArtifact({ id: "IC-customer", kind: "information-concept" }),
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          conceptRef: "IC-customer",
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/concept-not-materialized")).toBeUndefined();
+    });
+  });
+
+  describe("ea:information/orphan-classification", () => {
+    it("fires when classification is unreferenced", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CLASS-unused",
+          kind: "classification",
+          level: "public",
+          requiredControls: [{ control: "none", description: "no controls" }],
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/orphan-classification")).toBeDefined();
+    });
+
+    it("does not fire when classification is referenced via classifiedAs", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CLASS-pii",
+          kind: "classification",
+          level: "restricted",
+          requiredControls: [{ control: "encrypt", description: "encrypt" }],
+        } as any),
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:information/orphan-classification")).toBeUndefined();
+    });
+  });
+
+  describe("ea:information/exchange-classification-mismatch", () => {
+    it("fires when exchange carries classified entity but has no classificationLevel", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "EXCH-onboarding",
+          kind: "information-exchange",
+          source: { artifactId: "APP-frontend" },
+          destination: { artifactId: "APP-backend" },
+          exchangedEntities: ["CE-customer"],
+          purpose: "Customer onboarding",
+        } as any),
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        } as any),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.errors.find((e) => e.rule === "ea:information/exchange-classification-mismatch")).toBeDefined();
+    });
+
+    it("does not fire when exchange declares classificationLevel", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "EXCH-onboarding",
+          kind: "information-exchange",
+          source: { artifactId: "APP-frontend" },
+          destination: { artifactId: "APP-backend" },
+          exchangedEntities: ["CE-customer"],
+          purpose: "Customer onboarding",
+          classificationLevel: "CLASS-pii",
+        } as any),
+        makeArtifact({
+          id: "CE-customer",
+          kind: "canonical-entity",
+          relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+        } as any),
+        makeArtifact({ id: "CLASS-pii", kind: "classification" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.errors.find((e) => e.rule === "ea:information/exchange-classification-mismatch")).toBeUndefined();
+    });
+  });
+
+  it("evaluates all 17 static drift rules (9 prior + 8 new)", () => {
+    const result = evaluateEaDrift([]);
+    expect(result.rulesEvaluated).toBe(17);
+    expect(result.rulesSkipped).toBe(5); // resolver stubs
   });
 });

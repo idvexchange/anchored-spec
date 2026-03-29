@@ -294,10 +294,49 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   },
 ];
 
-/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B). */
+// ─── Phase 2C Relations (Information Layer) ─────────────────────────────────────
+
+const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
+  {
+    type: "classifiedAs",
+    inverse: "classifies",
+    validSourceKinds: [
+      "canonical-entity", "logical-data-model", "data-store",
+      "information-exchange", "information-concept", "physical-schema",
+      "data-product",
+    ],
+    validTargetKinds: ["classification"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Source data artifact is classified under a data classification category.",
+  },
+  {
+    type: "exchangedVia",
+    inverse: "exchanges",
+    validSourceKinds: ["canonical-entity", "information-concept"],
+    validTargetKinds: ["information-exchange", "api-contract", "event-contract"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "anchor-resolution",
+    description: "Information is exchanged via a contract or exchange pattern.",
+  },
+  {
+    type: "retainedUnder",
+    inverse: "retains",
+    validSourceKinds: ["data-store", "data-product", "physical-schema"],
+    validTargetKinds: ["retention-policy"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Data in the source artifact is subject to the target retention policy.",
+  },
+];
+
+/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C). */
 export function createDefaultRegistry(): RelationRegistry {
   const registry = new RelationRegistry();
-  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS]) {
+  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS, ...PHASE_2C_RELATIONS]) {
     registry.register(entry);
   }
   return registry;

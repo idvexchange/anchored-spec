@@ -18,6 +18,10 @@ import type {
   DataStoreArtifact,
   DataProductArtifact,
   MasterDataDomainArtifact,
+  InformationExchangeArtifact,
+  CanonicalEntityArtifact,
+  ClassificationArtifact,
+  RetentionPolicyArtifact,
 } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
@@ -452,6 +456,374 @@ const productMissingQualityRules: EaDriftRule = {
   },
 };
 
+// ─── Phase 2C: Information Layer Drift Rules ────────────────────────────────────
+
+/**
+ * ea:information/entity-missing-implementation
+ *
+ * Canonical entity has no implementedBy relation to any data artifact.
+ */
+const entityMissingImplementation: EaDriftRule = {
+  id: "ea:information/entity-missing-implementation",
+  severity: "warning",
+  description: "Canonical entity has no implementedBy relation to any data artifact",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "canonical-entity") continue;
+      const hasImpl = a.relations?.some((r) => r.type === "implementedBy") ?? false;
+      // Also check if any artifact has an implements relation targeting this entity
+      const isImplemented = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => r.type === "implementedBy" && r.target === a.id)
+      );
+      if (!hasImpl && !isImplemented) {
+        results.push({
+          path: a.id,
+          message: `Canonical entity "${a.id}" has no implementedBy relation to any data artifact`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/exchange-missing-contract
+ *
+ * Information exchange has no implementing contracts.
+ */
+const exchangeMissingContract: EaDriftRule = {
+  id: "ea:information/exchange-missing-contract",
+  severity: "error",
+  description: "Information exchange has no implementing contracts",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "information-exchange") continue;
+      const exch = a as unknown as InformationExchangeArtifact;
+      const hasContracts = (exch.implementingContracts?.length ?? 0) > 0;
+      // Also check for exchangedVia relations pointing to contracts
+      const hasExchangedVia = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => r.type === "exchangedVia" && r.target === a.id)
+      );
+      if (!hasContracts && !hasExchangedVia) {
+        results.push({
+          path: a.id,
+          message: `Information exchange "${a.id}" has no implementing contracts (no API or event contract)`,
+          severity: "error",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/classification-not-propagated
+ *
+ * Classification applied to canonical entity but not to downstream data stores.
+ * Implements graph traversal: entity → implementedBy → data artifact → check classifiedAs.
+ */
+const classificationNotPropagated: EaDriftRule = {
+  id: "ea:information/classification-not-propagated",
+  severity: "warning",
+  description: "Classification applied to entity but not propagated to downstream stores",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "canonical-entity") continue;
+
+      // Find all classifications this entity has
+      const entityClassifications = (a.relations ?? [])
+        .filter((r) => r.type === "classifiedAs")
+        .map((r) => r.target);
+
+      if (entityClassifications.length === 0) continue;
+
+      // Find all data artifacts that implement this entity (via implementedBy)
+      const implementors: string[] = [];
+      // Check entity's own implementedBy relations
+      for (const r of a.relations ?? []) {
+        if (r.type === "implementedBy") implementors.push(r.target);
+      }
+      // Also check stores that reference this entity via stores relation
+      for (const other of ctx.artifacts) {
+        if (other.relations) {
+          for (const r of other.relations) {
+            if (r.type === "stores" && r.target === a.id) {
+              implementors.push(other.id);
+            }
+          }
+        }
+      }
+
+      // For each downstream artifact, check if it carries the same classification
+      for (const implId of implementors) {
+        const implArtifact = ctx.artifactMap.get(implId);
+        if (!implArtifact) continue;
+
+        const implClassifications = new Set(
+          (implArtifact.relations ?? [])
+            .filter((r) => r.type === "classifiedAs")
+            .map((r) => r.target)
+        );
+
+        for (const classId of entityClassifications) {
+          if (!implClassifications.has(classId)) {
+            results.push({
+              path: implId,
+              message: `"${implId}" stores/implements "${a.id}" which is classifiedAs "${classId}" but does not carry the same classification`,
+              severity: "warning",
+              rule: this.id,
+            });
+          }
+        }
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/retention-not-enforced
+ *
+ * Retention policy covers a store but no evidence of enforcement exists.
+ */
+const retentionNotEnforced: EaDriftRule = {
+  id: "ea:information/retention-not-enforced",
+  severity: "warning",
+  description: "Retention policy covers a store but no enforcement evidence",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "retention-policy") continue;
+      const ret = a as unknown as RetentionPolicyArtifact;
+
+      for (const targetId of ret.appliesTo ?? []) {
+        const target = ctx.artifactMap.get(targetId);
+        if (!target) continue;
+
+        // Check if target has a retainedUnder relation pointing back to this policy
+        const hasRetainedUnder = target.relations?.some(
+          (r) => r.type === "retainedUnder" && r.target === a.id
+        ) ?? false;
+
+        // Check if the disposal has automation
+        const hasAutomation = !!ret.disposal?.automatedBy;
+
+        if (!hasRetainedUnder && !hasAutomation) {
+          results.push({
+            path: a.id,
+            message: `Retention policy "${a.id}" covers "${targetId}" but no enforcement evidence (no retainedUnder relation or automated disposal)`,
+            severity: "warning",
+            rule: this.id,
+          });
+        }
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/concept-not-materialized
+ *
+ * Information concept has no canonical entity or logical data model.
+ */
+const conceptNotMaterialized: EaDriftRule = {
+  id: "ea:information/concept-not-materialized",
+  severity: "warning",
+  description: "Information concept has no canonical entity or logical data model",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "information-concept") continue;
+
+      const hasImplementedBy = a.relations?.some((r) => r.type === "implementedBy") ?? false;
+      // Check if any CE or LDM references this concept
+      const isReferenced = ctx.artifacts.some((other) => {
+        if (other.kind === "canonical-entity") {
+          const ce = other as unknown as CanonicalEntityArtifact;
+          return ce.conceptRef === a.id;
+        }
+        return other.relations?.some((r) => r.type === "implementedBy" && r.target === a.id) ?? false;
+      });
+
+      if (!hasImplementedBy && !isReferenced) {
+        results.push({
+          path: a.id,
+          message: `Information concept "${a.id}" has no canonical entity or logical data model`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/orphan-classification
+ *
+ * Classification not referenced by any entity, store, or exchange.
+ */
+const orphanClassification: EaDriftRule = {
+  id: "ea:information/orphan-classification",
+  severity: "warning",
+  description: "Classification not referenced by any artifact",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    // Build set of all classification targets
+    const referencedClassifications = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.relations) {
+        for (const r of a.relations) {
+          if (r.type === "classifiedAs") {
+            referencedClassifications.add(r.target);
+          }
+        }
+      }
+      // Also check classificationLevel on information-exchange
+      if (a.kind === "information-exchange") {
+        const exch = a as unknown as InformationExchangeArtifact;
+        if (exch.classificationLevel) {
+          referencedClassifications.add(exch.classificationLevel);
+        }
+      }
+    }
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "classification") continue;
+      if (!referencedClassifications.has(a.id)) {
+        results.push({
+          path: a.id,
+          message: `Classification "${a.id}" is not referenced by any artifact`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/glossary-inconsistency
+ *
+ * Glossary term's definition conflicts with canonical entity summary.
+ * (Static heuristic: checks if term title appears in an entity title but definitions don't overlap.)
+ */
+const glossaryInconsistency: EaDriftRule = {
+  id: "ea:information/glossary-inconsistency",
+  severity: "warning",
+  description: "Glossary term definition may conflict with canonical entity summary",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    // Build map of CE titles (lowercase) to their IDs for matching
+    const entities = ctx.artifacts.filter((a) => a.kind === "canonical-entity");
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "glossary-term") continue;
+      // Check if any CE references this term via relatedConcepts or glossaryTerms
+      // Find canonical entities whose conceptRef links to the same information-concept
+      // that this glossary term is related to
+      for (const entity of entities) {
+        const ce = entity as unknown as CanonicalEntityArtifact;
+        // Check if entity title matches glossary term title (case-insensitive)
+        const termTitle = a.title.toLowerCase();
+        const entityTitle = entity.title.toLowerCase();
+        if (entityTitle.includes(termTitle) || termTitle.includes(entityTitle)) {
+          // They refer to the same concept — check if summary and definition share content
+          const gt = a as unknown as { definition: string };
+          if (gt.definition && entity.summary) {
+            // Simple heuristic: if neither mentions the other's key words, flag it
+            const defWords = new Set(gt.definition.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
+            const summaryWords = new Set(entity.summary.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
+            const overlap = [...defWords].filter((w) => summaryWords.has(w));
+            if (overlap.length === 0 && defWords.size > 0 && summaryWords.size > 0) {
+              results.push({
+                path: a.id,
+                message: `Glossary term "${a.id}" and canonical entity "${entity.id}" appear related but have no overlapping terminology in their descriptions`,
+                severity: "warning",
+                rule: this.id,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:information/exchange-classification-mismatch
+ *
+ * Information exchange carries classified entities but does not declare the classification.
+ */
+const exchangeClassificationMismatch: EaDriftRule = {
+  id: "ea:information/exchange-classification-mismatch",
+  severity: "error",
+  description: "Information exchange carries classified entities but does not declare classification",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "information-exchange") continue;
+      const exch = a as unknown as InformationExchangeArtifact;
+
+      if (!exch.exchangedEntities || exch.exchangedEntities.length === 0) continue;
+
+      // Check if any exchanged entity has a classification
+      for (const entityId of exch.exchangedEntities) {
+        const entity = ctx.artifactMap.get(entityId);
+        if (!entity) continue;
+
+        const entityClassifications = (entity.relations ?? [])
+          .filter((r) => r.type === "classifiedAs")
+          .map((r) => r.target);
+
+        if (entityClassifications.length > 0 && !exch.classificationLevel) {
+          results.push({
+            path: a.id,
+            message: `Information exchange "${a.id}" carries entity "${entityId}" classified as "${entityClassifications.join(", ")}" but does not declare a classificationLevel`,
+            severity: "error",
+            rule: this.id,
+          });
+          break; // One finding per exchange is enough
+        }
+      }
+    }
+
+    return results;
+  },
+};
+
 // ─── Resolver-Dependent Rules (stubs for Phase 2F) ──────────────────────────────
 
 /**
@@ -533,6 +905,15 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
   sharedStoreNoSteward,
   productMissingSla,
   productMissingQualityRules,
+  // Phase 2C — Information Layer
+  entityMissingImplementation,
+  exchangeMissingContract,
+  classificationNotPropagated,
+  retentionNotEnforced,
+  conceptNotMaterialized,
+  orphanClassification,
+  glossaryInconsistency,
+  exchangeClassificationMismatch,
   // Resolver-dependent stubs (Phase 2F)
   unmodeledExternalDependency,
   unmodeledCloudResource,
