@@ -1935,6 +1935,9 @@ export function detectEaDrift(options: EaDriftOptions): EaDriftReport {
     findings = applySuppression(findings, exceptions);
   }
 
+  // Step 4b: Apply inline per-artifact drift suppression (extensions.driftSuppress)
+  findings = applyInlineSuppression(findings, artifacts);
+
   // Step 5: Apply severity overrides
   if (ruleOverrides) {
     findings = applySeverityOverrides(findings, ruleOverrides);
@@ -2010,6 +2013,42 @@ function applySuppression(
       if (matchesArtifact && matchesRule && matchesDomain) {
         return { ...f, suppressed: true, suppressedBy: exc.id };
       }
+    }
+    return f;
+  });
+}
+
+/**
+ * Apply inline per-artifact drift suppression.
+ *
+ * Artifacts can declare `extensions.driftSuppress: string[]` — an array
+ * of drift rule IDs to suppress for that artifact. Example:
+ *
+ *   extensions:
+ *     driftSuppress:
+ *       - "ea:business/unowned-critical-system"
+ *       - "ea:information/exchange-missing-contract"
+ */
+function applyInlineSuppression(
+  findings: EaDriftFinding[],
+  artifacts: EaArtifactBase[],
+): EaDriftFinding[] {
+  // Build a map: artifactId → Set<suppressed rule IDs>
+  const suppressMap = new Map<string, Set<string>>();
+  for (const a of artifacts) {
+    const suppress = (a.extensions as Record<string, unknown>)?.driftSuppress;
+    if (Array.isArray(suppress) && suppress.length > 0) {
+      suppressMap.set(a.id, new Set(suppress.map(String)));
+    }
+  }
+
+  if (suppressMap.size === 0) return findings;
+
+  return findings.map((f) => {
+    if (f.suppressed) return f;
+    const rules = suppressMap.get(f.artifactId);
+    if (rules && rules.has(f.rule)) {
+      return { ...f, suppressed: true, suppressedBy: `${f.artifactId}:inline` };
     }
     return f;
   });
