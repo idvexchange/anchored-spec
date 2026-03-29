@@ -34,6 +34,7 @@ import type {
   MigrationWaveArtifact,
   ExceptionArtifact,
 } from "./types.js";
+import { getDomainForKind } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
 // ─── Drift Rule Types ───────────────────────────────────────────────────────────
@@ -1651,4 +1652,251 @@ export function evaluateEaDrift(
   }
 
   return { errors, warnings, rulesEvaluated, rulesSkipped };
+}
+
+// ─── Full Drift Engine ──────────────────────────────────────────────────────────
+
+/** A drift finding enriched with artifact context and suppression status. */
+export interface EaDriftFinding {
+  /** The drift rule that triggered this finding. */
+  rule: string;
+  /** Severity (may be overridden from default). */
+  severity: "error" | "warning" | "info";
+  /** The artifact that triggered this finding. */
+  artifactId: string;
+  /** Path within the artifact (e.g., field name). */
+  path: string;
+  /** EA domain of the affected artifact. */
+  domain: string;
+  /** Human-readable message. */
+  message: string;
+  /** Suggested fix. */
+  suggestion?: string;
+  /** Whether this finding is suppressed by an exception. */
+  suppressed: boolean;
+  /** ID of the exception that suppresses this finding. */
+  suppressedBy?: string;
+}
+
+/** Severity counts per domain for heatmap reporting. */
+export interface DomainDriftSummary {
+  errors: number;
+  warnings: number;
+  info: number;
+}
+
+/** Full drift report with heatmap data. */
+export interface EaDriftReport {
+  /** Whether the check passed (no unsuppressed errors). */
+  passed: boolean;
+  /** Aggregate counts. */
+  summary: {
+    errors: number;
+    warnings: number;
+    info: number;
+    suppressed: number;
+    rulesEvaluated: number;
+  };
+  /** Per-domain breakdown for heatmap. */
+  byDomain: Record<string, DomainDriftSummary>;
+  /** Top rules by finding frequency. */
+  topRules: Array<{ rule: string; count: number }>;
+  /** All findings. */
+  findings: EaDriftFinding[];
+  /** ISO 8601 timestamp of this check. */
+  checkedAt: string;
+}
+
+/** Options for the full drift engine. */
+export interface EaDriftOptions {
+  /** All loaded artifacts. */
+  artifacts: EaArtifactBase[];
+  /** Active exceptions for suppression. */
+  exceptions?: ExceptionArtifact[];
+  /** Severity overrides: rule ID → severity or "off". */
+  ruleOverrides?: Record<string, "error" | "warning" | "info" | "off">;
+  /** Filter to specific domains. */
+  domains?: string[];
+  /** Include resolver-dependent rules. */
+  includeResolverRules?: boolean;
+}
+
+/**
+ * Full EA drift detection pipeline:
+ * 1. Run all graph-integrity rules (existing EA_DRIFT_RULES)
+ * 2. Convert findings to EaDriftFinding with domain context
+ * 3. Apply domain filter (if specified)
+ * 4. Apply exception suppression
+ * 5. Apply severity overrides
+ * 6. Build report with heatmap
+ */
+export function detectEaDrift(options: EaDriftOptions): EaDriftReport {
+  const { artifacts, exceptions, ruleOverrides, domains, includeResolverRules } = options;
+
+  // Step 1: Run existing graph-integrity rules
+  const rawResult = evaluateEaDrift(artifacts, { includeResolverRules });
+
+  // Step 2: Convert EaValidationError[] → EaDriftFinding[]
+  const allErrors = rawResult.errors.map((e) => validationErrorToFinding(e, "error", artifacts));
+  const allWarnings = rawResult.warnings.map((w) => validationErrorToFinding(w, "warning", artifacts));
+  let findings = [...allErrors, ...allWarnings];
+
+  // Step 3: Apply domain filter
+  if (domains && domains.length > 0) {
+    findings = findings.filter((f) => domains.includes(f.domain));
+  }
+
+  // Step 4: Apply exception suppression
+  if (exceptions && exceptions.length > 0) {
+    findings = applySuppression(findings, exceptions);
+  }
+
+  // Step 5: Apply severity overrides
+  if (ruleOverrides) {
+    findings = applySeverityOverrides(findings, ruleOverrides);
+  }
+
+  // Step 6: Build report
+  return buildDriftReport(findings, rawResult.rulesEvaluated);
+}
+
+/**
+ * Convert an EaValidationError to an EaDriftFinding, enriching with
+ * artifact domain context.
+ */
+function validationErrorToFinding(
+  error: EaValidationError,
+  severity: "error" | "warning",
+  artifacts: EaArtifactBase[],
+): EaDriftFinding {
+  // Extract artifact ID from the error path (typically the first segment)
+  const artifactId = error.path ?? "";
+  const domain = inferDomainFromArtifact(artifactId, artifacts);
+  const rule = error.rule ?? error.message.split(":")[0] ?? "unknown";
+
+  return {
+    rule,
+    severity,
+    artifactId,
+    path: error.path ?? "",
+    domain,
+    message: error.message,
+    suppressed: false,
+  };
+}
+
+/**
+ * Infer domain from an artifact ID by looking up in the kind registry.
+ */
+function inferDomainFromArtifact(artifactId: string, artifacts: EaArtifactBase[]): string {
+  const artifact = artifacts.find((a) => a.id === artifactId);
+  if (!artifact) return "unknown";
+  return getDomainForKind(artifact.kind) ?? "unknown";
+}
+
+/**
+ * Apply exception suppression to findings.
+ *
+ * A finding is suppressed if an active, non-expired exception matches:
+ * - scope.artifactIds includes the finding's artifactId (or artifactIds is empty/undefined)
+ * - scope.rules includes the finding's rule (or rules is empty/undefined)
+ * - scope.domains includes the finding's domain (or domains is empty/undefined)
+ */
+function applySuppression(
+  findings: EaDriftFinding[],
+  exceptions: ExceptionArtifact[],
+): EaDriftFinding[] {
+  const now = Date.now();
+
+  // Filter to active, non-expired exceptions
+  const activeExceptions = exceptions.filter((exc) => {
+    const expiresMs = new Date(exc.expiresAt).getTime();
+    return !isNaN(expiresMs) && expiresMs > now;
+  });
+
+  return findings.map((f) => {
+    for (const exc of activeExceptions) {
+      const matchesArtifact =
+        !exc.scope.artifactIds || exc.scope.artifactIds.length === 0 || exc.scope.artifactIds.includes(f.artifactId);
+      const matchesRule =
+        !exc.scope.rules || exc.scope.rules.length === 0 || exc.scope.rules.includes(f.rule);
+      const matchesDomain =
+        !exc.scope.domains || exc.scope.domains.length === 0 || exc.scope.domains.includes(f.domain as any);
+
+      if (matchesArtifact && matchesRule && matchesDomain) {
+        return { ...f, suppressed: true, suppressedBy: exc.id };
+      }
+    }
+    return f;
+  });
+}
+
+/**
+ * Apply severity overrides from configuration.
+ * "off" removes the finding entirely.
+ */
+function applySeverityOverrides(
+  findings: EaDriftFinding[],
+  overrides: Record<string, "error" | "warning" | "info" | "off">,
+): EaDriftFinding[] {
+  return findings
+    .filter((f) => overrides[f.rule] !== "off")
+    .map((f) => {
+      const override = overrides[f.rule];
+      if (override && override !== "off") {
+        return { ...f, severity: override };
+      }
+      return f;
+    });
+}
+
+/**
+ * Build the final drift report from processed findings.
+ */
+function buildDriftReport(findings: EaDriftFinding[], rulesEvaluated: number): EaDriftReport {
+  const byDomain: Record<string, DomainDriftSummary> = {};
+  const ruleCount: Record<string, number> = {};
+
+  let errors = 0;
+  let warnings = 0;
+  let info = 0;
+  let suppressed = 0;
+
+  for (const f of findings) {
+    if (f.suppressed) {
+      suppressed++;
+      continue;
+    }
+
+    // Count by severity
+    if (f.severity === "error") errors++;
+    else if (f.severity === "warning") warnings++;
+    else info++;
+
+    // Count by domain
+    if (!byDomain[f.domain]) {
+      byDomain[f.domain] = { errors: 0, warnings: 0, info: 0 };
+    }
+    const domainEntry = byDomain[f.domain]!;
+    if (f.severity === "error") domainEntry.errors++;
+    else if (f.severity === "warning") domainEntry.warnings++;
+    else domainEntry.info++;
+
+    // Count by rule
+    ruleCount[f.rule] = (ruleCount[f.rule] ?? 0) + 1;
+  }
+
+  // Top rules sorted by frequency
+  const topRules = Object.entries(ruleCount)
+    .map(([rule, count]) => ({ rule, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    passed: errors === 0,
+    summary: { errors, warnings, info, suppressed, rulesEvaluated },
+    byDomain,
+    topRules,
+    findings,
+    checkedAt: new Date().toISOString(),
+  };
 }

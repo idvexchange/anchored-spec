@@ -74,8 +74,8 @@ afterEach(() => {
 // ─── REPORT_VIEWS ───────────────────────────────────────────────────────────────
 
 describe("REPORT_VIEWS", () => {
-  it("includes 5 report views", () => {
-    expect(REPORT_VIEWS).toHaveLength(5);
+  it("includes 6 report views", () => {
+    expect(REPORT_VIEWS).toHaveLength(6);
   });
 
   it("includes exceptions view", () => {
@@ -267,12 +267,13 @@ describe("renderExceptionReportMarkdown", () => {
 describe("buildReportIndex", () => {
   it("returns index with all report types", () => {
     const index = buildReportIndex([]);
-    expect(index.reports).toHaveLength(4);
+    expect(index.reports).toHaveLength(5);
     expect(index.reports.map((r) => r.name)).toEqual([
       "system-data-matrix",
       "classification-coverage",
       "capability-map",
       "exceptions",
+      "drift-heatmap",
     ]);
   });
 
@@ -398,7 +399,7 @@ describe("CLI: ea report (exceptions & --all)", () => {
     const outDir = join(tempDir, "ea", "generated");
     const { stdout, code } = runCLI("ea report --all");
     expect(code).toBe(0);
-    expect(stdout).toContain("Generated 4 reports + index");
+    expect(stdout).toContain("Generated 5 reports + index");
 
     // Check report files exist
     expect(existsSync(join(outDir, "system-data-matrix.md"))).toBe(true);
@@ -420,7 +421,7 @@ describe("CLI: ea report (exceptions & --all)", () => {
 
     // Validate index JSON
     const index = JSON.parse(readFileSync(join(outDir, "report-index.json"), "utf-8"));
-    expect(index.reports).toHaveLength(4);
+    expect(index.reports).toHaveLength(5);
     expect(index.summary).toHaveProperty("totalArtifacts");
     expect(index.summary).toHaveProperty("byDomain");
   });

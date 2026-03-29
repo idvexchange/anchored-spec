@@ -1333,6 +1333,7 @@ export const REPORT_VIEWS = [
   "capability-map",
   "gap-analysis",
   "exceptions",
+  "drift-heatmap",
 ] as const;
 
 export type ReportView = (typeof REPORT_VIEWS)[number];
@@ -1389,6 +1390,18 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
     },
   });
 
+  // Drift heatmap
+  const dh = buildDriftHeatmap(artifacts);
+  reports.push({
+    name: "drift-heatmap",
+    description: "Drift findings by domain and severity",
+    stats: {
+      errors: dh.summary.errors,
+      warnings: dh.summary.warnings,
+      suppressed: dh.summary.suppressed,
+    },
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     reports,
@@ -1397,4 +1410,112 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
       byDomain,
     },
   };
+}
+
+// ─── Drift Heatmap Report ───────────────────────────────────────────────────────
+
+import type { EaDriftReport, DomainDriftSummary } from "./drift.js";
+import { detectEaDrift } from "./drift.js";
+import { EA_DOMAINS } from "./types.js";
+
+/** Full drift heatmap report. */
+export interface DriftHeatmapReport {
+  generatedAt: string;
+  passed: boolean;
+  summary: {
+    errors: number;
+    warnings: number;
+    info: number;
+    suppressed: number;
+  };
+  heatmap: Record<string, DomainDriftSummary>;
+  topRules: Array<{ rule: string; count: number }>;
+}
+
+/**
+ * Build a drift heatmap report from loaded artifacts.
+ */
+export function buildDriftHeatmap(
+  artifacts: EaArtifactBase[],
+  options?: { ruleOverrides?: Record<string, "error" | "warning" | "info" | "off"> },
+): DriftHeatmapReport {
+  // Collect exceptions
+  const exceptions = artifacts.filter(
+    (a): a is import("./types.js").ExceptionArtifact => a.kind === "exception",
+  );
+
+  const report = detectEaDrift({
+    artifacts,
+    exceptions,
+    ruleOverrides: options?.ruleOverrides,
+  });
+
+  // Ensure all domains appear in heatmap (even if 0)
+  const heatmap: Record<string, DomainDriftSummary> = {};
+  for (const d of EA_DOMAINS) {
+    heatmap[d] = report.byDomain[d] ?? { errors: 0, warnings: 0, info: 0 };
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    passed: report.passed,
+    summary: {
+      errors: report.summary.errors,
+      warnings: report.summary.warnings,
+      info: report.summary.info,
+      suppressed: report.summary.suppressed,
+    },
+    heatmap,
+    topRules: report.topRules,
+  };
+}
+
+/**
+ * Render a drift heatmap report as Markdown.
+ */
+export function renderDriftHeatmapMarkdown(report: DriftHeatmapReport): string {
+  const lines: string[] = [];
+
+  lines.push("# Drift Heatmap");
+  lines.push("");
+  lines.push(`> Generated: ${report.generatedAt}`);
+  lines.push(`> Status: ${report.passed ? "✅ PASSED" : "❌ FAILED"}`);
+  lines.push("");
+
+  // Summary
+  lines.push("## Summary");
+  lines.push("");
+  lines.push("| Metric | Count |");
+  lines.push("|--------|-------|");
+  lines.push(`| Errors | ${report.summary.errors} |`);
+  lines.push(`| Warnings | ${report.summary.warnings} |`);
+  lines.push(`| Info | ${report.summary.info} |`);
+  lines.push(`| Suppressed | ${report.summary.suppressed} |`);
+  lines.push("");
+
+  // Heatmap table
+  lines.push("## By Domain");
+  lines.push("");
+  lines.push("| Domain | Errors | Warnings | Info |");
+  lines.push("|--------|--------|----------|------|");
+
+  for (const [domain, counts] of Object.entries(report.heatmap)) {
+    const emoji = counts.errors > 0 ? "🔴" : counts.warnings > 0 ? "🟡" : "🟢";
+    lines.push(`| ${emoji} ${domain} | ${counts.errors} | ${counts.warnings} | ${counts.info} |`);
+  }
+  lines.push("");
+
+  // Top rules
+  if (report.topRules.length > 0) {
+    lines.push("## Top Rules");
+    lines.push("");
+    lines.push("| Rule | Findings |");
+    lines.push("|------|----------|");
+    for (const { rule, count } of report.topRules.slice(0, 10)) {
+      lines.push(`| \`${rule}\` | ${count} |`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n") + "\n";
 }
