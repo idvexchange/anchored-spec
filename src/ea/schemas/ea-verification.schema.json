@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/ea-verification.schema.json",
+  "title": "Anchored Spec — EA Verification",
+  "description": "Sidecar verification tracking for EA artifact transitions — commands to run, drift checks, and evidence collection status.",
+  "type": "object",
+  "required": ["artifactId", "commands"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "artifactId": {
+      "type": "string",
+      "minLength": 3,
+      "description": "EA artifact ID this verification belongs to (e.g., SVC-auth, WAVE-q1)"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable command label"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Shell command to execute"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether this command must pass for verification to succeed"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed", "skipped"],
+            "default": "pending"
+          },
+          "ranAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "When this command was last executed"
+          }
+        }
+      }
+    },
+    "driftChecks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "EA drift resolver names to run (e.g., anchors, openapi, kubernetes)"
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "collected": {
+          "type": "boolean",
+          "description": "Whether evidence has been collected"
+        },
+        "collectedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When evidence was last collected"
+        },
+        "adapter": {
+          "type": "string",
+          "description": "Evidence adapter used (e.g., vitest, jest)"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

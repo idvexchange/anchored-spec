@@ -26,12 +26,16 @@ function validBase(kind: string, extra: Record<string, unknown> = {}): Record<st
 // ─── Schema Registry ────────────────────────────────────────────────────────────
 
 describe("getEaSchemaNames", () => {
-  it("returns 44 schema names (3 base + 41 kinds)", () => {
+  it("returns 51 schema names (3 base + 41 kinds + 4 config/governance + 3 legacy)", () => {
     const names = getEaSchemaNames();
-    expect(names).toHaveLength(47);
+    expect(names).toHaveLength(51);
     expect(names).toContain("artifact-base");
     expect(names).toContain("relation");
     expect(names).toContain("anchors");
+    expect(names).toContain("config-v1");
+    expect(names).toContain("workflow-policy");
+    expect(names).toContain("ea-evidence");
+    expect(names).toContain("ea-verification");
   });
 });
 
@@ -870,6 +874,108 @@ describe("data-product schema", () => {
         qualityRules: ["data/DQR-orders-not-null"],
         catalog: { catalogRef: "datahub:orders", tags: ["pii", "revenue"], description: "Order data product" },
       })
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+// ─── Governance Schema Tests ────────────────────────────────────────────────────
+
+describe("workflow-policy schema", () => {
+  it("accepts a valid workflow policy", () => {
+    const result = validateEaSchema(
+      {
+        workflowVariants: [
+          { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: ["change"] },
+        ],
+        changeRequiredRules: [
+          { id: "src-rule", include: ["src/**"] },
+        ],
+        trivialExemptions: ["**/*.md"],
+        lifecycleRules: {
+          plannedToActiveRequiresChange: true,
+        },
+      },
+      "workflow-policy"
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing required fields", () => {
+    const result = validateEaSchema({}, "workflow-policy");
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("ea-evidence schema", () => {
+  it("accepts valid evidence", () => {
+    const result = validateEaSchema(
+      {
+        generatedAt: "2026-01-15T10:00:00Z",
+        source: "vitest",
+        records: [
+          {
+            artifactId: "SVC-auth",
+            testFile: "src/auth.test.ts",
+            kind: "unit",
+            status: "passed",
+            recordedAt: "2026-01-15T10:00:00Z",
+          },
+        ],
+      },
+      "ea-evidence"
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing artifactId in records", () => {
+    const result = validateEaSchema(
+      {
+        generatedAt: "2026-01-15T10:00:00Z",
+        source: "vitest",
+        records: [
+          { testFile: "test.ts", kind: "unit", status: "passed", recordedAt: "2026-01-15T10:00:00Z" },
+        ],
+      },
+      "ea-evidence"
+    );
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("ea-verification schema", () => {
+  it("accepts valid verification", () => {
+    const result = validateEaSchema(
+      {
+        artifactId: "SVC-auth",
+        commands: [
+          { name: "typecheck", command: "tsc --noEmit", required: true, status: "pending" },
+        ],
+      },
+      "ea-verification"
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects missing artifactId", () => {
+    const result = validateEaSchema(
+      { commands: [{ name: "test", command: "npm test", required: true }] },
+      "ea-verification"
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it("accepts with drift checks and evidence", () => {
+    const result = validateEaSchema(
+      {
+        artifactId: "WAVE-q1",
+        commands: [
+          { name: "build", command: "npm run build", required: true },
+        ],
+        driftChecks: ["anchors", "openapi"],
+        evidence: { collected: true, collectedAt: "2026-01-15T10:00:00Z", adapter: "vitest" },
+      },
+      "ea-verification"
     );
     expect(result.valid).toBe(true);
   });

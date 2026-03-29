@@ -61,7 +61,7 @@ describe("CLI: ea", () => {
   it("shows help text", () => {
     const result = runCLI("ea --help", tempDir);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Enterprise Architecture");
+    expect(result.stdout).toContain("Deprecated");
     expect(result.stdout).toContain("init");
     expect(result.stdout).toContain("create");
     expect(result.stdout).toContain("validate");

@@ -1,30 +1,32 @@
 #!/usr/bin/env node
 
 /**
- * Anchored Spec CLI
+ * Anchored Spec CLI — v1.0
  *
- * Drop-in spec-driven development framework.
+ * Spec-as-source enterprise architecture framework.
  * Usage: anchored-spec <command> [options]
+ *
+ * All commands operate on EA artifacts. Legacy core commands have been
+ * replaced by their EA equivalents.
  */
 
 import { Command } from "commander";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import chalk from "chalk";
-import { initCommand } from "./commands/init.js";
-import { createCommand } from "./commands/create.js";
-import { verifyCommand } from "./commands/verify.js";
-import { generateCommand } from "./commands/generate.js";
-import { statusCommand } from "./commands/status.js";
-import { transitionCommand } from "./commands/transition.js";
-import { checkCommand } from "./commands/check.js";
-import { migrateCommand } from "./commands/migrate.js";
-import { driftCommand } from "./commands/drift.js";
-import { importCommand } from "./commands/import-cmd.js";
-import { reportCommand } from "./commands/report.js";
-import { evidenceCommand } from "./commands/evidence.js";
-import { impactCommand } from "./commands/impact.js";
-import { eaCommand } from "./commands/ea.js";
+import { eaInitCommand } from "./commands/ea-init.js";
+import { eaCreateCommand } from "./commands/ea-create.js";
+import { eaValidateCommand } from "./commands/ea-validate.js";
+import { eaGraphCommand } from "./commands/ea-graph.js";
+import { eaReportCommand } from "./commands/ea-report.js";
+import { eaEvidenceCommand } from "./commands/ea-evidence.js";
+import { eaDriftCommand } from "./commands/ea-drift.js";
+import { eaDiscoverCommand } from "./commands/ea-discover.js";
+import { eaGenerateCommand } from "./commands/ea-generate.js";
+import { eaMigrateLegacyCommand } from "./commands/ea-migrate-legacy.js";
+import { eaImpactCommand } from "./commands/ea-impact.js";
+import { eaStatusCommand } from "./commands/ea-status.js";
+import { eaTransitionCommand } from "./commands/ea-transition.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -34,7 +36,7 @@ const program = new Command();
 
 program
   .name("anchored-spec")
-  .description("Spec-driven development framework — specs as living contracts")
+  .description("Spec-as-source enterprise architecture framework")
   .version(pkg.version)
   .option("--cwd <dir>", "Project root directory (default: current directory)");
 
@@ -46,20 +48,61 @@ program.hook("preAction", (thisCommand) => {
   }
 });
 
-program.addCommand(initCommand());
-program.addCommand(createCommand());
-program.addCommand(verifyCommand());
-program.addCommand(generateCommand());
-program.addCommand(statusCommand());
-program.addCommand(transitionCommand());
-program.addCommand(checkCommand());
-program.addCommand(migrateCommand());
-program.addCommand(driftCommand());
-program.addCommand(importCommand());
-program.addCommand(reportCommand());
-program.addCommand(evidenceCommand());
-program.addCommand(impactCommand());
-program.addCommand(eaCommand());
+// ─── Top-level EA commands (v1.0) ───────────────────────────────────────────────
+
+program.addCommand(eaInitCommand());
+program.addCommand(eaCreateCommand());
+program.addCommand(eaValidateCommand());
+program.addCommand(eaGraphCommand());
+program.addCommand(eaReportCommand());
+program.addCommand(eaEvidenceCommand());
+program.addCommand(eaDriftCommand());
+program.addCommand(eaDiscoverCommand());
+program.addCommand(eaGenerateCommand());
+program.addCommand(eaImpactCommand());
+program.addCommand(eaStatusCommand());
+program.addCommand(eaTransitionCommand());
+
+// "migrate" at top level (rename from "migrate-legacy")
+const migrateCmd = eaMigrateLegacyCommand();
+migrateCmd.name("migrate");
+migrateCmd.description("Migrate legacy v0.x specs to EA artifacts");
+program.addCommand(migrateCmd);
+
+// ─── Deprecated "ea" alias group ────────────────────────────────────────────────
+// Keeps `anchored-spec ea <cmd>` working but emits a deprecation warning.
+
+function wrapWithDeprecationWarning(cmd: Command): Command {
+  cmd.hook("preAction", () => {
+    console.error(
+      chalk.yellow(
+        `⚠ "anchored-spec ea ${cmd.name()}" is deprecated. Use "anchored-spec ${cmd.name()}" directly.`,
+      ),
+    );
+  });
+  return cmd;
+}
+
+const ea = new Command("ea")
+  .description("(Deprecated) EA commands — use top-level commands instead");
+
+ea.addCommand(wrapWithDeprecationWarning(eaInitCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaCreateCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaValidateCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaGraphCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaReportCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaEvidenceCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaDriftCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaDiscoverCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaGenerateCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaMigrateLegacyCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaImpactCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaStatusCommand()));
+ea.addCommand(wrapWithDeprecationWarning(eaTransitionCommand()));
+
+program.addCommand(ea);
+
+// ─── Run ────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   try {
