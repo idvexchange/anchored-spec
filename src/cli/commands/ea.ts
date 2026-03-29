@@ -1,0 +1,24 @@
+/**
+ * anchored-spec ea
+ *
+ * Top-level EA command namespace. Registers subcommands:
+ * ea init, ea create, ea validate, ea graph
+ */
+
+import { Command } from "commander";
+import { eaInitCommand } from "./ea-init.js";
+import { eaCreateCommand } from "./ea-create.js";
+import { eaValidateCommand } from "./ea-validate.js";
+import { eaGraphCommand } from "./ea-graph.js";
+
+export function eaCommand(): Command {
+  const ea = new Command("ea")
+    .description("Enterprise Architecture — manage EA artifacts, validate, and visualize");
+
+  ea.addCommand(eaInitCommand());
+  ea.addCommand(eaCreateCommand());
+  ea.addCommand(eaValidateCommand());
+  ea.addCommand(eaGraphCommand());
+
+  return ea;
+}

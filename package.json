@@ -25,6 +25,7 @@
       "require": "./dist/cli/index.cjs"
     },
     "./schemas/*": "./dist/core/schemas/*",
+    "./ea/schemas/*": "./dist/ea/schemas/*",
     "./resolvers/typescript-ast": {
       "import": {
         "types": "./dist/resolvers/typescript-ast.d.ts",
@@ -44,7 +45,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup && cp -r src/core/schemas dist/core/",
+    "build": "tsup && cp -r src/core/schemas dist/core/ && cp -r src/ea/schemas dist/ea/",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
