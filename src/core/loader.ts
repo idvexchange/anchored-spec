@@ -228,6 +228,41 @@ export class SpecRoot {
   }
 
   /**
+   * Load all spec artifacts. When EA is enabled, also loads EA legacy
+   * domain artifacts (requirements, changes, decisions) from the EA
+   * pipeline, providing a unified view.
+   *
+   * Returns core spec data augmented with an optional `eaArtifacts` array.
+   */
+  async loadAll(): Promise<{
+    requirements: Requirement[];
+    changes: Change[];
+    decisions: Decision[];
+    policy: WorkflowPolicy | null;
+    eaArtifacts: unknown[];
+  }> {
+    const requirements = this.loadRequirements();
+    const changes = this.loadChanges();
+    const decisions = this.loadDecisions();
+    const policy = this.loadWorkflowPolicy();
+
+    let eaArtifacts: unknown[] = [];
+    if (this.eaEnabled) {
+      try {
+        const eaRoot = await this.getEaRoot();
+        if (eaRoot && eaRoot.isInitialized()) {
+          const result = await eaRoot.loadArtifacts();
+          eaArtifacts = result.artifacts;
+        }
+      } catch {
+        // EA loading failure is non-fatal for backward compatibility
+      }
+    }
+
+    return { requirements, changes, decisions, policy, eaArtifacts };
+  }
+
+  /**
    * Get a summary of what's in the spec root.
    * Uses directory listing for counts to avoid full JSON parsing.
    */

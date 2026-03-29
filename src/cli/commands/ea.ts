@@ -16,6 +16,7 @@ import { eaDriftCommand } from "./ea-drift.js";
 import { eaDiscoverCommand } from "./ea-discover.js";
 import { eaGenerateCommand } from "./ea-generate.js";
 import { eaMigrateLegacyCommand } from "./ea-migrate-legacy.js";
+import { eaImpactCommand } from "./ea-impact.js";
 
 export function eaCommand(): Command {
   const ea = new Command("ea")
@@ -31,6 +32,7 @@ export function eaCommand(): Command {
   ea.addCommand(eaDiscoverCommand());
   ea.addCommand(eaGenerateCommand());
   ea.addCommand(eaMigrateLegacyCommand());
+  ea.addCommand(eaImpactCommand());
 
   return ea;
 }
