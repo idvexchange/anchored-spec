@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/security-requirement.schema.json",
+  "title": "Anchored Spec — EA Security Requirement",
+  "description": "A security requirement aligned to NIST SP 800-53 or equivalent frameworks.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "security-requirement" },
+    "controlFamily": {
+      "type": "string",
+      "description": "NIST 800-53 control family (e.g., AC, AU, IA, SC)"
+    },
+    "nistControl": {
+      "type": "string",
+      "description": "Specific NIST control identifier (e.g., AC-2, AU-6, SC-7)"
+    },
+    "securityBaseline": {
+      "type": "string",
+      "enum": ["low", "moderate", "high"],
+      "description": "FIPS 200 / NIST security baseline level"
+    },
+    "implementationStatus": {
+      "type": "string",
+      "enum": ["planned", "partial", "implemented", "not-applicable"],
+      "description": "Current implementation status of this control"
+    },
+    "assessmentMethod": {
+      "type": "string",
+      "enum": ["examine", "interview", "test"],
+      "description": "NIST SP 800-53A assessment method"
+    },
+    "complianceFrameworks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Applicable compliance frameworks (e.g., NIST 800-53, FedRAMP, SOC2)"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must", "should", "could", "wont"],
+      "description": "MoSCoW priority"
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "ID of the artifact that supersedes this one"
+    },
+    "statusReason": {
+      "type": "string",
+      "description": "Reason for current status"
+    }
+  }
+}

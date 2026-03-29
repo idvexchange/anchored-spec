@@ -1,0 +1,36 @@
+apiVersion: anchored-spec/ea/v1
+kind: information-requirement
+id: IREQ-audit-logging
+
+metadata:
+  name: Audit Logging for Todo Operations
+  summary: >
+    All create, update, and delete operations on todo items
+    must produce audit log entries capturing user identity,
+    timestamp, and operation type.
+  owners:
+    - security-team
+  tags:
+    - audit
+    - compliance
+  confidence: declared
+  status: planned
+  schemaVersion: "1.0.0"
+
+spec:
+  informationType: audit-logs
+  flowDirection: outbound
+  sensitivityLevel: internal
+  requiredControls:
+    - AU-2 (Auditable Events)
+    - AU-3 (Content of Audit Records)
+    - AU-6 (Audit Review)
+  complianceFrameworks:
+    - NIST 800-53
+  priority: should
+
+relations:
+  - type: dependsOn
+    target: REQ-todo-crud
+  - type: dependsOn
+    target: SREQ-access-control

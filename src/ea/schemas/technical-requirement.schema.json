@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/technical-requirement.schema.json",
+  "title": "Anchored Spec — EA Technical Requirement",
+  "description": "A technical requirement for infrastructure, network, and delivery systems.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "technical-requirement" },
+    "technologyLayer": {
+      "type": "string",
+      "enum": ["network", "compute", "storage", "identity", "monitoring"],
+      "description": "Technology layer this requirement targets"
+    },
+    "implementationPattern": {
+      "type": "string",
+      "description": "Implementation pattern (e.g., Zero Trust Architecture, Defense in Depth)"
+    },
+    "protocols": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required protocols (e.g., TLS 1.3, IPSec, HTTPS)"
+    },
+    "performanceCriteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric", "target"],
+        "properties": {
+          "metric": { "type": "string", "description": "Performance metric name" },
+          "target": { "type": "string", "description": "Target value" },
+          "unit": { "type": "string", "description": "Unit of measurement" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Performance criteria for this requirement"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must", "should", "could", "wont"],
+      "description": "MoSCoW priority"
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "ID of the artifact that supersedes this one"
+    },
+    "statusReason": {
+      "type": "string",
+      "description": "Reason for current status"
+    }
+  }
+}

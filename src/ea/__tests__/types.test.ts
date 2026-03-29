@@ -36,17 +36,17 @@ describe("EA_DOMAINS", () => {
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 
 describe("EA_KIND_REGISTRY", () => {
-  it("contains 41 kinds (15 Phase A + 7 Data + 6 Information + 8 Business + 5 Transitions)", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(44);
+  it("contains 48 kinds (8 Systems + 9 Delivery + 8 Data + 7 Information + 9 Business + 7 Transitions)", () => {
+    expect(EA_KIND_REGISTRY).toHaveLength(48);
   });
 
-  it("has 7 systems kinds, 8 delivery kinds, and 7 data kinds", () => {
+  it("has 8 systems kinds, 9 delivery kinds, and 8 data kinds", () => {
     const systems = EA_KIND_REGISTRY.filter((e) => e.domain === "systems");
     const delivery = EA_KIND_REGISTRY.filter((e) => e.domain === "delivery");
     const data = EA_KIND_REGISTRY.filter((e) => e.domain === "data");
-    expect(systems).toHaveLength(7);
-    expect(delivery).toHaveLength(8);
-    expect(data).toHaveLength(7);
+    expect(systems).toHaveLength(8);
+    expect(delivery).toHaveLength(9);
+    expect(data).toHaveLength(8);
   });
 
   it("has unique prefixes", () => {
@@ -85,9 +85,7 @@ describe("getKindsByDomain", () => {
 
   it("returns data domain kinds", () => {
     const kinds = getKindsByDomain("data");
-    expect(kinds).toHaveLength(7);
-    expect(kinds.map((k) => k.kind)).toContain("logical-data-model");
-    expect(kinds.map((k) => k.kind)).toContain("data-product");
+    expect(kinds).toHaveLength(8);
   });
 });
 

@@ -838,6 +838,62 @@ export interface RequirementArtifact extends EaArtifactBase {
   statusReason?: string;
 }
 
+/** A security requirement aligned to NIST SP 800-53 or equivalent frameworks. */
+export interface SecurityRequirementArtifact extends EaArtifactBase {
+  kind: "security-requirement";
+  controlFamily?: string;
+  nistControl?: string;
+  securityBaseline?: "low" | "moderate" | "high";
+  implementationStatus?: "planned" | "partial" | "implemented" | "not-applicable";
+  assessmentMethod?: "examine" | "interview" | "test";
+  complianceFrameworks?: string[];
+  priority?: "must" | "should" | "could" | "wont";
+  supersededBy?: string;
+  statusReason?: string;
+}
+
+/** A data requirement defining security classification and governance constraints. */
+export interface DataRequirementArtifact extends EaArtifactBase {
+  kind: "data-requirement";
+  dataClassification?: "public" | "internal" | "confidential" | "restricted";
+  fipsCategory?: "low" | "moderate" | "high";
+  securityObjective?: "confidentiality" | "integrity" | "availability";
+  dataTypes?: string[];
+  complianceFrameworks?: string[];
+  priority?: "must" | "should" | "could" | "wont";
+  supersededBy?: string;
+  statusReason?: string;
+}
+
+/** A technical requirement for infrastructure, network, and delivery systems. */
+export interface TechnicalRequirementArtifact extends EaArtifactBase {
+  kind: "technical-requirement";
+  technologyLayer?: "network" | "compute" | "storage" | "identity" | "monitoring";
+  implementationPattern?: string;
+  protocols?: string[];
+  performanceCriteria?: {
+    metric: string;
+    target: string;
+    unit?: string;
+  }[];
+  priority?: "must" | "should" | "could" | "wont";
+  supersededBy?: string;
+  statusReason?: string;
+}
+
+/** An information requirement for content types and information flow governance. */
+export interface InformationRequirementArtifact extends EaArtifactBase {
+  kind: "information-requirement";
+  informationType?: string;
+  flowDirection?: "inbound" | "outbound" | "bidirectional";
+  sensitivityLevel?: "public" | "internal" | "sensitive" | "restricted";
+  requiredControls?: string[];
+  complianceFrameworks?: string[];
+  priority?: "must" | "should" | "could" | "wont";
+  supersededBy?: string;
+  statusReason?: string;
+}
+
 /** An implementation change record tracking work toward a target state. */
 export interface ChangeArtifact extends EaArtifactBase {
   kind: "change";
@@ -917,6 +973,10 @@ export type EaArtifact =
   | MigrationWaveArtifact
   | ExceptionArtifact
   | RequirementArtifact
+  | SecurityRequirementArtifact
+  | DataRequirementArtifact
+  | TechnicalRequirementArtifact
+  | InformationRequirementArtifact
   | ChangeArtifact
   | DecisionArtifact;
 
@@ -979,8 +1039,13 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "transition-plan", prefix: "PLAN", domain: "transitions", description: "A plan to move from baseline to target" },
   { kind: "migration-wave", prefix: "WAVE", domain: "transitions", description: "A batch of related changes within a transition" },
   { kind: "exception", prefix: "EXCEPT", domain: "transitions", description: "An approved exception to architecture policy" },
-  // Requirements, decisions & changes
+  // Requirements (cross-layer per NIST EA model)
   { kind: "requirement", prefix: "REQ", domain: "business", description: "A behavioral software requirement" },
+  { kind: "security-requirement", prefix: "SREQ", domain: "systems", description: "A security requirement aligned to NIST SP 800-53 or equivalent frameworks" },
+  { kind: "data-requirement", prefix: "DREQ", domain: "data", description: "A data requirement defining security classification and governance constraints" },
+  { kind: "technical-requirement", prefix: "TREQ", domain: "delivery", description: "A technical requirement for infrastructure, network, and delivery systems" },
+  { kind: "information-requirement", prefix: "IREQ", domain: "information", description: "An information requirement for content types and information flow governance" },
+  // Decisions & changes
   { kind: "change", prefix: "CHG", domain: "transitions", description: "An implementation change record tracking work toward a target state" },
   { kind: "decision", prefix: "ADR", domain: "transitions", description: "An architecture decision record documenting a key design choice" },
 ] as const;

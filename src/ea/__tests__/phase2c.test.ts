@@ -46,8 +46,8 @@ function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: s
 describe("Phase 2C: Information Layer Kinds", () => {
   const infoKinds = getKindsByDomain("information");
 
-  it("registers 6 information-layer kinds", () => {
-    expect(infoKinds).toHaveLength(6);
+  it("registers 7 information-layer kinds", () => {
+    expect(infoKinds).toHaveLength(7);
   });
 
   it.each([
