@@ -1,0 +1,86 @@
+apiVersion: anchored-spec/ea/v1
+kind: transition-plan
+id: TPLAN-payment-migration
+
+metadata:
+  name: Payment Service Migration Plan
+  summary: >
+    Phased migration plan to replace the monolithic payment API
+    with event-driven payment microservices. Three waves over Q2-Q3 2026.
+  owners:
+    - team-payments
+    - team-architecture
+  tags:
+    - migration
+    - multi-wave
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  baseline: BASELINE-q1-2026
+  target: TARGET-q3-2026
+  approvalPolicy:
+    requiredApprovers:
+      - team-architecture
+      - team-payments
+      - vp-engineering
+    approvedAt: "2026-03-20T00:00:00Z"
+  waves:
+    - id: wave-1
+      name: "Foundation"
+      startDate: "2026-04-01"
+      endDate: "2026-05-15"
+      description: >
+        Stand up new payment events service and Kafka topics.
+        Run in shadow mode alongside existing payment API.
+      artifacts:
+        - action: create
+          id: SVC-payment-events
+        - action: create
+          id: IFACE-payment-events
+      risks:
+        - description: Kafka topic permissions may delay setup
+          mitigation: Pre-provision topics in staging now
+          severity: medium
+
+    - id: wave-2
+      name: "Migration"
+      startDate: "2026-05-16"
+      endDate: "2026-07-31"
+      description: >
+        Migrate order service to use payment events instead of
+        direct API calls. Dual-write during transition.
+      artifacts:
+        - action: modify
+          id: APP-order-service
+          changes: Switch from REST calls to event publishing
+      risks:
+        - description: Dual-write consistency issues
+          mitigation: Implement saga pattern with compensation
+          severity: high
+
+    - id: wave-3
+      name: "Deprecation"
+      startDate: "2026-08-01"
+      endDate: "2026-09-30"
+      description: >
+        Deprecate old payment API. Migrate remaining consumers.
+        Decommission old service after verification period.
+      artifacts:
+        - action: modify
+          id: SVC-payment-api
+          changes: Set status to deprecated, then retired
+        - action: modify
+          id: CON-partner-portal
+          changes: Update to use new payment events interface
+      risks:
+        - description: Partner portal integration may take longer
+          mitigation: Provide adapter layer for backwards compatibility
+          severity: medium
+
+relations:
+  - type: transitions
+    target: BASELINE-q1-2026
+  - type: achieves
+    target: TARGET-q3-2026

@@ -1,0 +1,42 @@
+apiVersion: anchored-spec/ea/v1
+kind: system-interface
+id: IFACE-order-events
+
+metadata:
+  name: Order Events
+  summary: >
+    Kafka-based event interface for order lifecycle events.
+    All order state changes are published here for downstream consumers.
+  owners:
+    - team-commerce
+  tags:
+    - async
+    - kafka
+    - events
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  protocol: Kafka
+  topic: orders.events
+  format: CloudEvents/JSON
+  events:
+    - name: order.created
+      schema: schemas/events/order-created.avsc
+    - name: order.updated
+      schema: schemas/events/order-updated.avsc
+    - name: order.fulfilled
+      schema: schemas/events/order-fulfilled.avsc
+    - name: order.cancelled
+      schema: schemas/events/order-cancelled.avsc
+
+anchors:
+  configs:
+    - path: kafka/topics/orders-events.yaml
+
+relations:
+  - type: consumedBy
+    target: CON-analytics-pipeline
+  - type: consumedBy
+    target: CON-notification-service

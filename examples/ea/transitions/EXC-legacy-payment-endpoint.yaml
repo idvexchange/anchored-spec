@@ -1,0 +1,41 @@
+apiVersion: anchored-spec/ea/v1
+kind: exception
+id: EXC-legacy-payment-endpoint
+
+metadata:
+  name: Legacy Payment Status Endpoint Exception
+  summary: >
+    Suppresses the undocumented-api drift finding for the legacy
+    GET /api/v1/payments/status endpoint. This endpoint is used
+    by the partner portal and will be removed in wave-3 of the
+    payment migration.
+  owners:
+    - team-payments
+  tags:
+    - legacy
+    - temporary
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  reason: >
+    The GET /api/v1/payments/status endpoint predates our API
+    contract model. It is undocumented but actively used by the
+    partner portal. It will be removed as part of TPLAN-payment-migration
+    wave-3 (Q3 2026). Suppressing the drift finding until then.
+  scope:
+    rules:
+      - ea:systems/undocumented-api
+    artifactIds:
+      - SVC-payment-api
+  approval:
+    approvedBy: "@jsmith"
+    approvedAt: "2026-03-20T00:00:00Z"
+  expiry: "2026-10-01T00:00:00Z"
+  reviewSchedule: monthly
+  linkedTransition: TPLAN-payment-migration
+
+relations:
+  - type: suppresses
+    target: SVC-payment-api

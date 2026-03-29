@@ -1,0 +1,34 @@
+apiVersion: anchored-spec/ea/v1
+kind: consumer
+id: CON-partner-portal
+
+metadata:
+  name: Partner Portal
+  summary: >
+    External partner-facing web application that consumes the
+    Orders API v2 to allow partners to submit and track bulk orders.
+  owners:
+    - team-partnerships
+  tags:
+    - external
+    - partner
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  type: external
+  contactEmail: partners@example.com
+  sla:
+    availability: "99.9%"
+    supportTier: premium
+  consumedVersions:
+    - api: API-orders-v2
+      version: ">=2.0.0"
+      endpoints:
+        - "POST /api/v2/orders/bulk"
+        - "GET /api/v2/orders/:id"
+
+relations:
+  - type: consumes
+    target: API-orders-v2

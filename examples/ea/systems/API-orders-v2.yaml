@@ -1,0 +1,55 @@
+apiVersion: anchored-spec/ea/v1
+kind: api-contract
+id: API-orders-v2
+
+metadata:
+  name: Orders API v2
+  summary: >
+    Public-facing REST API contract for order management.
+    Version 2 adds bulk operations and webhook subscriptions.
+  owners:
+    - team-commerce
+    - team-platform
+  tags:
+    - public-api
+    - versioned
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+# Kind-specific fields
+spec:
+  version: "2.1.0"
+  protocol: REST
+  format: OpenAPI 3.1
+  specFile: docs/openapi/orders-v2.yaml
+  breakingChangePolicy: semver
+  endpoints:
+    - method: POST
+      path: /api/v2/orders
+      description: Create a new order
+    - method: GET
+      path: /api/v2/orders/:id
+      description: Get order by ID
+    - method: PUT
+      path: /api/v2/orders/:id/status
+      description: Update order status
+    - method: POST
+      path: /api/v2/orders/bulk
+      description: Create multiple orders (v2 addition)
+    - method: POST
+      path: /api/v2/orders/:id/webhooks
+      description: Subscribe to order events (v2 addition)
+
+anchors:
+  schemas:
+    - name: OrderCreateRequest
+      file: src/schemas/order.schema.ts
+    - name: OrderResponse
+      file: src/schemas/order.schema.ts
+
+relations:
+  - type: consumedBy
+    target: CON-partner-portal
+  - type: consumedBy
+    target: CON-mobile-app

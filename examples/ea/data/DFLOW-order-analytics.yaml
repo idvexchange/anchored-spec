@@ -1,0 +1,49 @@
+apiVersion: anchored-spec/ea/v1
+kind: data-flow
+id: DFLOW-order-analytics
+
+metadata:
+  name: Order Analytics ETL
+  summary: >
+    Nightly ETL pipeline that extracts order data from the
+    orders database, transforms it for analytics, and loads
+    it into the data warehouse for reporting.
+  owners:
+    - team-data
+  tags:
+    - etl
+    - analytics
+    - nightly
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  type: batch
+  schedule: "0 2 * * *"
+  engine: dbt
+  source:
+    store: STORE-orders-postgres
+    tables: [orders, order_items]
+  destination:
+    store: STORE-analytics-warehouse
+    schema: analytics
+    tables: [fact_orders, dim_customers]
+  transformations:
+    - name: deduplicate_orders
+      description: Remove duplicate order records
+    - name: enrich_customer_data
+      description: Join with customer dimension
+    - name: calculate_metrics
+      description: Compute order value metrics
+
+anchors:
+  configs:
+    - path: dbt/models/orders/fact_orders.sql
+    - path: dbt/models/orders/dim_customers.sql
+
+relations:
+  - type: receivesFrom
+    target: DOBJ-orders-table
+  - type: flowsTo
+    target: STORE-analytics-warehouse

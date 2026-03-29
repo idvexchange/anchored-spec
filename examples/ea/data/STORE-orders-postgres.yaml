@@ -1,0 +1,49 @@
+apiVersion: anchored-spec/ea/v1
+kind: data-store
+id: STORE-orders-postgres
+
+metadata:
+  name: Orders PostgreSQL Database
+  summary: >
+    Primary PostgreSQL database for order data. Contains orders,
+    order items, and order status history. RDS-managed with
+    Multi-AZ failover.
+  owners:
+    - team-commerce
+    - team-data
+  tags:
+    - postgresql
+    - rds
+    - pii
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  engine: PostgreSQL
+  version: "15.4"
+  hosting: AWS RDS
+  multiAz: true
+  encrypted: true
+  backupRetention: 30
+  classification: confidential
+  schemas:
+    - name: public
+      tables: ["orders", "order_items", "order_status_history"]
+
+anchors:
+  schemas:
+    - name: orders
+      file: prisma/schema.prisma
+    - name: order_items
+      file: prisma/schema.prisma
+  configs:
+    - path: terraform/modules/rds/orders.tf
+
+relations:
+  - type: storedBy
+    target: APP-order-service
+  - type: contains
+    target: DOBJ-orders-table
+  - type: governedBy
+    target: DQR-order-data-integrity

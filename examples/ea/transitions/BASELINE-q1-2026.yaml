@@ -1,0 +1,44 @@
+apiVersion: anchored-spec/ea/v1
+kind: baseline
+id: BASELINE-q1-2026
+
+metadata:
+  name: Q1 2026 Architecture Baseline
+  summary: >
+    Snapshot of the e-commerce platform architecture as of Q1 2026.
+    Captures the current state before the payment service migration.
+  owners:
+    - team-architecture
+  tags:
+    - quarterly
+    - pre-migration
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  capturedAt: "2026-03-15T00:00:00Z"
+  scope: full
+  artifactIds:
+    - APP-order-service
+    - SVC-payment-api
+    - API-orders-v2
+    - IFACE-order-events
+    - DEP-order-service-k8s
+    - STORE-orders-postgres
+    - DOBJ-orders-table
+    - ENV-production
+  summary:
+    totalArtifacts: 8
+    domains:
+      systems: 4
+      delivery: 2
+      data: 2
+    healthScore: 72
+    driftFindings:
+      errors: 0
+      warnings: 3
+
+relations:
+  - type: comparedBy
+    target: TARGET-q3-2026

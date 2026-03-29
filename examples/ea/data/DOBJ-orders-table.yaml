@@ -1,0 +1,66 @@
+apiVersion: anchored-spec/ea/v1
+kind: data-object
+id: DOBJ-orders-table
+
+metadata:
+  name: Orders Table
+  summary: >
+    Core orders table storing order records with customer info,
+    totals, and fulfillment status.
+  owners:
+    - team-commerce
+  tags:
+    - table
+    - pii
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  type: table
+  store: STORE-orders-postgres
+  schema: public
+  columns:
+    - name: id
+      type: uuid
+      primaryKey: true
+    - name: customer_id
+      type: uuid
+      nullable: false
+      classification: pii
+    - name: customer_email
+      type: varchar(255)
+      nullable: false
+      classification: pii
+    - name: total_amount
+      type: decimal(10,2)
+      nullable: false
+    - name: currency
+      type: varchar(3)
+      nullable: false
+      default: USD
+    - name: status
+      type: varchar(20)
+      nullable: false
+      enum: [pending, confirmed, processing, shipped, delivered, cancelled]
+    - name: created_at
+      type: timestamp
+      nullable: false
+    - name: updated_at
+      type: timestamp
+      nullable: false
+  indexes:
+    - columns: [customer_id]
+    - columns: [status, created_at]
+    - columns: [created_at]
+
+anchors:
+  schemas:
+    - name: orders
+      file: prisma/schema.prisma
+
+relations:
+  - type: containedIn
+    target: STORE-orders-postgres
+  - type: flowsTo
+    target: DFLOW-order-analytics
