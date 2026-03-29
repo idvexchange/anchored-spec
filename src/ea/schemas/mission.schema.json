@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/mission.schema.json",
+  "title": "Anchored Spec — EA Mission",
+  "description": "A strategic mission or objective with key results and themes.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "mission" },
+    "timeHorizon": {
+      "type": "string",
+      "enum": ["short-term", "medium-term", "long-term", "perpetual"],
+      "description": "Planning time horizon"
+    },
+    "keyResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "metric": { "type": "string" },
+          "target": { "type": "string" },
+          "currentValue": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Key results for this mission"
+    },
+    "strategicThemes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Strategic themes this mission addresses"
+    },
+    "sponsor": { "type": "string", "description": "Executive sponsor" }
+  }
+}

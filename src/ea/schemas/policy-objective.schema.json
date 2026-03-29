@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/policy-objective.schema.json",
+  "title": "Anchored Spec — EA Policy Objective",
+  "description": "A policy objective with category, target metric, and enforcement.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["category", "objective"],
+  "properties": {
+    "kind": { "const": "policy-objective" },
+    "category": {
+      "type": "string",
+      "enum": ["sla", "compliance", "security", "operational", "financial", "data-governance", "other"],
+      "description": "Policy category"
+    },
+    "objective": { "type": "string", "minLength": 1, "description": "Objective statement" },
+    "target": {
+      "type": "object",
+      "required": ["metric", "threshold"],
+      "properties": {
+        "metric": { "type": "string", "minLength": 1 },
+        "threshold": { "type": "string", "minLength": 1 },
+        "currentValue": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Target metric"
+    },
+    "enforcedBy": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Control artifact IDs enforcing this policy"
+    },
+    "regulatoryRef": { "type": "string", "description": "Regulatory reference" },
+    "reviewCadence": { "type": "string", "description": "Review cadence" }
+  }
+}

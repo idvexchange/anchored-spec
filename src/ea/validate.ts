@@ -28,6 +28,13 @@ import type {
   ClassificationArtifact,
   RetentionPolicyArtifact,
   GlossaryTermArtifact,
+  CapabilityArtifact,
+  ValueStreamArtifact,
+  ProcessArtifact,
+  OrgUnitArtifact,
+  PolicyObjectiveArtifact,
+  ControlArtifact,
+  MissionArtifact,
 } from "./types.js";
 import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
@@ -81,7 +88,15 @@ export type EaSchemaName =
   | "information-exchange"
   | "classification"
   | "retention-policy"
-  | "glossary-term";
+  | "glossary-term"
+  | "mission"
+  | "capability"
+  | "value-stream"
+  | "process"
+  | "org-unit"
+  | "policy-objective"
+  | "business-service"
+  | "control";
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "artifact-base",
@@ -115,6 +130,14 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "classification",
   "retention-policy",
   "glossary-term",
+  "mission",
+  "capability",
+  "value-stream",
+  "process",
+  "org-unit",
+  "policy-objective",
+  "business-service",
+  "control",
 ];
 
 function getEaAjv(): Ajv {
@@ -618,6 +641,106 @@ export function validateEaArtifacts(
           "ea:quality:glossary-missing-definition",
           a.id,
           `Glossary term "${a.id}" must have a definition`
+        );
+      }
+    }
+
+    // ── Phase 2D: Business Layer Quality Rules ──────────────────────────────
+
+    // ── ea:quality:capability-missing-level ──────────────────────────────────
+    if (a.kind === "capability") {
+      const cap = a as unknown as CapabilityArtifact;
+      const capSev = ruleSeverity("ea:quality:capability-missing-level", "error", q);
+      if (cap.level === undefined || cap.level === null) {
+        push(
+          capSev,
+          "ea:quality:capability-missing-level",
+          a.id,
+          `Capability "${a.id}" must specify a level`
+        );
+      }
+    }
+
+    // ── ea:quality:process-missing-steps ─────────────────────────────────────
+    if (a.kind === "process") {
+      const proc = a as unknown as ProcessArtifact;
+      const procSev = ruleSeverity("ea:quality:process-missing-steps", "warning", q);
+      if (!proc.steps || proc.steps.length === 0) {
+        push(
+          procSev,
+          "ea:quality:process-missing-steps",
+          a.id,
+          `Process "${a.id}" has no steps defined`
+        );
+      }
+    }
+
+    // ── ea:quality:value-stream-missing-stages ──────────────────────────────
+    if (a.kind === "value-stream") {
+      const vs = a as unknown as ValueStreamArtifact;
+      const vsSev = ruleSeverity("ea:quality:value-stream-missing-stages", "error", q);
+      if (!vs.stages || vs.stages.length === 0) {
+        push(
+          vsSev,
+          "ea:quality:value-stream-missing-stages",
+          a.id,
+          `Value stream "${a.id}" has no stages defined`
+        );
+      }
+    }
+
+    // ── ea:quality:control-missing-assertion ─────────────────────────────────
+    if (a.kind === "control") {
+      const ctrl = a as unknown as ControlArtifact;
+      const ctrlSev = ruleSeverity("ea:quality:control-missing-assertion", "error", q);
+      if (!ctrl.assertion || ctrl.assertion.trim().length === 0) {
+        push(
+          ctrlSev,
+          "ea:quality:control-missing-assertion",
+          a.id,
+          `Control "${a.id}" must have an assertion`
+        );
+      }
+    }
+
+    // ── ea:quality:org-unit-missing-type ─────────────────────────────────────
+    if (a.kind === "org-unit") {
+      const org = a as unknown as OrgUnitArtifact;
+      const orgSev = ruleSeverity("ea:quality:org-unit-missing-type", "error", q);
+      if (!org.unitType || org.unitType.trim().length === 0) {
+        push(
+          orgSev,
+          "ea:quality:org-unit-missing-type",
+          a.id,
+          `Organization unit "${a.id}" must specify a unitType`
+        );
+      }
+    }
+
+    // ── ea:quality:policy-missing-objective ──────────────────────────────────
+    if (a.kind === "policy-objective") {
+      const pol = a as unknown as PolicyObjectiveArtifact;
+      const polSev = ruleSeverity("ea:quality:policy-missing-objective", "error", q);
+      if (!pol.objective || pol.objective.trim().length === 0) {
+        push(
+          polSev,
+          "ea:quality:policy-missing-objective",
+          a.id,
+          `Policy objective "${a.id}" must have an objective`
+        );
+      }
+    }
+
+    // ── ea:quality:mission-missing-key-results ──────────────────────────────
+    if (a.kind === "mission") {
+      const mis = a as unknown as MissionArtifact;
+      const misSev = ruleSeverity("ea:quality:mission-missing-key-results", "info", q);
+      if (!mis.keyResults || mis.keyResults.length === 0) {
+        push(
+          misSev,
+          "ea:quality:mission-missing-key-results",
+          a.id,
+          `Mission "${a.id}" has no key results defined`
         );
       }
     }

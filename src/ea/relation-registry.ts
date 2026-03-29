@@ -115,12 +115,12 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "realizes",
     inverse: "realizedBy",
-    validSourceKinds: ["application", "service", "integration"],
-    validTargetKinds: ["capability", "business-service", "requirement"],
+    validSourceKinds: ["application", "service", "integration", "business-service"],
+    validTargetKinds: ["capability", "business-service", "requirement", "mission"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
-    description: "Source system realizes a business capability or requirement.",
+    description: "Source system or business service realizes a capability, mission, or requirement.",
   },
   {
     type: "uses",
