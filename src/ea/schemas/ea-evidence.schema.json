@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/ea-evidence.schema.json",
+  "title": "Anchored Spec — EA Evidence",
+  "description": "Test evidence for EA artifacts — machine-verifiable proof that tests pass for tracked artifacts.",
+  "type": "object",
+  "required": ["generatedAt", "source", "records"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of evidence generation"
+    },
+    "source": {
+      "type": "string",
+      "description": "Test runner or evidence adapter that produced this evidence",
+      "examples": ["vitest", "jest", "junit", "custom"]
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["artifactId", "testFile", "kind", "status", "recordedAt"],
+        "additionalProperties": false,
+        "properties": {
+          "artifactId": {
+            "type": "string",
+            "minLength": 3,
+            "description": "EA artifact ID this test relates to (e.g., SVC-auth, APP-frontend)"
+          },
+          "testFile": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to the test file"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["unit", "integration", "e2e", "contract", "manual", "smoke", "performance"],
+            "description": "Type of test"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["passed", "failed", "skipped", "error"]
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Test duration in milliseconds"
+          }
+        }
+      }
+    }
+  }
+}

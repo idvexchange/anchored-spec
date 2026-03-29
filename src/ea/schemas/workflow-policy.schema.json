@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/workflow-policy.schema.json",
+  "title": "Anchored Spec — EA Workflow Policy",
+  "description": "Governance rules for EA artifact lifecycle: workflow variants, path-based enforcement, trivial exemptions, and lifecycle gates.",
+  "type": "object",
+  "required": [
+    "workflowVariants",
+    "changeRequiredRules",
+    "trivialExemptions",
+    "lifecycleRules"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Schema version for migration tracking"
+    },
+    "workflowVariants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "defaultTypes", "artifacts"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z]+(-[a-z]+)*$"
+          },
+          "name": { "type": "string" },
+          "defaultTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*$"
+            },
+            "description": "EA artifact change types that default to this variant"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Ordered list of EA artifact kinds this variant requires"
+          },
+          "skipSkillSequence": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, skip mandatory skill/ceremony sequence"
+          },
+          "verificationFocus": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "EA verification checks to emphasize for this variant"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "changeRequiredRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "include"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z]+(-[a-z]+)*$"
+          },
+          "description": { "type": "string" },
+          "include": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Glob patterns — files matching these require a change artifact"
+          },
+          "exclude": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Glob patterns — files matching these are excluded from this rule"
+          },
+          "requiredDocs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "EA artifacts that must exist for changes matching this rule"
+          },
+          "requiredDriftChecks": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "EA drift resolvers to run"
+          },
+          "commands": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Verification commands to run for changes matching this rule"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Path-based rules that mandate EA change artifacts"
+    },
+    "trivialExemptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Glob patterns for paths that never require a change artifact"
+    },
+    "choreEligibility": {
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All conditions must be true for chore eligibility"
+        },
+        "escalationRule": {
+          "type": "string",
+          "description": "What happens when conditions are not met"
+        }
+      },
+      "additionalProperties": false,
+      "description": "When a change qualifies as a chore (lightweight workflow)"
+    },
+    "lifecycleRules": {
+      "type": "object",
+      "properties": {
+        "plannedToActiveRequiresChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Artifact can't go active without an associated change artifact"
+        },
+        "activeToShippedRequiresCoverage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Artifact can't ship without test evidence"
+        },
+        "deprecatedRequiresReason": {
+          "type": "boolean",
+          "default": true,
+          "description": "Artifact can't be deprecated without a reason or replacement"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Machine-enforced EA artifact lifecycle transition gates"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Project-specific policy metadata. Not validated by built-in schemas."
+    }
+  },
+  "additionalProperties": false
+}

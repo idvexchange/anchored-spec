@@ -109,7 +109,11 @@ export type EaSchemaName =
   | "exception"
   | "requirement"
   | "change"
-  | "decision";
+  | "decision"
+  | "config-v1"
+  | "workflow-policy"
+  | "ea-evidence"
+  | "ea-verification";
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "artifact-base",
@@ -159,6 +163,10 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "requirement",
   "change",
   "decision",
+  "config-v1",
+  "workflow-policy",
+  "ea-evidence",
+  "ea-verification",
 ];
 
 function getEaAjv(): Ajv {

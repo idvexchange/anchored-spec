@@ -199,9 +199,9 @@ describe("Phase 2E: Transition Schema Validation", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("validates all 44 schemas load correctly", () => {
+  it("validates all schemas load correctly", () => {
     const names = getEaSchemaNames();
-    expect(names).toHaveLength(47);
+    expect(names).toHaveLength(51);
   });
 });
 
