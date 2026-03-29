@@ -28,12 +28,25 @@ spec:
       - data
       - delivery
   effectiveBy: "2026-09-30T00:00:00Z"
+  successMetrics:
+    - id: data-persistence
+      metric: Data persistence across sessions
+      target: 100% of todos persisted in SQLite
+    - id: api-latency
+      metric: API response time at p95
+      target: Under 200ms
+    - id: auth-coverage
+      metric: Endpoints with authentication enforced
+      target: 100% of API routes
+    - id: uptime
+      metric: Production availability
+      target: 99.9% uptime on Vercel
   artifactRefs:
     - APP-todo-web
     - API-todo-v1
     - SVC-todo-notifications
     - STORE-todo-memory
-    - DEP-todo-vercel
+    - DEPLOY-todo-vercel
     - ENV-production
     - PIPE-todo-ci
   targetDate: "2026-09-30T00:00:00Z"
@@ -68,7 +81,7 @@ spec:
     - "Sub-200ms response time maintained"
 
 relations:
-  - type: compares
+  - type: dependsOn
     target: BASELINE-v0-1
-  - type: implementedBy
-    target: TPLAN-persistence-migration
+  - type: dependsOn
+    target: PLAN-persistence-migration

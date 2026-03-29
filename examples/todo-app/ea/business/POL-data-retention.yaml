@@ -38,7 +38,5 @@ spec:
     purge and must be manually reviewed before deletion.
 
 relations:
-  - type: governs
+  - type: dependsOn
     target: STORE-todo-memory
-  - type: governs
-    target: DOBJ-task

@@ -43,7 +43,5 @@ anchors:
       file: lib/types.ts
 
 relations:
-  - type: containedIn
-    target: STORE-todo-memory
-  - type: receivesFrom
+  - type: dependsOn
     target: DOBJ-task

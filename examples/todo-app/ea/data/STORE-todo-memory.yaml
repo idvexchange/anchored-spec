@@ -39,11 +39,9 @@ anchors:
       file: lib/store.ts
 
 relations:
-  - type: storedBy
-    target: APP-todo-web
-  - type: contains
+  - type: dependsOn
     target: DOBJ-task
-  - type: contains
+  - type: dependsOn
     target: DOBJ-category
   - type: governedBy
     target: POL-data-retention

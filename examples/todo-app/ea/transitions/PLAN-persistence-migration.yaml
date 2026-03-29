@@ -1,6 +1,6 @@
 apiVersion: anchored-spec/ea/v1
 kind: transition-plan
-id: TPLAN-persistence-migration
+id: PLAN-persistence-migration
 
 metadata:
   name: Persistence Migration Plan
@@ -47,7 +47,7 @@ spec:
       title: "Wave 3: Enhancement — Notifications + Production"
       deliverables:
         - SVC-todo-notifications
-        - DEP-todo-vercel
+        - DEPLOY-todo-vercel
         - PIPE-todo-ci
       status: pending
       criteria:
@@ -72,7 +72,7 @@ spec:
       mitigation: Use ISR and edge functions for critical paths
 
 relations:
-  - type: transitions
+  - type: generates
     target: BASELINE-v0-1
-  - type: achieves
+  - type: generates
     target: TARGET-v1-0
