@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/environment.schema.json",
+  "title": "Anchored Spec — EA Environment",
+  "description": "A deployment environment (prod, staging, dev).",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["tier", "isProduction"],
+  "properties": {
+    "kind": { "const": "environment" },
+    "tier": {
+      "type": "string",
+      "enum": ["production", "staging", "development", "qa", "sandbox", "dr", "other"],
+      "description": "Environment tier"
+    },
+    "isProduction": {
+      "type": "boolean",
+      "description": "Whether this is a production environment"
+    },
+    "platforms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Platform artifact IDs running in this environment"
+    },
+    "networkZones": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Network zone artifact IDs for this environment"
+    },
+    "accessLevel": {
+      "type": "string",
+      "enum": ["restricted", "team", "org", "public"],
+      "description": "Access control level"
+    },
+    "maxDataClassification": {
+      "type": "string",
+      "description": "Maximum data classification allowed in this environment"
+    },
+    "promotesFrom": {
+      "type": "string",
+      "description": "Environment artifact ID that promotes to this environment"
+    },
+    "promotesTo": {
+      "type": "string",
+      "description": "Environment artifact ID that this environment promotes to"
+    }
+  }
+}

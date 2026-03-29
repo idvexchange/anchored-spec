@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/api-contract.schema.json",
+  "title": "Anchored Spec — EA API Contract",
+  "description": "An API specification (REST, GraphQL, gRPC).",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "api-contract" },
+    "protocol": {
+      "type": "string",
+      "enum": ["rest", "graphql", "grpc", "soap"],
+      "description": "API protocol"
+    },
+    "specFormat": {
+      "type": "string",
+      "enum": ["openapi", "graphql-sdl", "protobuf", "asyncapi", "custom"],
+      "description": "Specification format"
+    },
+    "specPath": {
+      "type": "string",
+      "description": "Path to the specification file"
+    },
+    "version": {
+      "type": "string",
+      "description": "API version"
+    }
+  }
+}

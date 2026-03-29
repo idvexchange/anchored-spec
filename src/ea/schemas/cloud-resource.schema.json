@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/cloud-resource.schema.json",
+  "title": "Anchored Spec — EA Cloud Resource",
+  "description": "A specific cloud resource (RDS instance, S3 bucket, etc.).",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["provider", "resourceType"],
+  "properties": {
+    "kind": { "const": "cloud-resource" },
+    "provider": {
+      "type": "string",
+      "enum": ["aws", "gcp", "azure", "other"],
+      "description": "Cloud provider"
+    },
+    "resourceType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Type of cloud resource (e.g., rds, s3, lambda)"
+    },
+    "region": {
+      "type": "string",
+      "description": "Cloud region"
+    },
+    "account": {
+      "type": "string",
+      "description": "Cloud account identifier"
+    },
+    "resourceId": {
+      "type": "string",
+      "description": "Provider-specific resource identifier"
+    },
+    "costCenter": {
+      "type": "string",
+      "description": "Cost center for billing"
+    },
+    "provisionedBy": {
+      "type": "string",
+      "enum": ["terraform", "cloudformation", "pulumi", "manual", "cdk", "other"],
+      "description": "Infrastructure-as-code tool used to provision"
+    },
+    "technology": {
+      "type": "object",
+      "properties": {
+        "engine": { "type": "string" },
+        "version": { "type": "string" },
+        "tier": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Technology details for this resource"
+    }
+  }
+}

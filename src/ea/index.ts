@@ -55,3 +55,7 @@ export type {
 } from "./config.js";
 
 export { resolveEaConfig } from "./config.js";
+
+// Validation
+export type { EaSchemaName, EaValidationError, EaValidationResult } from "./validate.js";
+export { validateEaSchema, getSchemaForKind, getEaSchemaNames } from "./validate.js";

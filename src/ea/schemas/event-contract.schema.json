@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/event-contract.schema.json",
+  "title": "Anchored Spec — EA Event Contract",
+  "description": "An async event/message contract.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "event-contract" },
+    "protocol": {
+      "type": "string",
+      "enum": ["kafka", "rabbitmq", "sqs", "sns", "eventbridge", "nats", "custom"],
+      "description": "Messaging protocol"
+    },
+    "specFormat": {
+      "type": "string",
+      "enum": ["asyncapi", "avro", "protobuf", "json-schema", "custom"],
+      "description": "Event schema format"
+    },
+    "specPath": {
+      "type": "string",
+      "description": "Path to the event specification file"
+    },
+    "version": {
+      "type": "string",
+      "description": "Contract version"
+    }
+  }
+}

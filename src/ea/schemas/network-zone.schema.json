@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/network-zone.schema.json",
+  "title": "Anchored Spec — EA Network Zone",
+  "description": "A network security zone or boundary.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "network-zone" },
+    "zoneType": {
+      "type": "string",
+      "enum": ["public", "private", "dmz", "restricted"],
+      "description": "Type of network zone"
+    },
+    "cidr": {
+      "type": "string",
+      "description": "CIDR block for this zone"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Cloud or infrastructure provider"
+    }
+  }
+}
