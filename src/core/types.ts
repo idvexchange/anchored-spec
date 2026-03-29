@@ -283,6 +283,8 @@ export interface AnchoredSpecConfig {
   testMetadata?: TestMetadataConfig;
   /** Custom change types beyond the built-in feature/fix/refactor/chore. */
   customChangeTypes?: string[];
+  /** Enterprise Architecture extension configuration. */
+  ea?: import("../ea/config.js").EaConfig;
 }
 
 // ─── Plugin System ─────────────────────────────────────────────────────────────
