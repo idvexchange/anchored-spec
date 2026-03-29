@@ -18,7 +18,9 @@ import { tmpdir } from "node:os";
 import { EaRoot, normalizeArtifact } from "../loader.js";
 import { validateEaArtifacts } from "../validate.js";
 import type { EaArtifactBase } from "../types.js";
-import type { AnchoredSpecConfig } from "../../core/types.js";
+
+/** Minimal v0.x config shape for test backward-compat. */
+type LegacyConfig = { specRoot?: string; ea?: { enabled: boolean; rootDir: string } } & Record<string, unknown>;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +83,7 @@ metadata:
   return base + relationsBlock;
 }
 
-function minimalConfig(eaRootDir = "ea"): AnchoredSpecConfig {
+function minimalConfig(eaRootDir = "ea"): LegacyConfig {
   return {
     specDir: "specs",
     outputDir: "output",
@@ -89,7 +91,7 @@ function minimalConfig(eaRootDir = "ea"): AnchoredSpecConfig {
       enabled: true,
       rootDir: eaRootDir,
     },
-  } as AnchoredSpecConfig;
+  } as LegacyConfig;
 }
 
 // ─── EaRoot Tests ───────────────────────────────────────────────────────────────
@@ -784,12 +786,12 @@ describe("Integration: load examples/ea/", () => {
   // with both Phase A kinds and Phase 2 kinds.
   const projectRoot = join(__dirname, "..", "..", "..");
 
-  function examplesConfig(): AnchoredSpecConfig {
+  function examplesConfig(): LegacyConfig {
     return {
       specDir: "specs",
       outputDir: "output",
       ea: { enabled: true, rootDir: "examples/ea" },
-    } as AnchoredSpecConfig;
+    } as LegacyConfig;
   }
 
   it("loads all example artifacts without parse errors", async () => {

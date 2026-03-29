@@ -9,7 +9,23 @@
  * throws a helpful error on first use.
  */
 
-import type { DriftResolver, DriftResolveContext, SemanticRefKind } from "../core/types.js";
+// ─── Types (inlined after src/core removal) ─────────────────────────────────
+
+/** Kind of semantic reference being resolved. */
+type SemanticRefKind = "interface" | "route" | "errorCode" | "symbol" | "schema" | (string & {});
+
+/** Context passed to a drift resolver's `resolve()` method. */
+interface DriftResolveContext {
+  projectRoot: string;
+  fileIndex?: ReadonlyArray<{ path: string; relativePath: string }>;
+}
+
+/** A pluggable drift resolver that maps semantic refs to source files. */
+interface DriftResolver {
+  name: string;
+  kinds?: SemanticRefKind[];
+  resolve(kind: SemanticRefKind, ref: string, ctx: DriftResolveContext): string[] | null;
+}
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";

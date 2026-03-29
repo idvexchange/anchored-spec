@@ -2,8 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import typescriptAstResolver, { resetProjectCache } from "../../resolvers/typescript-ast.js";
-import { detectDrift } from "../../core/drift.js";
-import type { Requirement, DriftResolveContext } from "../../core/types.js";
+
+// DriftResolveContext shape (inlined after core removal)
+interface DriftResolveContext {
+  projectRoot: string;
+  fileIndex?: ReadonlyArray<{ path: string; relativePath: string }>;
+}
 
 const TMP = join(import.meta.dirname ?? __dirname, "__tmp_ast_resolver__");
 
@@ -21,21 +25,6 @@ function makeCtx(files?: Array<{ path: string; relativePath: string }>): DriftRe
   return {
     projectRoot: TMP,
     fileIndex: files ?? [],
-  };
-}
-
-function makeReq(overrides: Partial<Requirement> = {}): Requirement {
-  return {
-    id: "REQ-1",
-    title: "Test requirement",
-    summary: "A test requirement for AST drift detection",
-    priority: "must",
-    status: "active",
-    behaviorStatements: [
-      { id: "BS-01", text: "When testing, the system shall verify drift", format: "EARS", response: "The system shall verify drift" },
-    ],
-    owners: ["team"],
-    ...overrides,
   };
 }
 
@@ -206,34 +195,22 @@ describe("TypeScript AST Drift Resolver", () => {
     expect(result).toBeNull();
   });
 
-  it("integrates with detectDrift end-to-end", () => {
-    writeFileSync(join(TMP, "src/service.ts"), `
+  it("resolves multiple refs from a single file end-to-end", () => {
+    const filePath = join(TMP, "src/service.ts");
+    writeFileSync(filePath, `
       export interface PaymentService {
         charge(amount: number): Promise<void>;
       }
       export function processPayment() {}
     `);
 
-    const req = makeReq({
-      semanticRefs: {
-        interfaces: ["PaymentService"],
-        symbols: ["processPayment", "missingFunction"],
-        routes: [],
-        errorCodes: [],
-      },
-    });
+    const ctx = makeCtx([{ path: filePath, relativePath: "src/service.ts" }]);
 
-    const report = detectDrift([req], {
-      projectRoot: TMP,
-      sourceRoots: ["src"],
-      resolvers: [typescriptAstResolver],
-    });
+    // Found refs
+    expect(typescriptAstResolver.resolve("interface", "PaymentService", ctx)).toContain("src/service.ts");
+    expect(typescriptAstResolver.resolve("symbol", "processPayment", ctx)).toContain("src/service.ts");
 
-    const found = report.findings.filter((f) => f.status === "found");
-    expect(found.some((f) => f.ref === "PaymentService")).toBe(true);
-    expect(found.some((f) => f.ref === "processPayment")).toBe(true);
-
-    const missing = report.findings.filter((f) => f.status === "missing");
-    expect(missing.some((f) => f.ref === "missingFunction")).toBe(true);
+    // Missing ref — resolver returns null (defer) for symbols not found in any file
+    expect(typescriptAstResolver.resolve("symbol", "missingFunction", ctx)).toBeNull();
   });
 });

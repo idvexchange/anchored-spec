@@ -147,10 +147,6 @@ export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extrac
 export type { EaGenerator, EaGeneratorContext, GeneratedOutput, GenerationDrift, GeneratorConfig, EaGeneratorOptions, GenerationReport } from "./generators/index.js";
 export { runGenerators, renderGenerationReportMarkdown, registerGenerator, getGenerator, listGenerators, resolveGenerators, openapiGenerator, jsonSchemaGenerator } from "./generators/index.js";
 
-// Migration
-export type { MigrationOptions, MigratedArtifact, MigrationResult } from "./migrate-legacy.js";
-export { migrateLegacyArtifacts, migrateRequirement, migrateChange, migrateDecision, mapSemanticRefsToAnchors, renderMigrationReportMarkdown } from "./migrate-legacy.js";
-
 // Policy Engine (EA-native)
 export type { EaWorkflowPolicy, EaWorkflowVariant, EaChangeRequiredRule, EaLifecycleRules, EaPolicyMatchResult, EaPolicyEvaluationResult, EaCheckResult } from "./policy.js";
 export { evaluateEaPolicy, checkEaPaths, isTrivialPath, matchRules, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeArtifact, loadEaWorkflowPolicy } from "./policy.js";

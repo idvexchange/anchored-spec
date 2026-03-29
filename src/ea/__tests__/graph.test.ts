@@ -20,7 +20,9 @@ import { RelationGraph, buildRelationGraph } from "../graph.js";
 import { validateEaRelations } from "../validate.js";
 import { EaRoot } from "../loader.js";
 import type { EaArtifactBase } from "../types.js";
-import type { AnchoredSpecConfig } from "../../core/types.js";
+
+/** Minimal v0.x config shape for test backward-compat. */
+type LegacyConfig = { specRoot?: string; ea?: { enabled: boolean; rootDir: string } } & Record<string, unknown>;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -755,7 +757,7 @@ describe("Integration: graph from examples/ea/", () => {
       specDir: "specs",
       outputDir: "output",
       ea: { enabled: true, rootDir: "examples/ea" },
-    } as AnchoredSpecConfig);
+    } as LegacyConfig);
 
     const { artifacts } = await root.loadArtifacts();
     const registry = createDefaultRegistry();
@@ -770,7 +772,7 @@ describe("Integration: graph from examples/ea/", () => {
       specDir: "specs",
       outputDir: "output",
       ea: { enabled: true, rootDir: "examples/ea" },
-    } as AnchoredSpecConfig);
+    } as LegacyConfig);
 
     const { artifacts } = await root.loadArtifacts();
     const registry = createDefaultRegistry();
@@ -786,7 +788,7 @@ describe("Integration: graph from examples/ea/", () => {
       specDir: "specs",
       outputDir: "output",
       ea: { enabled: true, rootDir: "examples/ea" },
-    } as AnchoredSpecConfig);
+    } as LegacyConfig);
 
     const { artifacts } = await root.loadArtifacts();
     const registry = createDefaultRegistry();

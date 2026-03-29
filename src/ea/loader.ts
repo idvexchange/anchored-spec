@@ -14,8 +14,19 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, extname, relative, resolve, dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { AnchoredSpecConfig } from "../core/types.js";
 import type { EaArtifactBase, EaDomain, EaAnchors, EaRelation } from "./types.js";
+
+/**
+ * Minimal v0.x config shape — inlined after src/core removal.
+ * Only the fields needed to construct EaRoot from a v0.x config.
+ */
+interface LegacyAnchoredSpecConfig {
+  specRoot: string;
+  sourceRoots?: string[];
+  sourceGlobs?: string[];
+  ea?: import("./config.js").EaConfig;
+  [key: string]: unknown;
+}
 import { EA_DOMAINS, getDomainForKind } from "./types.js";
 import {
   resolveEaConfig,
@@ -300,7 +311,7 @@ const CONFIG_FILE = ".anchored-spec/config.json";
  * `.json` and `.yaml` files, normalizes YAML envelope format, and validates
  * each artifact against its kind-specific JSON Schema.
  *
- * Supports both v0.x (nested `AnchoredSpecConfig.ea`) and v1.0
+ * Supports both v0.x (nested config with `ea?` section) and v1.0
  * (`AnchoredSpecConfigV1`) config formats.
  */
 export class EaRoot {
@@ -312,21 +323,21 @@ export class EaRoot {
   private loaded: EaLoadResult | null = null;
 
   /**
-   * Construct from v0.x `AnchoredSpecConfig` (backward-compatible).
+   * Construct from v0.x config (backward-compatible).
    */
-  constructor(projectRoot: string, config: AnchoredSpecConfig);
+  constructor(projectRoot: string, config: LegacyAnchoredSpecConfig);
   /**
    * Construct from v1.0 config directly.
    */
   constructor(projectRoot: string, config: AnchoredSpecConfigV1);
-  constructor(projectRoot: string, config: AnchoredSpecConfig | AnchoredSpecConfigV1) {
+  constructor(projectRoot: string, config: LegacyAnchoredSpecConfig | AnchoredSpecConfigV1) {
     this.projectRoot = resolve(projectRoot);
     if ("schemaVersion" in config && config.schemaVersion === "1.0") {
       const v1 = config as AnchoredSpecConfigV1;
       this.v1Config = v1;
       this.eaConfig = v1ConfigToEaConfig(v1);
     } else {
-      const legacy = config as AnchoredSpecConfig;
+      const legacy = config as LegacyAnchoredSpecConfig;
       this.v1Config = null;
       this.eaConfig = resolveEaConfig(legacy.ea);
     }

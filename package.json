@@ -1,7 +1,7 @@
 {
   "name": "anchored-spec",
-  "version": "0.1.0",
-  "description": "Spec-driven development framework — specs as living contracts",
+  "version": "1.0.0",
+  "description": "Spec-as-source enterprise architecture framework — architecture models as living code",
   "type": "module",
   "bin": {
     "anchored-spec": "./dist/cli/index.js"
@@ -24,7 +24,7 @@
       "import": "./dist/cli/index.js",
       "require": "./dist/cli/index.cjs"
     },
-    "./schemas/*": "./dist/core/schemas/*",
+    "./schemas/*": "./dist/ea/schemas/*",
     "./ea/schemas/*": "./dist/ea/schemas/*",
     "./resolvers/typescript-ast": {
       "import": {
@@ -45,7 +45,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup && cp -r src/core/schemas dist/core/ && cp -r src/ea/schemas dist/ea/",
+    "build": "tsup && cp -r src/ea/schemas dist/ea/",
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

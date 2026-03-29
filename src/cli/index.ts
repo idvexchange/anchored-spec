@@ -23,10 +23,10 @@ import { eaEvidenceCommand } from "./commands/ea-evidence.js";
 import { eaDriftCommand } from "./commands/ea-drift.js";
 import { eaDiscoverCommand } from "./commands/ea-discover.js";
 import { eaGenerateCommand } from "./commands/ea-generate.js";
-import { eaMigrateLegacyCommand } from "./commands/ea-migrate-legacy.js";
 import { eaImpactCommand } from "./commands/ea-impact.js";
 import { eaStatusCommand } from "./commands/ea-status.js";
 import { eaTransitionCommand } from "./commands/ea-transition.js";
+import { migrateConfigCommand } from "./commands/migrate-config.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -62,12 +62,7 @@ program.addCommand(eaGenerateCommand());
 program.addCommand(eaImpactCommand());
 program.addCommand(eaStatusCommand());
 program.addCommand(eaTransitionCommand());
-
-// "migrate" at top level (rename from "migrate-legacy")
-const migrateCmd = eaMigrateLegacyCommand();
-migrateCmd.name("migrate");
-migrateCmd.description("Migrate legacy v0.x specs to EA artifacts");
-program.addCommand(migrateCmd);
+program.addCommand(migrateConfigCommand());
 
 // ─── Deprecated "ea" alias group ────────────────────────────────────────────────
 // Keeps `anchored-spec ea <cmd>` working but emits a deprecation warning.
@@ -95,7 +90,6 @@ ea.addCommand(wrapWithDeprecationWarning(eaEvidenceCommand()));
 ea.addCommand(wrapWithDeprecationWarning(eaDriftCommand()));
 ea.addCommand(wrapWithDeprecationWarning(eaDiscoverCommand()));
 ea.addCommand(wrapWithDeprecationWarning(eaGenerateCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaMigrateLegacyCommand()));
 ea.addCommand(wrapWithDeprecationWarning(eaImpactCommand()));
 ea.addCommand(wrapWithDeprecationWarning(eaStatusCommand()));
 ea.addCommand(wrapWithDeprecationWarning(eaTransitionCommand()));
