@@ -1,0 +1,74 @@
+apiVersion: anchored-spec/ea/v1
+kind: target
+id: TARGET-v1-0
+
+metadata:
+  name: Target v1.0 — Persistent & Production-Ready
+  summary: >
+    Target architecture state for v1.0 introducing persistent
+    SQLite storage, user authentication, notification service,
+    and Vercel production deployment.
+  owners:
+    - team-frontend
+  tags:
+    - target
+    - v1.0
+    - future-state
+  confidence: declared
+  status: planned
+  schemaVersion: "1.0.0"
+
+spec:
+  scope:
+    description: >
+      Target architecture for Todo app v1.0 — persistent storage with SQLite,
+      user authentication, notification service, and Vercel production deployment.
+    domains:
+      - systems
+      - data
+      - delivery
+  effectiveBy: "2026-09-30T00:00:00Z"
+  artifactRefs:
+    - APP-todo-web
+    - API-todo-v1
+    - SVC-todo-notifications
+    - STORE-todo-memory
+    - DEP-todo-vercel
+    - ENV-production
+    - PIPE-todo-ci
+  targetDate: "2026-09-30T00:00:00Z"
+  baseline: BASELINE-v0-1
+  changes:
+    added:
+      - id: SVC-todo-auth
+        kind: service
+        description: "Authentication service with session management"
+      - id: SVC-todo-notifications
+        kind: service
+        description: "Due date reminder notifications"
+      - id: STORE-todo-sqlite
+        kind: data-store
+        description: "SQLite persistent storage replacing in-memory"
+    modified:
+      - id: STORE-todo-memory
+        changes:
+          - field: status
+            from: active
+            to: deprecated
+          - field: metadata.summary
+            description: "Replaced by STORE-todo-sqlite"
+      - id: APP-todo-web
+        changes:
+          - field: metadata.tags
+            description: "Add auth, sqlite, notifications tags"
+    removed: []
+  constraints:
+    - "Zero data loss during storage migration"
+    - "API contract backward-compatible"
+    - "Sub-200ms response time maintained"
+
+relations:
+  - type: compares
+    target: BASELINE-v0-1
+  - type: implementedBy
+    target: TPLAN-persistence-migration

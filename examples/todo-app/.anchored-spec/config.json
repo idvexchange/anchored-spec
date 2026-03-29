@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "rootDir": "ea",
+  "generatedDir": "ea/generated",
+  "domains": {
+    "systems": "ea/systems",
+    "delivery": "ea/delivery",
+    "data": "ea/data",
+    "information": "ea/information",
+    "business": "ea/business",
+    "transitions": "ea/transitions"
+  },
+  "sourceRoots": ["app", "components", "lib"],
+  "sourceGlobs": ["app/**/*.ts", "app/**/*.tsx", "components/**/*.tsx", "lib/**/*.ts"],
+  "quality": {
+    "requireOwners": true,
+    "requireSummary": true,
+    "requireRelations": true,
+    "requireAnchors": false,
+    "strictMode": false
+  },
+  "workflowPolicyPath": "ea/workflow-policy.yaml",
+  "plugins": [],
+  "exclude": ["node_modules", ".next", "public"]
+}

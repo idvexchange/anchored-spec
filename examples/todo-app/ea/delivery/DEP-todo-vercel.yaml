@@ -1,0 +1,38 @@
+apiVersion: anchored-spec/ea/v1
+kind: deployment
+id: DEP-todo-vercel
+
+metadata:
+  name: Vercel Production Deployment
+  summary: >
+    Planned Vercel deployment configuration for the production
+    todo application. Uses Next.js framework preset with edge
+    functions and requires CI/CD pipeline approval.
+  owners:
+    - team-frontend
+  tags:
+    - deployment
+    - vercel
+    - production
+    - planned
+  confidence: declared
+  status: planned
+  schemaVersion: "1.0.0"
+
+spec:
+  platform: vercel
+  framework: nextjs
+  buildCommand: "npm run build"
+  outputDir: ".next"
+  description: >
+    Production deployment on Vercel with Next.js framework detection.
+    Builds via npm run build and deploys the .next output directory.
+    Requires CI pipeline success and approval gate before deploy.
+
+relations:
+  - type: deploys
+    target: APP-todo-web
+  - type: deployedTo
+    target: ENV-production
+  - type: dependsOn
+    target: PIPE-todo-ci

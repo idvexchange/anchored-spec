@@ -1,0 +1,78 @@
+apiVersion: anchored-spec/ea/v1
+kind: transition-plan
+id: TPLAN-persistence-migration
+
+metadata:
+  name: Persistence Migration Plan
+  summary: >
+    Three-wave phased migration plan transitioning the todo
+    application from in-memory storage to persistent SQLite,
+    adding authentication and notifications, and deploying to
+    Vercel production.
+  owners:
+    - team-frontend
+    - team-product
+  tags:
+    - transition
+    - migration
+    - multi-wave
+    - persistence
+  confidence: declared
+  status: planned
+  schemaVersion: "1.0.0"
+
+spec:
+  baseline: BASELINE-v0-1
+  target: TARGET-v1-0
+  milestones:
+    - id: wave-1-foundation
+      title: "Wave 1: Foundation — Dual-Write SQLite"
+      deliverables:
+        - STORE-todo-memory
+      status: pending
+      criteria:
+        - SQLite store operational alongside in-memory
+        - All writes dual-written to both stores
+        - Read validation passing against SQLite
+    - id: wave-2-cutover
+      title: "Wave 2: Cutover — SQLite Primary + Auth"
+      deliverables:
+        - APP-todo-web
+      status: pending
+      criteria:
+        - All reads served from SQLite
+        - Authentication service integrated
+        - Zero data loss verified
+    - id: wave-3-enhancement
+      title: "Wave 3: Enhancement — Notifications + Production"
+      deliverables:
+        - SVC-todo-notifications
+        - DEP-todo-vercel
+        - PIPE-todo-ci
+      status: pending
+      criteria:
+        - Due date notifications operational
+        - Vercel production deployment live
+        - In-memory store deprecated
+  riskRegister:
+    - id: risk-data-loss
+      description: Data loss during storage cutover
+      likelihood: low
+      impact: high
+      mitigation: Dual-write with validation before switching reads
+    - id: risk-auth-complexity
+      description: Auth integration delays wave-2 timeline
+      likelihood: medium
+      impact: medium
+      mitigation: Use simple session-based auth initially
+    - id: risk-cold-start
+      description: Vercel cold start affects response times
+      likelihood: low
+      impact: low
+      mitigation: Use ISR and edge functions for critical paths
+
+relations:
+  - type: transitions
+    target: BASELINE-v0-1
+  - type: achieves
+    target: TARGET-v1-0

@@ -1,0 +1,56 @@
+apiVersion: anchored-spec/ea/v1
+kind: value-stream
+id: VS-task-delivery
+
+metadata:
+  name: Task Delivery Value Stream
+  summary: >
+    End-to-end value delivery from task identification through
+    capture, prioritization, execution, and final delivery or
+    archival. Maps the flow of value to the end user.
+  owners:
+    - team-product
+  tags:
+    - value-stream
+    - core
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  customer: End User
+  valueProposition: >
+    Efficient task tracking from identification through completion,
+    enabling users to organize, prioritize, and accomplish their goals.
+  trigger: User identifies a task or need
+  outcome: Task completed and archived with full audit trail
+  stages:
+    - id: identify
+      name: Identify Need
+      description: User recognizes a task that needs tracking
+      supportingCapabilities:
+        - CAP-task-management
+    - id: capture
+      name: Capture Task
+      description: User creates a todo with title, priority, and metadata
+      supportingCapabilities:
+        - CAP-task-management
+    - id: prioritize
+      name: Prioritize
+      description: User assigns priority and due date
+      supportingCapabilities:
+        - CAP-task-management
+    - id: execute
+      name: Execute
+      description: User works on the task, updating status as progress is made
+      supportingCapabilities:
+        - CAP-task-management
+    - id: deliver
+      name: Deliver & Archive
+      description: Task completed, verified, and archived
+      supportingCapabilities:
+        - CAP-task-management
+
+relations:
+  - type: supportedBy
+    target: CAP-task-management

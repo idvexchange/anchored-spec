@@ -1,0 +1,45 @@
+apiVersion: anchored-spec/ea/v1
+kind: pipeline
+id: PIPE-todo-ci
+
+metadata:
+  name: Todo CI/CD Pipeline
+  summary: >
+    Planned GitHub Actions CI/CD pipeline with lint, test, build,
+    and deploy stages. Triggers on push and pull request events
+    to the main branch with deploy approval gate.
+  owners:
+    - team-frontend
+  tags:
+    - pipeline
+    - ci-cd
+    - github-actions
+    - planned
+  confidence: declared
+  status: planned
+  schemaVersion: "1.0.0"
+
+spec:
+  platform: github-actions
+  trigger:
+    branches:
+      - main
+    events:
+      - push
+      - pull_request
+  stages:
+    - name: lint
+      description: Run ESLint to enforce code style and catch common errors.
+    - name: test
+      description: Run unit tests (planned — test suite to be implemented).
+    - name: build
+      description: Execute Next.js production build to verify compilation.
+    - name: deploy
+      description: Deploy to Vercel production environment.
+      requiresApproval: true
+
+relations:
+  - type: builds
+    target: APP-todo-web
+  - type: deploysTo
+    target: DEP-todo-vercel

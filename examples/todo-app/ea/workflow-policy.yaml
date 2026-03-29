@@ -1,0 +1,155 @@
+apiVersion: anchored-spec/ea/v1
+kind: workflow-policy
+id: WP-todo-app
+
+metadata:
+  name: Todo App Workflow Policy
+  summary: >
+    Comprehensive workflow policy governing change management, verification,
+    and lifecycle rules for the todo application. Defines three workflow
+    variants for features, fixes, and chores, with change-required rules
+    tied to source code paths.
+  owners:
+    - team-lead
+  tags:
+    - governance
+    - workflow
+    - policy
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  workflows:
+    - id: feature-behavior-first
+      name: Feature — Behavior First
+      description: >
+        For new features and enhancements. Requires a requirements artifact
+        and a design doc before implementation begins. Verification focuses
+        on behavioral coverage and semantic drift detection.
+      appliesTo:
+        changeTypes:
+          - feature
+          - enhancement
+      requiredArtifacts:
+        - requirements
+        - design-doc
+      skillSequence:
+        - analyze-requirements
+        - draft-design
+        - implement
+        - verify-behavior
+        - review
+      verification:
+        focus:
+          - behavioral-coverage
+          - semantic-drift
+        minimumCoverage: 80
+
+    - id: fix-root-cause-first
+      name: Fix — Root Cause First
+      description: >
+        For bug fixes and hotfixes. Requires root-cause analysis before
+        the fix is applied. Verification focuses on regression testing
+        to ensure the fix does not introduce new issues.
+      appliesTo:
+        changeTypes:
+          - fix
+          - hotfix
+      requiredArtifacts:
+        - root-cause-analysis
+      skillSequence:
+        - reproduce-issue
+        - analyze-root-cause
+        - implement-fix
+        - verify-regression
+        - review
+      verification:
+        focus:
+          - regression-testing
+        minimumCoverage: 90
+
+    - id: chore-lightweight
+      name: Chore — Lightweight
+      description: >
+        For maintenance tasks including refactors, documentation updates,
+        and housekeeping chores. No artifacts required and the skill
+        sequence is skipped for speed.
+      appliesTo:
+        changeTypes:
+          - chore
+          - refactor
+          - docs
+      requiredArtifacts: []
+      skillSequence: []
+      verification:
+        focus:
+          - lint-pass
+        minimumCoverage: 0
+
+  changeRequiredRules:
+    - id: api-route-change
+      name: API Route Change
+      description: >
+        Any modification to REST API route handlers requires an updated
+        API contract artifact to keep documentation in sync.
+      requiredArtifact: api-contract
+      include:
+        - "app/api/**/*.ts"
+      exclude:
+        - "**/*.test.ts"
+        - "**/*.spec.ts"
+
+    - id: component-change
+      name: Component Change
+      description: >
+        Changes to React components require a design review to ensure
+        UI consistency and accessibility standards.
+      requiredArtifact: design-review
+      include:
+        - "components/**/*.tsx"
+
+    - id: data-model-change
+      name: Data Model Change
+      description: >
+        Changes to domain types or the data store require a data model
+        update artifact to track schema evolution.
+      requiredArtifact: data-model-update
+      include:
+        - "lib/types.ts"
+        - "lib/store.ts"
+
+    - id: config-change
+      name: Configuration Change
+      description: >
+        Changes to build or runtime configuration files require a
+        deployment review to assess infrastructure impact.
+      requiredArtifact: deployment-review
+      include:
+        - "next.config.ts"
+        - "tsconfig.json"
+
+  trivialExemptions:
+    - "*.md"
+    - ".github/**"
+    - "*.config.mjs"
+    - "public/**"
+
+  choreEligibility:
+    conditions:
+      - no-api-change
+      - no-schema-change
+      - no-data-model-change
+    escalation: auto-upgrade-to-fix
+
+  lifecycleRules:
+    plannedToActiveRequiresChange: true
+    activeToShippedRequiresCoverage: true
+    deprecatedRequiresReason: true
+    retiredRequiresMigrationPlan: true
+
+relations:
+  - type: governs
+    target: APP-todo-web
+  - type: governs
+    target: API-todo-v1

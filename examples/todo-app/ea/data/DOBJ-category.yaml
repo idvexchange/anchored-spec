@@ -1,0 +1,40 @@
+apiVersion: anchored-spec/ea/v1
+kind: data-object
+id: DOBJ-category
+
+metadata:
+  name: Category Data Object
+  summary: >
+    Category lookup data object used to classify and color-code
+    todo items. Provides a simple id, name, and color schema for
+    task categorization.
+  owners:
+    - team-frontend
+  tags:
+    - data-object
+    - lookup
+    - category
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  type: object
+  store: STORE-todo-memory
+  columns:
+    - name: id
+      type: string
+      primaryKey: true
+    - name: name
+      type: string
+    - name: color
+      type: string
+
+anchors:
+  interfaces:
+    - symbol: Category
+      file: lib/types.ts
+
+relations:
+  - type: containedIn
+    target: STORE-todo-memory
