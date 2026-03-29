@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/anchors.schema.json",
+  "title": "Anchored Spec — EA Anchors",
+  "description": "Anchor points binding an EA artifact to observable code, APIs, schemas, infrastructure, and other verifiable locations.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "symbols": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Code symbols: class names, function names, exported constants"
+    },
+    "apis": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "API endpoints: \"POST /orders\", \"GET /orders/:id\""
+    },
+    "events": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Event topics/types: \"order.created\", \"payment.processed\""
+    },
+    "schemas": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Schema references: \"OrderSchema\", \"orders.order\""
+    },
+    "infra": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Infrastructure references: \"terraform:module.order_service\", \"kubernetes:deployment/order-service\""
+    },
+    "catalogRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Catalog references: \"service:order-service\", \"dataset:orders\""
+    },
+    "iam": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IAM references: \"aws:iam-role/order-service\""
+    },
+    "network": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Network references: \"aws:security-group/sg-12345\""
+    },
+    "other": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "description": "Extensible anchors for tools not covered above"
+    }
+  }
+}

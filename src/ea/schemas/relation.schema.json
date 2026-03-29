@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/relation.schema.json",
+  "title": "Anchored Spec — EA Relation",
+  "description": "A directional typed link between two EA artifacts. Only canonical (forward) directions are stored; inverses are computed by the graph builder.",
+  "type": "object",
+  "required": ["type", "target"],
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relation type (canonical direction). E.g., \"dependsOn\", \"implements\", \"deployedAs\"."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Target artifact ID. May be domain-qualified (\"systems/APP-foo\") or short (\"APP-foo\")."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of this specific relation instance."
+    },
+    "criticality": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "How critical this relation is."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "deprecated"],
+      "default": "active",
+      "description": "Whether this relation is still active."
+    }
+  }
+}

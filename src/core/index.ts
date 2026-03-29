@@ -135,3 +135,6 @@ export type { VerificationResult, VerificationSummary, VerificationOptions } fro
 
 // Built-in resolvers
 export { default as typescriptAstResolver, resetProjectCache } from "../resolvers/typescript-ast.js";
+
+// EA Extension
+export * from "../ea/index.js";
