@@ -1,16 +1,19 @@
 /**
- * Tests for System-Data Matrix Report
+ * Tests for EA Reports: System-Data Matrix + Classification Coverage
  *
  * Covers:
  *  - buildSystemDataMatrix() logic
  *  - renderSystemDataMatrixMarkdown() output
- *  - CLI ea report --view system-data-matrix
+ *  - buildClassificationCoverage() logic
+ *  - renderClassificationCoverageMarkdown() output
  */
 
 import { describe, it, expect } from "vitest";
 import {
   buildSystemDataMatrix,
   renderSystemDataMatrixMarkdown,
+  buildClassificationCoverage,
+  renderClassificationCoverageMarkdown,
 } from "../index.js";
 import type { EaArtifactBase } from "../index.js";
 
@@ -283,5 +286,340 @@ describe("renderSystemDataMatrixMarkdown", () => {
     const md = renderSystemDataMatrixMarkdown(report);
     expect(md).toContain("## Data Classifications");
     expect(md).toContain("- PII");
+  });
+});
+
+// ─── buildClassificationCoverage ────────────────────────────────────────────────
+
+describe("buildClassificationCoverage", () => {
+  it("returns empty report with no artifacts", () => {
+    const report = buildClassificationCoverage([]);
+    expect(report.classifications).toHaveLength(0);
+    expect(report.summary.classificationCount).toBe(0);
+  });
+
+  it("finds entities classified under a classification", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer Entity",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.classifications).toHaveLength(1);
+    expect(report.classifications[0].classificationId).toBe("CLASS-pii");
+    expect(report.classifications[0].coveredEntities).toHaveLength(1);
+    expect(report.classifications[0].coveredEntities[0].entityId).toBe("CE-customer");
+  });
+
+  it("detects enforcement gap when store lacks classification", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer Entity",
+        relations: [
+          { type: "classifiedAs", target: "CLASS-pii" },
+          { type: "implementedBy", target: "STORE-customers" },
+        ],
+      } as any),
+      makeArtifact({
+        id: "STORE-customers",
+        kind: "data-store",
+        title: "Customers DB",
+        // No classifiedAs relation — this is the gap
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.classifications[0].stores).toHaveLength(1);
+    expect(report.classifications[0].stores[0].enforced).toBe(false);
+    expect(report.classifications[0].enforcementGaps).toContain("STORE-customers");
+    expect(report.summary.gapCount).toBe(1);
+  });
+
+  it("detects no gap when store carries same classification", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer Entity",
+        relations: [
+          { type: "classifiedAs", target: "CLASS-pii" },
+          { type: "implementedBy", target: "STORE-customers" },
+        ],
+      } as any),
+      makeArtifact({
+        id: "STORE-customers",
+        kind: "data-store",
+        title: "Customers DB",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.classifications[0].stores[0].enforced).toBe(true);
+    expect(report.classifications[0].enforcementGaps).toHaveLength(0);
+    expect(report.summary.gapCount).toBe(0);
+  });
+
+  it("finds stores via stores relation (reverse direction)", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+      makeArtifact({
+        id: "STORE-orders",
+        kind: "data-store",
+        title: "Orders DB",
+        relations: [{ type: "stores", target: "CE-customer" }],
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.classifications[0].stores).toHaveLength(1);
+    expect(report.classifications[0].stores[0].storeId).toBe("STORE-orders");
+    expect(report.classifications[0].enforcementGaps).toContain("STORE-orders");
+  });
+
+  it("detects exchange carrying classified entity without declaration", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+      makeArtifact({
+        id: "EXCH-onboarding",
+        kind: "information-exchange",
+        title: "Customer Onboarding",
+        source: { artifactId: "APP-frontend" },
+        destination: { artifactId: "APP-backend" },
+        exchangedEntities: ["CE-customer"],
+        purpose: "Onboarding flow",
+        // No classificationLevel — gap
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.classifications[0].exchanges).toHaveLength(1);
+    expect(report.classifications[0].exchanges[0].declaresClassification).toBe(false);
+    expect(report.summary.exchangeGapCount).toBe(1);
+  });
+
+  it("reports no exchange gap when classificationLevel matches", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+      makeArtifact({
+        id: "EXCH-onboarding",
+        kind: "information-exchange",
+        title: "Customer Onboarding",
+        source: { artifactId: "APP-frontend" },
+        destination: { artifactId: "APP-backend" },
+        exchangedEntities: ["CE-customer"],
+        purpose: "Onboarding flow",
+        classificationLevel: "CLASS-pii",
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.classifications[0].exchanges[0].declaresClassification).toBe(true);
+    expect(report.summary.exchangeGapCount).toBe(0);
+  });
+
+  it("handles multiple classifications with mixed enforcement", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CLASS-financial",
+        kind: "classification",
+        title: "Financial",
+        level: "confidential",
+        requiredControls: [{ control: "audit", description: "audit" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer",
+        relations: [
+          { type: "classifiedAs", target: "CLASS-pii" },
+          { type: "implementedBy", target: "STORE-crm" },
+        ],
+      } as any),
+      makeArtifact({
+        id: "CE-payment",
+        kind: "canonical-entity",
+        title: "Payment",
+        relations: [
+          { type: "classifiedAs", target: "CLASS-financial" },
+          { type: "implementedBy", target: "STORE-billing" },
+        ],
+      } as any),
+      makeArtifact({
+        id: "STORE-crm",
+        kind: "data-store",
+        title: "CRM DB",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+      makeArtifact({
+        id: "STORE-billing",
+        kind: "data-store",
+        title: "Billing DB",
+        // No classifiedAs — gap
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    expect(report.summary.classificationCount).toBe(2);
+    
+    const pii = report.classifications.find((c) => c.classificationId === "CLASS-pii");
+    expect(pii!.enforcementGaps).toHaveLength(0);
+
+    const fin = report.classifications.find((c) => c.classificationId === "CLASS-financial");
+    expect(fin!.enforcementGaps).toContain("STORE-billing");
+    
+    expect(report.summary.gapCount).toBe(1);
+    expect(report.summary.enforcedStoreCount).toBe(1);
+  });
+});
+
+// ─── renderClassificationCoverageMarkdown ───────────────────────────────────────
+
+describe("renderClassificationCoverageMarkdown", () => {
+  it("renders empty report", () => {
+    const report = buildClassificationCoverage([]);
+    const md = renderClassificationCoverageMarkdown(report);
+    expect(md).toContain("# Classification Coverage Report");
+    expect(md).toContain("No classifications found");
+  });
+
+  it("renders classification with entities and gaps", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII Classification",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer Entity",
+        relations: [
+          { type: "classifiedAs", target: "CLASS-pii" },
+          { type: "implementedBy", target: "STORE-customers" },
+        ],
+      } as any),
+      makeArtifact({
+        id: "STORE-customers",
+        kind: "data-store",
+        title: "Customers DB",
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    const md = renderClassificationCoverageMarkdown(report);
+
+    expect(md).toContain("# Classification Coverage Report");
+    expect(md).toContain("PII Classification");
+    expect(md).toContain("**Level:** restricted");
+    expect(md).toContain("Customer Entity");
+    expect(md).toContain("Customers DB");
+    expect(md).toContain("Enforcement Gaps");
+    expect(md).toContain("STORE-customers");
+    expect(md).toContain("## Summary");
+  });
+
+  it("shows enforced stores with checkmarks", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "CLASS-pii",
+        kind: "classification",
+        title: "PII",
+        level: "restricted",
+        requiredControls: [{ control: "encrypt", description: "encrypt" }],
+      } as any),
+      makeArtifact({
+        id: "CE-customer",
+        kind: "canonical-entity",
+        title: "Customer",
+        relations: [
+          { type: "classifiedAs", target: "CLASS-pii" },
+          { type: "implementedBy", target: "STORE-customers" },
+        ],
+      } as any),
+      makeArtifact({
+        id: "STORE-customers",
+        kind: "data-store",
+        title: "Customers DB",
+        relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
+      } as any),
+    ];
+
+    const report = buildClassificationCoverage(artifacts);
+    const md = renderClassificationCoverageMarkdown(report);
+    expect(md).toContain("✅");
+    expect(md).not.toContain("Enforcement Gaps");
   });
 });

@@ -90,5 +90,5 @@ export type { EaDriftContext, EaDriftRule, EaDriftResult } from "./drift.js";
 export { EA_DRIFT_RULES, evaluateEaDrift } from "./drift.js";
 
 // Reports
-export type { SystemDataCell, SystemDataMatrixReport } from "./report.js";
-export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown } from "./report.js";
+export type { SystemDataCell, SystemDataMatrixReport, ClassifiedEntity, ClassificationStore, ClassificationCoverageEntry, ClassificationCoverageReport } from "./report.js";
+export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown, buildClassificationCoverage, renderClassificationCoverageMarkdown } from "./report.js";

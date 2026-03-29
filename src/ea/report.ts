@@ -6,7 +6,12 @@
  */
 
 import type { EaArtifactBase } from "./types.js";
-import type { LogicalDataModelArtifact } from "./types.js";
+import type {
+  LogicalDataModelArtifact,
+  ClassificationArtifact,
+  CanonicalEntityArtifact,
+  InformationExchangeArtifact,
+} from "./types.js";
 
 // ─── System-Data Matrix ─────────────────────────────────────────────────────────
 
@@ -188,6 +193,286 @@ export function renderSystemDataMatrixMarkdown(report: SystemDataMatrixReport): 
       lines.push(`- ${c}`);
     }
   }
+
+  return lines.join("\n") + "\n";
+}
+
+// ─── Classification Coverage Report ─────────────────────────────────────────────
+
+/** An entity covered by a classification. */
+export interface ClassifiedEntity {
+  entityId: string;
+  entityTitle: string;
+  kind: string;
+}
+
+/** A store that should enforce a classification. */
+export interface ClassificationStore {
+  storeId: string;
+  storeTitle: string;
+  enforced: boolean;
+}
+
+/** Per-classification coverage entry. */
+export interface ClassificationCoverageEntry {
+  classificationId: string;
+  classificationTitle: string;
+  level: string;
+  coveredEntities: ClassifiedEntity[];
+  stores: ClassificationStore[];
+  exchanges: Array<{
+    exchangeId: string;
+    exchangeTitle: string;
+    declaresClassification: boolean;
+  }>;
+  enforcementGaps: string[];
+}
+
+/** Full classification coverage report. */
+export interface ClassificationCoverageReport {
+  classifications: ClassificationCoverageEntry[];
+  summary: {
+    classificationCount: number;
+    coveredEntityCount: number;
+    totalStoreCount: number;
+    enforcedStoreCount: number;
+    gapCount: number;
+    exchangeCount: number;
+    exchangeGapCount: number;
+  };
+}
+
+/**
+ * Build a classification coverage report.
+ *
+ * For each classification:
+ *  1. Find all entities/artifacts with classifiedAs → this classification
+ *  2. For each entity, find downstream stores (via implementedBy or stores relation)
+ *  3. Check if each store also carries classifiedAs → same classification
+ *  4. Find exchanges that carry classified entities and check classificationLevel
+ *  5. Report enforcement gaps
+ */
+export function buildClassificationCoverage(artifacts: EaArtifactBase[]): ClassificationCoverageReport {
+  const byId = new Map<string, EaArtifactBase>();
+  for (const a of artifacts) {
+    byId.set(a.id, a);
+  }
+
+  const classifications = artifacts.filter((a) => a.kind === "classification");
+  const entries: ClassificationCoverageEntry[] = [];
+
+  let totalCoveredEntities = 0;
+  let totalStores = 0;
+  let totalEnforced = 0;
+  let totalGaps = 0;
+  let totalExchanges = 0;
+  let totalExchangeGaps = 0;
+
+  for (const cls of classifications) {
+    const clsArt = cls as unknown as ClassificationArtifact;
+
+    // Find all artifacts that classifiedAs this classification
+    const coveredEntities: ClassifiedEntity[] = [];
+    for (const a of artifacts) {
+      if (!a.relations) continue;
+      const hasClassification = a.relations.some(
+        (r) => r.type === "classifiedAs" && r.target === cls.id
+      );
+      if (hasClassification) {
+        coveredEntities.push({
+          entityId: a.id,
+          entityTitle: a.title,
+          kind: a.kind,
+        });
+      }
+    }
+
+    // Find downstream stores for each covered entity
+    const storeMap = new Map<string, ClassificationStore>();
+    for (const entity of coveredEntities) {
+      const entityArt = byId.get(entity.entityId);
+      if (!entityArt) continue;
+
+      // Find stores via entity's implementedBy relations
+      for (const r of entityArt.relations ?? []) {
+        if (r.type === "implementedBy") {
+          const target = byId.get(r.target);
+          if (target && (target.kind === "data-store" || target.kind === "physical-schema") && !storeMap.has(target.id)) {
+            const enforced = (target.relations ?? []).some(
+              (tr) => tr.type === "classifiedAs" && tr.target === cls.id
+            );
+            storeMap.set(target.id, {
+              storeId: target.id,
+              storeTitle: target.title,
+              enforced,
+            });
+          }
+        }
+      }
+
+      // Find stores that reference this entity via stores relation
+      for (const a of artifacts) {
+        if (!a.relations) continue;
+        const storesEntity = a.relations.some(
+          (r) => r.type === "stores" && r.target === entity.entityId
+        );
+        if (storesEntity && !storeMap.has(a.id)) {
+          const enforced = (a.relations ?? []).some(
+            (r) => r.type === "classifiedAs" && r.target === cls.id
+          );
+          storeMap.set(a.id, {
+            storeId: a.id,
+            storeTitle: a.title,
+            enforced,
+          });
+        }
+      }
+    }
+
+    // Find exchanges carrying classified entities
+    const exchanges: ClassificationCoverageEntry["exchanges"] = [];
+    for (const a of artifacts) {
+      if (a.kind !== "information-exchange") continue;
+      const exch = a as unknown as InformationExchangeArtifact;
+      if (!exch.exchangedEntities) continue;
+
+      const carriesClassifiedEntity = exch.exchangedEntities.some((eid) =>
+        coveredEntities.some((ce) => ce.entityId === eid)
+      );
+      if (carriesClassifiedEntity) {
+        exchanges.push({
+          exchangeId: a.id,
+          exchangeTitle: a.title,
+          declaresClassification: exch.classificationLevel === cls.id,
+        });
+      }
+    }
+
+    const stores = [...storeMap.values()];
+    const enforcementGaps = stores
+      .filter((s) => !s.enforced)
+      .map((s) => s.storeId);
+
+    totalCoveredEntities += coveredEntities.length;
+    totalStores += stores.length;
+    totalEnforced += stores.filter((s) => s.enforced).length;
+    totalGaps += enforcementGaps.length;
+    totalExchanges += exchanges.length;
+    totalExchangeGaps += exchanges.filter((e) => !e.declaresClassification).length;
+
+    entries.push({
+      classificationId: cls.id,
+      classificationTitle: cls.title,
+      level: clsArt.level ?? "",
+      coveredEntities,
+      stores,
+      exchanges,
+      enforcementGaps,
+    });
+  }
+
+  return {
+    classifications: entries,
+    summary: {
+      classificationCount: entries.length,
+      coveredEntityCount: totalCoveredEntities,
+      totalStoreCount: totalStores,
+      enforcedStoreCount: totalEnforced,
+      gapCount: totalGaps,
+      exchangeCount: totalExchanges,
+      exchangeGapCount: totalExchangeGaps,
+    },
+  };
+}
+
+/**
+ * Render a classification coverage report as Markdown.
+ */
+export function renderClassificationCoverageMarkdown(report: ClassificationCoverageReport): string {
+  const lines: string[] = [];
+
+  lines.push("# Classification Coverage Report");
+  lines.push("");
+  lines.push(`> ${report.summary.classificationCount} classifications, ${report.summary.coveredEntityCount} classified artifacts, ${report.summary.gapCount} enforcement gaps`);
+  lines.push("");
+
+  if (report.classifications.length === 0) {
+    lines.push("_No classifications found._");
+    return lines.join("\n") + "\n";
+  }
+
+  for (const cls of report.classifications) {
+    lines.push(`## ${cls.classificationTitle} (\`${cls.classificationId}\`)`);
+    lines.push("");
+    lines.push(`**Level:** ${cls.level}`);
+    lines.push("");
+
+    // Covered entities
+    lines.push("### Classified Artifacts");
+    lines.push("");
+    if (cls.coveredEntities.length === 0) {
+      lines.push("_No artifacts carry this classification._");
+    } else {
+      lines.push("| Artifact | Kind |");
+      lines.push("|----------|------|");
+      for (const e of cls.coveredEntities) {
+        lines.push(`| ${e.entityTitle} (\`${e.entityId}\`) | ${e.kind} |`);
+      }
+    }
+    lines.push("");
+
+    // Stores
+    if (cls.stores.length > 0) {
+      lines.push("### Downstream Stores");
+      lines.push("");
+      lines.push("| Store | Enforced |");
+      lines.push("|-------|----------|");
+      for (const s of cls.stores) {
+        const icon = s.enforced ? "✅" : "❌";
+        lines.push(`| ${s.storeTitle} (\`${s.storeId}\`) | ${icon} |`);
+      }
+      lines.push("");
+    }
+
+    // Exchanges
+    if (cls.exchanges.length > 0) {
+      lines.push("### Information Exchanges");
+      lines.push("");
+      lines.push("| Exchange | Declares Classification |");
+      lines.push("|----------|------------------------|");
+      for (const ex of cls.exchanges) {
+        const icon = ex.declaresClassification ? "✅" : "❌";
+        lines.push(`| ${ex.exchangeTitle} (\`${ex.exchangeId}\`) | ${icon} |`);
+      }
+      lines.push("");
+    }
+
+    // Gaps
+    if (cls.enforcementGaps.length > 0) {
+      lines.push("### ⚠️ Enforcement Gaps");
+      lines.push("");
+      for (const g of cls.enforcementGaps) {
+        const store = report.classifications
+          .flatMap((c) => c.stores)
+          .find((s) => s.storeId === g);
+        lines.push(`- **${store?.storeTitle ?? g}** (\`${g}\`) — does not carry \`classifiedAs → ${cls.classificationId}\``);
+      }
+      lines.push("");
+    }
+  }
+
+  // Summary
+  lines.push("## Summary");
+  lines.push("");
+  lines.push(`| Metric | Value |`);
+  lines.push(`|--------|-------|`);
+  lines.push(`| Classifications | ${report.summary.classificationCount} |`);
+  lines.push(`| Classified artifacts | ${report.summary.coveredEntityCount} |`);
+  lines.push(`| Downstream stores | ${report.summary.totalStoreCount} |`);
+  lines.push(`| Stores enforcing | ${report.summary.enforcedStoreCount} |`);
+  lines.push(`| Enforcement gaps | ${report.summary.gapCount} |`);
+  lines.push(`| Exchanges | ${report.summary.exchangeCount} |`);
+  lines.push(`| Exchange gaps | ${report.summary.exchangeGapCount} |`);
 
   return lines.join("\n") + "\n";
 }
