@@ -52,15 +52,10 @@ metadata:
   confidence: declared
   status: active
 anchors:
-  interfaces:
-    - symbol: OrderController
-      file: src/controllers/order.controller.ts
-  apis:
-    - route: "POST /api/v2/orders"
-      file: src/routes/orders.ts
-  schemas:
-    - name: orders
-      file: prisma/schema.prisma
+  symbols: ["OrderController"]
+  apis: ["POST /api/v2/orders"]
+  schemas: ["orders"]
+  infra: []
 relations:
   - type: dependsOn
     target: APP-inventory-service
@@ -71,14 +66,14 @@ relations:
 **Key rules:**
 - `id` uses the format `{KIND_PREFIX}-{kebab-slug}` (e.g., `APP-order-service`, `SVC-payment-api`, `STORE-orders-db`)
 - `kind` must be a registered EA kind (see Section 4)
-- `anchors` map the artifact to actual code/config locations
+- `anchors` map the artifact to actual code/config locations — each category is a flat string array (e.g., `symbols: ["ClassName"]`, `apis: ["POST /orders"]`). Valid categories: `symbols`, `apis`, `events`, `schemas`, `infra`, `catalogRefs`, `iam`, `network`, `other`
 - `relations` are stored in the canonical direction only; inverses are computed virtually
 
 ---
 
 ## 4. Kind Taxonomy
 
-44 kinds across 7 domains:
+48 kinds across 6 domains:
 
 | Domain | Kind | ID Prefix | Description |
 |---|---|---|---|
@@ -96,7 +91,9 @@ relations:
 | **delivery** | `identity-boundary` | `IDB` | An identity/auth boundary |
 | **delivery** | `cloud-resource` | `CLOUD` | A specific cloud resource |
 | **delivery** | `environment` | `ENV` | A deployment environment |
+| **systems** | `security-requirement` | `SREQ` | NIST security requirement (SP 800-53 controls) |
 | **delivery** | `technology-standard` | `TECH` | An approved technology standard |
+| **delivery** | `technical-requirement` | `TREQ` | NIST technical requirement (infrastructure) |
 | **data** | `logical-data-model` | `LDM` | Logical data model with entity attributes |
 | **data** | `physical-schema` | `SCHEMA` | Physical database schema definition |
 | **data** | `data-store` | `STORE` | A data storage system |
@@ -104,12 +101,14 @@ relations:
 | **data** | `master-data-domain` | `MDM` | A master data domain |
 | **data** | `data-quality-rule` | `DQR` | A data quality rule |
 | **data** | `data-product` | `DPROD` | A data product with SLAs |
+| **data** | `data-requirement` | `DREQ` | NIST data requirement (FIPS 199 categorization) |
 | **information** | `information-concept` | `IC` | A high-level information concept |
 | **information** | `canonical-entity` | `CE` | A canonical data entity with typed attributes |
 | **information** | `information-exchange` | `EXCH` | An information exchange between systems |
 | **information** | `classification` | `CLASS` | A data classification level |
 | **information** | `retention-policy` | `RET` | A data retention policy |
 | **information** | `glossary-term` | `TERM` | A canonical glossary term |
+| **information** | `information-requirement` | `IREQ` | NIST information requirement (flow/sensitivity) |
 | **business** | `mission` | `MISSION` | A strategic mission with key results |
 | **business** | `capability` | `CAP` | A business capability |
 | **business** | `value-stream` | `VS` | A value stream with stages |
@@ -118,14 +117,14 @@ relations:
 | **business** | `policy-objective` | `POL` | A policy objective |
 | **business** | `business-service` | `BSVC` | A business service |
 | **business** | `control` | `CTRL` | A governance control |
+| **business** | `requirement` | `REQ` | A behavioral requirement (EARS format) |
 | **transitions** | `baseline` | `BASELINE` | A point-in-time architecture snapshot |
 | **transitions** | `target` | `TARGET` | A desired future architecture state |
 | **transitions** | `transition-plan` | `PLAN` | A plan from baseline to target |
 | **transitions** | `migration-wave` | `WAVE` | A batch of changes in a transition |
 | **transitions** | `exception` | `EXCEPT` | An approved exception to policy |
-| **legacy** | `requirement` | `REQ` | Migrated behavioral requirement |
-| **legacy** | `change` | `CHG` | Migrated change record |
-| **legacy** | `decision` | `ADR` | Migrated architecture decision |
+| **transitions** | `change` | `CHG` | A change record (NIST config management) |
+| **transitions** | `decision` | `ADR` | An architecture decision record (NIST traceability) |
 
 ---
 
@@ -233,7 +232,7 @@ Generation rules:
 
 ## 10. Relation Types
 
-27 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
+28 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
 | Canonical | Inverse (Virtual) |
 |---|---|
@@ -264,6 +263,7 @@ Generation rules:
 | `supersedes` | `supersededBy` |
 | `generates` | `generatedBy` |
 | `mitigates` | `mitigatedBy` |
+| `targets` | `targetedBy` |
 
 ---
 
@@ -317,6 +317,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `init` | Initialize project with v1.0 config |
 | `create` | Create a new EA artifact from template |
 | `validate` | Validate all EA artifacts against schemas and rules |
+| `verify` | Run all validation + drift + quality checks (comprehensive) |
 | `drift` | Run drift detection (supports `--from-snapshot`, `--domain`, `--severity`) |
 | `discover` | Discover artifacts from resolvers (openapi, kubernetes, terraform, sql-ddl, dbt) |
 | `generate` | Generate derived files from EA artifacts (OpenAPI, JSON Schema) |

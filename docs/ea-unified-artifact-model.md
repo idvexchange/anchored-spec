@@ -755,3 +755,89 @@ src/ea/schemas/
 6. Validate anchors via `anchors.schema.json`
 7. Run quality rules (owners present, summary non-empty, etc.)
 8. Run cross-reference checks (relation targets exist, no orphans)
+
+---
+
+## Kind-Specific Schema Reference
+
+### `physical-schema` — Tables Format
+
+The `tables` property defines the physical database structure. Each table requires a `name` and at least one column with `name` and `type`.
+
+```yaml
+kind: physical-schema
+id: SCHEMA-orders
+spec:
+  engine: postgresql
+  schemaName: public
+  managedBy: migrations          # migrations | orm | manual | schema-registry | other
+  sourcePath: prisma/schema.prisma
+  tables:
+    - name: orders
+      columns:
+        - name: id
+          type: uuid
+          primaryKey: true
+        - name: customer_id
+          type: uuid
+          nullable: false
+          foreignKey:
+            table: customers
+            column: id
+        - name: total
+          type: decimal
+          description: "Order total in cents"
+        - name: created_at
+          type: timestamp
+          nullable: false
+      indexes:
+        - name: idx_orders_customer
+          columns: ["customer_id"]
+          unique: false
+```
+
+**Required fields per table:** `name`, `columns` (min 1 item)
+**Required fields per column:** `name`, `type`
+**Optional column fields:** `nullable` (boolean), `primaryKey` (boolean), `foreignKey` (`{table, column}`), `description` (string)
+**Optional table fields:** `indexes` (array of `{name, columns[], unique?}`)
+
+### `org-unit` — Ownership Pattern
+
+The `org-unit` kind models teams, departments, and organizational structures. Use the `owns` relation to assign ownership of any artifact.
+
+```yaml
+kind: org-unit
+id: ORG-commerce-team
+metadata:
+  name: Commerce Team
+  summary: Owns order and payment services
+  owners: ["engineering-lead"]
+  confidence: declared
+  status: active
+spec:
+  unitType: team                  # team | department | division | business-unit | guild | chapter | other
+  parentUnit: ORG-engineering     # optional reference to parent org-unit
+  lead: jane.doe                  # optional
+  size: 8                         # optional headcount
+  locations: ["NYC", "Remote"]    # optional
+  costCenter: "CC-4200"           # optional
+relations:
+  - type: owns
+    target: APP-order-service
+  - type: owns
+    target: APP-payment-api
+  - type: owns
+    target: STORE-orders-db
+```
+
+**Drift rules that check ownership:**
+
+| Rule | Severity | What it checks |
+|---|---|---|
+| `ea:business/process-missing-owner` | warning | Process has no `processOwner`, `performedBy`, or `owns` relation |
+| `ea:business/unowned-critical-system` | warning | Active application/service with ≥3 relations but no org-unit `owns` it |
+
+**To resolve ownership warnings:**
+1. Create an `org-unit` artifact for the responsible team
+2. Add `owns` relations from the org-unit to the artifacts it manages
+3. Alternatively, for processes: set the `processOwner` field or add a `performedBy` relation
