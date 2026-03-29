@@ -189,9 +189,9 @@ describe("RelationRegistry", () => {
 // ─── createDefaultRegistry ──────────────────────────────────────────────────────
 
 describe("createDefaultRegistry", () => {
-  it("contains 20 relation types (Phase A + Phase 2A + Phase 2B + Phase 2C)", () => {
+  it("contains 24 relation types (Phase A + Phase 2A + Phase 2B + Phase 2C + Phase 2D)", () => {
     const registry = createDefaultRegistry();
-    expect(registry.allTypes()).toHaveLength(20);
+    expect(registry.allTypes()).toHaveLength(24);
   });
 
   it("includes all expected canonical types", () => {

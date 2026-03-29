@@ -1,11 +1,14 @@
 /**
- * Tests for Phase 2D: Business Layer Schemas, Types, Quality Rules
+ * Tests for Phase 2D: Business Layer Schemas, Types, Quality Rules,
+ * Relations, and Drift Rules
  *
  * Covers:
  *  - 8 business-layer kinds in EA_KIND_REGISTRY
  *  - Schema validation for all 8 kinds
  *  - 7 quality rules for business-layer artifacts
  *  - realizes relation extension (business-service → capability/mission)
+ *  - 4 new relations (supports, performedBy, governedBy, owns)
+ *  - 10 business drift rules including retired-system-dependency
  */
 
 import { describe, it, expect } from "vitest";
@@ -17,6 +20,7 @@ import {
   validateEaArtifacts,
   validateEaRelations,
   validateEaSchema,
+  evaluateEaDrift,
 } from "../index.js";
 import type { EaArtifactBase } from "../index.js";
 
@@ -476,5 +480,314 @@ describe("Phase 2D: realizes Extension", () => {
     ];
     const result = validateEaRelations(artifacts, registry);
     expect(result.errors).toHaveLength(0);
+  });
+});
+
+// ─── Phase 2D: New Relations ────────────────────────────────────────────────────
+
+describe("Phase 2D: New Relations", () => {
+  const registry = createDefaultRegistry();
+
+  describe("supports", () => {
+    it("is registered with correct source and target kinds", () => {
+      const entry = registry.get("supports");
+      expect(entry).toBeDefined();
+      expect(entry!.inverse).toBe("supportedBy");
+      expect(entry!.validSourceKinds).toContain("application");
+      expect(entry!.validSourceKinds).toContain("capability");
+      expect(entry!.validTargetKinds).toContain("capability");
+      expect(entry!.validTargetKinds).toContain("mission");
+      expect(entry!.validTargetKinds).toContain("value-stream");
+    });
+
+    it("validates app → capability via supports", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "APP-orders",
+          kind: "application",
+          relations: [{ type: "supports", target: "CAP-fulfillment" }],
+        }),
+        makeArtifact({ id: "CAP-fulfillment", kind: "capability" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+
+  describe("performedBy", () => {
+    it("is registered with correct source and target kinds", () => {
+      const entry = registry.get("performedBy");
+      expect(entry).toBeDefined();
+      expect(entry!.inverse).toBe("performs");
+      expect(entry!.validSourceKinds).toContain("capability");
+      expect(entry!.validSourceKinds).toContain("process");
+      expect(entry!.validTargetKinds).toContain("org-unit");
+    });
+
+    it("validates process → org-unit via performedBy", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "PROC-order-processing",
+          kind: "process",
+          relations: [{ type: "performedBy", target: "ORG-ops" }],
+        }),
+        makeArtifact({ id: "ORG-ops", kind: "org-unit" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+
+  describe("governedBy", () => {
+    it("accepts any source kind (wildcard)", () => {
+      const entry = registry.get("governedBy");
+      expect(entry).toBeDefined();
+      expect(entry!.validSourceKinds).toBe("*");
+    });
+
+    it("validates app → policy-objective via governedBy", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "APP-orders",
+          kind: "application",
+          relations: [{ type: "governedBy", target: "POL-order-sla" }],
+        }),
+        makeArtifact({ id: "POL-order-sla", kind: "policy-objective" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+
+  describe("owns", () => {
+    it("is registered with org-unit source and wildcard target", () => {
+      const entry = registry.get("owns");
+      expect(entry).toBeDefined();
+      expect(entry!.validSourceKinds).toEqual(["org-unit"]);
+      expect(entry!.validTargetKinds).toBe("*");
+    });
+
+    it("validates org-unit → application via owns", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "ORG-eng",
+          kind: "org-unit",
+          relations: [{ type: "owns", target: "APP-orders" }],
+        }),
+        makeArtifact({ id: "APP-orders", kind: "application" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it("rejects non-org-unit as source for owns", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "APP-orders",
+          kind: "application",
+          relations: [{ type: "owns", target: "APP-billing" }],
+        }),
+        makeArtifact({ id: "APP-billing", kind: "application" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      expect(result.errors.find((e) => e.rule === "ea:relation:invalid-source")).toBeDefined();
+    });
+  });
+});
+
+// ─── Phase 2D: Drift Rules ─────────────────────────────────────────────────────
+
+describe("Phase 2D: Business Drift Rules", () => {
+
+  describe("ea:business/no-realizing-systems", () => {
+    it("fires when active capability has no realizing systems", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-lonely", kind: "capability", status: "active" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/no-realizing-systems")).toBeDefined();
+    });
+
+    it("does not fire when capability has a realizes relation", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-good", kind: "capability", status: "active" }),
+        makeArtifact({
+          id: "APP-orders",
+          kind: "application",
+          relations: [{ type: "realizes", target: "CAP-good" }],
+        }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/no-realizing-systems")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/retired-system-dependency", () => {
+    it("fires when active capability is realized by retired system", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-fulfillment", kind: "capability", status: "active" }),
+        makeArtifact({
+          id: "APP-legacy",
+          kind: "application",
+          status: "retired",
+          relations: [{ type: "realizes", target: "CAP-fulfillment" }],
+        }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.errors.find((e) => e.rule === "ea:business/retired-system-dependency")).toBeDefined();
+    });
+
+    it("does not fire when realizing system is active", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-fulfillment", kind: "capability", status: "active" }),
+        makeArtifact({
+          id: "APP-orders",
+          kind: "application",
+          status: "active",
+          relations: [{ type: "realizes", target: "CAP-fulfillment" }],
+        }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.errors.find((e) => e.rule === "ea:business/retired-system-dependency")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/process-missing-owner", () => {
+    it("fires when process has no owner", () => {
+      const artifacts = [
+        makeArtifact({ id: "PROC-orphan", kind: "process" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/process-missing-owner")).toBeDefined();
+    });
+
+    it("does not fire when process has processOwner field", () => {
+      const artifacts = [
+        makeArtifact({ id: "PROC-owned", kind: "process", processOwner: "ops-lead" } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/process-missing-owner")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/control-missing-evidence", () => {
+    it("fires when automated control has no evidence", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CTRL-no-evidence",
+          kind: "control",
+          controlType: "detective",
+          implementation: "automated",
+          assertion: "test",
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/control-missing-evidence")).toBeDefined();
+    });
+
+    it("does not fire when manual control has no evidence", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "CTRL-manual",
+          kind: "control",
+          controlType: "detective",
+          implementation: "manual",
+          assertion: "test",
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/control-missing-evidence")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/orphan-capability", () => {
+    it("fires when capability has no parent, children, or systems", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-island", kind: "capability", level: 1 } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/orphan-capability")).toBeDefined();
+    });
+
+    it("does not fire when capability has a child", () => {
+      const artifacts = [
+        makeArtifact({ id: "CAP-parent", kind: "capability", level: 1 } as any),
+        makeArtifact({ id: "CAP-child", kind: "capability", level: 2, parentCapability: "CAP-parent" } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/orphan-capability" && w.path === "CAP-parent")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/mission-no-capabilities", () => {
+    it("fires when mission has no supporting capabilities", () => {
+      const artifacts = [
+        makeArtifact({ id: "MISSION-lonely", kind: "mission" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/mission-no-capabilities")).toBeDefined();
+    });
+
+    it("does not fire when mission has supports relation", () => {
+      const artifacts = [
+        makeArtifact({ id: "MISSION-good", kind: "mission" }),
+        makeArtifact({
+          id: "CAP-commerce",
+          kind: "capability",
+          relations: [{ type: "supports", target: "MISSION-good" }],
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/mission-no-capabilities")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/policy-no-controls", () => {
+    it("fires when policy has no enforcing controls", () => {
+      const artifacts = [
+        makeArtifact({ id: "POL-lonely", kind: "policy-objective", category: "sla", objective: "test" } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/policy-no-controls")).toBeDefined();
+    });
+
+    it("does not fire when policy has enforcedBy", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "POL-enforced",
+          kind: "policy-objective",
+          category: "sla",
+          objective: "test",
+          enforcedBy: ["CTRL-latency"],
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/policy-no-controls")).toBeUndefined();
+    });
+  });
+
+  describe("ea:business/value-stream-bottleneck", () => {
+    it("fires when value stream has bottleneck stage", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "VS-onboarding",
+          kind: "value-stream",
+          stages: [
+            { id: "s1", name: "Registration", supportingCapabilities: [], bottleneck: false },
+            { id: "s2", name: "KYC Check", supportingCapabilities: [], bottleneck: true },
+          ],
+          customer: "test",
+          valueProposition: "test",
+        } as any),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:business/value-stream-bottleneck")).toBeDefined();
+    });
+  });
+
+  it("evaluates all 27 static drift rules", () => {
+    const result = evaluateEaDrift([]);
+    expect(result.rulesEvaluated).toBe(27);
+    expect(result.rulesSkipped).toBe(5);
   });
 });
