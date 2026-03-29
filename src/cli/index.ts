@@ -26,6 +26,7 @@ import { eaGenerateCommand } from "./commands/ea-generate.js";
 import { eaImpactCommand } from "./commands/ea-impact.js";
 import { eaStatusCommand } from "./commands/ea-status.js";
 import { eaTransitionCommand } from "./commands/ea-transition.js";
+import { migrateConfigCommand } from "./commands/migrate-config.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -61,6 +62,7 @@ program.addCommand(eaGenerateCommand());
 program.addCommand(eaImpactCommand());
 program.addCommand(eaStatusCommand());
 program.addCommand(eaTransitionCommand());
+program.addCommand(migrateConfigCommand());
 
 // ─── Deprecated "ea" alias group ────────────────────────────────────────────────
 // Keeps `anchored-spec ea <cmd>` working but emits a deprecation warning.
