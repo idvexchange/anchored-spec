@@ -46,7 +46,7 @@ describe("Phase 2E: Transition Layer Kinds", () => {
   const TRANSITION_KINDS = ["baseline", "target", "transition-plan", "migration-wave", "exception"];
 
   it("has 41 total kinds after Phase 2E", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(41);
+    expect(EA_KIND_REGISTRY).toHaveLength(44);
   });
 
   it("has 5 kinds in transitions domain", () => {
@@ -201,7 +201,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
 
   it("validates all 44 schemas load correctly", () => {
     const names = getEaSchemaNames();
-    expect(names).toHaveLength(44);
+    expect(names).toHaveLength(47);
   });
 });
 

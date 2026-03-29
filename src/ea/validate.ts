@@ -106,7 +106,10 @@ export type EaSchemaName =
   | "target"
   | "transition-plan"
   | "migration-wave"
-  | "exception";
+  | "exception"
+  | "requirement"
+  | "change"
+  | "decision";
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "artifact-base",
@@ -153,6 +156,9 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "transition-plan",
   "migration-wave",
   "exception",
+  "requirement",
+  "change",
+  "decision",
 ];
 
 function getEaAjv(): Ajv {

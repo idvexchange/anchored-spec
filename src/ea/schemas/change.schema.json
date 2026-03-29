@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/change.schema.json",
+  "title": "Anchored Spec — EA Change (Legacy Subsumption)",
+  "description": "An implementation change record migrated from the legacy CHG format.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "change" },
+    "changeType": {
+      "type": "string",
+      "description": "Type of change (feature, fix, refactor, chore, or custom)"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["design", "planned", "implementation", "verification", "done", "archived"],
+      "description": "Current phase of the change"
+    },
+    "changeStatus": {
+      "type": "string",
+      "enum": ["active", "blocked", "complete", "cancelled"],
+      "description": "Status of the change record"
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns included in the change scope"
+        },
+        "exclude": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns excluded from the change scope"
+        }
+      },
+      "additionalProperties": false,
+      "description": "File scope of the change"
+    },
+    "requirements": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Legacy requirement IDs addressed by this change"
+    },
+    "workflowVariant": {
+      "type": "string",
+      "description": "Workflow variant used for this change"
+    },
+    "bugfixSpec": {
+      "type": "object",
+      "properties": {
+        "currentBehavior": { "type": "string" },
+        "expectedBehavior": { "type": "string" },
+        "rootCauseHypothesis": { "type": "string" },
+        "regressionRisk": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Bugfix specification (for fix-type changes)"
+    }
+  }
+}

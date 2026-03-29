@@ -16,7 +16,8 @@ export type EaDomain =
   | "data"
   | "information"
   | "business"
-  | "transitions";
+  | "transitions"
+  | "legacy";
 
 /** All registered EA domains. */
 export const EA_DOMAINS: readonly EaDomain[] = [
@@ -26,6 +27,7 @@ export const EA_DOMAINS: readonly EaDomain[] = [
   "information",
   "business",
   "transitions",
+  "legacy",
 ] as const;
 
 // ─── Status & Confidence ────────────────────────────────────────────────────────
@@ -812,6 +814,65 @@ export interface ExceptionArtifact extends EaArtifactBase {
   reviewSchedule?: "weekly" | "monthly" | "quarterly";
 }
 
+// ─── Legacy Subsumption Kinds ───────────────────────────────────────────────────
+
+/** EARS behavior statement (shared with core types). */
+export interface EaBehaviorStatement {
+  id: string;
+  text: string;
+  format: "EARS";
+  trigger?: string;
+  precondition?: string;
+  response: string;
+}
+
+/** A legacy requirement migrated to the EA model. */
+export interface RequirementArtifact extends EaArtifactBase {
+  kind: "requirement";
+  behaviorStatements?: EaBehaviorStatement[];
+  verification?: {
+    coverageStatus: "none" | "partial" | "covered";
+    testRefs?: string[];
+  };
+  category?: "functional" | "non-functional" | "policy";
+  priority?: "must" | "should" | "could" | "wont";
+  supersededBy?: string;
+  statusReason?: string;
+}
+
+/** A legacy change record migrated to the EA model. */
+export interface ChangeArtifact extends EaArtifactBase {
+  kind: "change";
+  changeType?: string;
+  phase?: string;
+  changeStatus?: string;
+  scope?: { include?: string[]; exclude?: string[] };
+  requirements?: string[];
+  workflowVariant?: string;
+  bugfixSpec?: {
+    currentBehavior: string;
+    expectedBehavior: string;
+    rootCauseHypothesis?: string;
+    regressionRisk?: string;
+  };
+}
+
+/** A legacy architecture decision record migrated to the EA model. */
+export interface DecisionArtifact extends EaArtifactBase {
+  kind: "decision";
+  decision?: string;
+  context?: string;
+  rationale?: string;
+  alternatives?: Array<{
+    name: string;
+    verdict: "chosen" | "rejected" | "deferred";
+    reason?: string;
+  }>;
+  relatedRequirements?: string[];
+  adDomain?: string;
+  implications?: string;
+}
+
 // ─── Union Type ─────────────────────────────────────────────────────────────────
 
 /** Discriminated union of all artifact types. */
@@ -856,7 +917,10 @@ export type EaArtifact =
   | TargetArtifact
   | TransitionPlanArtifact
   | MigrationWaveArtifact
-  | ExceptionArtifact;
+  | ExceptionArtifact
+  | RequirementArtifact
+  | ChangeArtifact
+  | DecisionArtifact;
 
 // ─── Kind Taxonomy ──────────────────────────────────────────────────────────────
 
@@ -917,6 +981,10 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "transition-plan", prefix: "PLAN", domain: "transitions", description: "A plan to move from baseline to target" },
   { kind: "migration-wave", prefix: "WAVE", domain: "transitions", description: "A batch of related changes within a transition" },
   { kind: "exception", prefix: "EXCEPT", domain: "transitions", description: "An approved exception to architecture policy" },
+  // Legacy subsumption
+  { kind: "requirement", prefix: "REQ", domain: "legacy", description: "A behavioral software requirement (migrated from legacy REQ format)" },
+  { kind: "change", prefix: "CHG", domain: "legacy", description: "An implementation change record (migrated from legacy CHG format)" },
+  { kind: "decision", prefix: "ADR", domain: "legacy", description: "An architecture decision record (migrated from legacy ADR format)" },
 ] as const;
 
 /** Lookup helpers. */

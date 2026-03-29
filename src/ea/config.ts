@@ -107,6 +107,7 @@ function buildEaDefaults(rootDir: string): EaConfig {
       information: `${rootDir}/information`,
       business: `${rootDir}/business`,
       transitions: `${rootDir}/transitions`,
+      legacy: `${rootDir}/legacy`,
     },
     resolvers: [],
     generators: [],
