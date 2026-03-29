@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/lineage.schema.json",
+  "title": "Anchored Spec — EA Lineage",
+  "description": "A data lineage path describing how data flows from source to destination.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["source", "destination", "mechanism"],
+  "properties": {
+    "kind": { "const": "lineage" },
+    "source": {
+      "type": "object",
+      "required": ["artifactId"],
+      "properties": {
+        "artifactId": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Source of the data flow"
+    },
+    "destination": {
+      "type": "object",
+      "required": ["artifactId"],
+      "properties": {
+        "artifactId": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Destination of the data flow"
+    },
+    "mechanism": {
+      "type": "string",
+      "enum": ["etl", "elt", "streaming", "cdc", "api-pull", "replication", "manual", "other"],
+      "description": "Data movement mechanism"
+    },
+    "executedBy": { "type": "string", "description": "System or tool that executes the data flow" },
+    "transformation": { "type": "string", "description": "Description of data transformation applied" },
+    "schedule": {
+      "type": "string",
+      "enum": ["real-time", "hourly", "daily", "weekly", "on-demand", "custom"],
+      "description": "Execution schedule"
+    },
+    "latency": { "type": "string", "description": "Expected data latency" },
+    "qualityChecks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Quality checks applied to this lineage"
+    }
+  }
+}

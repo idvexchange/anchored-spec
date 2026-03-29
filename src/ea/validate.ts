@@ -57,7 +57,14 @@ export type EaSchemaName =
   | "identity-boundary"
   | "cloud-resource"
   | "environment"
-  | "technology-standard";
+  | "technology-standard"
+  | "logical-data-model"
+  | "physical-schema"
+  | "data-store"
+  | "lineage"
+  | "master-data-domain"
+  | "data-quality-rule"
+  | "data-product";
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "artifact-base",
@@ -78,6 +85,13 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "cloud-resource",
   "environment",
   "technology-standard",
+  "logical-data-model",
+  "physical-schema",
+  "data-store",
+  "lineage",
+  "master-data-domain",
+  "data-quality-rule",
+  "data-product",
 ];
 
 function getEaAjv(): Ajv {

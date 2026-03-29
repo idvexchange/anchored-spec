@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/master-data-domain.schema.json",
+  "title": "Anchored Spec — EA Master Data Domain",
+  "description": "A master data domain defining golden-source entities and governance.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["entities", "steward"],
+  "properties": {
+    "kind": { "const": "master-data-domain" },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Master data entities in this domain"
+    },
+    "steward": {
+      "type": "object",
+      "required": ["team"],
+      "properties": {
+        "team": { "type": "string", "minLength": 1 },
+        "contact": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Data steward responsible for this domain"
+    },
+    "goldenSource": { "type": "string", "description": "Reference to the golden source system" },
+    "governanceRules": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Governance rules applied to this domain"
+    },
+    "matchingStrategy": { "type": "string", "description": "Entity matching/deduplication strategy" }
+  }
+}
