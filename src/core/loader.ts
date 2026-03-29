@@ -210,6 +210,24 @@ export class SpecRoot {
   }
 
   /**
+   * Check if EA extension is enabled in config.
+   */
+  get eaEnabled(): boolean {
+    return this.config.ea?.enabled === true;
+  }
+
+  /**
+   * Get an EaRoot instance for accessing EA artifacts.
+   * Returns null if EA is not configured/enabled.
+   * Lazily creates the EaRoot to avoid importing EA code unless needed.
+   */
+  async getEaRoot(): Promise<import("../ea/loader.js").EaRoot | null> {
+    if (!this.eaEnabled) return null;
+    const { EaRoot } = await import("../ea/loader.js");
+    return new EaRoot(this.projectRoot, this.config);
+  }
+
+  /**
    * Get a summary of what's in the spec root.
    * Uses directory listing for counts to avoid full JSON parsing.
    */

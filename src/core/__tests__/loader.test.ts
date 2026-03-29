@@ -300,4 +300,39 @@ describe("SpecRoot.getSummary", () => {
     expect(summary.changeCount).toBe(1);
     expect(summary.decisionCount).toBe(1);
   });
+
+  it("eaEnabled returns false when EA is not configured", () => {
+    const spec = new SpecRoot(tempDir);
+    expect(spec.eaEnabled).toBe(false);
+  });
+
+  it("eaEnabled returns true when EA is configured with enabled: true", () => {
+    mkdirSync(join(tempDir, "specs"), { recursive: true });
+    mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
+    writeFileSync(
+      join(tempDir, ".anchored-spec", "config.json"),
+      JSON.stringify({ specRoot: "specs", ea: { enabled: true } }),
+    );
+    const spec = new SpecRoot(tempDir);
+    expect(spec.eaEnabled).toBe(true);
+  });
+
+  it("getEaRoot returns null when EA is not enabled", async () => {
+    const spec = new SpecRoot(tempDir);
+    const eaRoot = await spec.getEaRoot();
+    expect(eaRoot).toBeNull();
+  });
+
+  it("getEaRoot returns an EaRoot when EA is enabled", async () => {
+    mkdirSync(join(tempDir, "specs"), { recursive: true });
+    mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
+    writeFileSync(
+      join(tempDir, ".anchored-spec", "config.json"),
+      JSON.stringify({ specRoot: "specs", ea: { enabled: true } }),
+    );
+    const spec = new SpecRoot(tempDir);
+    const eaRoot = await spec.getEaRoot();
+    expect(eaRoot).not.toBeNull();
+    expect(eaRoot!.projectRoot).toBe(spec.projectRoot);
+  });
 });

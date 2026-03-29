@@ -39,11 +39,29 @@ import type { EaValidationError } from "./validate.js";
 
 // ─── Drift Rule Types ───────────────────────────────────────────────────────────
 
+/** Observed state collected from resolvers or loaded from a snapshot. */
+export interface EaResolverObservedState {
+  /** External API endpoints discovered by OpenAPI resolver. */
+  externalEndpoints?: Array<{ url: string; method?: string; operationId?: string }>;
+  /** Cloud resources discovered by Terraform/K8s resolvers. */
+  cloudResources?: Array<{ type: string; name: string; provider?: string }>;
+  /** Physical schema tables/columns discovered by DDL resolver. */
+  physicalSchemas?: Array<{
+    table: string;
+    columns: string[];
+    store?: string;
+  }>;
+  /** Data quality rules found enforced by dbt/GE resolver. */
+  enforcedQualityRules?: Array<{ ruleId: string; source: string }>;
+}
+
 export interface EaDriftContext {
   /** All loaded artifacts indexed by ID. */
   artifactMap: Map<string, EaArtifactBase>;
   /** All loaded artifacts as an array. */
   artifacts: EaArtifactBase[];
+  /** Observed state from resolvers (available for resolver-dependent rules). */
+  resolverData?: EaResolverObservedState;
 }
 
 export interface EaDriftRule {
@@ -69,13 +87,13 @@ export interface EaDriftResult {
 // ─── Static-Analysis Drift Rules ────────────────────────────────────────────────
 
 /**
- * ea:drift:consumer-contract-version-mismatch
+ * ea:systems/consumer-contract-version-mismatch
  *
  * Detects when a consumer declares a contractVersion that doesn't match
  * any api-contract artifact's schemaVersion.
  */
 const consumerContractVersionMismatch: EaDriftRule = {
-  id: "ea:drift:consumer-contract-version-mismatch",
+  id: "ea:systems/consumer-contract-version-mismatch",
   severity: "warning",
   description:
     "Consumer's contractVersion doesn't match the latest api-contract schemaVersion",
@@ -112,13 +130,13 @@ const consumerContractVersionMismatch: EaDriftRule = {
 };
 
 /**
- * ea:drift:technology-standard-violation
+ * ea:systems/technology-standard-violation
  *
  * Detects when a cloud-resource uses a technology not covered by any active
  * technology standard.
  */
 const technologyStandardViolation: EaDriftRule = {
-  id: "ea:drift:technology-standard-violation",
+  id: "ea:systems/technology-standard-violation",
   severity: "error",
   description:
     "Cloud resource or deployment uses technology not covered by an active standard",
@@ -163,13 +181,13 @@ const technologyStandardViolation: EaDriftRule = {
 };
 
 /**
- * ea:drift:deprecated-version-in-use
+ * ea:systems/deprecated-version-in-use
  *
  * Detects when a cloud resource uses a version listed in a technology standard's
  * deprecatedVersions.
  */
 const deprecatedVersionInUse: EaDriftRule = {
-  id: "ea:drift:deprecated-version-in-use",
+  id: "ea:systems/deprecated-version-in-use",
   severity: "warning",
   description:
     "Cloud resource uses a version in a technology standard's deprecatedVersions",
@@ -218,13 +236,13 @@ const deprecatedVersionInUse: EaDriftRule = {
 };
 
 /**
- * ea:drift:environment-promotion-gap
+ * ea:systems/environment-promotion-gap
  *
  * Detects when an environment's promotesFrom or promotesTo references
  * a non-existent environment.
  */
 const environmentPromotionGap: EaDriftRule = {
-  id: "ea:drift:environment-promotion-gap",
+  id: "ea:systems/environment-promotion-gap",
   severity: "warning",
   description:
     "Environment promotesFrom/promotesTo references a non-existent environment",
@@ -265,13 +283,13 @@ const environmentPromotionGap: EaDriftRule = {
 // ─── Phase 2B: Data Layer Drift Rules ───────────────────────────────────────────
 
 /**
- * ea:drift:lineage-stale
+ * ea:data/lineage-stale
  *
  * Detects when a lineage artifact references a source or destination
  * that is retired or doesn't exist.
  */
 const lineageStale: EaDriftRule = {
-  id: "ea:drift:lineage-stale",
+  id: "ea:data/lineage-stale",
   severity: "warning",
   description:
     "Lineage references source or destination artifact that is retired or missing",
@@ -312,12 +330,12 @@ const lineageStale: EaDriftRule = {
 };
 
 /**
- * ea:drift:orphan-store
+ * ea:data/orphan-store
  *
  * Detects data stores with no uses, lineageFrom, or lineageTo edges.
  */
 const orphanStore: EaDriftRule = {
-  id: "ea:drift:orphan-store",
+  id: "ea:data/orphan-store",
   severity: "warning",
   description:
     "Data store with no relations (disconnected from applications and pipelines)",
@@ -362,12 +380,12 @@ const orphanStore: EaDriftRule = {
 };
 
 /**
- * ea:drift:shared-store-no-steward
+ * ea:data/shared-store-no-steward
  *
  * Detects shared data stores without a master-data-domain or steward.
  */
 const sharedStoreNoSteward: EaDriftRule = {
-  id: "ea:drift:shared-store-no-steward",
+  id: "ea:data/shared-store-no-steward",
   severity: "warning",
   description:
     "Shared data store without a master-data-domain steward",
@@ -407,12 +425,12 @@ const sharedStoreNoSteward: EaDriftRule = {
 };
 
 /**
- * ea:drift:product-missing-sla
+ * ea:data/product-missing-sla
  *
  * Detects active data products without an SLA definition.
  */
 const productMissingSla: EaDriftRule = {
-  id: "ea:drift:product-missing-sla",
+  id: "ea:data/product-missing-sla",
   severity: "warning",
   description: "Active data product without SLA definition",
   requiresResolver: false,
@@ -438,12 +456,12 @@ const productMissingSla: EaDriftRule = {
 };
 
 /**
- * ea:drift:product-missing-quality-rules
+ * ea:data/product-missing-quality-rules
  *
  * Detects active data products with no quality rules.
  */
 const productMissingQualityRules: EaDriftRule = {
-  id: "ea:drift:product-missing-quality-rules",
+  id: "ea:data/product-missing-quality-rules",
   severity: "warning",
   description: "Active data product with no quality rules",
   requiresResolver: false,
@@ -1223,69 +1241,222 @@ const unownedCriticalSystem: EaDriftRule = {
   },
 };
 
-// ─── Resolver-Dependent Rules (stubs for Phase 2F) ──────────────────────────────
+// ─── Resolver-Dependent Rules ────────────────────────────────────────────────────
 
 /**
- * ea:drift:unmodeled-external-dependency (requires OpenAPI resolver)
- * ea:drift:unmodeled-cloud-resource (requires Terraform/K8s resolver)
- * ea:drift:logical-physical-mismatch (requires DDL resolver)
- * ea:drift:store-undeclared-entity (requires DDL resolver)
- * ea:drift:quality-rule-not-enforced (requires dbt/GE resolver)
+ * ea:systems/unmodeled-external-dependency
  *
- * These rules need resolver data and will be implemented in Phase 2F.
+ * Detects external API endpoints found by OpenAPI resolver that are not
+ * modeled as system-interface artifacts.
  */
 const unmodeledExternalDependency: EaDriftRule = {
-  id: "ea:drift:unmodeled-external-dependency",
+  id: "ea:systems/unmodeled-external-dependency",
   severity: "warning",
   description:
     "Application consumes external API not modeled as system-interface (requires resolver)",
   requiresResolver: true,
-  evaluate() {
-    return [];
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const endpoints = ctx.resolverData?.externalEndpoints;
+    if (!endpoints || endpoints.length === 0) return results;
+
+    // Collect all modeled interface endpoints
+    const modeledUrls = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.kind === "system-interface") {
+        const iface = a as unknown as { endpoint?: string; url?: string };
+        if (iface.endpoint) modeledUrls.add(iface.endpoint);
+        if (iface.url) modeledUrls.add(iface.url);
+      }
+    }
+
+    for (const ep of endpoints) {
+      if (!modeledUrls.has(ep.url)) {
+        results.push({
+          path: ep.url,
+          message: `External endpoint "${ep.url}" discovered but not modeled as a system-interface artifact`,
+          severity: "warning",
+          rule: "ea:systems/unmodeled-external-dependency",
+        });
+      }
+    }
+    return results;
   },
 };
 
+/**
+ * ea:systems/unmodeled-cloud-resource
+ *
+ * Detects cloud resources found by Terraform/K8s resolvers that are not
+ * modeled as cloud-resource artifacts.
+ */
 const unmodeledCloudResource: EaDriftRule = {
-  id: "ea:drift:unmodeled-cloud-resource",
+  id: "ea:systems/unmodeled-cloud-resource",
   severity: "warning",
   description:
     "Cloud resource found by resolver but not modeled (requires resolver)",
   requiresResolver: true,
-  evaluate() {
-    return [];
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const resources = ctx.resolverData?.cloudResources;
+    if (!resources || resources.length === 0) return results;
+
+    // Collect all modeled cloud resource identifiers
+    const modeledResources = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.kind === "cloud-resource") {
+        const cr = a as unknown as CloudResourceArtifact;
+        modeledResources.add(a.id);
+        modeledResources.add(a.title.toLowerCase());
+        if (cr.resourceId) modeledResources.add(cr.resourceId);
+      }
+    }
+
+    for (const res of resources) {
+      const resLower = res.name.toLowerCase();
+      if (!modeledResources.has(res.name) && !modeledResources.has(resLower)) {
+        results.push({
+          path: res.name,
+          message: `Cloud resource "${res.name}" (${res.type}) discovered but not modeled as a cloud-resource artifact`,
+          severity: "warning",
+          rule: "ea:systems/unmodeled-cloud-resource",
+        });
+      }
+    }
+    return results;
   },
 };
 
+/**
+ * ea:data/logical-physical-mismatch
+ *
+ * Detects when physical schema columns diverge from logical data model
+ * attributes declared in canonical-entity artifacts.
+ */
 const logicalPhysicalMismatch: EaDriftRule = {
-  id: "ea:drift:logical-physical-mismatch",
+  id: "ea:data/logical-physical-mismatch",
   severity: "error",
   description:
     "Physical schema diverges from logical data model attributes (requires DDL resolver)",
   requiresResolver: true,
-  evaluate() {
-    return [];
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const schemas = ctx.resolverData?.physicalSchemas;
+    if (!schemas || schemas.length === 0) return results;
+
+    // Build map of canonical entity titles → their attribute names
+    const entityAttrs = new Map<string, Set<string>>();
+    for (const a of ctx.artifacts) {
+      if (a.kind === "canonical-entity") {
+        const ce = a as unknown as CanonicalEntityArtifact;
+        const attrs = new Set<string>();
+        for (const attr of ce.attributes ?? []) {
+          attrs.add(attr.name);
+        }
+        entityAttrs.set(a.title.toLowerCase(), attrs);
+      }
+    }
+
+    // Compare physical columns to logical attributes
+    for (const schema of schemas) {
+      const tableLower = schema.table.toLowerCase();
+      const logicalAttrs = entityAttrs.get(tableLower);
+      if (!logicalAttrs) continue; // No matching entity, covered by store-undeclared-entity
+
+      for (const col of schema.columns) {
+        if (!logicalAttrs.has(col)) {
+          results.push({
+            path: `${schema.table}.${col}`,
+            message: `Physical column "${col}" in table "${schema.table}" has no matching logical attribute in canonical entity`,
+            severity: "error",
+            rule: "ea:data/logical-physical-mismatch",
+          });
+        }
+      }
+    }
+    return results;
   },
 };
 
+/**
+ * ea:data/store-undeclared-entity
+ *
+ * Detects tables/collections discovered by DDL resolver that are not
+ * declared in any canonical-entity or data-store artifact.
+ */
 const storeUndeclaredEntity: EaDriftRule = {
-  id: "ea:drift:store-undeclared-entity",
+  id: "ea:data/store-undeclared-entity",
   severity: "warning",
   description:
     "Data store contains tables/collections not declared in any model (requires DDL resolver)",
   requiresResolver: true,
-  evaluate() {
-    return [];
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const schemas = ctx.resolverData?.physicalSchemas;
+    if (!schemas || schemas.length === 0) return results;
+
+    // Collect all declared entity/table identifiers
+    const declaredNames = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.kind === "canonical-entity") {
+        declaredNames.add(a.title.toLowerCase());
+        declaredNames.add(a.id.toLowerCase());
+      }
+      if (a.kind === "data-store") {
+        declaredNames.add(a.title.toLowerCase());
+        declaredNames.add(a.id.toLowerCase());
+      }
+    }
+
+    for (const schema of schemas) {
+      if (!declaredNames.has(schema.table.toLowerCase())) {
+        results.push({
+          path: schema.table,
+          message: `Table "${schema.table}" found in physical schema but not declared in any canonical-entity or data-store artifact`,
+          severity: "warning",
+          rule: "ea:data/store-undeclared-entity",
+        });
+      }
+    }
+    return results;
   },
 };
 
+/**
+ * ea:data/quality-rule-not-enforced
+ *
+ * Detects data quality rules declared in quality-attribute artifacts
+ * that have no matching enforcement evidence from dbt/GE resolvers.
+ */
 const qualityRuleNotEnforced: EaDriftRule = {
-  id: "ea:drift:quality-rule-not-enforced",
+  id: "ea:data/quality-rule-not-enforced",
   severity: "warning",
   description:
     "Data quality rule declared but no execution evidence found (requires dbt/GE resolver)",
   requiresResolver: true,
-  evaluate() {
-    return [];
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    const enforced = ctx.resolverData?.enforcedQualityRules;
+    if (!enforced) return results; // No resolver data — skip
+
+    const enforcedIds = new Set(enforced.map((r) => r.ruleId));
+
+    // Check all quality-attribute artifacts for enforcement
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "quality-attribute") continue;
+      const qa = a as unknown as { qualityRules?: Array<{ id: string }> };
+      for (const rule of qa.qualityRules ?? []) {
+        if (!enforcedIds.has(rule.id)) {
+          results.push({
+            path: a.id,
+            message: `Quality rule "${rule.id}" on "${a.id}" is declared but no enforcement evidence found`,
+            severity: "warning",
+            rule: "ea:data/quality-rule-not-enforced",
+          });
+        }
+      }
+    }
+    return results;
   },
 };
 
@@ -1621,14 +1792,14 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
  */
 export function evaluateEaDrift(
   artifacts: EaArtifactBase[],
-  options?: { includeResolverRules?: boolean },
+  options?: { includeResolverRules?: boolean; resolverData?: EaResolverObservedState },
 ): EaDriftResult {
   const artifactMap = new Map<string, EaArtifactBase>();
   for (const a of artifacts) {
     artifactMap.set(a.id, a);
   }
 
-  const ctx: EaDriftContext = { artifactMap, artifacts };
+  const ctx: EaDriftContext = { artifactMap, artifacts, resolverData: options?.resolverData };
   const errors: EaValidationError[] = [];
   const warnings: EaValidationError[] = [];
   let rulesEvaluated = 0;
@@ -1721,6 +1892,8 @@ export interface EaDriftOptions {
   includeResolverRules?: boolean;
   /** Resolver cache for caching observed state. */
   cache?: import("./cache.js").ResolverCache;
+  /** Pre-collected resolver snapshot (from --from-snapshot or live resolvers). */
+  snapshot?: EaResolverObservedState | Record<string, unknown>;
 }
 
 /**
@@ -1733,10 +1906,11 @@ export interface EaDriftOptions {
  * 6. Build report with heatmap
  */
 export function detectEaDrift(options: EaDriftOptions): EaDriftReport {
-  const { artifacts, exceptions, ruleOverrides, domains, includeResolverRules } = options;
+  const { artifacts, exceptions, ruleOverrides, domains, includeResolverRules, snapshot } = options;
 
-  // Step 1: Run existing graph-integrity rules
-  const rawResult = evaluateEaDrift(artifacts, { includeResolverRules });
+  // Step 1: Run existing graph-integrity rules (with resolver data if available)
+  const resolverData = snapshot as EaResolverObservedState | undefined;
+  const rawResult = evaluateEaDrift(artifacts, { includeResolverRules, resolverData });
 
   // Step 2: Convert EaValidationError[] → EaDriftFinding[]
   const allErrors = rawResult.errors.map((e) => validationErrorToFinding(e, "error", artifacts));

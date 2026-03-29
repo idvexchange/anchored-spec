@@ -54,7 +54,7 @@ function makeException(overrides: Record<string, unknown> = {}): ExceptionArtifa
   return makeArtifact({
     id: overrides.id as string ?? "EXCEPT-001",
     kind: "exception",
-    scope: overrides.scope ?? { artifactIds: ["SYS-001"], rules: ["ea:drift:consumer-contract-version-mismatch"] },
+    scope: overrides.scope ?? { artifactIds: ["SYS-001"], rules: ["ea:systems/consumer-contract-version-mismatch"] },
     approvedBy: "chief-architect",
     approvedAt: "2025-01-15",
     expiresAt: overrides.expiresAt as string ?? future.toISOString().split("T")[0],
@@ -113,7 +113,7 @@ describe("detectEaDrift", () => {
 
     expect(report.findings.length).toBeGreaterThan(0);
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(mismatch).toBeDefined();
     expect(mismatch!.severity).toBe("warning");
@@ -125,7 +125,7 @@ describe("detectEaDrift", () => {
     const report = detectEaDrift({ artifacts });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(mismatch!.domain).toBe("systems");
   });
@@ -171,14 +171,14 @@ describe("detectEaDrift — domain filtering", () => {
     // systems domain should include consumer-contract findings
     const systemsReport = detectEaDrift({ artifacts, domains: ["systems"] });
     const mismatch = systemsReport.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(mismatch).toBeDefined();
 
     // data domain should exclude consumer-contract findings
     const dataReport = detectEaDrift({ artifacts, domains: ["data"] });
     const dataMismatch = dataReport.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(dataMismatch).toBeUndefined();
   });
@@ -193,7 +193,7 @@ describe("detectEaDrift — exception suppression", () => {
       id: "EXCEPT-SUPPRESS",
       scope: {
         artifactIds: ["CON-001"],
-        rules: ["ea:drift:consumer-contract-version-mismatch"],
+        rules: ["ea:systems/consumer-contract-version-mismatch"],
       },
     });
 
@@ -203,7 +203,7 @@ describe("detectEaDrift — exception suppression", () => {
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(mismatch).toBeDefined();
     expect(mismatch!.suppressed).toBe(true);
@@ -227,7 +227,7 @@ describe("detectEaDrift — exception suppression", () => {
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     if (mismatch) {
       expect(mismatch.suppressed).toBe(false);
@@ -242,7 +242,7 @@ describe("detectEaDrift — exception suppression", () => {
       expiresAt: past.toISOString().split("T")[0],
       scope: {
         artifactIds: ["CON-001"],
-        rules: ["ea:drift:consumer-contract-version-mismatch"],
+        rules: ["ea:systems/consumer-contract-version-mismatch"],
       },
     });
 
@@ -252,7 +252,7 @@ describe("detectEaDrift — exception suppression", () => {
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     if (mismatch) {
       expect(mismatch.suppressed).toBe(false);
@@ -266,7 +266,7 @@ describe("detectEaDrift — exception suppression", () => {
       scope: {
         // Empty artifactIds matches all
         artifactIds: [],
-        rules: ["ea:drift:consumer-contract-version-mismatch"],
+        rules: ["ea:systems/consumer-contract-version-mismatch"],
       },
     });
 
@@ -276,7 +276,7 @@ describe("detectEaDrift — exception suppression", () => {
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     if (mismatch) {
       expect(mismatch.suppressed).toBe(true);
@@ -293,12 +293,12 @@ describe("detectEaDrift — severity overrides", () => {
     const report = detectEaDrift({
       artifacts,
       ruleOverrides: {
-        "ea:drift:consumer-contract-version-mismatch": "error",
+        "ea:systems/consumer-contract-version-mismatch": "error",
       },
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     if (mismatch) {
       expect(mismatch.severity).toBe("error");
@@ -311,12 +311,12 @@ describe("detectEaDrift — severity overrides", () => {
     const report = detectEaDrift({
       artifacts,
       ruleOverrides: {
-        "ea:drift:consumer-contract-version-mismatch": "off",
+        "ea:systems/consumer-contract-version-mismatch": "off",
       },
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(mismatch).toBeUndefined();
   });
@@ -327,12 +327,12 @@ describe("detectEaDrift — severity overrides", () => {
     const report = detectEaDrift({
       artifacts,
       ruleOverrides: {
-        "ea:drift:consumer-contract-version-mismatch": "info",
+        "ea:systems/consumer-contract-version-mismatch": "info",
       },
     });
 
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     if (mismatch) {
       expect(mismatch.severity).toBe("info");
@@ -506,7 +506,7 @@ describe("CLI: ea drift", () => {
     const { stdout } = runCLI("ea drift --json");
     const report = JSON.parse(stdout);
     const mismatch = report.findings.find(
-      (f: any) => f.rule === "ea:drift:consumer-contract-version-mismatch",
+      (f: any) => f.rule === "ea:systems/consumer-contract-version-mismatch",
     );
     expect(mismatch).toBeDefined();
   });
@@ -526,5 +526,176 @@ describe("CLI: ea drift", () => {
     const report = JSON.parse(stdout);
     expect(report).toHaveProperty("heatmap");
     expect(report).toHaveProperty("passed");
+  });
+});
+
+// ─── Resolver-Dependent Drift Rules ─────────────────────────────────────────────
+
+describe("resolver-dependent drift rules", () => {
+  const baseArtifact = (overrides: Partial<EaArtifactBase>): EaArtifactBase => ({
+    id: "test/SYS-001",
+    schemaVersion: "1.0.0",
+    kind: "system",
+    title: "Test System",
+    status: "active",
+    summary: "test",
+    owners: ["team-a"],
+    ...overrides,
+  });
+
+  it("detects unmodeled external endpoints", () => {
+    const artifacts = [
+      baseArtifact({
+        id: "systems/IF-001",
+        kind: "system-interface",
+        title: "Known API",
+        endpoint: "https://api.known.com/v1",
+      } as any),
+    ];
+
+    const result = evaluateEaDrift(artifacts, {
+      includeResolverRules: true,
+      resolverData: {
+        externalEndpoints: [
+          { url: "https://api.known.com/v1" },
+          { url: "https://api.unknown.com/v2" },
+        ],
+      },
+    });
+
+    const findings = [...result.errors, ...result.warnings];
+    const unmodeled = findings.filter((f) => f.rule === "ea:systems/unmodeled-external-dependency");
+    expect(unmodeled).toHaveLength(1);
+    expect(unmodeled[0]!.message).toContain("api.unknown.com");
+  });
+
+  it("detects unmodeled cloud resources", () => {
+    const artifacts = [
+      baseArtifact({
+        id: "systems/CR-001",
+        kind: "cloud-resource",
+        title: "my-rds-instance",
+        provider: "aws",
+        resourceType: "aws_rds_cluster",
+        resourceId: "my-rds-instance",
+      } as any),
+    ];
+
+    const result = evaluateEaDrift(artifacts, {
+      includeResolverRules: true,
+      resolverData: {
+        cloudResources: [
+          { type: "aws_rds_cluster", name: "my-rds-instance" },
+          { type: "aws_s3_bucket", name: "untracked-bucket" },
+        ],
+      },
+    });
+
+    const findings = [...result.errors, ...result.warnings];
+    const unmodeled = findings.filter((f) => f.rule === "ea:systems/unmodeled-cloud-resource");
+    expect(unmodeled).toHaveLength(1);
+    expect(unmodeled[0]!.message).toContain("untracked-bucket");
+  });
+
+  it("detects logical-physical column mismatch", () => {
+    const artifacts = [
+      baseArtifact({
+        id: "information/CE-001",
+        kind: "canonical-entity",
+        title: "Customer",
+        attributes: [
+          { name: "id", type: "string" },
+          { name: "email", type: "string" },
+        ],
+      } as any),
+    ];
+
+    const result = evaluateEaDrift(artifacts, {
+      includeResolverRules: true,
+      resolverData: {
+        physicalSchemas: [
+          { table: "customer", columns: ["id", "email", "phone_number"] },
+        ],
+      },
+    });
+
+    const findings = [...result.errors, ...result.warnings];
+    const mismatches = findings.filter((f) => f.rule === "ea:data/logical-physical-mismatch");
+    expect(mismatches).toHaveLength(1);
+    expect(mismatches[0]!.message).toContain("phone_number");
+  });
+
+  it("detects undeclared tables in physical schema", () => {
+    const artifacts = [
+      baseArtifact({
+        id: "information/CE-001",
+        kind: "canonical-entity",
+        title: "Customer",
+        attributes: [{ name: "id", type: "string" }],
+      } as any),
+    ];
+
+    const result = evaluateEaDrift(artifacts, {
+      includeResolverRules: true,
+      resolverData: {
+        physicalSchemas: [
+          { table: "customer", columns: ["id"] },
+          { table: "audit_log", columns: ["id", "action", "timestamp"] },
+        ],
+      },
+    });
+
+    const findings = [...result.errors, ...result.warnings];
+    const undeclared = findings.filter((f) => f.rule === "ea:data/store-undeclared-entity");
+    expect(undeclared).toHaveLength(1);
+    expect(undeclared[0]!.message).toContain("audit_log");
+  });
+
+  it("returns no resolver findings when no resolver data provided", () => {
+    const artifacts = [baseArtifact({})];
+
+    const result = evaluateEaDrift(artifacts, {
+      includeResolverRules: true,
+    });
+
+    const findings = [...result.errors, ...result.warnings];
+    const resolverFindings = findings.filter(
+      (f) =>
+        f.rule?.startsWith("ea:systems/unmodeled") ||
+        f.rule?.startsWith("ea:data/logical") ||
+        f.rule?.startsWith("ea:data/store-undeclared") ||
+        f.rule?.startsWith("ea:data/quality"),
+    );
+    expect(resolverFindings).toHaveLength(0);
+  });
+
+  it("passes snapshot through detectEaDrift pipeline", () => {
+    const artifacts = [
+      baseArtifact({
+        id: "systems/CR-001",
+        kind: "cloud-resource",
+        title: "my-instance",
+        provider: "aws",
+        resourceType: "aws_ec2_instance",
+        resourceId: "my-instance",
+      } as any),
+    ];
+
+    const report = detectEaDrift({
+      artifacts,
+      includeResolverRules: true,
+      snapshot: {
+        cloudResources: [
+          { type: "aws_ec2_instance", name: "my-instance" },
+          { type: "aws_s3_bucket", name: "orphan-bucket" },
+        ],
+      },
+    });
+
+    const unmodeled = report.findings.filter(
+      (f) => f.rule === "ea:systems/unmodeled-cloud-resource",
+    );
+    expect(unmodeled).toHaveLength(1);
+    expect(unmodeled[0]!.message).toContain("orphan-bucket");
   });
 });

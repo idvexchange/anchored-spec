@@ -508,7 +508,7 @@ describe("CLI: ea discover", () => {
     expect(report).toHaveProperty("discoveredAt");
     expect(report).toHaveProperty("summary");
     expect(report).toHaveProperty("resolversUsed");
-    expect(report.resolversUsed).toContain("stub");
+    expect(report.resolversUsed).toContain("openapi");
   });
 
   it("respects --dry-run flag", () => {
@@ -518,10 +518,19 @@ describe("CLI: ea discover", () => {
     expect(stdout).toContain("Discovery Report");
   });
 
-  it("warns about stub resolvers when --source is used", () => {
+  it("runs specific resolver with --resolver", () => {
     initEa(tempDir);
-    const { stdout, code } = runCLI("ea discover --source /some/path");
+    const { stdout, code } = runCLI("ea discover --resolver openapi --json");
     expect(code).toBe(0);
-    expect(stdout).toContain("stub");
+    const report = JSON.parse(stdout);
+    expect(report.resolversUsed).toContain("openapi");
+    expect(report.resolversUsed).toHaveLength(1);
+  });
+
+  it("rejects unknown resolver names", () => {
+    initEa(tempDir);
+    const { stdout, code } = runCLI("ea discover --resolver unknown-resolver");
+    expect(code).not.toBe(0);
+    expect(stdout).toContain("Unknown resolver");
   });
 });

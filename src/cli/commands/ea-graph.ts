@@ -26,6 +26,7 @@ export function eaGraphCommand(): Command {
     .option("--direction <dir>", "Graph direction for Mermaid: TB or LR", "LR")
     .option("--focus <id>", "Focus on a specific artifact and its neighbors")
     .option("--depth <n>", "Depth for --focus traversal", "2")
+    .option("--kind <kind>", "Filter to a specific artifact kind")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
@@ -57,9 +58,20 @@ export function eaGraphCommand(): Command {
         return;
       }
 
+      // Apply kind filter
+      let graphArtifacts = result.artifacts;
+      if (options.kind) {
+        const kindFilter = options.kind as string;
+        graphArtifacts = graphArtifacts.filter((a) => a.kind === kindFilter);
+        if (graphArtifacts.length === 0) {
+          console.error(`No artifacts of kind "${kindFilter}" found.`);
+          return;
+        }
+      }
+
       // Build graph
       const registry = createDefaultRegistry();
-      let graph = buildRelationGraph(result.artifacts, registry);
+      let graph = buildRelationGraph(graphArtifacts, registry);
 
       // Focus mode: build a subgraph around a specific artifact
       if (options.focus) {
@@ -85,7 +97,7 @@ export function eaGraphCommand(): Command {
         collectNeighbors(focusId, depth);
 
         // Rebuild graph with only the focused artifacts
-        const focused = result.artifacts.filter((a) => nodeIds.has(a.id));
+        const focused = graphArtifacts.filter((a) => nodeIds.has(a.id));
         graph = buildRelationGraph(focused, registry);
       }
 

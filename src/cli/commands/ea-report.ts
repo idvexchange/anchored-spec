@@ -25,8 +25,16 @@ import {
   buildDriftHeatmap,
   renderDriftHeatmapMarkdown,
   REPORT_VIEWS,
+  EA_DOMAINS,
+  getDomainForKind,
 } from "../../ea/index.js";
+import type { EaArtifactBase } from "../../ea/index.js";
 import { CliError } from "../errors.js";
+
+/** Filter artifacts to a specific domain. */
+function filterByDomain(artifacts: EaArtifactBase[], domain: string): EaArtifactBase[] {
+  return artifacts.filter((a) => getDomainForKind(a.kind) === domain);
+}
 
 export function eaReportCommand(): Command {
   return new Command("report")
@@ -36,6 +44,7 @@ export function eaReportCommand(): Command {
     .option("--format <format>", "Output format: json, markdown", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--output-dir <dir>", "Output directory for --all", "ea/generated")
+    .option("--domain <domain>", "Filter report to a specific EA domain")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--baseline <id>", "Baseline artifact ID (for gap-analysis)")
     .option("--target <id>", "Target artifact ID (for gap-analysis)")
@@ -61,6 +70,18 @@ export function eaReportCommand(): Command {
 
       const result = await root.loadArtifacts();
 
+      // Apply domain filter
+      const domainFilter = options.domain as string | undefined;
+      if (domainFilter && !EA_DOMAINS.includes(domainFilter as any)) {
+        throw new CliError(
+          `Unknown domain "${domainFilter}". Available: ${EA_DOMAINS.join(", ")}`,
+          2
+        );
+      }
+      const artifacts = domainFilter
+        ? filterByDomain(result.artifacts, domainFilter)
+        : result.artifacts;
+
       // --all: generate all reports to output directory
       if (options.all) {
         const outputDir = join(cwd, options.outputDir as string);
@@ -71,7 +92,7 @@ export function eaReportCommand(): Command {
         let count = 0;
 
         // System-data matrix
-        const sdm = buildSystemDataMatrix(result.artifacts);
+        const sdm = buildSystemDataMatrix(artifacts);
         const sdmContent = format === "json"
           ? JSON.stringify(sdm, null, 2)
           : renderSystemDataMatrixMarkdown(sdm);
@@ -79,7 +100,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Classification coverage
-        const cc = buildClassificationCoverage(result.artifacts);
+        const cc = buildClassificationCoverage(artifacts);
         const ccContent = format === "json"
           ? JSON.stringify(cc, null, 2)
           : renderClassificationCoverageMarkdown(cc);
@@ -87,7 +108,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Capability map
-        const cm = buildCapabilityMap(result.artifacts);
+        const cm = buildCapabilityMap(artifacts);
         const cmContent = format === "json"
           ? JSON.stringify(cm, null, 2)
           : renderCapabilityMapMarkdown(cm);
@@ -95,7 +116,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Exception report
-        const er = buildExceptionReport(result.artifacts);
+        const er = buildExceptionReport(artifacts);
         const erContent = format === "json"
           ? JSON.stringify(er, null, 2)
           : renderExceptionReportMarkdown(er);
@@ -103,7 +124,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Drift heatmap
-        const dh = buildDriftHeatmap(result.artifacts);
+        const dh = buildDriftHeatmap(artifacts);
         const dhContent = format === "json"
           ? JSON.stringify(dh, null, 2)
           : renderDriftHeatmapMarkdown(dh);
@@ -111,7 +132,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Report index (always JSON)
-        const index = buildReportIndex(result.artifacts);
+        const index = buildReportIndex(artifacts);
         writeFileSync(join(outputDir, "report-index.json"), JSON.stringify(index, null, 2) + "\n");
 
         console.log(chalk.green(`✓ Generated ${count} reports + index to ${outputDir}`));
@@ -125,7 +146,7 @@ export function eaReportCommand(): Command {
 
       switch (view) {
         case "system-data-matrix": {
-          const report = buildSystemDataMatrix(result.artifacts);
+          const report = buildSystemDataMatrix(artifacts);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -134,7 +155,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "classification-coverage": {
-          const report = buildClassificationCoverage(result.artifacts);
+          const report = buildClassificationCoverage(artifacts);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -143,7 +164,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "capability-map": {
-          const report = buildCapabilityMap(result.artifacts);
+          const report = buildCapabilityMap(artifacts);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -158,7 +179,7 @@ export function eaReportCommand(): Command {
               2
             );
           }
-          const report = buildGapAnalysis(result.artifacts, {
+          const report = buildGapAnalysis(artifacts, {
             baselineId: options.baseline as string,
             targetId: options.target as string,
             planId: options.plan as string | undefined,
@@ -171,7 +192,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "exceptions": {
-          const report = buildExceptionReport(result.artifacts);
+          const report = buildExceptionReport(artifacts);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -180,7 +201,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "drift-heatmap": {
-          const report = buildDriftHeatmap(result.artifacts);
+          const report = buildDriftHeatmap(artifacts);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
