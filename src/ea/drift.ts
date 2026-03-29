@@ -14,6 +14,10 @@ import type {
   CloudResourceArtifact,
   EnvironmentArtifact,
   TechnologyStandardArtifact,
+  LineageArtifact,
+  DataStoreArtifact,
+  DataProductArtifact,
+  MasterDataDomainArtifact,
 } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
@@ -242,11 +246,220 @@ const environmentPromotionGap: EaDriftRule = {
   },
 };
 
+// ─── Phase 2B: Data Layer Drift Rules ───────────────────────────────────────────
+
+/**
+ * ea:drift:lineage-stale
+ *
+ * Detects when a lineage artifact references a source or destination
+ * that is retired or doesn't exist.
+ */
+const lineageStale: EaDriftRule = {
+  id: "ea:drift:lineage-stale",
+  severity: "warning",
+  description:
+    "Lineage references source or destination artifact that is retired or missing",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "lineage") continue;
+      const lin = a as unknown as LineageArtifact;
+
+      for (const endpoint of [
+        { ref: lin.source?.artifactId, label: "source" },
+        { ref: lin.destination?.artifactId, label: "destination" },
+      ]) {
+        if (!endpoint.ref) continue;
+        const target = ctx.artifactMap.get(endpoint.ref);
+        if (!target) {
+          results.push({
+            path: a.id,
+            message: `Lineage "${a.id}" ${endpoint.label} "${endpoint.ref}" does not exist`,
+            severity: "warning",
+            rule: this.id,
+          });
+        } else if (target.status === "retired") {
+          results.push({
+            path: a.id,
+            message: `Lineage "${a.id}" ${endpoint.label} "${endpoint.ref}" is retired`,
+            severity: "warning",
+            rule: this.id,
+          });
+        }
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:drift:orphan-store
+ *
+ * Detects data stores with no uses, lineageFrom, or lineageTo edges.
+ */
+const orphanStore: EaDriftRule = {
+  id: "ea:drift:orphan-store",
+  severity: "warning",
+  description:
+    "Data store with no relations (disconnected from applications and pipelines)",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    // Build set of all artifacts that are relation targets
+    const allTargets = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.relations) {
+        for (const r of a.relations) {
+          allTargets.add(r.target);
+        }
+      }
+    }
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "data-store") continue;
+      const hasOwnRelations = (a.relations?.length ?? 0) > 0;
+      const isTargeted = allTargets.has(a.id);
+
+      // Also check if any lineage references this store
+      const isLineageEndpoint = ctx.artifacts.some((other) => {
+        if (other.kind !== "lineage") return false;
+        const lin = other as unknown as LineageArtifact;
+        return lin.source?.artifactId === a.id || lin.destination?.artifactId === a.id;
+      });
+
+      if (!hasOwnRelations && !isTargeted && !isLineageEndpoint) {
+        results.push({
+          path: a.id,
+          message: `Data store "${a.id}" is disconnected — no relations, not referenced, not in any lineage`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:drift:shared-store-no-steward
+ *
+ * Detects shared data stores without a master-data-domain or steward.
+ */
+const sharedStoreNoSteward: EaDriftRule = {
+  id: "ea:drift:shared-store-no-steward",
+  severity: "warning",
+  description:
+    "Shared data store without a master-data-domain steward",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    // Collect all entity references from master-data-domains
+    const stewardedStores = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "master-data-domain") continue;
+      const mdm = a as unknown as MasterDataDomainArtifact;
+      if (mdm.goldenSource) stewardedStores.add(mdm.goldenSource);
+      // Also check relations targeting data stores
+      if (a.relations) {
+        for (const r of a.relations) {
+          stewardedStores.add(r.target);
+        }
+      }
+    }
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "data-store") continue;
+      const ds = a as unknown as DataStoreArtifact;
+      if (ds.isShared && !stewardedStores.has(a.id)) {
+        results.push({
+          path: a.id,
+          message: `Shared data store "${a.id}" has no master-data-domain steward`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:drift:product-missing-sla
+ *
+ * Detects active data products without an SLA definition.
+ */
+const productMissingSla: EaDriftRule = {
+  id: "ea:drift:product-missing-sla",
+  severity: "warning",
+  description: "Active data product without SLA definition",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "data-product") continue;
+      if (a.status !== "active" && a.status !== "shipped") continue;
+      const dp = a as unknown as DataProductArtifact;
+      if (!dp.sla) {
+        results.push({
+          path: a.id,
+          message: `Active data product "${a.id}" has no SLA defined`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:drift:product-missing-quality-rules
+ *
+ * Detects active data products with no quality rules.
+ */
+const productMissingQualityRules: EaDriftRule = {
+  id: "ea:drift:product-missing-quality-rules",
+  severity: "warning",
+  description: "Active data product with no quality rules",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "data-product") continue;
+      if (a.status !== "active" && a.status !== "shipped") continue;
+      const dp = a as unknown as DataProductArtifact;
+      if (!dp.qualityRules || dp.qualityRules.length === 0) {
+        results.push({
+          path: a.id,
+          message: `Active data product "${a.id}" has no quality rules`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
 // ─── Resolver-Dependent Rules (stubs for Phase 2F) ──────────────────────────────
 
 /**
  * ea:drift:unmodeled-external-dependency (requires OpenAPI resolver)
  * ea:drift:unmodeled-cloud-resource (requires Terraform/K8s resolver)
+ * ea:drift:logical-physical-mismatch (requires DDL resolver)
+ * ea:drift:store-undeclared-entity (requires DDL resolver)
+ * ea:drift:quality-rule-not-enforced (requires dbt/GE resolver)
  *
  * These rules need resolver data and will be implemented in Phase 2F.
  */
@@ -272,16 +485,60 @@ const unmodeledCloudResource: EaDriftRule = {
   },
 };
 
+const logicalPhysicalMismatch: EaDriftRule = {
+  id: "ea:drift:logical-physical-mismatch",
+  severity: "error",
+  description:
+    "Physical schema diverges from logical data model attributes (requires DDL resolver)",
+  requiresResolver: true,
+  evaluate() {
+    return [];
+  },
+};
+
+const storeUndeclaredEntity: EaDriftRule = {
+  id: "ea:drift:store-undeclared-entity",
+  severity: "warning",
+  description:
+    "Data store contains tables/collections not declared in any model (requires DDL resolver)",
+  requiresResolver: true,
+  evaluate() {
+    return [];
+  },
+};
+
+const qualityRuleNotEnforced: EaDriftRule = {
+  id: "ea:drift:quality-rule-not-enforced",
+  severity: "warning",
+  description:
+    "Data quality rule declared but no execution evidence found (requires dbt/GE resolver)",
+  requiresResolver: true,
+  evaluate() {
+    return [];
+  },
+};
+
 // ─── Rule Registry & Runner ─────────────────────────────────────────────────────
 
 /** All registered EA drift rules. */
 export const EA_DRIFT_RULES: EaDriftRule[] = [
+  // Phase 2A — Systems & Delivery
   consumerContractVersionMismatch,
   technologyStandardViolation,
   deprecatedVersionInUse,
   environmentPromotionGap,
+  // Phase 2B — Data Layer
+  lineageStale,
+  orphanStore,
+  sharedStoreNoSteward,
+  productMissingSla,
+  productMissingQualityRules,
+  // Resolver-dependent stubs (Phase 2F)
   unmodeledExternalDependency,
   unmodeledCloudResource,
+  logicalPhysicalMismatch,
+  storeUndeclaredEntity,
+  qualityRuleNotEnforced,
 ];
 
 /**

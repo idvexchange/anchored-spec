@@ -692,14 +692,14 @@ describe("Phase 2A: Drift Rules", () => {
   describe("evaluateEaDrift options", () => {
     it("skips resolver-dependent rules by default", () => {
       const result = evaluateEaDrift([]);
-      expect(result.rulesSkipped).toBe(2); // 2 resolver stubs
-      expect(result.rulesEvaluated).toBe(4); // 4 static rules
+      expect(result.rulesSkipped).toBe(5); // 5 resolver stubs
+      expect(result.rulesEvaluated).toBe(9); // 9 static rules
     });
 
     it("includes resolver rules when requested", () => {
       const result = evaluateEaDrift([], { includeResolverRules: true });
       expect(result.rulesSkipped).toBe(0);
-      expect(result.rulesEvaluated).toBe(6);
+      expect(result.rulesEvaluated).toBe(14);
     });
   });
 });
