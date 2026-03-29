@@ -22,6 +22,8 @@ import {
   buildExceptionReport,
   renderExceptionReportMarkdown,
   buildReportIndex,
+  buildDriftHeatmap,
+  renderDriftHeatmapMarkdown,
   REPORT_VIEWS,
 } from "../../ea/index.js";
 import { CliError } from "../errors.js";
@@ -100,6 +102,14 @@ export function eaReportCommand(): Command {
         writeFileSync(join(outputDir, `exception-report${ext}`), erContent + "\n");
         count++;
 
+        // Drift heatmap
+        const dh = buildDriftHeatmap(result.artifacts);
+        const dhContent = format === "json"
+          ? JSON.stringify(dh, null, 2)
+          : renderDriftHeatmapMarkdown(dh);
+        writeFileSync(join(outputDir, `drift-heatmap${ext}`), dhContent + "\n");
+        count++;
+
         // Report index (always JSON)
         const index = buildReportIndex(result.artifacts);
         writeFileSync(join(outputDir, "report-index.json"), JSON.stringify(index, null, 2) + "\n");
@@ -166,6 +176,15 @@ export function eaReportCommand(): Command {
             output = JSON.stringify(report, null, 2);
           } else {
             output = renderExceptionReportMarkdown(report);
+          }
+          break;
+        }
+        case "drift-heatmap": {
+          const report = buildDriftHeatmap(result.artifacts);
+          if (format === "json") {
+            output = JSON.stringify(report, null, 2);
+          } else {
+            output = renderDriftHeatmapMarkdown(report);
           }
           break;
         }

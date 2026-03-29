@@ -12,6 +12,7 @@ import { eaValidateCommand } from "./ea-validate.js";
 import { eaGraphCommand } from "./ea-graph.js";
 import { eaReportCommand } from "./ea-report.js";
 import { eaEvidenceCommand } from "./ea-evidence.js";
+import { eaDriftCommand } from "./ea-drift.js";
 
 export function eaCommand(): Command {
   const ea = new Command("ea")
@@ -23,6 +24,7 @@ export function eaCommand(): Command {
   ea.addCommand(eaGraphCommand());
   ea.addCommand(eaReportCommand());
   ea.addCommand(eaEvidenceCommand());
+  ea.addCommand(eaDriftCommand());
 
   return ea;
 }
