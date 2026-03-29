@@ -1,0 +1,94 @@
+apiVersion: anchored-spec/ea/v1
+kind: process
+id: PROC-task-lifecycle
+
+metadata:
+  name: Task Lifecycle Process
+  summary: >
+    The full lifecycle of a task from initial creation through
+    prioritization, active work, completion, and eventual archival.
+    Defines actors, inputs, and outputs for each stage.
+  owners:
+    - team-product
+  tags:
+    - core
+    - lifecycle
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  stages:
+    - id: creation
+      name: Task Creation
+      description: >
+        User captures a new task with title, optional description,
+        category, priority, due date, and tags. The task enters the
+        system in "pending" status.
+      actor: end-user
+      input:
+        - title (required)
+        - description
+        - category
+        - priority
+        - dueDate
+        - tags
+      output:
+        - new Todo object in pending status
+
+    - id: prioritization
+      name: Task Prioritization
+      description: >
+        User reviews pending tasks and assigns or adjusts priority
+        levels (low, medium, high, urgent) to determine execution
+        order. May also re-categorize tasks.
+      actor: end-user
+      input:
+        - existing Todo in pending status
+        - priority level selection
+      output:
+        - Todo with updated priority
+
+    - id: execution
+      name: Task Execution
+      description: >
+        User begins work on a task, moving it to "in-progress"
+        status. The task remains in this stage until work is
+        finished or the task is abandoned.
+      actor: end-user
+      input:
+        - Todo in pending or prioritized state
+      output:
+        - Todo in in-progress status
+
+    - id: completion
+      name: Task Completion
+      description: >
+        User marks a task as "completed". The completedAt timestamp
+        is recorded. The task may remain visible in filtered views
+        for review.
+      actor: end-user
+      input:
+        - Todo in in-progress status
+      output:
+        - Todo in completed status with completedAt timestamp
+
+    - id: archival
+      name: Task Archival
+      description: >
+        Completed tasks are moved to "archived" status either
+        manually by the user or automatically after a configured
+        retention period. Archived tasks are retained for 90 days
+        per data retention policy before purge.
+      actor: system
+      input:
+        - Todo in completed status
+        - retention policy configuration
+      output:
+        - Todo in archived status
+
+relations:
+  - type: performedBy
+    target: CAP-task-management
+  - type: governedBy
+    target: POL-data-retention

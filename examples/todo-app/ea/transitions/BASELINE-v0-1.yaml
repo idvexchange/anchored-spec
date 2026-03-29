@@ -1,0 +1,44 @@
+apiVersion: anchored-spec/ea/v1
+kind: baseline
+id: BASELINE-v0-1
+
+metadata:
+  name: Baseline v0.1 — In-Memory MVP
+  summary: >
+    Current state baseline capturing the v0.1 single-page todo
+    application with in-memory storage. No authentication, no
+    persistence, and no production deployment.
+  owners:
+    - team-frontend
+  tags:
+    - baseline
+    - v0.1
+    - current-state
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  capturedAt: "2026-03-29T00:00:00Z"
+  scope:
+    description: >
+      Full architecture baseline of the Todo app v0.1 — all active artifacts
+      across systems, data, and delivery domains before persistence migration.
+    domains:
+      - systems
+      - data
+      - delivery
+  artifactRefs:
+    - APP-todo-web
+    - API-todo-v1
+    - CON-browser-client
+    - STORE-todo-memory
+    - DOBJ-task
+    - DOBJ-category
+    - DOBJ-todo-stats
+    - DEP-todo-local
+    - ENV-development
+
+relations:
+  - type: comparedBy
+    target: TARGET-v1-0

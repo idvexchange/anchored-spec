@@ -1,0 +1,36 @@
+apiVersion: anchored-spec/ea/v1
+kind: environment
+id: ENV-production
+
+metadata:
+  name: Production Environment
+  summary: >
+    Planned Vercel edge deployment environment for the production
+    todo application. Will provide global edge distribution with
+    automatic scaling and deploy approvals.
+  owners:
+    - team-frontend
+  tags:
+    - environment
+    - production
+    - vercel
+    - planned
+  confidence: declared
+  status: planned
+  schemaVersion: "1.0.0"
+
+spec:
+  provider: vercel
+  region: "auto (edge)"
+  isProduction: true
+  tier: production
+  accessControl:
+    deployApproval: required
+  description: >
+    Production deployment on Vercel's edge network. Requires
+    deploy approval for all changes. Will be activated in wave-3
+    of the persistence migration plan.
+
+relations:
+  - type: hosts
+    target: DEP-todo-vercel

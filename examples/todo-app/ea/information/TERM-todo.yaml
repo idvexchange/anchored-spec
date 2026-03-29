@@ -1,0 +1,36 @@
+apiVersion: anchored-spec/ea/v1
+kind: glossary-term
+id: TERM-todo
+
+metadata:
+  name: Todo (Glossary Term)
+  summary: >
+    Glossary definition for the term "Todo" as used throughout the
+    task management domain. Includes common aliases and the
+    authoritative definition.
+  owners:
+    - team-product
+  tags:
+    - glossary
+    - terminology
+    - task-management
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  term: "Todo"
+  aliases:
+    - task
+    - to-do
+    - action item
+  domain: "Task Management"
+  definition: >
+    A discrete unit of work to be tracked through its lifecycle
+    from creation to completion or archival. A todo carries metadata
+    including priority, category, due date, and status to support
+    effective task management.
+
+relations:
+  - type: describes
+    target: CE-task-entity

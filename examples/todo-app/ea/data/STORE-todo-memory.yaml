@@ -1,0 +1,49 @@
+apiVersion: anchored-spec/ea/v1
+kind: data-store
+id: STORE-todo-memory
+
+metadata:
+  name: In-Memory Todo Store
+  summary: >
+    In-memory Map-based data store providing fast but non-persistent
+    storage for todo items. Scoped to the server process lifetime
+    and suitable for development use.
+  owners:
+    - team-frontend
+  tags:
+    - in-memory
+    - data-store
+    - session-scoped
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  technology:
+    engine: "JavaScript Map"
+    category: key-value
+    version: "ES2015+"
+  isShared: false
+  persistent: false
+  capacity: "session-scoped"
+  classification: "internal"
+  description: >
+    Uses a JavaScript Map keyed by todo ID for O(1) lookups. All
+    data is lost on server restart. Suitable for local development
+    and prototyping. Will be replaced by SQLite in wave-2 of the
+    persistence migration plan.
+
+anchors:
+  interfaces:
+    - symbol: TodoStore
+      file: lib/store.ts
+
+relations:
+  - type: storedBy
+    target: APP-todo-web
+  - type: contains
+    target: DOBJ-task
+  - type: contains
+    target: DOBJ-category
+  - type: governedBy
+    target: POL-data-retention
