@@ -11,6 +11,13 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EaArtifactBase, EaRelation } from "./types.js";
+import type {
+  SystemInterfaceArtifact,
+  ConsumerArtifact,
+  CloudResourceArtifact,
+  EnvironmentArtifact,
+  TechnologyStandardArtifact,
+} from "./types.js";
 import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
 import type { RelationRegistry } from "./relation-registry.js";
@@ -322,6 +329,79 @@ export function validateEaArtifacts(
           a.id,
           `Active artifact "${a.id}" should have a meaningful summary (≥10 chars)`
         );
+      }
+    }
+
+    // ── ea:quality:system-interface-missing-direction ──────────────────────
+    if (a.kind === "system-interface") {
+      const sif = a as unknown as SystemInterfaceArtifact;
+      const sifSev = ruleSeverity("ea:quality:system-interface-missing-direction", "error", q);
+      if (!sif.direction) {
+        push(
+          sifSev,
+          "ea:quality:system-interface-missing-direction",
+          a.id,
+          `System interface "${a.id}" must have a direction (inbound, outbound, or bidirectional)`
+        );
+      }
+    }
+
+    // ── ea:quality:consumer-missing-contract ─────────────────────────────────
+    if (a.kind === "consumer") {
+      const con = a as unknown as ConsumerArtifact;
+      const conSev = ruleSeverity("ea:quality:consumer-missing-contract", "warning", q);
+      if (!con.consumesContracts || con.consumesContracts.length === 0) {
+        push(
+          conSev,
+          "ea:quality:consumer-missing-contract",
+          a.id,
+          `Consumer "${a.id}" has no consumesContracts — link it to at least one API or event contract`
+        );
+      }
+    }
+
+    // ── ea:quality:cloud-resource-missing-provider ───────────────────────────
+    if (a.kind === "cloud-resource") {
+      const cloud = a as unknown as CloudResourceArtifact;
+      const cloudSev = ruleSeverity("ea:quality:cloud-resource-missing-provider", "error", q);
+      if (!cloud.provider) {
+        push(
+          cloudSev,
+          "ea:quality:cloud-resource-missing-provider",
+          a.id,
+          `Cloud resource "${a.id}" must specify a provider (aws, gcp, azure, or other)`
+        );
+      }
+    }
+
+    // ── ea:quality:environment-production-not-restricted ─────────────────────
+    if (a.kind === "environment") {
+      const env = a as unknown as EnvironmentArtifact;
+      const envSev = ruleSeverity("ea:quality:environment-production-not-restricted", "warning", q);
+      if (env.isProduction && env.accessLevel && env.accessLevel !== "restricted") {
+        push(
+          envSev,
+          "ea:quality:environment-production-not-restricted",
+          a.id,
+          `Production environment "${a.id}" should have accessLevel "restricted" (currently "${env.accessLevel}")`
+        );
+      }
+    }
+
+    // ── ea:quality:technology-standard-expired-review ────────────────────────
+    if (a.kind === "technology-standard") {
+      const tech = a as unknown as TechnologyStandardArtifact;
+      const techSev = ruleSeverity("ea:quality:technology-standard-expired-review", "warning", q);
+      if (tech.reviewBy && isActive) {
+        const reviewDate = new Date(tech.reviewBy);
+        if (!isNaN(reviewDate.getTime()) && reviewDate < new Date()) {
+          push(
+            techSev,
+            "ea:quality:technology-standard-expired-review",
+            a.id,
+            `Technology standard "${a.id}" has passed its review date (${tech.reviewBy})`
+          );
+        }
       }
     }
 
