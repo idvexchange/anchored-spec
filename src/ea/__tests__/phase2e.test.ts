@@ -18,6 +18,8 @@ import {
   validateEaSchema,
   getEaSchemaNames,
   evaluateEaDrift,
+  buildGapAnalysis,
+  renderGapAnalysisMarkdown,
 } from "../index.js";
 import type { EaArtifactBase } from "../index.js";
 
@@ -660,5 +662,245 @@ describe("Phase 2E: Transition Drift Rules", () => {
     const result = evaluateEaDrift([]);
     expect(result.rulesEvaluated).toBe(37);
     expect(result.rulesSkipped).toBe(5);
+  });
+});
+
+// ─── Phase 2E: Gap Analysis Report ──────────────────────────────────────────────
+
+describe("Phase 2E: Gap Analysis Report", () => {
+  it("returns empty report when baseline not found", () => {
+    const report = buildGapAnalysis([], { baselineId: "BASELINE-x", targetId: "TARGET-x" });
+    expect(report.summary.newWork).toBe(0);
+    expect(report.summary.retirements).toBe(0);
+  });
+
+  it("classifies new work (in target but not baseline)", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "BASELINE-q1",
+        kind: "baseline",
+        scope: { description: "test" },
+        capturedAt: "2026-01-15",
+        artifactRefs: ["APP-orders"],
+      } as any),
+      makeArtifact({
+        id: "TARGET-q4",
+        kind: "target",
+        scope: { description: "test" },
+        effectiveBy: "2026-12-31",
+        artifactRefs: ["APP-orders", "APP-payments"],
+      } as any),
+      makeArtifact({ id: "APP-orders", kind: "application" }),
+      makeArtifact({ id: "APP-payments", kind: "application", status: "draft" }),
+    ];
+    const report = buildGapAnalysis(artifacts, { baselineId: "BASELINE-q1", targetId: "TARGET-q4" });
+    expect(report.summary.newWork).toBe(1);
+    expect(report.summary.continuing).toBe(1);
+    expect(report.summary.retirements).toBe(0);
+    expect(report.newWork[0].artifactId).toBe("APP-payments");
+    expect(report.newWork[0].status).toBe("draft");
+  });
+
+  it("classifies retirements (in baseline but not target)", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "BASELINE-q1",
+        kind: "baseline",
+        scope: { description: "test" },
+        capturedAt: "2026-01-15",
+        artifactRefs: ["APP-orders", "APP-legacy"],
+      } as any),
+      makeArtifact({
+        id: "TARGET-q4",
+        kind: "target",
+        scope: { description: "test" },
+        effectiveBy: "2026-12-31",
+        artifactRefs: ["APP-orders"],
+      } as any),
+      makeArtifact({ id: "APP-orders", kind: "application" }),
+      makeArtifact({ id: "APP-legacy", kind: "application" }),
+    ];
+    const report = buildGapAnalysis(artifacts, { baselineId: "BASELINE-q1", targetId: "TARGET-q4" });
+    expect(report.summary.retirements).toBe(1);
+    expect(report.retirements[0].artifactId).toBe("APP-legacy");
+    expect(report.retirements[0].blocked).toBe(false);
+  });
+
+  it("detects blocked retirements", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "BASELINE-q1",
+        kind: "baseline",
+        scope: { description: "test" },
+        capturedAt: "2026-01-15",
+        artifactRefs: ["APP-orders", "INT-legacy-bridge"],
+      } as any),
+      makeArtifact({
+        id: "TARGET-q4",
+        kind: "target",
+        scope: { description: "test" },
+        effectiveBy: "2026-12-31",
+        artifactRefs: ["APP-orders"],
+      } as any),
+      makeArtifact({
+        id: "APP-orders",
+        kind: "application",
+        relations: [{ type: "dependsOn", target: "INT-legacy-bridge" }],
+      }),
+      makeArtifact({ id: "INT-legacy-bridge", kind: "integration" }),
+    ];
+    const report = buildGapAnalysis(artifacts, { baselineId: "BASELINE-q1", targetId: "TARGET-q4" });
+    expect(report.summary.blockedRetirements).toBe(1);
+    expect(report.retirements[0].blocked).toBe(true);
+    expect(report.retirements[0].dependedOnBy).toContain("APP-orders");
+  });
+
+  it("flags unplanned gaps (new work with no milestone or wave)", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "BASELINE-q1",
+        kind: "baseline",
+        scope: { description: "test" },
+        capturedAt: "2026-01-15",
+        artifactRefs: [],
+      } as any),
+      makeArtifact({
+        id: "TARGET-q4",
+        kind: "target",
+        scope: { description: "test" },
+        effectiveBy: "2026-12-31",
+        artifactRefs: ["APP-new-service"],
+      } as any),
+      makeArtifact({ id: "APP-new-service", kind: "application", status: "draft" }),
+    ];
+    const report = buildGapAnalysis(artifacts, { baselineId: "BASELINE-q1", targetId: "TARGET-q4" });
+    expect(report.summary.unplannedGaps).toBe(1);
+  });
+
+  it("includes milestone status from transition plan", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "BASELINE-q1",
+        kind: "baseline",
+        scope: { description: "test" },
+        capturedAt: "2026-01-15",
+        artifactRefs: ["APP-orders"],
+      } as any),
+      makeArtifact({
+        id: "TARGET-q4",
+        kind: "target",
+        scope: { description: "test" },
+        effectiveBy: "2026-12-31",
+        artifactRefs: ["APP-orders", "APP-payments"],
+        successMetrics: [{ id: "sm1", metric: "Services on K8s", target: "100%", currentValue: "50%" }],
+      } as any),
+      makeArtifact({
+        id: "PLAN-migration",
+        kind: "transition-plan",
+        baseline: "BASELINE-q1",
+        target: "TARGET-q4",
+        milestones: [
+          { id: "m1", title: "Deploy payments", deliverables: ["APP-payments"], status: "pending" },
+        ],
+      } as any),
+      makeArtifact({ id: "APP-orders", kind: "application" }),
+      makeArtifact({ id: "APP-payments", kind: "application", status: "draft" }),
+    ];
+    const report = buildGapAnalysis(artifacts, {
+      baselineId: "BASELINE-q1",
+      targetId: "TARGET-q4",
+      planId: "PLAN-migration",
+    });
+    expect(report.milestones).toHaveLength(1);
+    expect(report.milestones[0].id).toBe("m1");
+    expect(report.milestones[0].status).toBe("pending");
+    expect(report.newWork[0].milestone).toBe("m1");
+    expect(report.successMetrics).toHaveLength(1);
+    expect(report.successMetrics[0].metric).toBe("Services on K8s");
+    expect(report.successMetrics[0].currentValue).toBe("50%");
+  });
+
+  it("tracks wave assignments for new work", () => {
+    const artifacts = [
+      makeArtifact({
+        id: "BASELINE-q1",
+        kind: "baseline",
+        scope: { description: "test" },
+        capturedAt: "2026-01-15",
+        artifactRefs: [],
+      } as any),
+      makeArtifact({
+        id: "TARGET-q4",
+        kind: "target",
+        scope: { description: "test" },
+        effectiveBy: "2026-12-31",
+        artifactRefs: ["APP-payments"],
+      } as any),
+      makeArtifact({
+        id: "PLAN-migration",
+        kind: "transition-plan",
+        baseline: "BASELINE-q1",
+        target: "TARGET-q4",
+        milestones: [{ id: "m1", title: "Wave 1", deliverables: ["APP-payments"] }],
+      } as any),
+      makeArtifact({
+        id: "WAVE-1",
+        kind: "migration-wave",
+        transitionPlan: "PLAN-migration",
+        milestones: ["m1"],
+        sequenceOrder: 1,
+        scope: { create: ["APP-payments"], modify: [], retire: [] },
+      } as any),
+      makeArtifact({ id: "APP-payments", kind: "application", status: "draft" }),
+    ];
+    const report = buildGapAnalysis(artifacts, {
+      baselineId: "BASELINE-q1",
+      targetId: "TARGET-q4",
+      planId: "PLAN-migration",
+    });
+    expect(report.newWork[0].wave).toBe("WAVE-1");
+    expect(report.newWork[0].milestone).toBe("m1");
+    expect(report.summary.unplannedGaps).toBe(0);
+  });
+
+  describe("renderGapAnalysisMarkdown", () => {
+    it("renders empty report", () => {
+      const report = buildGapAnalysis([], { baselineId: "BASELINE-x", targetId: "TARGET-x" });
+      const md = renderGapAnalysisMarkdown(report);
+      expect(md).toContain("# Target Gap Analysis");
+      expect(md).toContain("BASELINE-x");
+      expect(md).toContain("TARGET-x");
+    });
+
+    it("renders full report with all sections", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "BASELINE-q1",
+          kind: "baseline",
+          scope: { description: "test" },
+          capturedAt: "2026-01-15",
+          artifactRefs: ["APP-orders", "APP-legacy"],
+        } as any),
+        makeArtifact({
+          id: "TARGET-q4",
+          kind: "target",
+          scope: { description: "test" },
+          effectiveBy: "2026-12-31",
+          artifactRefs: ["APP-orders", "APP-payments"],
+          successMetrics: [{ id: "sm1", metric: "Uptime", target: "99.9%", currentValue: "99.5%" }],
+        } as any),
+        makeArtifact({ id: "APP-orders", kind: "application" }),
+        makeArtifact({ id: "APP-legacy", kind: "application" }),
+        makeArtifact({ id: "APP-payments", kind: "application", status: "draft" }),
+      ];
+      const report = buildGapAnalysis(artifacts, { baselineId: "BASELINE-q1", targetId: "TARGET-q4" });
+      const md = renderGapAnalysisMarkdown(report);
+      expect(md).toContain("## New Work");
+      expect(md).toContain("APP-payments");
+      expect(md).toContain("## Retirements");
+      expect(md).toContain("APP-legacy");
+      expect(md).toContain("## Success Metrics");
+      expect(md).toContain("Uptime");
+    });
   });
 });

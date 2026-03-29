@@ -16,16 +16,21 @@ import {
   renderClassificationCoverageMarkdown,
   buildCapabilityMap,
   renderCapabilityMapMarkdown,
+  buildGapAnalysis,
+  renderGapAnalysisMarkdown,
 } from "../../ea/index.js";
 import { CliError } from "../errors.js";
 
 export function eaReportCommand(): Command {
   return new Command("report")
     .description("Generate EA reports")
-    .requiredOption("--view <view>", "Report view: system-data-matrix, classification-coverage, capability-map")
+    .requiredOption("--view <view>", "Report view: system-data-matrix, classification-coverage, capability-map, gap-analysis")
     .option("--format <format>", "Output format: json, markdown", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--baseline <id>", "Baseline artifact ID (for gap-analysis)")
+    .option("--target <id>", "Target artifact ID (for gap-analysis)")
+    .option("--plan <id>", "Transition plan artifact ID (for gap-analysis)")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
@@ -72,9 +77,28 @@ export function eaReportCommand(): Command {
           }
           break;
         }
+        case "gap-analysis": {
+          if (!options.baseline || !options.target) {
+            throw new CliError(
+              "gap-analysis view requires --baseline and --target options",
+              2
+            );
+          }
+          const report = buildGapAnalysis(result.artifacts, {
+            baselineId: options.baseline as string,
+            targetId: options.target as string,
+            planId: options.plan as string | undefined,
+          });
+          if (format === "json") {
+            output = JSON.stringify(report, null, 2);
+          } else {
+            output = renderGapAnalysisMarkdown(report);
+          }
+          break;
+        }
         default:
           throw new CliError(
-            `Unknown report view "${view}". Available: system-data-matrix, classification-coverage, capability-map`,
+            `Unknown report view "${view}". Available: system-data-matrix, classification-coverage, capability-map, gap-analysis`,
             2
           );
       }

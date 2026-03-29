@@ -14,6 +14,10 @@ import type {
   CapabilityArtifact,
   MissionArtifact,
   ControlArtifact,
+  BaselineArtifact,
+  TargetArtifact,
+  TransitionPlanArtifact,
+  MigrationWaveArtifact,
 } from "./types.js";
 import { evaluateEaDrift } from "./drift.js";
 
@@ -839,4 +843,312 @@ function renderCapabilityTree(lines: string[], nodes: CapabilityMapNode[], inden
       renderCapabilityTree(lines, node.children, indent + 1);
     }
   }
+}
+
+// ─── Target Gap Analysis Report ─────────────────────────────────────────────────
+
+/** An artifact classified as new work (in target but not baseline). */
+export interface GapNewWorkItem {
+  artifactId: string;
+  status: string;
+  milestone?: string;
+  wave?: string;
+}
+
+/** An artifact classified for retirement (in baseline but not target). */
+export interface GapRetirementItem {
+  artifactId: string;
+  currentStatus: string;
+  dependedOnBy: string[];
+  milestone?: string;
+  blocked: boolean;
+  blockedReason?: string;
+}
+
+/** Milestone progress summary. */
+export interface GapMilestoneStatus {
+  id: string;
+  title: string;
+  status: string;
+  deliverables: { total: number; complete: number; inProgress: number; pending: number };
+  atRisk: boolean;
+}
+
+/** Success metric from the target. */
+export interface GapSuccessMetric {
+  id: string;
+  metric: string;
+  target: string;
+  currentValue?: string;
+}
+
+/** Full gap analysis report. */
+export interface GapAnalysisReport {
+  generatedAt: string;
+  baseline: { id: string; capturedAt: string };
+  target: { id: string; effectiveBy: string };
+  summary: {
+    newWork: number;
+    retirements: number;
+    continuing: number;
+    blockedRetirements: number;
+    unplannedGaps: number;
+    atRiskMilestones: number;
+  };
+  newWork: GapNewWorkItem[];
+  retirements: GapRetirementItem[];
+  milestones: GapMilestoneStatus[];
+  successMetrics: GapSuccessMetric[];
+}
+
+/**
+ * Build a target gap analysis report comparing baseline vs target architecture.
+ *
+ * Requires a baseline ID and target ID. Optionally accepts a transition plan ID
+ * to include milestone/wave tracking.
+ */
+export function buildGapAnalysis(
+  artifacts: EaArtifactBase[],
+  options: { baselineId: string; targetId: string; planId?: string },
+): GapAnalysisReport {
+  const byId = new Map<string, EaArtifactBase>();
+  for (const a of artifacts) byId.set(a.id, a);
+
+  const baselineArt = byId.get(options.baselineId) as unknown as BaselineArtifact | undefined;
+  const targetArt = byId.get(options.targetId) as unknown as TargetArtifact | undefined;
+
+  if (!baselineArt || baselineArt.kind !== "baseline") {
+    return emptyGapReport(options);
+  }
+  if (!targetArt || targetArt.kind !== "target") {
+    return emptyGapReport(options);
+  }
+
+  const baselineSet = new Set(baselineArt.artifactRefs ?? []);
+  const targetSet = new Set(targetArt.artifactRefs ?? []);
+
+  // Classify artifacts
+  const newWorkIds = [...targetSet].filter((id) => !baselineSet.has(id));
+  const retirementIds = [...baselineSet].filter((id) => !targetSet.has(id));
+  const continuingIds = [...baselineSet].filter((id) => targetSet.has(id));
+
+  // Find transition plan and waves
+  const plan = options.planId
+    ? (byId.get(options.planId) as unknown as TransitionPlanArtifact | undefined)
+    : undefined;
+
+  const waves = artifacts
+    .filter((a) => a.kind === "migration-wave")
+    .map((a) => a as unknown as MigrationWaveArtifact)
+    .filter((w) => !options.planId || w.transitionPlan === options.planId)
+    .sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+
+  // Build milestone deliverable index
+  const milestoneDeliverables = new Map<string, string>();
+  if (plan) {
+    for (const ms of plan.milestones ?? []) {
+      for (const d of ms.deliverables ?? []) {
+        milestoneDeliverables.set(d, ms.id);
+      }
+    }
+  }
+
+  // Build wave scope index
+  const waveCreates = new Map<string, string>();
+  const waveRetires = new Map<string, string>();
+  for (const wave of waves) {
+    for (const id of wave.scope?.create ?? []) waveCreates.set(id, wave.id);
+    for (const id of wave.scope?.retire ?? []) waveRetires.set(id, wave.id);
+  }
+
+  // Build reverse dependency index: target → [sources that depend on it]
+  const dependedOnByMap = new Map<string, string[]>();
+  for (const a of artifacts) {
+    if (!a.relations) continue;
+    for (const rel of a.relations) {
+      if (rel.type === "dependsOn" || rel.type === "uses" || rel.type === "realizes") {
+        const list = dependedOnByMap.get(rel.target) ?? [];
+        list.push(a.id);
+        dependedOnByMap.set(rel.target, list);
+      }
+    }
+  }
+
+  // New work items
+  const newWork: GapNewWorkItem[] = newWorkIds.map((id) => {
+    const art = byId.get(id);
+    return {
+      artifactId: id,
+      status: art?.status ?? "unknown",
+      milestone: milestoneDeliverables.get(id),
+      wave: waveCreates.get(id),
+    };
+  });
+
+  // Retirement items
+  const retirements: GapRetirementItem[] = retirementIds.map((id) => {
+    const art = byId.get(id);
+    const deps = (dependedOnByMap.get(id) ?? []).filter((depId) => {
+      const depArt = byId.get(depId);
+      return depArt && depArt.status !== "retired" && continuingIds.includes(depId);
+    });
+    const blocked = deps.length > 0;
+    return {
+      artifactId: id,
+      currentStatus: art?.status ?? "unknown",
+      dependedOnBy: deps,
+      milestone: milestoneDeliverables.get(id),
+      blocked,
+      blockedReason: blocked
+        ? `${deps.join(", ")} still ${deps.length === 1 ? "depends" : "depend"} on this artifact`
+        : undefined,
+    };
+  });
+
+  // Milestone status
+  const milestones: GapMilestoneStatus[] = [];
+  if (plan) {
+    for (const ms of plan.milestones ?? []) {
+      let complete = 0;
+      let inProgress = 0;
+      let pending = 0;
+      for (const d of ms.deliverables ?? []) {
+        const art = byId.get(d);
+        if (!art) { pending++; continue; }
+        if (art.status === "active" || art.status === "retired") complete++;
+        else if (art.status === "draft") inProgress++;
+        else pending++;
+      }
+      const total = ms.deliverables?.length ?? 0;
+      const status = ms.status ?? (complete === total && total > 0 ? "complete" : pending === total ? "pending" : "in-progress");
+      const atRisk = retirements.some((r) => r.blocked && ms.deliverables?.includes(r.artifactId));
+      milestones.push({ id: ms.id, title: ms.title, status, deliverables: { total, complete, inProgress, pending }, atRisk });
+    }
+  }
+
+  // Success metrics
+  const successMetrics: GapSuccessMetric[] = (targetArt.successMetrics ?? []).map((sm) => ({
+    id: sm.id,
+    metric: sm.metric,
+    target: sm.target,
+    currentValue: sm.currentValue,
+  }));
+
+  const unplannedGaps = newWork.filter((n) => !n.milestone && !n.wave).length;
+  const blockedRetirements = retirements.filter((r) => r.blocked).length;
+  const atRiskMilestones = milestones.filter((m) => m.atRisk).length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    baseline: { id: baselineArt.id, capturedAt: baselineArt.capturedAt ?? "" },
+    target: { id: targetArt.id, effectiveBy: targetArt.effectiveBy ?? "" },
+    summary: {
+      newWork: newWork.length,
+      retirements: retirements.length,
+      continuing: continuingIds.length,
+      blockedRetirements,
+      unplannedGaps,
+      atRiskMilestones,
+    },
+    newWork,
+    retirements,
+    milestones,
+    successMetrics,
+  };
+}
+
+function emptyGapReport(options: { baselineId: string; targetId: string }): GapAnalysisReport {
+  return {
+    generatedAt: new Date().toISOString(),
+    baseline: { id: options.baselineId, capturedAt: "" },
+    target: { id: options.targetId, effectiveBy: "" },
+    summary: { newWork: 0, retirements: 0, continuing: 0, blockedRetirements: 0, unplannedGaps: 0, atRiskMilestones: 0 },
+    newWork: [],
+    retirements: [],
+    milestones: [],
+    successMetrics: [],
+  };
+}
+
+/**
+ * Render a gap analysis report as Markdown.
+ */
+export function renderGapAnalysisMarkdown(report: GapAnalysisReport): string {
+  const lines: string[] = [];
+
+  lines.push("# Target Gap Analysis");
+  lines.push("");
+  lines.push(`> Baseline: \`${report.baseline.id}\` (captured: ${report.baseline.capturedAt || "—"})`);
+  lines.push(`> Target: \`${report.target.id}\` (effective by: ${report.target.effectiveBy || "—"})`);
+  lines.push("");
+
+  // Summary
+  lines.push("## Summary");
+  lines.push("");
+  lines.push("| Metric | Value |");
+  lines.push("|--------|-------|");
+  lines.push(`| New work | ${report.summary.newWork} |`);
+  lines.push(`| Retirements | ${report.summary.retirements} |`);
+  lines.push(`| Continuing | ${report.summary.continuing} |`);
+  lines.push(`| Blocked retirements | ${report.summary.blockedRetirements} |`);
+  lines.push(`| Unplanned gaps | ${report.summary.unplannedGaps} |`);
+  lines.push(`| At-risk milestones | ${report.summary.atRiskMilestones} |`);
+  lines.push("");
+
+  // New work
+  if (report.newWork.length > 0) {
+    lines.push("## New Work");
+    lines.push("");
+    lines.push("| Artifact | Status | Milestone | Wave |");
+    lines.push("|----------|--------|-----------|------|");
+    for (const item of report.newWork) {
+      const ms = item.milestone ?? "—";
+      const wave = item.wave ?? "—";
+      const gap = !item.milestone && !item.wave ? " ⚠️" : "";
+      lines.push(`| \`${item.artifactId}\` | ${item.status} | ${ms} | ${wave} |${gap}`);
+    }
+    lines.push("");
+  }
+
+  // Retirements
+  if (report.retirements.length > 0) {
+    lines.push("## Retirements");
+    lines.push("");
+    lines.push("| Artifact | Status | Blocked | Reason |");
+    lines.push("|----------|--------|---------|--------|");
+    for (const item of report.retirements) {
+      const blocked = item.blocked ? "🔴 Yes" : "✅ No";
+      const reason = item.blockedReason ?? "—";
+      lines.push(`| \`${item.artifactId}\` | ${item.currentStatus} | ${blocked} | ${reason} |`);
+    }
+    lines.push("");
+  }
+
+  // Milestones
+  if (report.milestones.length > 0) {
+    lines.push("## Milestones");
+    lines.push("");
+    lines.push("| Milestone | Status | Deliverables | At Risk |");
+    lines.push("|-----------|--------|--------------|---------|");
+    for (const ms of report.milestones) {
+      const d = `${ms.deliverables.complete}/${ms.deliverables.total} complete`;
+      const risk = ms.atRisk ? "⚠️ Yes" : "No";
+      lines.push(`| ${ms.title} (\`${ms.id}\`) | ${ms.status} | ${d} | ${risk} |`);
+    }
+    lines.push("");
+  }
+
+  // Success metrics
+  if (report.successMetrics.length > 0) {
+    lines.push("## Success Metrics");
+    lines.push("");
+    lines.push("| Metric | Target | Current |");
+    lines.push("|--------|--------|---------|");
+    for (const sm of report.successMetrics) {
+      lines.push(`| ${sm.metric} | ${sm.target} | ${sm.currentValue ?? "—"} |`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n") + "\n";
 }
