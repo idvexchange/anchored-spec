@@ -123,7 +123,7 @@ export interface EaConfig {
  * - `ea.enabled` removed (always on)
  * - `ea.*` fields promoted to top-level
  * - `specRoot`, `requirementsDir`, `changesDir`, `decisionsDir` removed
- *   (legacy artifacts live under `domains.legacy`)
+ *   (requirements live under `domains.business`, changes/decisions under `domains.transitions`)
  * - `workflowPolicyPath` moved to top-level (default: "ea/workflow-policy.yaml")
  * - `sourceRoots`, `sourceGlobs`, `hooks`, `testMetadata` moved to top-level
  */
@@ -201,7 +201,6 @@ function buildEaDefaults(rootDir: string): EaConfig {
       information: `${rootDir}/information`,
       business: `${rootDir}/business`,
       transitions: `${rootDir}/transitions`,
-      legacy: `${rootDir}/legacy`,
     },
     resolvers: [],
     generators: [],
@@ -264,7 +263,6 @@ function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1 {
       information: `${rootDir}/information`,
       business: `${rootDir}/business`,
       transitions: `${rootDir}/transitions`,
-      legacy: `${rootDir}/legacy`,
     },
     resolvers: [],
     generators: [],
@@ -350,7 +348,7 @@ export interface LegacyConfigInput {
  * - Core fields (`sourceRoots`, `sourceGlobs`, `hooks`, `testMetadata`, etc.)
  *   are hoisted to top-level
  * - Legacy dir fields (`specRoot`, `requirementsDir`, `changesDir`, `decisionsDir`)
- *   are dropped — legacy artifacts live under `domains.legacy`
+ *   are dropped — requirements go to `business`, changes/decisions go to `transitions`
  * - `ea.enabled` is dropped (always on in v1.0)
  */
 export function migrateConfigV0ToV1(legacy: LegacyConfigInput): AnchoredSpecConfigV1 {
@@ -369,7 +367,6 @@ export function migrateConfigV0ToV1(legacy: LegacyConfigInput): AnchoredSpecConf
       information: `${rootDir}/information`,
       business: `${rootDir}/business`,
       transitions: `${rootDir}/transitions`,
-      legacy: `${rootDir}/legacy`,
       ...ea.domains,
     },
     resolvers: ea.resolvers ?? [],

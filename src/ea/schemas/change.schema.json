@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/change.schema.json",
-  "title": "Anchored Spec — EA Change (Legacy Subsumption)",
-  "description": "An implementation change record migrated from the legacy CHG format.",
+  "title": "Anchored Spec — EA Change",
+  "description": "An implementation change record tracking work toward a target state.",
   "allOf": [
     { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
   ],

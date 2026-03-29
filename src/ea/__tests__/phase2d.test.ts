@@ -46,8 +46,8 @@ function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: s
 describe("Phase 2D: Business Layer Kinds", () => {
   const bizKinds = getKindsByDomain("business");
 
-  it("registers 8 business-layer kinds", () => {
-    expect(bizKinds).toHaveLength(8);
+  it("registers 9 business-layer kinds", () => {
+    expect(bizKinds).toHaveLength(9);
   });
 
   it.each([

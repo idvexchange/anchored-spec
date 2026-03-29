@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/requirement.schema.json",
-  "title": "Anchored Spec — EA Requirement (Legacy Subsumption)",
-  "description": "A behavioral software requirement migrated from the legacy REQ format.",
+  "title": "Anchored Spec — EA Requirement",
+  "description": "A behavioral software requirement.",
   "allOf": [
     { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
   ],

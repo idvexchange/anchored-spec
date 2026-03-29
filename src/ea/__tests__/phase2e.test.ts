@@ -49,9 +49,9 @@ describe("Phase 2E: Transition Layer Kinds", () => {
     expect(EA_KIND_REGISTRY).toHaveLength(44);
   });
 
-  it("has 5 kinds in transitions domain", () => {
+  it("has 7 kinds in transitions domain", () => {
     const kinds = getKindsByDomain("transitions");
-    expect(kinds).toHaveLength(5);
+    expect(kinds).toHaveLength(7);
     const kindNames = kinds.map((k) => k.kind);
     for (const k of TRANSITION_KINDS) {
       expect(kindNames).toContain(k);

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/decision.schema.json",
-  "title": "Anchored Spec — EA Decision (Legacy Subsumption)",
-  "description": "An architecture decision record migrated from the legacy ADR format.",
+  "title": "Anchored Spec — EA Decision",
+  "description": "An architecture decision record documenting a key design choice.",
   "allOf": [
     { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
   ],
@@ -40,11 +40,11 @@
     "relatedRequirements": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Legacy requirement IDs related to this decision"
+      "description": "Requirement IDs related to this decision"
     },
     "adDomain": {
       "type": "string",
-      "description": "Architecture decision domain (from legacy 'domain' field)"
+      "description": "Architecture decision domain"
     },
     "implications": {
       "type": "string",

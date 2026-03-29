@@ -115,7 +115,7 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "realizes",
     inverse: "realizedBy",
-    validSourceKinds: ["application", "service", "integration", "business-service"],
+    validSourceKinds: ["application", "service", "integration", "business-service", "decision"],
     validTargetKinds: ["capability", "business-service", "requirement", "mission"],
     allowCycles: false,
     allowExplicitInverse: false,
@@ -285,8 +285,8 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "implementedBy",
     inverse: "implements",
-    validSourceKinds: ["logical-data-model", "information-concept"],
-    validTargetKinds: ["physical-schema", "data-store", "application", "canonical-entity"],
+    validSourceKinds: ["logical-data-model", "information-concept", "change"],
+    validTargetKinds: ["physical-schema", "data-store", "application", "canonical-entity", "decision", "requirement"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
