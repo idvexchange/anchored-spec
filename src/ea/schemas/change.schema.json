@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/change.schema.json",
   "title": "Anchored Spec — EA Change",
-  "description": "An implementation change record tracking work toward a target state.",
+  "description": "An auditable change record tracking modifications to system components, security settings, and data structures.",
   "allOf": [
     { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
   ],
@@ -10,7 +10,7 @@
     "kind": { "const": "change" },
     "changeType": {
       "type": "string",
-      "description": "Type of change (feature, fix, refactor, chore, or custom)"
+      "description": "Type of change (feature, fix, refactor, chore, configuration, security, or custom)"
     },
     "phase": {
       "type": "string",
@@ -42,7 +42,7 @@
     "requirements": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Legacy requirement IDs addressed by this change"
+      "description": "Requirement IDs addressed by this change (REQ, SREQ, DREQ, TREQ, IREQ)"
     },
     "workflowVariant": {
       "type": "string",
@@ -58,6 +58,60 @@
       },
       "additionalProperties": false,
       "description": "Bugfix specification (for fix-type changes)"
+    },
+    "baselineRef": {
+      "type": "string",
+      "description": "ID of the authorized baseline configuration this change modifies (NIST SP 800-53 CM-2)"
+    },
+    "configurationItem": {
+      "type": "string",
+      "description": "The configuration item being changed (e.g., firewall-rules, tls-settings, db-schema)"
+    },
+    "authorizedBy": {
+      "type": "string",
+      "description": "Person or role who authorized this change"
+    },
+    "changeAdvisoryBoard": {
+      "type": "boolean",
+      "description": "Whether this change was reviewed by a Change Advisory Board (CAB)"
+    },
+    "authorizationStatus": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected", "emergency"],
+      "description": "Authorization status per NIST configuration change control"
+    },
+    "nistFunction": {
+      "type": "string",
+      "enum": ["identify", "protect", "detect", "respond", "recover", "govern"],
+      "description": "NIST CSF 2.0 function this change relates to"
+    },
+    "riskImpact": {
+      "type": "string",
+      "enum": ["none", "low", "moderate", "high", "critical"],
+      "description": "Risk impact of this change on the security posture"
+    },
+    "securityRelevant": {
+      "type": "boolean",
+      "description": "Whether this change affects the security posture of the system"
+    },
+    "continuousMonitoring": {
+      "type": "boolean",
+      "description": "Whether this change triggers continuous monitoring review per NIST RMF"
+    },
+    "auditTrail": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["timestamp", "actor", "action"],
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp" },
+          "actor": { "type": "string", "description": "Person or system that performed the action" },
+          "action": { "type": "string", "description": "Action taken (proposed, reviewed, approved, implemented, verified)" },
+          "detail": { "type": "string", "description": "Additional detail about the action" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Auditable trail of change lifecycle events per NIST SP 800-92"
     }
   }
 }

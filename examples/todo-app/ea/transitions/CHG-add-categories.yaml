@@ -30,6 +30,29 @@ spec:
   requirements:
     - REQ-todo-crud
   workflowVariant: feature-behavior-first
+  baselineRef: BASELINE-v0-1
+  configurationItem: todo-data-model
+  authorizedBy: engineering-lead
+  changeAdvisoryBoard: false
+  authorizationStatus: approved
+  nistFunction: protect
+  riskImpact: low
+  securityRelevant: false
+  continuousMonitoring: false
+  auditTrail:
+    - timestamp: "2026-03-15T10:00:00Z"
+      actor: engineering-lead
+      action: proposed
+      detail: "Category field added to support user organization of tasks"
+    - timestamp: "2026-03-16T14:30:00Z"
+      actor: engineering-lead
+      action: approved
+    - timestamp: "2026-03-20T09:00:00Z"
+      actor: dev-team
+      action: implemented
+    - timestamp: "2026-03-22T16:00:00Z"
+      actor: qa-team
+      action: verified
 
 relations:
   - type: dependsOn
