@@ -84,9 +84,20 @@ export type {
   EaGeneratorConfig,
   EaQualityConfig,
   EaCacheConfig,
+  AnchoredSpecConfigV1,
+  LegacyConfigInput,
+  EaHookEvent,
+  EaHookDefinition,
+  EaTestMetadataConfig,
 } from "./config.js";
 
-export { resolveEaConfig } from "./config.js";
+export {
+  resolveEaConfig,
+  resolveConfigV1,
+  migrateConfigV0ToV1,
+  detectConfigVersion,
+  v1ConfigToEaConfig,
+} from "./config.js";
 
 // Validation
 export type { EaSchemaName, EaValidationError, EaValidationResult, EaValidationOptions } from "./validate.js";

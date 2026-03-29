@@ -86,7 +86,7 @@ describe("CLI: ea init", () => {
   it("creates EA directory structure", () => {
     const result = runCLI("ea init", tempDir);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("EA infrastructure initialized");
+    expect(result.stdout).toContain("initialized");
     expect(existsSync(join(tempDir, "ea", "systems"))).toBe(true);
     expect(existsSync(join(tempDir, "ea", "delivery"))).toBe(true);
     expect(existsSync(join(tempDir, "ea", "data"))).toBe(true);
@@ -96,13 +96,13 @@ describe("CLI: ea init", () => {
     expect(existsSync(join(tempDir, "ea", "generated"))).toBe(true);
   });
 
-  it("creates config file with EA enabled", () => {
+  it("creates config file with v1.0 format", () => {
     runCLI("ea init", tempDir);
     const configPath = join(tempDir, ".anchored-spec", "config.json");
     expect(existsSync(configPath)).toBe(true);
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config.ea).toBeDefined();
-    expect(config.ea.enabled).toBe(true);
+    expect(config.schemaVersion).toBe("1.0");
+    expect(config.rootDir).toBe("ea");
   });
 
   it("creates .gitkeep files in subdirectories", () => {
