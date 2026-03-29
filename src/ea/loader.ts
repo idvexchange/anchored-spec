@@ -5,17 +5,28 @@
  * YAML artifacts use a `metadata` envelope that is normalized to the flat
  * `EaArtifactBase` shape before validation.
  *
+ * In v1.0 this is the primary loader — replaces SpecRoot from core.
+ *
  * Design reference: docs/ea-implementation-guide.md §PR A3
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { join, extname, relative } from "node:path";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { join, extname, relative, resolve, dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { AnchoredSpecConfig } from "../core/types.js";
 import type { EaArtifactBase, EaDomain, EaAnchors, EaRelation } from "./types.js";
 import { EA_DOMAINS, getDomainForKind } from "./types.js";
-import { resolveEaConfig, type EaConfig } from "./config.js";
+import {
+  resolveEaConfig,
+  resolveConfigV1,
+  detectConfigVersion,
+  migrateConfigV0ToV1,
+  v1ConfigToEaConfig,
+  type EaConfig,
+  type AnchoredSpecConfigV1,
+  type LegacyConfigInput,
+} from "./config.js";
 import { validateEaSchema, type EaValidationError } from "./validate.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -276,23 +287,122 @@ async function collectFiles(dir: string): Promise<string[]> {
   return files;
 }
 
+// ─── Config file path constant ──────────────────────────────────────────────────
+
+const CONFIG_FILE = ".anchored-spec/config.json";
+
 // ─── EaRoot ─────────────────────────────────────────────────────────────────────
 
 /**
- * EA artifact loader. Scans configured domain directories for `.json` and
- * `.yaml` files, normalizes YAML envelope format, and validates each artifact
- * against its kind-specific JSON Schema.
+ * EA artifact loader and project root — the primary entry point for v1.0.
+ *
+ * Replaces SpecRoot from core. Scans configured domain directories for
+ * `.json` and `.yaml` files, normalizes YAML envelope format, and validates
+ * each artifact against its kind-specific JSON Schema.
+ *
+ * Supports both v0.x (nested `AnchoredSpecConfig.ea`) and v1.0
+ * (`AnchoredSpecConfigV1`) config formats.
  */
 export class EaRoot {
   readonly projectRoot: string;
   readonly eaConfig: EaConfig;
+  /** The v1 config, if available (null when constructed from v0.x config). */
+  readonly v1Config: AnchoredSpecConfigV1 | null;
 
   private loaded: EaLoadResult | null = null;
 
-  constructor(projectRoot: string, config: AnchoredSpecConfig) {
-    this.projectRoot = projectRoot;
-    this.eaConfig = resolveEaConfig(config.ea);
+  /**
+   * Construct from v0.x `AnchoredSpecConfig` (backward-compatible).
+   */
+  constructor(projectRoot: string, config: AnchoredSpecConfig);
+  /**
+   * Construct from v1.0 config directly.
+   */
+  constructor(projectRoot: string, config: AnchoredSpecConfigV1);
+  constructor(projectRoot: string, config: AnchoredSpecConfig | AnchoredSpecConfigV1) {
+    this.projectRoot = resolve(projectRoot);
+    if ("schemaVersion" in config && config.schemaVersion === "1.0") {
+      const v1 = config as AnchoredSpecConfigV1;
+      this.v1Config = v1;
+      this.eaConfig = v1ConfigToEaConfig(v1);
+    } else {
+      const legacy = config as AnchoredSpecConfig;
+      this.v1Config = null;
+      this.eaConfig = resolveEaConfig(legacy.ea);
+    }
   }
+
+  // ─── Static Factory Methods ─────────────────────────────────────────────────
+
+  /**
+   * Walk up from `startDir` to find the project root
+   * (directory containing `.anchored-spec/config.json`).
+   */
+  static findProjectRoot(startDir: string): string | null {
+    let current = resolve(startDir);
+
+    while (true) {
+      if (existsSync(join(current, CONFIG_FILE))) {
+        return current;
+      }
+      // Also check for EA root dir
+      if (existsSync(join(current, "ea", "systems"))) {
+        return current;
+      }
+      // Legacy: check for specs/ dir
+      if (
+        existsSync(join(current, "specs", "requirements")) ||
+        existsSync(join(current, "specs", "workflow-policy.json"))
+      ) {
+        return current;
+      }
+      const parent = dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+
+    return null;
+  }
+
+  /**
+   * Read and resolve configuration from a project root directory.
+   * Automatically detects v0.x vs v1.0 config format.
+   */
+  static resolveProjectConfig(projectRoot: string): AnchoredSpecConfigV1 {
+    const absRoot = resolve(projectRoot);
+    const configPath = join(absRoot, CONFIG_FILE);
+
+    if (existsSync(configPath)) {
+      const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
+      const version = detectConfigVersion(raw);
+
+      if (version === "1.0") {
+        return resolveConfigV1(raw as Partial<AnchoredSpecConfigV1>);
+      }
+
+      // v0.x — migrate on the fly
+      return migrateConfigV0ToV1(raw as LegacyConfigInput);
+    }
+
+    // No config file — return defaults
+    return resolveConfigV1();
+  }
+
+  /**
+   * Create an EaRoot by finding the project root from a start directory
+   * and loading its configuration.
+   *
+   * Returns null if no project root is found.
+   */
+  static fromDirectory(startDir: string): EaRoot | null {
+    const projectRoot = EaRoot.findProjectRoot(startDir);
+    if (!projectRoot) return null;
+
+    const config = EaRoot.resolveProjectConfig(projectRoot);
+    return new EaRoot(projectRoot, config);
+  }
+
+  // ─── Domain / Path Helpers ──────────────────────────────────────────────────
 
   /** Resolve the absolute path for a domain directory. */
   private domainDir(domain: EaDomain): string {
@@ -304,9 +414,17 @@ export class EaRoot {
     const rootDir = join(this.projectRoot, this.eaConfig.rootDir);
     if (!existsSync(rootDir)) return false;
 
-    // Check for at least one domain directory
     return EA_DOMAINS.some((d) => existsSync(this.domainDir(d)));
   }
+
+  /** Absolute path to the workflow policy file. */
+  get workflowPolicyPath(): string {
+    const policyPath = this.v1Config?.workflowPolicyPath
+      ?? `${this.eaConfig.rootDir}/workflow-policy.yaml`;
+    return join(this.projectRoot, policyPath);
+  }
+
+  // ─── Artifact Loading ───────────────────────────────────────────────────────
 
   /** Load all EA artifacts across all configured domains. */
   async loadArtifacts(): Promise<EaLoadResult> {
@@ -380,6 +498,64 @@ export class EaRoot {
     return { artifacts, details, errors };
   }
 
+  // ─── Policy & Verifications ─────────────────────────────────────────────────
+
+  /**
+   * Load the workflow policy file (JSON or YAML).
+   * Returns null if the file doesn't exist.
+   */
+  loadPolicy(): Record<string, unknown> | null {
+    const policyPath = this.workflowPolicyPath;
+    if (!existsSync(policyPath)) return null;
+
+    try {
+      const content = readFileSync(policyPath, "utf-8");
+      const ext = extname(policyPath).toLowerCase();
+
+      if (ext === ".yaml" || ext === ".yml") {
+        return parseYaml(content) as Record<string, unknown>;
+      }
+      return JSON.parse(content) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load change verification files from the transitions domain.
+   */
+  loadVerifications(): Record<string, unknown>[] {
+    const transitionsDir = this.domainDir("transitions");
+    if (!existsSync(transitionsDir)) return [];
+
+    const verifications: Record<string, unknown>[] = [];
+    try {
+      const entries = readdirSync(transitionsDir);
+      for (const entry of entries) {
+        const fullPath = join(transitionsDir, entry);
+        if (statSync(fullPath).isDirectory()) {
+          const verifyPath = join(fullPath, "verification.json");
+          if (existsSync(verifyPath)) {
+            verifications.push(
+              JSON.parse(readFileSync(verifyPath, "utf-8")) as Record<string, unknown>
+            );
+          }
+          const verifyYaml = join(fullPath, "verification.yaml");
+          if (existsSync(verifyYaml)) {
+            verifications.push(
+              parseYaml(readFileSync(verifyYaml, "utf-8")) as Record<string, unknown>
+            );
+          }
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+    return verifications;
+  }
+
+  // ─── Summary ────────────────────────────────────────────────────────────────
+
   /** Get summary of loaded artifacts. Call after `loadArtifacts()`. */
   getSummary(): EaSummary {
     const artifacts = this.loaded?.artifacts ?? [];
@@ -391,7 +567,6 @@ export class EaRoot {
     let relationCount = 0;
 
     for (const a of artifacts) {
-      // Domain from kind registry, or from ID prefix
       const domain = getDomainForKind(a.kind) ?? "unknown";
       byDomain[domain] = (byDomain[domain] ?? 0) + 1;
       byKind[a.kind] = (byKind[a.kind] ?? 0) + 1;
@@ -408,4 +583,61 @@ export class EaRoot {
       relationCount,
     };
   }
+
+  /**
+   * Quick summary using filesystem scan — no JSON parsing needed.
+   * Counts artifact files per domain.
+   */
+  getQuickSummary(): {
+    initialized: boolean;
+    fileCountByDomain: Record<string, number>;
+    totalFiles: number;
+    hasPolicy: boolean;
+  } {
+    if (!this.isInitialized()) {
+      return { initialized: false, fileCountByDomain: {}, totalFiles: 0, hasPolicy: false };
+    }
+
+    const fileCountByDomain: Record<string, number> = {};
+    let totalFiles = 0;
+
+    for (const domain of EA_DOMAINS) {
+      const dir = this.domainDir(domain);
+      const count = countArtifactFiles(dir);
+      if (count > 0) {
+        fileCountByDomain[domain] = count;
+        totalFiles += count;
+      }
+    }
+
+    return {
+      initialized: true,
+      fileCountByDomain,
+      totalFiles,
+      hasPolicy: existsSync(this.workflowPolicyPath),
+    };
+  }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+/** Recursively count artifact files in a directory without parsing. */
+function countArtifactFiles(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  let count = 0;
+  try {
+    const entries = readdirSync(dir);
+    for (const entry of entries) {
+      const fullPath = join(dir, entry);
+      const s = statSync(fullPath);
+      if (s.isDirectory()) {
+        count += countArtifactFiles(fullPath);
+      } else if (s.isFile() && EA_EXTENSIONS.has(extname(entry).toLowerCase())) {
+        count++;
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+  return count;
 }

@@ -1,22 +1,27 @@
 /**
- * anchored-spec ea init
+ * anchored-spec ea init (v1.0 unified init)
  *
- * Scaffolds the EA directory structure into the current project.
- * Creates domain subdirectories and enables EA in config.
+ * Scaffolds the full EA directory structure and creates a v1.0 config.
+ * This is the sole init command for v1.0 — replaces both old `init` and `ea init`.
  */
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { EA_DOMAINS, resolveEaConfig } from "../../ea/index.js";
-import type { EaDomain } from "../../ea/index.js";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, copyFileSync } from "node:fs";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { EA_DOMAINS, resolveConfigV1, detectConfigVersion, migrateConfigV0ToV1 } from "../../ea/index.js";
+import type { EaDomain, AnchoredSpecConfigV1, LegacyConfigInput } from "../../ea/index.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function eaInitCommand(): Command {
   return new Command("init")
-    .description("Initialize EA directory structure")
+    .description("Initialize EA directory structure and v1.0 configuration")
     .option("--root-dir <path>", "Root directory for EA artifacts", "ea")
-    .option("--with-examples", "Create a starter artifact in each domain")
+    .option("--with-examples", "Create starter artifacts in systems and delivery domains")
+    .option("--with-policy", "Create a starter workflow policy file")
+    .option("--migrate", "Migrate existing v0.x config to v1.0 format")
     .option("--force", "Overwrite existing files")
     .option("--dry-run", "Show what would be created without writing")
     .action((options) => {
@@ -25,75 +30,217 @@ export function eaInitCommand(): Command {
       const dryRun = options.dryRun as boolean;
       const force = options.force as boolean;
 
-      console.log(chalk.blue("🏛  Anchored Spec — EA Initialization\n"));
+      console.log(chalk.blue("🏛  Anchored Spec — Project Initialization\n"));
       if (dryRun) {
         console.log(chalk.yellow("  [DRY RUN] No files will be written.\n"));
       }
 
-      const eaConfig = resolveEaConfig({ rootDir });
-
-      // 1. Create root and domain directories
-      const createdDirs: string[] = [];
-      for (const domain of EA_DOMAINS) {
-        const dir = join(cwd, eaConfig.domains[domain]);
-        if (!existsSync(dir)) {
-          if (!dryRun) mkdirSync(dir, { recursive: true });
-          createdDirs.push(eaConfig.domains[domain]);
-          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${eaConfig.domains[domain]}/`));
-        } else {
-          console.log(chalk.dim(`  · ${eaConfig.domains[domain]}/ already exists`));
-        }
-      }
-
-      // 2. Create generated directory
-      const generatedDir = join(cwd, eaConfig.generatedDir);
-      if (!existsSync(generatedDir)) {
-        if (!dryRun) mkdirSync(generatedDir, { recursive: true });
-        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${eaConfig.generatedDir}/`));
-      }
-
-      // 3. Update config to enable EA
+      // 1. Handle migration of existing v0.x config
       const configDir = join(cwd, ".anchored-spec");
       const configPath = join(configDir, "config.json");
-      if (existsSync(configPath)) {
-        const existing = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
-        if (!existing.ea || force) {
-          existing.ea = { enabled: true, rootDir };
-          if (!dryRun) writeFileSync(configPath, JSON.stringify(existing, null, 2) + "\n");
-          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Enable EA in .anchored-spec/config.json`));
+
+      let v1Config: AnchoredSpecConfigV1;
+
+      if (options.migrate && existsSync(configPath)) {
+        const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
+        const version = detectConfigVersion(raw);
+
+        if (version === "1.0") {
+          console.log(chalk.dim("  · Config is already v1.0 format"));
+          v1Config = resolveConfigV1(raw as Partial<AnchoredSpecConfigV1>);
         } else {
-          console.log(chalk.dim("  · EA already enabled in config"));
+          // Backup old config
+          const backupPath = join(configDir, "config.v0.backup.json");
+          if (!dryRun) {
+            writeFileSync(backupPath, readFileSync(configPath, "utf-8"));
+          }
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Backup v0.x config to .anchored-spec/config.v0.backup.json`));
+
+          v1Config = migrateConfigV0ToV1(raw as LegacyConfigInput);
+          v1Config.rootDir = rootDir;
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Migrate config from v0.x to v1.0`));
         }
       } else {
-        if (!dryRun) {
-          mkdirSync(configDir, { recursive: true });
-          const config = { ea: { enabled: true, rootDir } };
-          writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
-        }
-        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .anchored-spec/config.json with EA enabled`));
+        v1Config = resolveConfigV1({ rootDir });
       }
 
-      // 4. Create .gitkeep files
+      // 2. Create .anchored-spec directory and write v1.0 config
+      if (!existsSync(configDir)) {
+        if (!dryRun) mkdirSync(configDir, { recursive: true });
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .anchored-spec/`));
+      }
+
+      if (!existsSync(configPath) || force || options.migrate) {
+        if (!dryRun) writeFileSync(configPath, JSON.stringify(v1Config, null, 2) + "\n");
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Write .anchored-spec/config.json (v1.0)`));
+      } else {
+        console.log(chalk.dim("  · .anchored-spec/config.json already exists (use --force to overwrite)"));
+      }
+
+      // 3. Create root and domain directories
+      for (const domain of EA_DOMAINS) {
+        const dir = join(cwd, v1Config.domains[domain]);
+        if (!existsSync(dir)) {
+          if (!dryRun) mkdirSync(dir, { recursive: true });
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.domains[domain]}/`));
+        } else {
+          console.log(chalk.dim(`  · ${v1Config.domains[domain]}/ already exists`));
+        }
+      }
+
+      // 4. Create generated directory
+      const generatedDir = join(cwd, v1Config.generatedDir);
+      if (!existsSync(generatedDir)) {
+        if (!dryRun) mkdirSync(generatedDir, { recursive: true });
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.generatedDir}/`));
+      }
+
+      // 5. Create .gitkeep files in domain dirs
       if (!dryRun) {
         for (const domain of EA_DOMAINS) {
-          const keepFile = join(cwd, eaConfig.domains[domain], ".gitkeep");
+          const keepFile = join(cwd, v1Config.domains[domain], ".gitkeep");
           if (!existsSync(keepFile)) {
             writeFileSync(keepFile, "");
           }
         }
       }
 
-      // 5. Optionally create starter examples
-      if (options.withExamples) {
-        createExamples(cwd, eaConfig.domains, dryRun);
+      // 6. Copy EA JSON schemas for IDE validation
+      copyEaSchemas(cwd, rootDir, dryRun, force);
+
+      // 7. Update .gitignore
+      const gitignorePath = join(cwd, ".gitignore");
+      const generatedIgnore = `${v1Config.generatedDir}/`;
+      const cacheIgnore = ".anchored-spec/cache/";
+      if (existsSync(gitignorePath)) {
+        let content = readFileSync(gitignorePath, "utf-8");
+        let updated = false;
+        if (!content.includes(generatedIgnore)) {
+          const sep = content.endsWith("\n") ? "" : "\n";
+          content += `${sep}\n# Anchored Spec\n${generatedIgnore}\n${cacheIgnore}\n`;
+          updated = true;
+        }
+        if (updated && !dryRun) writeFileSync(gitignorePath, content);
+        if (updated) console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Update .gitignore`));
+      } else {
+        if (!dryRun) writeFileSync(gitignorePath, `# Anchored Spec\n${generatedIgnore}\n${cacheIgnore}\n`);
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .gitignore`));
       }
 
-      console.log(chalk.blue("\n✅ EA infrastructure initialized!"));
+      // 8. Optionally create workflow policy
+      if (options.withPolicy) {
+        createWorkflowPolicy(cwd, v1Config, dryRun, force);
+      }
+
+      // 9. Optionally create starter examples
+      if (options.withExamples) {
+        createExamples(cwd, v1Config.domains, dryRun);
+      }
+
+      // 10. Update package.json scripts
+      addPackageScripts(cwd, dryRun);
+
+      console.log(chalk.blue("\n✅ Project initialized with anchored-spec v1.0!"));
       console.log(chalk.dim("\nNext steps:"));
       console.log(chalk.dim("  1. Create an artifact:    anchored-spec ea create application --title \"My App\""));
       console.log(chalk.dim("  2. Validate artifacts:    anchored-spec ea validate"));
       console.log(chalk.dim("  3. Visualize graph:       anchored-spec ea graph --format mermaid"));
+      if (!options.withPolicy) {
+        console.log(chalk.dim("  4. Create policy:         anchored-spec ea init --with-policy"));
+      }
     });
+}
+
+function copyEaSchemas(cwd: string, rootDir: string, dryRun: boolean, force: boolean): void {
+  const possibleSchemaDirs = [
+    resolve(__dirname, "..", "..", "ea", "schemas"),
+    resolve(__dirname, "..", "..", "..", "src", "ea", "schemas"),
+  ];
+  const schemasSource = possibleSchemaDirs.find((d) => existsSync(d));
+  if (!schemasSource) return;
+
+  const schemasTarget = join(cwd, rootDir, "schemas");
+  if (!existsSync(schemasTarget)) {
+    if (!dryRun) mkdirSync(schemasTarget, { recursive: true });
+  }
+
+  // Copy config schema
+  const configSchema = join(schemasSource, "config-v1.schema.json");
+  const configDest = join(schemasTarget, "config-v1.schema.json");
+  if (existsSync(configSchema) && (!existsSync(configDest) || force)) {
+    if (!dryRun) copyFileSync(configSchema, configDest);
+    console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Copy ${rootDir}/schemas/config-v1.schema.json`));
+  }
+
+  // Copy artifact base schema
+  const baseSchema = join(schemasSource, "artifact-base.schema.json");
+  const baseDest = join(schemasTarget, "artifact-base.schema.json");
+  if (existsSync(baseSchema) && (!existsSync(baseDest) || force)) {
+    if (!dryRun) copyFileSync(baseSchema, baseDest);
+    console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Copy ${rootDir}/schemas/artifact-base.schema.json`));
+  }
+}
+
+function createWorkflowPolicy(
+  cwd: string,
+  config: AnchoredSpecConfigV1,
+  dryRun: boolean,
+  force: boolean,
+): void {
+  const policyPath = join(cwd, config.workflowPolicyPath ?? `${config.rootDir}/workflow-policy.yaml`);
+  if (existsSync(policyPath) && !force) {
+    console.log(chalk.dim("  · Workflow policy already exists"));
+    return;
+  }
+
+  const policyContent = `# Anchored Spec — Workflow Policy
+# Defines governance rules for artifact lifecycle transitions.
+
+workflowVariants:
+  - id: feature-behavior-first
+    name: "Feature (Behavior First)"
+    defaultTypes: [feature]
+    artifacts: [requirements, design-doc, implementation-plan]
+    verificationFocus: [behavioral-coverage, semantic-drift]
+
+  - id: fix-root-cause-first
+    name: "Fix (Root Cause First)"
+    defaultTypes: [fix]
+    artifacts: [bugfix-spec, design-doc]
+    verificationFocus: [regression-testing, root-cause-verification]
+
+  - id: chore
+    name: "Chore (Lightweight)"
+    defaultTypes: [chore]
+    artifacts: []
+    skipSkillSequence: true
+    verificationFocus: [build-passes]
+
+changeRequiredRules:
+  - id: source-change
+    description: "Source code changes require a change artifact"
+    include: ["src/**"]
+    exclude: ["src/**/*.test.*", "src/**/*.spec.*"]
+
+trivialExemptions:
+  - "*.md"
+  - ".github/**"
+  - ".vscode/**"
+  - "*.config.*"
+  - ".gitignore"
+
+lifecycleRules:
+  plannedToActiveRequiresChange: true
+  activeToShippedRequiresCoverage: true
+  deprecatedRequiresReason: true
+`;
+
+  if (!dryRun) {
+    const dir = dirname(policyPath);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(policyPath, policyContent);
+  }
+  console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${config.workflowPolicyPath ?? "ea/workflow-policy.yaml"}`));
 }
 
 function createExamples(
@@ -159,5 +306,38 @@ relations: []
       if (!dryRun) writeFileSync(filePath, ex.content);
       console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${domains[ex.domain]}/${ex.filename}`));
     }
+  }
+}
+
+function addPackageScripts(cwd: string, dryRun: boolean): void {
+  const pkgPath = join(cwd, "package.json");
+  if (!existsSync(pkgPath)) return;
+
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    const scripts = pkg.scripts ?? {};
+    let updated = false;
+
+    const newScripts: Record<string, string> = {
+      "spec:validate": "anchored-spec ea validate",
+      "spec:graph": "anchored-spec ea graph --format mermaid",
+      "spec:drift": "anchored-spec ea drift",
+      "spec:report": "anchored-spec ea report",
+    };
+
+    for (const [key, value] of Object.entries(newScripts)) {
+      if (!scripts[key]) {
+        scripts[key] = value;
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      pkg.scripts = scripts;
+      if (!dryRun) writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Add spec scripts to package.json`));
+    }
+  } catch {
+    // Non-fatal — package.json might be malformed
   }
 }
