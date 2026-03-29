@@ -118,6 +118,15 @@ export function normalizeArtifact(raw: Record<string, unknown>): Record<string, 
   }
 
   // Preserve any extra root fields not covered above
+  const knownRootKeys = new Set([
+    "id", "kind", "apiVersion", "metadata", "spec", "anchors", "relations",
+    "traceRefs", "risk", "compliance", "extensions",
+  ]);
+  for (const [key, value] of Object.entries(raw)) {
+    if (!knownRootKeys.has(key) && normalized[key] === undefined) {
+      normalized[key] = value;
+    }
+  }
   for (const key of ["traceRefs", "risk", "compliance", "extensions"]) {
     if (raw[key] !== undefined) {
       normalized[key] = raw[key];

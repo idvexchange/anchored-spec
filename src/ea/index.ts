@@ -82,3 +82,7 @@ export { RelationGraph, buildRelationGraph } from "./graph.js";
 // Drift
 export type { EaDriftContext, EaDriftRule, EaDriftResult } from "./drift.js";
 export { EA_DRIFT_RULES, evaluateEaDrift } from "./drift.js";
+
+// Reports
+export type { SystemDataCell, SystemDataMatrixReport } from "./report.js";
+export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown } from "./report.js";
