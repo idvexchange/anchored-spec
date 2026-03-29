@@ -462,6 +462,6 @@ Every schema change is documented in a structured changelog:
 
 ### v1 (current)
 - Initial EA schema release
-- 44 kinds across 6 domains
-- 28 relation types
+- 44 kinds across 7 domains
+- 27 relation types
 ```

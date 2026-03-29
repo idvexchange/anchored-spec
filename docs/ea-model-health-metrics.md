@@ -1,18 +1,14 @@
 # EA Model Health Metrics and Status Dashboard
 
-This document specifies the `ea status` command and the health metrics it reports, enabling teams to measure and improve their EA model adoption over time.
+This document specifies the health metrics model, enabling teams to measure and improve their EA model adoption over time.
 
 Read [ea-design-overview.md](./ea-design-overview.md) for context.
 
-## The `ea status` Command
+> **Note:** There is no dedicated `ea status` subcommand. The model health metrics described here are available through `ea report` (for generating health and adoption reports) and `ea validate` (for checking artifact completeness and connectivity). The interfaces and scoring below define the underlying metrics model used by those commands.
 
-```bash
-npx anchored-spec ea status
-npx anchored-spec ea status --json
-npx anchored-spec ea status --domain systems
-```
+## Health Metrics Model
 
-The `ea status` command produces a dashboard showing the current health of the EA model across six dimensions: coverage, completeness, connectivity, drift health, freshness, and adoption.
+The health model measures the EA model across six dimensions: coverage, completeness, connectivity, drift health, freshness, and adoption.
 
 ## Health Dimensions
 
@@ -311,11 +307,11 @@ function computeHealthScore(metrics: AllMetrics): number {
 
 ## Trend Tracking
 
-The `ea status` command can optionally write its metrics to a history file for trend tracking:
+Metrics can optionally be written to a history file for trend tracking:
 
 ```bash
 # Append current metrics to history
-npx anchored-spec ea status --save-history
+npx anchored-spec ea report --save-history
 ```
 
 History is stored at `.anchored-spec/ea-metrics-history.json`:
@@ -384,9 +380,10 @@ export interface EaStatusReport {
 export function computeEaStatus(options: EaStatusOptions): EaStatusReport;
 ```
 
-### CLI: `src/cli/commands/ea-status.ts`
+### CLI Integration
 
-Register as `anchored-spec ea status` with options:
-- `--json` — JSON output
-- `--domain <domain>` — filter metrics to one domain
-- `--save-history` — append to history file
+Health metrics are available through `ea report` and `ea validate`:
+- `ea report --all` — includes health metrics in report output
+- `ea report --json` — JSON output including health scores
+- `ea report --domain <domain>` — filter metrics to one domain
+- `ea validate` — checks completeness and connectivity metrics

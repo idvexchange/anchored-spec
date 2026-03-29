@@ -281,3 +281,43 @@ import type {
 // Value exports
 import { BUILTIN_CHANGE_TYPES, runAllChecks } from "anchored-spec";
 ```
+
+## Enterprise Architecture API
+
+When EA is enabled, additional APIs are available:
+
+```typescript
+import {
+  EaRoot,
+  resolveEaConfig,
+  buildRelationGraph,
+  createDefaultRegistry,
+  evaluateEaDrift,
+  detectEaDrift,
+  analyzeImpact,
+  discoverArtifacts,
+} from "anchored-spec/ea";
+
+// Load EA artifacts
+const eaConfig = resolveEaConfig({ rootDir: "ea" });
+const root = new EaRoot(process.cwd(), config);
+const { artifacts, errors } = await root.loadArtifacts();
+
+// Build and query the relation graph
+const registry = createDefaultRegistry();
+const graph = buildRelationGraph(artifacts, registry);
+const impacted = analyzeImpact(graph, "systems/APP-001");
+
+// Run drift detection
+const report = detectEaDrift({ artifacts, includeResolverRules: true });
+
+// Discovery pipeline
+const discoveryReport = discoverArtifacts({
+  existingArtifacts: artifacts,
+  drafts: [],
+  resolverNames: ["openapi"],
+  projectRoot: process.cwd(),
+});
+```
+
+The full EA API is exported from `anchored-spec/ea`. See [EA Design Overview](ea-design-overview.md) for details.

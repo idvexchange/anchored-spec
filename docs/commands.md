@@ -207,3 +207,23 @@ anchored-spec impact <paths...> [options]
 |--------|-------------|
 | `--json` | Machine-readable JSON output |
 | `--generate` | Generate full impact map to generated dir |
+
+## Enterprise Architecture Commands
+
+The `ea` namespace provides commands for managing Enterprise Architecture artifacts. Enable with `ea init`.
+
+| Command | Description |
+|---|---|
+| `ea init` | Initialize EA directory structure with domain folders |
+| `ea create --kind <kind> --id <id>` | Create a new EA artifact from template |
+| `ea validate` | Validate all EA artifacts against schemas and quality rules |
+| `ea drift` | Run drift detection comparing declared vs observed architecture |
+| `ea discover --resolver <name>` | Discover artifacts from external sources (openapi, kubernetes, terraform, sql-ddl, dbt) |
+| `ea generate` | Generate derived files (OpenAPI specs, JSON Schemas) from EA artifacts |
+| `ea graph` | Export the relation graph (Mermaid, DOT, or JSON format) |
+| `ea impact <artifact-id>` | Analyze transitive impact of changes to an artifact |
+| `ea report --view <view>` | Generate reports (system-data-matrix, classification-coverage, capability-map, gap-analysis, exceptions, drift-heatmap) |
+| `ea evidence` | Manage EA evidence collection |
+| `ea migrate-legacy` | Convert existing REQ/CHG/ADR artifacts to EA kinds |
+
+See [EA Design Overview](ea-design-overview.md) for full documentation.
