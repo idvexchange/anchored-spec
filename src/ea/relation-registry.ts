@@ -333,10 +333,55 @@ const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
   },
 ];
 
-/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C). */
+// ─── Phase 2D Relations (Business Layer) ────────────────────────────────────────
+
+const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
+  {
+    type: "supports",
+    inverse: "supportedBy",
+    validSourceKinds: ["application", "service", "process", "business-service", "capability"],
+    validTargetKinds: ["capability", "mission", "value-stream"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Source supports a capability, mission, or value stream.",
+  },
+  {
+    type: "performedBy",
+    inverse: "performs",
+    validSourceKinds: ["capability", "business-service", "process"],
+    validTargetKinds: ["process", "org-unit"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Source capability or service is performed by a process or org unit.",
+  },
+  {
+    type: "governedBy",
+    inverse: "governs",
+    validSourceKinds: "*",
+    validTargetKinds: ["policy-objective", "control"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "graph-integrity",
+    description: "Source artifact is governed by a policy objective or control.",
+  },
+  {
+    type: "owns",
+    inverse: "ownedBy",
+    validSourceKinds: ["org-unit"],
+    validTargetKinds: "*",
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "none",
+    description: "Organization unit owns the target artifact.",
+  },
+];
+
+/** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C + 2D). */
 export function createDefaultRegistry(): RelationRegistry {
   const registry = new RelationRegistry();
-  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS, ...PHASE_2C_RELATIONS]) {
+  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS, ...PHASE_2B_RELATIONS, ...PHASE_2C_RELATIONS, ...PHASE_2D_RELATIONS]) {
     registry.register(entry);
   }
   return registry;

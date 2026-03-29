@@ -22,6 +22,12 @@ import type {
   CanonicalEntityArtifact,
   ClassificationArtifact,
   RetentionPolicyArtifact,
+  CapabilityArtifact,
+  ValueStreamArtifact,
+  ProcessArtifact,
+  PolicyObjectiveArtifact,
+  ControlArtifact,
+  MissionArtifact,
 } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
@@ -824,6 +830,393 @@ const exchangeClassificationMismatch: EaDriftRule = {
   },
 };
 
+// ─── Phase 2D: Business Layer Drift Rules ───────────────────────────────────────
+
+/**
+ * ea:business/no-realizing-systems
+ *
+ * Active capability has no realizes or supports relation from any system.
+ */
+const noRealizingSystems: EaDriftRule = {
+  id: "ea:business/no-realizing-systems",
+  severity: "warning",
+  description: "Active capability has no realizing application or service",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "capability") continue;
+      if (a.status !== "active" && a.status !== "shipped") continue;
+
+      // Check if any artifact has realizes/supports → this capability
+      const isRealized = ctx.artifacts.some((other) =>
+        other.relations?.some(
+          (r) => (r.type === "realizes" || r.type === "supports") && r.target === a.id
+        )
+      );
+
+      if (!isRealized) {
+        results.push({
+          path: a.id,
+          message: `Active capability "${a.id}" has no realizing or supporting application/service`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/process-missing-owner
+ *
+ * Process has no performedBy relation to an org-unit.
+ */
+const processMissingOwner: EaDriftRule = {
+  id: "ea:business/process-missing-owner",
+  severity: "warning",
+  description: "Process has no performedBy relation to an org-unit",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "process") continue;
+
+      const proc = a as unknown as ProcessArtifact;
+      const hasProcessOwner = !!proc.processOwner;
+      const hasPerformedBy = a.relations?.some((r) => r.type === "performedBy") ?? false;
+      // Check if any org-unit owns this process
+      const isOwned = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => r.type === "owns" && r.target === a.id)
+      );
+
+      if (!hasProcessOwner && !hasPerformedBy && !isOwned) {
+        results.push({
+          path: a.id,
+          message: `Process "${a.id}" has no owner (no processOwner, performedBy, or owns relation)`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/control-missing-evidence
+ *
+ * Automated control with no evidence record.
+ */
+const controlMissingEvidence: EaDriftRule = {
+  id: "ea:business/control-missing-evidence",
+  severity: "warning",
+  description: "Automated control has no evidence record",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "control") continue;
+      const ctrl = a as unknown as ControlArtifact;
+      if (ctrl.implementation === "automated" && !ctrl.producesEvidence) {
+        results.push({
+          path: a.id,
+          message: `Automated control "${a.id}" has no producesEvidence reference`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/retired-system-dependency
+ *
+ * Active capability depends on (via realizes) a retired application or service.
+ */
+const retiredSystemDependency: EaDriftRule = {
+  id: "ea:business/retired-system-dependency",
+  severity: "error",
+  description: "Active capability depends on a retired system",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "capability") continue;
+      if (a.status !== "active" && a.status !== "shipped") continue;
+
+      // Find all systems that realize this capability
+      for (const other of ctx.artifacts) {
+        if (!other.relations) continue;
+        for (const r of other.relations) {
+          if ((r.type === "realizes" || r.type === "supports") && r.target === a.id) {
+            if (other.status === "retired") {
+              results.push({
+                path: a.id,
+                message: `Active capability "${a.id}" is realized/supported by retired "${other.id}"`,
+                severity: "error",
+                rule: this.id,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/orphan-capability
+ *
+ * Capability with no parent, no children, and no realizing systems.
+ */
+const orphanCapability: EaDriftRule = {
+  id: "ea:business/orphan-capability",
+  severity: "warning",
+  description: "Capability with no parent, no children, and no realizing systems",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    const capIds = new Set(ctx.artifacts.filter((a) => a.kind === "capability").map((a) => a.id));
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "capability") continue;
+      const cap = a as unknown as CapabilityArtifact;
+
+      const hasParent = !!cap.parentCapability && capIds.has(cap.parentCapability);
+      const hasChildren = ctx.artifacts.some(
+        (other) => other.kind === "capability" && (other as unknown as CapabilityArtifact).parentCapability === a.id
+      );
+      const isRealized = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => (r.type === "realizes" || r.type === "supports") && r.target === a.id)
+      );
+
+      if (!hasParent && !hasChildren && !isRealized) {
+        results.push({
+          path: a.id,
+          message: `Capability "${a.id}" is orphaned — no parent, no children, no realizing systems`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/mission-no-capabilities
+ *
+ * Mission with no supportedBy capabilities.
+ */
+const missionNoCapabilities: EaDriftRule = {
+  id: "ea:business/mission-no-capabilities",
+  severity: "warning",
+  description: "Mission with no supporting capabilities",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "mission") continue;
+
+      const hasSupport = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => (r.type === "supports" || r.type === "realizes") && r.target === a.id)
+      );
+
+      if (!hasSupport) {
+        results.push({
+          path: a.id,
+          message: `Mission "${a.id}" has no supporting capabilities or systems`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/policy-no-controls
+ *
+ * Policy objective with no enforcing controls.
+ */
+const policyNoControls: EaDriftRule = {
+  id: "ea:business/policy-no-controls",
+  severity: "warning",
+  description: "Policy objective with no enforcing controls",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "policy-objective") continue;
+      const pol = a as unknown as PolicyObjectiveArtifact;
+
+      const hasEnforcedBy = (pol.enforcedBy?.length ?? 0) > 0;
+      const hasGovernedBy = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => r.type === "governedBy" && r.target === a.id)
+      );
+
+      if (!hasEnforcedBy && !hasGovernedBy) {
+        results.push({
+          path: a.id,
+          message: `Policy objective "${a.id}" has no enforcing controls`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/control-overdue
+ *
+ * Control has lastExecutedAt older than its declared frequency.
+ */
+const controlOverdue: EaDriftRule = {
+  id: "ea:business/control-overdue",
+  severity: "warning",
+  description: "Control execution is overdue based on its declared frequency",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    const frequencyMs: Record<string, number> = {
+      "continuous": 60 * 60 * 1000,      // 1 hour grace
+      "hourly": 2 * 60 * 60 * 1000,       // 2 hours
+      "daily": 2 * 24 * 60 * 60 * 1000,   // 2 days
+      "weekly": 10 * 24 * 60 * 60 * 1000,  // 10 days
+      "monthly": 45 * 24 * 60 * 60 * 1000, // 45 days
+    };
+
+    const now = Date.now();
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "control") continue;
+      const ctrl = a as unknown as ControlArtifact;
+      if (!ctrl.lastExecutedAt || !ctrl.frequency) continue;
+
+      const maxInterval = frequencyMs[ctrl.frequency];
+      if (!maxInterval) continue; // on-demand / event-triggered — skip
+
+      const lastExec = new Date(ctrl.lastExecutedAt).getTime();
+      if (isNaN(lastExec)) continue;
+
+      if (now - lastExec > maxInterval) {
+        results.push({
+          path: a.id,
+          message: `Control "${a.id}" last executed at ${ctrl.lastExecutedAt} — overdue for "${ctrl.frequency}" frequency`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/value-stream-bottleneck
+ *
+ * Value stream stage marked as bottleneck.
+ */
+const valueStreamBottleneck: EaDriftRule = {
+  id: "ea:business/value-stream-bottleneck",
+  severity: "warning",
+  description: "Value stream has stages marked as bottleneck",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "value-stream") continue;
+      const vs = a as unknown as ValueStreamArtifact;
+      if (!vs.stages) continue;
+
+      const bottlenecks = vs.stages.filter((s) => s.bottleneck);
+      for (const bn of bottlenecks) {
+        results.push({
+          path: a.id,
+          message: `Value stream "${a.id}" stage "${bn.name}" is marked as a bottleneck`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
+/**
+ * ea:business/unowned-critical-system
+ *
+ * Application/service with high relations but no org-unit ownership.
+ */
+const unownedCriticalSystem: EaDriftRule = {
+  id: "ea:business/unowned-critical-system",
+  severity: "warning",
+  description: "Application or service with many relations but no org-unit ownership",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+
+    // Build set of artifacts owned by org-units
+    const ownedArtifacts = new Set<string>();
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "org-unit") continue;
+      if (a.relations) {
+        for (const r of a.relations) {
+          if (r.type === "owns") ownedArtifacts.add(r.target);
+        }
+      }
+    }
+
+    for (const a of ctx.artifacts) {
+      if (a.kind !== "application" && a.kind !== "service") continue;
+      if (a.status !== "active" && a.status !== "shipped") continue;
+
+      // Check if this system has significant relations (>= 3) indicating criticality
+      const relationCount = (a.relations?.length ?? 0);
+      const isTargeted = ctx.artifacts.some((other) =>
+        other.relations?.some((r) => r.target === a.id)
+      );
+
+      if ((relationCount >= 3 || isTargeted) && !ownedArtifacts.has(a.id)) {
+        results.push({
+          path: a.id,
+          message: `Active ${a.kind} "${a.id}" has significant relations but no org-unit ownership`,
+          severity: "warning",
+          rule: this.id,
+        });
+      }
+    }
+
+    return results;
+  },
+};
+
 // ─── Resolver-Dependent Rules (stubs for Phase 2F) ──────────────────────────────
 
 /**
@@ -914,6 +1307,17 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
   orphanClassification,
   glossaryInconsistency,
   exchangeClassificationMismatch,
+  // Phase 2D — Business Layer
+  noRealizingSystems,
+  processMissingOwner,
+  controlMissingEvidence,
+  retiredSystemDependency,
+  orphanCapability,
+  missionNoCapabilities,
+  policyNoControls,
+  controlOverdue,
+  valueStreamBottleneck,
+  unownedCriticalSystem,
   // Resolver-dependent stubs (Phase 2F)
   unmodeledExternalDependency,
   unmodeledCloudResource,
