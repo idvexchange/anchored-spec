@@ -73,10 +73,12 @@ export function createBatchCommand(): Command {
 
         const prefix = getKindPrefix(entry.kind)!;
         let slug = entry.id ?? slugify(entry.title);
-        // Strip prefix if already included
-        const prefixWithDash = `${prefix}-`.toLowerCase();
-        if (slug.toLowerCase().startsWith(prefixWithDash)) {
-          slug = slug.slice(prefixWithDash.length);
+        // Strip prefix only if user explicitly provided an id with the prefix
+        if (entry.id) {
+          const prefixWithDash = `${prefix}-`.toLowerCase();
+          if (slug.toLowerCase().startsWith(prefixWithDash)) {
+            slug = slug.slice(prefixWithDash.length);
+          }
         }
         const id = `${prefix}-${slug}`;
 
