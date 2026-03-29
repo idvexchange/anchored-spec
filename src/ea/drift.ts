@@ -1719,6 +1719,8 @@ export interface EaDriftOptions {
   domains?: string[];
   /** Include resolver-dependent rules. */
   includeResolverRules?: boolean;
+  /** Resolver cache for caching observed state. */
+  cache?: import("./cache.js").ResolverCache;
 }
 
 /**
