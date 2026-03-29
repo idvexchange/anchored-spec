@@ -1,0 +1,40 @@
+openapi: "3.0.3"
+info:
+  title: User Service
+  description: User management microservice
+  version: 2.1.0
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List all users
+      tags:
+        - users
+    post:
+      operationId: createUser
+      summary: Create a new user
+      tags:
+        - users
+  /users/{userId}:
+    get:
+      operationId: getUser
+      summary: Get user by ID
+      tags:
+        - users
+    put:
+      operationId: updateUser
+      summary: Update a user
+      tags:
+        - users
+    delete:
+      operationId: deleteUser
+      summary: Delete a user
+      tags:
+        - users
+  /users/{userId}/roles:
+    get:
+      operationId: getUserRoles
+      summary: Get user roles
+      tags:
+        - users
+        - roles
