@@ -18,8 +18,15 @@ metadata:
 
 spec:
   capturedAt: "2026-03-15T00:00:00Z"
-  scope: full
-  artifactIds:
+  scope:
+    description: >
+      Full architecture snapshot of the e-commerce platform before
+      the payment service migration. Covers systems, delivery, and data.
+    domains:
+      - systems
+      - delivery
+      - data
+  artifactRefs:
     - APP-order-service
     - SVC-payment-api
     - API-orders-v2
@@ -28,16 +35,6 @@ spec:
     - STORE-orders-postgres
     - DOBJ-orders-table
     - ENV-production
-  summary:
-    totalArtifacts: 8
-    domains:
-      systems: 4
-      delivery: 2
-      data: 2
-    healthScore: 72
-    driftFindings:
-      errors: 0
-      warnings: 3
 
 relations:
   - type: comparedBy

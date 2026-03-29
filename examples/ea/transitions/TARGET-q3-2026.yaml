@@ -19,7 +19,25 @@ metadata:
   schemaVersion: "1.0.0"
 
 spec:
-  targetDate: "2026-09-30T00:00:00Z"
+  scope:
+    description: >
+      Target architecture for Q3 2026: migrate from monolithic payment
+      service to event-driven payment microservices with Stripe Connect.
+    domains:
+      - systems
+      - delivery
+      - data
+  effectiveBy: "2026-09-30T00:00:00Z"
+  artifactRefs:
+    - APP-order-service
+    - SVC-payment-api
+    - SVC-payment-events
+    - API-orders-v2
+    - IFACE-order-events
+    - IFACE-payment-events
+    - DEP-order-service-k8s
+    - STORE-orders-postgres
+    - ENV-production
   baseline: BASELINE-q1-2026
   changes:
     added:

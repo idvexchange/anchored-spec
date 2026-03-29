@@ -20,16 +20,12 @@ metadata:
   schemaVersion: "1.0.0"
 
 spec:
-  engine: PostgreSQL
-  version: "15.4"
-  hosting: AWS RDS
-  multiAz: true
-  encrypted: true
-  backupRetention: 30
-  classification: confidential
-  schemas:
-    - name: public
-      tables: ["orders", "order_items", "order_status_history"]
+  technology:
+    engine: PostgreSQL
+    version: "15.4"
+    category: relational
+  environment: production
+  isShared: false
 
 anchors:
   schemas:
