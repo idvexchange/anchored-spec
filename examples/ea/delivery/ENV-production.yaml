@@ -19,10 +19,11 @@ metadata:
   schemaVersion: "1.0.0"
 
 spec:
+  tier: production
+  isProduction: true
   provider: aws
   region: us-east-1
   cluster: eks-prod-commerce
-  tier: production
   accessControl:
     deployApproval: required
     accessLevel: restricted

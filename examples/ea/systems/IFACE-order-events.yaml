@@ -18,9 +18,10 @@ metadata:
   schemaVersion: "1.0.0"
 
 spec:
-  protocol: Kafka
-  topic: orders.events
-  format: CloudEvents/JSON
+  direction: outbound
+  ownership: owned
+  protocol: mq
+  externalSystem: Kafka (orders.events)
   events:
     - name: order.created
       schema: schemas/events/order-created.avsc

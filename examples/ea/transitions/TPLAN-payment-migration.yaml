@@ -20,64 +20,62 @@ metadata:
 spec:
   baseline: BASELINE-q1-2026
   target: TARGET-q3-2026
+  milestones:
+    - id: wave-1-foundation
+      title: "Wave 1: Foundation — Shadow Mode"
+      deliverables:
+        - SVC-payment-events
+        - IFACE-payment-events
+      status: pending
+      criteria:
+        - Payment events service deployed in shadow mode
+        - Kafka topics provisioned and producing events
+        - Existing payment API unaffected
+    - id: wave-2-migration
+      title: "Wave 2: Migration — Dual-Write"
+      deliverables:
+        - APP-order-service
+      status: pending
+      criteria:
+        - Order service uses event publishing instead of REST
+        - Dual-write consistency verified via saga pattern
+        - All integration tests passing
+    - id: wave-3-deprecation
+      title: "Wave 3: Deprecation — Cleanup"
+      deliverables:
+        - SVC-payment-api
+        - CON-partner-portal
+      status: pending
+      criteria:
+        - Old payment API deprecated and consumers migrated
+        - Partner portal using new payment events interface
+        - Legacy endpoint decommissioned after verification
+  milestoneDependencies:
+    - milestone: wave-2-migration
+      dependsOn: wave-1-foundation
+    - milestone: wave-3-deprecation
+      dependsOn: wave-2-migration
+  riskRegister:
+    - id: risk-kafka-permissions
+      description: Kafka topic permissions may delay wave-1 setup
+      likelihood: medium
+      impact: medium
+      mitigation: Pre-provision topics in staging environment now
+    - id: risk-dual-write
+      description: Dual-write consistency issues during wave-2
+      likelihood: medium
+      impact: high
+      mitigation: Implement saga pattern with compensation events
+    - id: risk-partner-integration
+      description: Partner portal migration may take longer than planned
+      likelihood: medium
+      impact: medium
+      mitigation: Provide adapter layer for backwards compatibility
   approvalPolicy:
     requiredApprovers:
       - team-architecture
       - team-payments
       - vp-engineering
-    approvedAt: "2026-03-20T00:00:00Z"
-  waves:
-    - id: wave-1
-      name: "Foundation"
-      startDate: "2026-04-01"
-      endDate: "2026-05-15"
-      description: >
-        Stand up new payment events service and Kafka topics.
-        Run in shadow mode alongside existing payment API.
-      artifacts:
-        - action: create
-          id: SVC-payment-events
-        - action: create
-          id: IFACE-payment-events
-      risks:
-        - description: Kafka topic permissions may delay setup
-          mitigation: Pre-provision topics in staging now
-          severity: medium
-
-    - id: wave-2
-      name: "Migration"
-      startDate: "2026-05-16"
-      endDate: "2026-07-31"
-      description: >
-        Migrate order service to use payment events instead of
-        direct API calls. Dual-write during transition.
-      artifacts:
-        - action: modify
-          id: APP-order-service
-          changes: Switch from REST calls to event publishing
-      risks:
-        - description: Dual-write consistency issues
-          mitigation: Implement saga pattern with compensation
-          severity: high
-
-    - id: wave-3
-      name: "Deprecation"
-      startDate: "2026-08-01"
-      endDate: "2026-09-30"
-      description: >
-        Deprecate old payment API. Migrate remaining consumers.
-        Decommission old service after verification period.
-      artifacts:
-        - action: modify
-          id: SVC-payment-api
-          changes: Set status to deprecated, then retired
-        - action: modify
-          id: CON-partner-portal
-          changes: Update to use new payment events interface
-      risks:
-        - description: Partner portal integration may take longer
-          mitigation: Provide adapter layer for backwards compatibility
-          severity: medium
 
 relations:
   - type: transitions

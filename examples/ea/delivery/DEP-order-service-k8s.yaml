@@ -20,10 +20,7 @@ metadata:
 spec:
   platform: kubernetes
   namespace: commerce
-  replicas:
-    min: 3
-    max: 10
-    desired: 3
+  replicas: 3
   resources:
     cpu: "500m"
     memory: "512Mi"
