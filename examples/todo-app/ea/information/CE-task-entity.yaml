@@ -36,5 +36,5 @@ spec:
     - - id
 
 relations:
-  - type: implementedBy
+  - type: dependsOn
     target: DOBJ-task

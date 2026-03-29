@@ -50,13 +50,11 @@ anchors:
     - path: tsconfig.json
 
 relations:
-  - type: implements
+  - type: exposes
     target: API-todo-v1
   - type: realizes
     target: CAP-task-management
-  - type: storesIn
+  - type: uses
     target: STORE-todo-memory
-  - type: deployedAs
-    target: DEP-todo-vercel
-  - type: publishes
+  - type: dependsOn
     target: SVC-todo-notifications

@@ -149,7 +149,7 @@ spec:
     retiredRequiresMigrationPlan: true
 
 relations:
-  - type: governs
+  - type: governedBy
     target: APP-todo-web
-  - type: governs
+  - type: governedBy
     target: API-todo-v1

@@ -29,7 +29,5 @@ spec:
     value driver of the todo application.
 
 relations:
-  - type: realizedBy
-    target: APP-todo-web
   - type: supports
     target: VS-task-delivery

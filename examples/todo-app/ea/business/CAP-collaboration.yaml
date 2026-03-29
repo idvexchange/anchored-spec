@@ -30,5 +30,5 @@ spec:
     being in place (wave-2 of migration plan).
 
 relations:
-  - type: supportedBy
+  - type: dependsOn
     target: CAP-task-management

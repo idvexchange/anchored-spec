@@ -36,9 +36,9 @@ spec:
     - DOBJ-task
     - DOBJ-category
     - DOBJ-todo-stats
-    - DEP-todo-local
+    - DEPLOY-todo-local
     - ENV-development
 
 relations:
-  - type: comparedBy
+  - type: dependsOn
     target: TARGET-v1-0

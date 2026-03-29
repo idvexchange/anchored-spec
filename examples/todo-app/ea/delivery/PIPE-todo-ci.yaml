@@ -39,7 +39,7 @@ spec:
       requiresApproval: true
 
 relations:
-  - type: builds
+  - type: dependsOn
     target: APP-todo-web
-  - type: deploysTo
-    target: DEP-todo-vercel
+  - type: dependsOn
+    target: DEPLOY-todo-vercel

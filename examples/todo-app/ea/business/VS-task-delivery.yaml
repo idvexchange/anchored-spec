@@ -52,5 +52,5 @@ spec:
         - CAP-task-management
 
 relations:
-  - type: supportedBy
+  - type: dependsOn
     target: CAP-task-management

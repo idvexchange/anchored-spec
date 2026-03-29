@@ -51,14 +51,14 @@ ea/
 ├── delivery/           # Environments, deployments, pipelines
 │   ├── ENV-development.yaml
 │   ├── ENV-production.yaml
-│   ├── DEP-todo-local.yaml
-│   ├── DEP-todo-vercel.yaml
+│   ├── DEPLOY-todo-local.yaml
+│   ├── DEPLOY-todo-vercel.yaml
 │   └── PIPE-todo-ci.yaml
 ├── transitions/        # Baselines, targets, migration plans, exceptions
 │   ├── BASELINE-v0-1.yaml
 │   ├── TARGET-v1-0.yaml
-│   ├── TPLAN-persistence-migration.yaml
-│   └── EXC-no-auth-dev.yaml
+│   ├── PLAN-persistence-migration.yaml
+│   └── EXCEPT-no-auth-dev.yaml
 └── workflow-policy.yaml
 ```
 
@@ -91,8 +91,8 @@ graph TB
     subgraph Delivery
         ENV-development
         ENV-production
-        DEP-todo-local
-        DEP-todo-vercel
+        DEPLOY-todo-local
+        DEPLOY-todo-vercel
         PIPE-todo-ci
     end
 
@@ -101,13 +101,13 @@ graph TB
     PROC-task-lifecycle -->|performedBy| CAP-task-management
     APP-todo-web -->|implements| API-todo-v1
     APP-todo-web -->|storesIn| STORE-todo-memory
-    APP-todo-web -->|deployedAs| DEP-todo-vercel
+    APP-todo-web -->|deployedAs| DEPLOY-todo-vercel
     API-todo-v1 -->|consumedBy| CON-browser-client
     STORE-todo-memory -->|contains| DOBJ-task
     STORE-todo-memory -->|contains| DOBJ-category
     DOBJ-task -->|flowsTo| DOBJ-todo-stats
-    DEP-todo-local -->|deployedTo| ENV-development
-    DEP-todo-vercel -->|deployedTo| ENV-production
+    DEPLOY-todo-local -->|deployedTo| ENV-development
+    DEPLOY-todo-vercel -->|deployedTo| ENV-production
     PIPE-todo-ci -->|builds| APP-todo-web
     POL-data-retention -->|governs| STORE-todo-memory
 ```
@@ -139,7 +139,7 @@ The `ea/workflow-policy.yaml` defines a comprehensive development workflow:
 
 ## Migration Plan (3 Waves)
 
-The `ea/transitions/TPLAN-persistence-migration.yaml` defines a three-wave
+The `ea/transitions/PLAN-persistence-migration.yaml` defines a three-wave
 migration from the current in-memory prototype to a production-ready system:
 
 | Wave | Name | Timeline | Key Changes |

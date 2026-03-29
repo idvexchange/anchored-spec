@@ -36,5 +36,5 @@ anchors:
       file: lib/types.ts
 
 relations:
-  - type: containedIn
+  - type: dependsOn
     target: STORE-todo-memory

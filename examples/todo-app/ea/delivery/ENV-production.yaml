@@ -32,5 +32,5 @@ spec:
     of the persistence migration plan.
 
 relations:
-  - type: hosts
-    target: DEP-todo-vercel
+  - type: dependsOn
+    target: DEPLOY-todo-vercel

@@ -18,77 +18,38 @@ metadata:
   schemaVersion: "1.0.0"
 
 spec:
-  stages:
+  trigger: User identifies a new task to track
+  outcome: Task completed or archived with full audit trail
+  processOwner: team-product
+  steps:
     - id: creation
       name: Task Creation
-      description: >
-        User captures a new task with title, optional description,
-        category, priority, due date, and tags. The task enters the
-        system in "pending" status.
+      description: User captures a new task with title and metadata
       actor: end-user
-      input:
-        - title (required)
-        - description
-        - category
-        - priority
-        - dueDate
-        - tags
-      output:
-        - new Todo object in pending status
-
+      systemRef: APP-todo-web
     - id: prioritization
       name: Task Prioritization
-      description: >
-        User reviews pending tasks and assigns or adjusts priority
-        levels (low, medium, high, urgent) to determine execution
-        order. May also re-categorize tasks.
+      description: User assigns priority level and due date
       actor: end-user
-      input:
-        - existing Todo in pending status
-        - priority level selection
-      output:
-        - Todo with updated priority
-
+      systemRef: APP-todo-web
     - id: execution
       name: Task Execution
-      description: >
-        User begins work on a task, moving it to "in-progress"
-        status. The task remains in this stage until work is
-        finished or the task is abandoned.
+      description: User works on task and updates status to in-progress
       actor: end-user
-      input:
-        - Todo in pending or prioritized state
-      output:
-        - Todo in in-progress status
-
+      systemRef: APP-todo-web
     - id: completion
       name: Task Completion
-      description: >
-        User marks a task as "completed". The completedAt timestamp
-        is recorded. The task may remain visible in filtered views
-        for review.
+      description: User marks task as completed with timestamp
       actor: end-user
-      input:
-        - Todo in in-progress status
-      output:
-        - Todo in completed status with completedAt timestamp
-
+      systemRef: APP-todo-web
     - id: archival
       name: Task Archival
-      description: >
-        Completed tasks are moved to "archived" status either
-        manually by the user or automatically after a configured
-        retention period. Archived tasks are retained for 90 days
-        per data retention policy before purge.
-      actor: system
-      input:
-        - Todo in completed status
-        - retention policy configuration
-      output:
-        - Todo in archived status
+      description: Completed tasks archived after review period
+      actor: end-user
+      systemRef: APP-todo-web
 
 relations:
-  - type: performedBy
+  - type: supports
     target: CAP-task-management
   - type: governedBy
     target: POL-data-retention

@@ -29,5 +29,5 @@ spec:
     on each server restart.
 
 relations:
-  - type: hosts
-    target: DEP-todo-local
+  - type: dependsOn
+    target: DEPLOY-todo-local

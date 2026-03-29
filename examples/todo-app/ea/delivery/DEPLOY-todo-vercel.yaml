@@ -1,6 +1,6 @@
 apiVersion: anchored-spec/ea/v1
 kind: deployment
-id: DEP-todo-vercel
+id: DEPLOY-todo-vercel
 
 metadata:
   name: Vercel Production Deployment
@@ -32,7 +32,7 @@ spec:
 relations:
   - type: deploys
     target: APP-todo-web
-  - type: deployedTo
+  - type: dependsOn
     target: ENV-production
   - type: dependsOn
     target: PIPE-todo-ci

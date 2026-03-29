@@ -1,6 +1,6 @@
 apiVersion: anchored-spec/ea/v1
 kind: deployment
-id: DEP-todo-local
+id: DEPLOY-todo-local
 
 metadata:
   name: Local Development Deployment
@@ -34,5 +34,5 @@ anchors:
 relations:
   - type: deploys
     target: APP-todo-web
-  - type: deployedTo
+  - type: dependsOn
     target: ENV-development

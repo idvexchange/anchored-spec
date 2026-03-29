@@ -1,6 +1,6 @@
 apiVersion: anchored-spec/ea/v1
 kind: exception
-id: EXC-no-auth-dev
+id: EXCEPT-no-auth-dev
 
 metadata:
   name: No Authentication in v0.1 Development
@@ -37,9 +37,9 @@ spec:
   reviewSchedule: monthly
 
 relations:
-  - type: suppresses
+  - type: mitigates
     target: APP-todo-web
-  - type: suppresses
+  - type: mitigates
     target: API-todo-v1
   - type: mitigates
-    target: TPLAN-persistence-migration
+    target: PLAN-persistence-migration
