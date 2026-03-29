@@ -26,6 +26,7 @@ import { eaGenerateCommand } from "./commands/ea-generate.js";
 import { eaImpactCommand } from "./commands/ea-impact.js";
 import { eaStatusCommand } from "./commands/ea-status.js";
 import { eaTransitionCommand } from "./commands/ea-transition.js";
+import { verifyCommand } from "./commands/verify.js";
 import { migrateConfigCommand } from "./commands/migrate-config.js";
 import { CliError } from "./errors.js";
 
@@ -62,6 +63,7 @@ program.addCommand(eaGenerateCommand());
 program.addCommand(eaImpactCommand());
 program.addCommand(eaStatusCommand());
 program.addCommand(eaTransitionCommand());
+program.addCommand(verifyCommand());
 program.addCommand(migrateConfigCommand());
 
 // ─── Deprecated "ea" alias group ────────────────────────────────────────────────
