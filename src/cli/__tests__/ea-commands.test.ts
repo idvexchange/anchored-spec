@@ -66,6 +66,7 @@ describe("CLI: ea", () => {
     expect(result.stdout).toContain("create");
     expect(result.stdout).toContain("validate");
     expect(result.stdout).toContain("graph");
+    expect(result.stdout).toContain("report");
   });
 });
 
@@ -474,5 +475,110 @@ relations: []
   it("handles empty graph gracefully", () => {
     const result = runCLI("ea graph", tempDir);
     expect(result.exitCode).toBe(0);
+  });
+});
+
+// ─── EA Report ───────────────────────────────────────────────────────────────
+
+describe("CLI: ea report", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("outputs markdown system-data-matrix", () => {
+    runCLI('ea create application --title "My App"', tempDir);
+    const result = runCLI(
+      "ea report --view system-data-matrix",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("# System-Data Matrix");
+  });
+
+  it("outputs JSON system-data-matrix", () => {
+    runCLI('ea create application --title "My App"', tempDir);
+    const result = runCLI(
+      "ea report --view system-data-matrix --format json",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json).toHaveProperty("applications");
+    expect(json).toHaveProperty("dataStores");
+    expect(json).toHaveProperty("matrix");
+    expect(json).toHaveProperty("summary");
+  });
+
+  it("shows connections when artifacts have relations", () => {
+    // Create app with uses relation to data store
+    writeFileSync(
+      join(tempDir, "ea", "systems", "APP-test.yaml"),
+      `apiVersion: anchored-spec/ea/v1
+kind: application
+id: APP-test
+
+metadata:
+  name: Test App
+  summary: A test application for reports
+  owners:
+    - team-test
+  tags: []
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+relations:
+  - type: uses
+    target: STORE-test-db
+`,
+    );
+    writeFileSync(
+      join(tempDir, "ea", "data", "STORE-test-db.yaml"),
+      `apiVersion: anchored-spec/ea/v1
+kind: data-store
+id: STORE-test-db
+
+metadata:
+  name: Test Database
+  summary: A test PostgreSQL database
+  owners:
+    - team-data
+  tags: []
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+technology:
+  engine: postgresql
+  category: relational
+
+relations: []
+`,
+    );
+
+    const result = runCLI(
+      "ea report --view system-data-matrix --format json",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.summary.connectionCount).toBe(1);
+    expect(json.matrix[0].applicationId).toBe("APP-test");
+    expect(json.matrix[0].dataStoreId).toBe("STORE-test-db");
+  });
+
+  it("fails for unknown view", () => {
+    const result = runCLI(
+      "ea report --view unknown-view",
+      tempDir,
+    );
+    expect(result.exitCode).not.toBe(0);
   });
 });
