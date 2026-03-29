@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/exception.schema.json",
+  "title": "Anchored Spec — EA Exception",
+  "description": "An approved exception to architecture policy.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["scope", "approvedBy", "approvedAt", "expiresAt", "reason"],
+  "properties": {
+    "kind": { "const": "exception" },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "artifactIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific artifact IDs this exception applies to"
+        },
+        "rules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Drift/quality rule IDs suppressed by this exception"
+        },
+        "domains": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["systems", "delivery", "data", "information", "business", "transitions"] },
+          "description": "EA domains this exception covers"
+        }
+      },
+      "additionalProperties": false
+    },
+    "approvedBy": { "type": "string", "minLength": 1, "description": "Who approved this exception" },
+    "approvedAt": { "type": "string", "description": "ISO 8601 timestamp of approval" },
+    "expiresAt": { "type": "string", "description": "ISO 8601 timestamp when exception expires" },
+    "reason": { "type": "string", "minLength": 1, "description": "Justification for the exception" },
+    "reviewSchedule": {
+      "type": "string",
+      "enum": ["weekly", "monthly", "quarterly"],
+      "description": "How often this exception should be reviewed"
+    }
+  }
+}

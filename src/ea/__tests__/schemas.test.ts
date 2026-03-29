@@ -26,9 +26,9 @@ function validBase(kind: string, extra: Record<string, unknown> = {}): Record<st
 // ─── Schema Registry ────────────────────────────────────────────────────────────
 
 describe("getEaSchemaNames", () => {
-  it("returns 39 schema names (3 base + 36 kinds)", () => {
+  it("returns 44 schema names (3 base + 41 kinds)", () => {
     const names = getEaSchemaNames();
-    expect(names).toHaveLength(39);
+    expect(names).toHaveLength(44);
     expect(names).toContain("artifact-base");
     expect(names).toContain("relation");
     expect(names).toContain("anchors");

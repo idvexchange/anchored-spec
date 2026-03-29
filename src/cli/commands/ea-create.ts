@@ -188,6 +188,16 @@ function getKindSpecificYaml(kind: string): string | null {
       return "  serviceType: internal";
     case "control":
       return "  controlType: detective\n  implementation: automated\n  assertion: TODO";
+    case "baseline":
+      return "  scope:\n    description: TODO\n  capturedAt: " + new Date().toISOString().split("T")[0] + "\n  artifactRefs: []";
+    case "target":
+      return "  scope:\n    description: TODO\n  effectiveBy: " + new Date(Date.now() + 180 * 86400000).toISOString().split("T")[0] + "\n  artifactRefs: []";
+    case "transition-plan":
+      return "  baseline: BASELINE-TODO\n  target: TARGET-TODO\n  milestones:\n    - id: m1\n      title: TODO\n      deliverables: []";
+    case "migration-wave":
+      return "  transitionPlan: PLAN-TODO\n  milestones: []\n  sequenceOrder: 1\n  scope:\n    create: []\n    modify: []\n    retire: []";
+    case "exception":
+      return "  scope:\n    artifactIds: []\n  approvedBy: TODO\n  approvedAt: " + new Date().toISOString() + "\n  expiresAt: " + new Date(Date.now() + 90 * 86400000).toISOString() + "\n  reason: TODO";
     default:
       return null;
   }
@@ -247,6 +257,16 @@ function getKindSpecificJson(kind: string): Record<string, unknown> {
       return { serviceType: "internal" };
     case "control":
       return { controlType: "detective", implementation: "automated", assertion: "TODO" };
+    case "baseline":
+      return { scope: { description: "TODO" }, capturedAt: new Date().toISOString().split("T")[0], artifactRefs: [] };
+    case "target":
+      return { scope: { description: "TODO" }, effectiveBy: new Date(Date.now() + 180 * 86400000).toISOString().split("T")[0], artifactRefs: [] };
+    case "transition-plan":
+      return { baseline: "BASELINE-TODO", target: "TARGET-TODO", milestones: [{ id: "m1", title: "TODO", deliverables: [] }] };
+    case "migration-wave":
+      return { transitionPlan: "PLAN-TODO", milestones: [], sequenceOrder: 1, scope: { create: [], modify: [], retire: [] } };
+    case "exception":
+      return { scope: { artifactIds: [] }, approvedBy: "TODO", approvedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 90 * 86400000).toISOString(), reason: "TODO" };
     default:
       return {};
   }

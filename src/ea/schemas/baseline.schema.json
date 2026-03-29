@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/baseline.schema.json",
+  "title": "Anchored Spec — EA Baseline",
+  "description": "A point-in-time architecture snapshot capturing current state.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "required": ["scope", "capturedAt", "artifactRefs"],
+  "properties": {
+    "kind": { "const": "baseline" },
+    "scope": {
+      "type": "object",
+      "required": ["description"],
+      "properties": {
+        "domains": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["systems", "delivery", "data", "information", "business", "transitions"] },
+          "description": "EA domains included in this baseline"
+        },
+        "kinds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact kinds included"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tags to filter included artifacts"
+        },
+        "description": { "type": "string", "minLength": 1, "description": "Scope description" }
+      },
+      "additionalProperties": false
+    },
+    "capturedAt": { "type": "string", "description": "ISO 8601 timestamp when baseline was captured" },
+    "artifactRefs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of artifacts included in this baseline"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Assumptions made during baseline capture"
+    },
+    "exceptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Known exceptions or deviations"
+    },
+    "baselineVersion": { "type": "string", "description": "Version identifier for this baseline" }
+  }
+}
