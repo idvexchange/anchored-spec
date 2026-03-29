@@ -938,7 +938,7 @@ describe("Phase 2C: Information Drift Rules", () => {
 
   it("evaluates all 27 static drift rules (9 prior + 8 Phase 2C + 10 Phase 2D)", () => {
     const result = evaluateEaDrift([]);
-    expect(result.rulesEvaluated).toBe(27);
+    expect(result.rulesEvaluated).toBe(37);
     expect(result.rulesSkipped).toBe(5); // resolver stubs
   });
 });
