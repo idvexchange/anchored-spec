@@ -12,6 +12,6 @@ export default [
     plugins: { onlyWarn },
   },
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", "examples/**"],
   },
 ];
