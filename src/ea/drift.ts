@@ -537,14 +537,24 @@ const exchangeMissingContract: EaDriftRule = {
       if (a.kind !== "information-exchange") continue;
       const exch = a as unknown as InformationExchangeArtifact;
       const hasContracts = (exch.implementingContracts?.length ?? 0) > 0;
-      // Also check for exchangedVia relations pointing to contracts
+      // Check for implementedBy relations from the exchange to contracts
+      const hasImplementedBy = a.relations?.some(
+        (r) =>
+          r.type === "implementedBy" &&
+          ctx.artifacts.some(
+            (t) =>
+              t.id === r.target &&
+              (t.kind === "api-contract" || t.kind === "event-contract")
+          )
+      );
+      // Check for exchangedVia relations from entities pointing to this exchange
       const hasExchangedVia = ctx.artifacts.some((other) =>
         other.relations?.some((r) => r.type === "exchangedVia" && r.target === a.id)
       );
-      if (!hasContracts && !hasExchangedVia) {
+      if (!hasContracts && !hasImplementedBy && !hasExchangedVia) {
         results.push({
           path: a.id,
-          message: `Information exchange "${a.id}" has no implementing contracts (no API or event contract)`,
+          message: `Information exchange "${a.id}" has no implementing contracts — add implementedBy relations to api-contract/event-contract, or populate implementingContracts`,
           severity: "error",
           rule: this.id,
         });

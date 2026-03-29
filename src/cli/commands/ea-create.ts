@@ -23,7 +23,7 @@ export function eaCreateCommand(): Command {
     .description("Create a new EA artifact")
     .argument("<kind>", "Artifact kind (e.g., application, service, environment)")
     .requiredOption("--title <title>", "Human-readable title")
-    .option("--id <id>", "Artifact ID (auto-generated from title if omitted)")
+    .option("--id <id>", "Artifact slug (kind prefix auto-prepended, e.g. --id my-app → APP-my-app)")
     .option("--owner <owner>", "Owner team or person", "your-team")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--json", "Output as JSON instead of YAML")
@@ -41,14 +41,22 @@ export function eaCreateCommand(): Command {
         );
       }
 
-      // Resolve ID
+      // Resolve ID — strip prefix if user already included it
       const prefix = getKindPrefix(kind)!;
-      const slug = (options.id as string) ?? slugify(options.title as string);
+      let slug = (options.id as string) ?? slugify(options.title as string);
+      const prefixWithDash = `${prefix}-`.toLowerCase();
+      if (slug.toLowerCase().startsWith(prefixWithDash)) {
+        slug = slug.slice(prefixWithDash.length);
+      }
       const id = `${prefix}-${slug}`;
 
       // Resolve domain and output path
+      // When --root-dir is explicitly provided, use it directly (no domain subdirectory)
       const domain = getDomainForKind(kind)!;
-      const domainDir = join(cwd, eaConfig.domains[domain]);
+      const explicitRootDir = options.rootDir !== "ea";
+      const domainDir = explicitRootDir
+        ? join(cwd, options.rootDir as string)
+        : join(cwd, eaConfig.domains[domain]);
       const ext = options.json ? "json" : "yaml";
       const filePath = join(domainDir, `${id}.${ext}`);
 
@@ -74,7 +82,8 @@ export function eaCreateCommand(): Command {
 
       writeFileSync(filePath, content);
 
-      const relPath = `${eaConfig.domains[domain]}/${id}.${ext}`;
+      const relDir = explicitRootDir ? options.rootDir as string : eaConfig.domains[domain];
+      const relPath = `${relDir}/${id}.${ext}`;
       console.log(chalk.green(`✓ Created ${relPath}`));
       console.log(chalk.dim(`  ID:     ${id}`));
       console.log(chalk.dim(`  Kind:   ${kind}`));
