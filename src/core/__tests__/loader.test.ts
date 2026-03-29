@@ -335,4 +335,28 @@ describe("SpecRoot.getSummary", () => {
     expect(eaRoot).not.toBeNull();
     expect(eaRoot!.projectRoot).toBe(spec.projectRoot);
   });
+
+  it("loadAll returns core data when EA is not enabled", async () => {
+    mkdirSync(join(tempDir, "specs", "requirements"), { recursive: true });
+    writeFileSync(
+      join(tempDir, "specs", "requirements", "REQ-1.json"),
+      JSON.stringify({ id: "REQ-1", title: "Test" }),
+    );
+    const spec = new SpecRoot(tempDir);
+    const result = await spec.loadAll();
+    expect(result.requirements).toHaveLength(1);
+    expect(result.eaArtifacts).toHaveLength(0);
+  });
+
+  it("loadAll includes empty eaArtifacts when EA enabled but not initialized", async () => {
+    mkdirSync(join(tempDir, "specs"), { recursive: true });
+    mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
+    writeFileSync(
+      join(tempDir, ".anchored-spec", "config.json"),
+      JSON.stringify({ specRoot: "specs", ea: { enabled: true } }),
+    );
+    const spec = new SpecRoot(tempDir);
+    const result = await spec.loadAll();
+    expect(result.eaArtifacts).toHaveLength(0);
+  });
 });

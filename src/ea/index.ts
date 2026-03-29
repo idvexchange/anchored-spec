@@ -104,6 +104,10 @@ export { RelationRegistry, createDefaultRegistry } from "./relation-registry.js"
 export type { GraphNode, GraphEdge, MermaidOptions, DotOptions } from "./graph.js";
 export { RelationGraph, buildRelationGraph } from "./graph.js";
 
+// Impact Analysis
+export type { ImpactedArtifact, ImpactDomainSummary, ImpactReport } from "./impact.js";
+export { analyzeImpact, renderImpactReportMarkdown } from "./impact.js";
+
 // Drift
 export type { EaDriftContext, EaDriftRule, EaDriftResult, EaDriftFinding, DomainDriftSummary, EaDriftReport, EaDriftOptions, EaResolverObservedState } from "./drift.js";
 export { EA_DRIFT_RULES, evaluateEaDrift, detectEaDrift } from "./drift.js";
