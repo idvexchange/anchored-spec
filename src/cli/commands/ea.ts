@@ -1,8 +1,7 @@
 /**
  * anchored-spec ea
  *
- * Top-level EA command namespace. Registers subcommands:
- * ea init, ea create, ea validate, ea graph
+ * Top-level EA command namespace. Registers all EA subcommands.
  */
 
 import { Command } from "commander";
@@ -17,6 +16,8 @@ import { eaDiscoverCommand } from "./ea-discover.js";
 import { eaGenerateCommand } from "./ea-generate.js";
 import { eaMigrateLegacyCommand } from "./ea-migrate-legacy.js";
 import { eaImpactCommand } from "./ea-impact.js";
+import { eaStatusCommand } from "./ea-status.js";
+import { eaTransitionCommand } from "./ea-transition.js";
 
 export function eaCommand(): Command {
   const ea = new Command("ea")
@@ -33,6 +34,8 @@ export function eaCommand(): Command {
   ea.addCommand(eaGenerateCommand());
   ea.addCommand(eaMigrateLegacyCommand());
   ea.addCommand(eaImpactCommand());
+  ea.addCommand(eaStatusCommand());
+  ea.addCommand(eaTransitionCommand());
 
   return ea;
 }
