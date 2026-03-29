@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import type { EaArtifactBase, EaRelation } from "./types.js";
 import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
+import type { RelationRegistry } from "./relation-registry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -337,6 +338,155 @@ export function validateEaArtifacts(
           `Artifact "${a.id}" has no relations and is not referenced by any other artifact`
         );
       }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+// ─── Relation Validation ────────────────────────────────────────────────────────
+
+/**
+ * Validate relations across a set of loaded EA artifacts against registry rules.
+ *
+ * Rules (from docs/ea-relationship-model.md §Relation Validation Rules):
+ *   1. Target exists
+ *   2. Self-reference disallowed
+ *   3. Relation type registered
+ *   4. Source kind valid
+ *   5. Target kind valid
+ *   6. Target status compatibility
+ *   7. Duplicate detection
+ */
+export function validateEaRelations(
+  artifacts: EaArtifactBase[],
+  registry: RelationRegistry,
+  options?: EaValidationOptions
+): EaValidationResult {
+  const q = options?.quality;
+  const errors: EaValidationError[] = [];
+  const warnings: EaValidationError[] = [];
+
+  const push = (
+    sev: RuleSeverity,
+    rule: string,
+    path: string,
+    message: string
+  ): void => {
+    if (sev === "off") return;
+    const entry: EaValidationError = { path, message, severity: sev === "info" ? "warning" : sev, rule };
+    if (sev === "error") {
+      errors.push(entry);
+    } else {
+      warnings.push(entry);
+    }
+  };
+
+  // Build artifact lookup by ID
+  const artifactById = new Map<string, EaArtifactBase>();
+  for (const a of artifacts) {
+    artifactById.set(a.id, a);
+  }
+
+  for (const a of artifacts) {
+    if (!a.relations) continue;
+
+    const seen = new Set<string>();
+
+    for (const rel of a.relations) {
+      const relKey = `${rel.type}→${rel.target}`;
+
+      // 1. Self-reference
+      if (rel.target === a.id) {
+        push(
+          ruleSeverity("ea:relation:self-reference", "error", q),
+          "ea:relation:self-reference",
+          a.id,
+          `Artifact "${a.id}" has a self-referencing relation of type "${rel.type}"`
+        );
+        continue;
+      }
+
+      // 2. Target exists
+      const target = artifactById.get(rel.target);
+      if (!target) {
+        push(
+          ruleSeverity("ea:relation:target-missing", "error", q),
+          "ea:relation:target-missing",
+          a.id,
+          `Artifact "${a.id}" references unknown target "${rel.target}" via "${rel.type}"`
+        );
+        continue;
+      }
+
+      // 3. Relation type registered
+      const entry = registry.get(rel.type);
+      if (!entry) {
+        push(
+          ruleSeverity("ea:relation:unknown-type", "warning", q),
+          "ea:relation:unknown-type",
+          a.id,
+          `Artifact "${a.id}" uses unregistered relation type "${rel.type}"`
+        );
+        // Skip further checks for unregistered types
+        continue;
+      }
+
+      // 4. Source kind valid
+      if (!registry.isValidSource(rel.type, a.kind)) {
+        push(
+          ruleSeverity("ea:relation:invalid-source", "error", q),
+          "ea:relation:invalid-source",
+          a.id,
+          `Kind "${a.kind}" is not a valid source for relation type "${rel.type}"`
+        );
+      }
+
+      // 5. Target kind valid
+      if (!registry.isValidTarget(rel.type, target.kind)) {
+        push(
+          ruleSeverity("ea:relation:invalid-target", "error", q),
+          "ea:relation:invalid-target",
+          a.id,
+          `Kind "${target.kind}" is not a valid target for relation type "${rel.type}" (target: "${target.id}")`
+        );
+      }
+
+      // 6. Target status compatibility
+      if (target.status === "retired") {
+        const sev = q?.strictMode ? "error" : "warning";
+        push(
+          ruleSeverity("ea:relation:retired-target", sev as RuleSeverity, q),
+          "ea:relation:retired-target",
+          a.id,
+          `Artifact "${a.id}" references retired artifact "${target.id}" via "${rel.type}"`
+        );
+      } else if (
+        target.status === "draft" &&
+        (a.status === "active" || a.status === "shipped")
+      ) {
+        push(
+          ruleSeverity("ea:relation:draft-target", "warning", q),
+          "ea:relation:draft-target",
+          a.id,
+          `Active artifact "${a.id}" references draft artifact "${target.id}" via "${rel.type}"`
+        );
+      }
+
+      // 7. Duplicate detection
+      if (seen.has(relKey)) {
+        push(
+          ruleSeverity("ea:relation:duplicate", "warning", q),
+          "ea:relation:duplicate",
+          a.id,
+          `Artifact "${a.id}" has duplicate relation "${rel.type}" → "${rel.target}"`
+        );
+      }
+      seen.add(relKey);
     }
   }
 

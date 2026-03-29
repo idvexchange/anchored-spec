@@ -1,0 +1,397 @@
+/**
+ * Anchored Spec — EA Relation Graph
+ *
+ * Builds an in-memory directed graph from EA artifacts: forward edges from
+ * stored relations, virtual inverse edges computed via the registry.
+ * Supports traversal, impact analysis, cycle detection, and export.
+ *
+ * Design reference: docs/ea-relationship-model.md §Graph Builder
+ */
+
+import type { EaArtifactBase, EaDomain, ArtifactStatus, ArtifactConfidence } from "./types.js";
+import { getDomainForKind } from "./types.js";
+import type { RelationRegistry } from "./relation-registry.js";
+
+// ─── Graph Types ────────────────────────────────────────────────────────────────
+
+export interface GraphNode {
+  id: string;
+  kind: string;
+  domain: EaDomain | "unknown";
+  status: ArtifactStatus;
+  title: string;
+  confidence: ArtifactConfidence;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+  isVirtual: boolean;
+  criticality: "low" | "medium" | "high" | "critical";
+  confidence: ArtifactConfidence;
+  status: "active" | "deprecated";
+}
+
+export interface MermaidOptions {
+  direction?: "TB" | "LR";
+  filter?: (edge: GraphEdge) => boolean;
+}
+
+export interface DotOptions {
+  filter?: (edge: GraphEdge) => boolean;
+}
+
+// ─── RelationGraph ──────────────────────────────────────────────────────────────
+
+export class RelationGraph {
+  private readonly nodeMap = new Map<string, GraphNode>();
+  private readonly outgoingMap = new Map<string, GraphEdge[]>();
+  private readonly incomingMap = new Map<string, GraphEdge[]>();
+
+  /** All nodes in the graph. */
+  nodes(): GraphNode[] {
+    return Array.from(this.nodeMap.values());
+  }
+
+  /** All edges (forward + virtual inverse). */
+  edges(): GraphEdge[] {
+    const all: GraphEdge[] = [];
+    for (const edges of this.outgoingMap.values()) {
+      all.push(...edges);
+    }
+    return all;
+  }
+
+  /** Get a node by artifact ID. */
+  node(id: string): GraphNode | undefined {
+    return this.nodeMap.get(id);
+  }
+
+  /** Get all outgoing edges from an artifact. */
+  outgoing(id: string): GraphEdge[] {
+    return this.outgoingMap.get(id) ?? [];
+  }
+
+  /** Get all incoming edges to an artifact. */
+  incoming(id: string): GraphEdge[] {
+    return this.incomingMap.get(id) ?? [];
+  }
+
+  /** Get all edges of a specific type. */
+  edgesOfType(type: string): GraphEdge[] {
+    return this.edges().filter((e) => e.type === type);
+  }
+
+  /**
+   * Traverse the graph from a start node following a specific relation type.
+   * Returns all reachable nodes (BFS). `maxDepth` limits traversal depth.
+   */
+  traverse(startId: string, relationType: string, maxDepth?: number): GraphNode[] {
+    const visited = new Set<string>();
+    const result: GraphNode[] = [];
+    const queue: Array<{ id: string; depth: number }> = [{ id: startId, depth: 0 }];
+
+    while (queue.length > 0) {
+      const { id, depth } = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+
+      if (id !== startId) {
+        const node = this.nodeMap.get(id);
+        if (node) result.push(node);
+      }
+
+      if (maxDepth !== undefined && depth >= maxDepth) continue;
+
+      for (const edge of this.outgoing(id)) {
+        if (edge.type === relationType && !visited.has(edge.target)) {
+          queue.push({ id: edge.target, depth: depth + 1 });
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Compute all artifacts transitively impacted by changes to the given artifact.
+   * Follows all incoming edges (anything that depends on / references this artifact).
+   */
+  impactSet(id: string): GraphNode[] {
+    const visited = new Set<string>();
+    const result: GraphNode[] = [];
+    const queue: string[] = [id];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
+
+      if (current !== id) {
+        const node = this.nodeMap.get(current);
+        if (node) result.push(node);
+      }
+
+      // Follow incoming edges — anything that references this artifact is impacted
+      for (const edge of this.incoming(current)) {
+        if (!visited.has(edge.source)) {
+          queue.push(edge.source);
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Detect cycles for a given relation type.
+   * Returns arrays of artifact IDs forming each cycle.
+   */
+  detectCycles(relationType: string): string[][] {
+    const cycles: string[][] = [];
+    const visited = new Set<string>();
+    const inStack = new Set<string>();
+
+    const dfs = (nodeId: string, path: string[]): void => {
+      if (inStack.has(nodeId)) {
+        // Found a cycle — extract from where it starts repeating
+        const cycleStart = path.indexOf(nodeId);
+        if (cycleStart !== -1) {
+          cycles.push([...path.slice(cycleStart), nodeId]);
+        }
+        return;
+      }
+      if (visited.has(nodeId)) return;
+
+      visited.add(nodeId);
+      inStack.add(nodeId);
+      path.push(nodeId);
+
+      for (const edge of this.outgoing(nodeId)) {
+        if (edge.type === relationType && !edge.isVirtual) {
+          dfs(edge.target, path);
+        }
+      }
+
+      path.pop();
+      inStack.delete(nodeId);
+    };
+
+    for (const nodeId of this.nodeMap.keys()) {
+      if (!visited.has(nodeId)) {
+        dfs(nodeId, []);
+      }
+    }
+
+    return cycles;
+  }
+
+  /** Export as adjacency list JSON. */
+  toAdjacencyJson(): Record<string, Array<{ target: string; type: string; virtual?: boolean }>> {
+    const result: Record<string, Array<{ target: string; type: string; virtual?: boolean }>> = {};
+
+    for (const [id, edges] of this.outgoingMap) {
+      if (edges.length > 0) {
+        result[id] = edges.map((e) => ({
+          target: e.target,
+          type: e.type,
+          ...(e.isVirtual ? { virtual: true } : {}),
+        }));
+      }
+    }
+
+    return result;
+  }
+
+  /** Export as Mermaid graph. */
+  toMermaid(options?: MermaidOptions): string {
+    const direction = options?.direction ?? "LR";
+    const filter = options?.filter;
+
+    const lines: string[] = [`graph ${direction}`];
+
+    // Node declarations
+    for (const node of this.nodeMap.values()) {
+      const safeId = sanitizeMermaidId(node.id);
+      lines.push(`  ${safeId}["${node.title}<br/>(${node.kind})"]`);
+    }
+
+    lines.push("");
+
+    // Edge declarations
+    for (const edge of this.edges()) {
+      if (edge.isVirtual) continue; // Only show forward edges by default
+      if (filter && !filter(edge)) continue;
+      const src = sanitizeMermaidId(edge.source);
+      const tgt = sanitizeMermaidId(edge.target);
+      lines.push(`  ${src} -->|${edge.type}| ${tgt}`);
+    }
+
+    return lines.join("\n");
+  }
+
+  /** Export as Graphviz DOT. */
+  toDot(options?: DotOptions): string {
+    const filter = options?.filter;
+
+    const lines: string[] = [
+      "digraph EA {",
+      "  rankdir=LR;",
+    ];
+
+    // Node declarations
+    for (const node of this.nodeMap.values()) {
+      const safeId = sanitizeDotId(node.id);
+      lines.push(`  ${safeId} [label="${node.title}\\n(${node.kind})"];`);
+    }
+
+    // Edge declarations
+    for (const edge of this.edges()) {
+      if (edge.isVirtual) continue;
+      if (filter && !filter(edge)) continue;
+      const src = sanitizeDotId(edge.source);
+      const tgt = sanitizeDotId(edge.target);
+      lines.push(`  ${src} -> ${tgt} [label="${edge.type}"];`);
+    }
+
+    lines.push("}");
+    return lines.join("\n");
+  }
+
+  // ── Internal Build Methods ──────────────────────────────────────────────────
+
+  /** @internal Add a node to the graph. */
+  addNode(node: GraphNode): void {
+    this.nodeMap.set(node.id, node);
+    if (!this.outgoingMap.has(node.id)) this.outgoingMap.set(node.id, []);
+    if (!this.incomingMap.has(node.id)) this.incomingMap.set(node.id, []);
+  }
+
+  /** @internal Add an edge to the graph. */
+  addEdge(edge: GraphEdge): void {
+    const out = this.outgoingMap.get(edge.source);
+    if (out) out.push(edge);
+    else this.outgoingMap.set(edge.source, [edge]);
+
+    const inc = this.incomingMap.get(edge.target);
+    if (inc) inc.push(edge);
+    else this.incomingMap.set(edge.target, [edge]);
+  }
+}
+
+// ─── Build Function ─────────────────────────────────────────────────────────────
+
+/**
+ * Build a relation graph from loaded EA artifacts and a relation registry.
+ *
+ * 1. Creates a GraphNode for every artifact.
+ * 2. Creates forward edges from each artifact's `relations` array.
+ * 3. Creates virtual inverse edges using the registry.
+ * 4. If an explicit inverse exists on the target, replaces the virtual edge.
+ */
+export function buildRelationGraph(
+  artifacts: EaArtifactBase[],
+  registry: RelationRegistry
+): RelationGraph {
+  const graph = new RelationGraph();
+  const artifactMap = new Map<string, EaArtifactBase>();
+
+  // 1. Create nodes
+  for (const a of artifacts) {
+    artifactMap.set(a.id, a);
+    graph.addNode({
+      id: a.id,
+      kind: a.kind,
+      domain: getDomainForKind(a.kind) ?? "unknown",
+      status: a.status,
+      title: a.title,
+      confidence: a.confidence,
+    });
+  }
+
+  // Collect explicit inverse relations for override detection
+  const explicitInverses = new Map<string, GraphEdge>();
+  for (const a of artifacts) {
+    if (!a.relations) continue;
+    for (const rel of a.relations) {
+      // Check if this relation type is an inverse name in the registry
+      const entry = registry.getCanonicalEntry(rel.type);
+      if (entry && rel.type === entry.inverse) {
+        // This is an explicit inverse stored on the target
+        const key = `${rel.target}→${entry.type}→${a.id}`;
+        explicitInverses.set(key, {
+          source: rel.target,
+          target: a.id,
+          type: entry.inverse,
+          isVirtual: false,
+          criticality: rel.criticality ?? "medium",
+          confidence: a.confidence,
+          status: rel.status ?? "active",
+        });
+      }
+    }
+  }
+
+  // 2. Create forward edges + 3. Virtual inverses
+  for (const a of artifacts) {
+    if (!a.relations) continue;
+
+    for (const rel of a.relations) {
+      const entry = registry.get(rel.type);
+
+      // Skip if this is an explicit inverse (handled above)
+      if (!entry) {
+        const canonical = registry.getCanonicalEntry(rel.type);
+        if (canonical && rel.type === canonical.inverse) continue;
+      }
+
+      // Forward edge
+      const forwardEdge: GraphEdge = {
+        source: a.id,
+        target: rel.target,
+        type: rel.type,
+        isVirtual: false,
+        criticality: rel.criticality ?? "medium",
+        confidence: a.confidence,
+        status: rel.status ?? "active",
+      };
+      graph.addEdge(forwardEdge);
+
+      // Virtual inverse edge (only if registry knows the type)
+      if (entry) {
+        const inverseKey = `${a.id}→${entry.type}→${rel.target}`;
+        const explicitOverride = explicitInverses.get(inverseKey);
+
+        if (explicitOverride) {
+          // Use explicit override instead of virtual
+          graph.addEdge(explicitOverride);
+        } else {
+          // Create virtual inverse
+          const targetArtifact = artifactMap.get(rel.target);
+          graph.addEdge({
+            source: rel.target,
+            target: a.id,
+            type: entry.inverse,
+            isVirtual: true,
+            criticality: rel.criticality ?? "medium",
+            confidence: targetArtifact?.confidence ?? a.confidence,
+            status: rel.status ?? "active",
+          });
+        }
+      }
+    }
+  }
+
+  return graph;
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+function sanitizeMermaidId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function sanitizeDotId(id: string): string {
+  return `"${id.replace(/"/g, '\\"')}"`;
+}
