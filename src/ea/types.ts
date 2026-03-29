@@ -16,8 +16,7 @@ export type EaDomain =
   | "data"
   | "information"
   | "business"
-  | "transitions"
-  | "legacy";
+  | "transitions";
 
 /** All registered EA domains. */
 export const EA_DOMAINS: readonly EaDomain[] = [
@@ -27,7 +26,6 @@ export const EA_DOMAINS: readonly EaDomain[] = [
   "information",
   "business",
   "transitions",
-  "legacy",
 ] as const;
 
 // ─── Status & Confidence ────────────────────────────────────────────────────────
@@ -826,7 +824,7 @@ export interface EaBehaviorStatement {
   response: string;
 }
 
-/** A legacy requirement migrated to the EA model. */
+/** A behavioral software requirement. */
 export interface RequirementArtifact extends EaArtifactBase {
   kind: "requirement";
   behaviorStatements?: EaBehaviorStatement[];
@@ -840,7 +838,7 @@ export interface RequirementArtifact extends EaArtifactBase {
   statusReason?: string;
 }
 
-/** A legacy change record migrated to the EA model. */
+/** An implementation change record tracking work toward a target state. */
 export interface ChangeArtifact extends EaArtifactBase {
   kind: "change";
   changeType?: string;
@@ -857,7 +855,7 @@ export interface ChangeArtifact extends EaArtifactBase {
   };
 }
 
-/** A legacy architecture decision record migrated to the EA model. */
+/** An architecture decision record documenting a key design choice. */
 export interface DecisionArtifact extends EaArtifactBase {
   kind: "decision";
   decision?: string;
@@ -981,10 +979,10 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "transition-plan", prefix: "PLAN", domain: "transitions", description: "A plan to move from baseline to target" },
   { kind: "migration-wave", prefix: "WAVE", domain: "transitions", description: "A batch of related changes within a transition" },
   { kind: "exception", prefix: "EXCEPT", domain: "transitions", description: "An approved exception to architecture policy" },
-  // Legacy subsumption
-  { kind: "requirement", prefix: "REQ", domain: "legacy", description: "A behavioral software requirement (migrated from legacy REQ format)" },
-  { kind: "change", prefix: "CHG", domain: "legacy", description: "An implementation change record (migrated from legacy CHG format)" },
-  { kind: "decision", prefix: "ADR", domain: "legacy", description: "An architecture decision record (migrated from legacy ADR format)" },
+  // Requirements, decisions & changes
+  { kind: "requirement", prefix: "REQ", domain: "business", description: "A behavioral software requirement" },
+  { kind: "change", prefix: "CHG", domain: "transitions", description: "An implementation change record tracking work toward a target state" },
+  { kind: "decision", prefix: "ADR", domain: "transitions", description: "An architecture decision record documenting a key design choice" },
 ] as const;
 
 /** Lookup helpers. */

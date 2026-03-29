@@ -21,7 +21,7 @@ import type {
 // ─── Domain Constants ───────────────────────────────────────────────────────────
 
 describe("EA_DOMAINS", () => {
-  it("contains all seven domains", () => {
+  it("contains all six domains", () => {
     expect(EA_DOMAINS).toEqual([
       "systems",
       "delivery",
@@ -29,7 +29,6 @@ describe("EA_DOMAINS", () => {
       "information",
       "business",
       "transitions",
-      "legacy",
     ]);
   });
 });

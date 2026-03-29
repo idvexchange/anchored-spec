@@ -1,0 +1,38 @@
+apiVersion: anchored-spec/ea/v1
+kind: change
+id: CHG-add-categories
+
+metadata:
+  name: Add Category Support
+  summary: >
+    Add category field to todo items allowing users to organize
+    todos by work, personal, shopping, and health categories.
+  owners:
+    - engineering-team
+  tags:
+    - feature
+    - wave-1
+  confidence: declared
+  status: shipped
+  schemaVersion: "1.0.0"
+
+spec:
+  changeType: feature
+  phase: done
+  changeStatus: complete
+  scope:
+    include:
+      - "src/app/api/todos/**"
+      - "src/components/**"
+      - "src/types/**"
+    exclude:
+      - "src/**/*.test.*"
+  requirements:
+    - REQ-todo-crud
+  workflowVariant: feature-behavior-first
+
+relations:
+  - type: dependsOn
+    target: REQ-todo-crud
+  - type: dependsOn
+    target: ADR-nextjs-app-router

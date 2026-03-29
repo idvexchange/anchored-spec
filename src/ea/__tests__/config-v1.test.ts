@@ -43,7 +43,6 @@ describe("resolveConfigV1", () => {
     expect(config.domains.systems).toBe("ea/systems");
     expect(config.domains.delivery).toBe("ea/delivery");
     expect(config.domains.data).toBe("ea/data");
-    expect(config.domains.legacy).toBe("ea/legacy");
   });
 
   it("uses custom rootDir for domain paths", () => {
@@ -101,7 +100,6 @@ describe("migrateConfigV0ToV1", () => {
     expect(v1.schemaVersion).toBe("1.0");
     expect(v1.rootDir).toBe("ea");
     expect(v1.domains.systems).toBe("ea/systems");
-    expect(v1.domains.legacy).toBe("ea/legacy");
   });
 
   it("preserves EA config when present in v0.x", () => {

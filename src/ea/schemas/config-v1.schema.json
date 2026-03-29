@@ -36,8 +36,7 @@
         "data": { "type": "string" },
         "information": { "type": "string" },
         "business": { "type": "string" },
-        "transitions": { "type": "string" },
-        "legacy": { "type": "string" }
+        "transitions": { "type": "string" }
       },
       "additionalProperties": false
     },
