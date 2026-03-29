@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Tests for EaRoot v1.0 enhancements — static factory methods,
  * policy loading, verification loading, quick summary.

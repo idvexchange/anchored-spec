@@ -5,7 +5,7 @@
  * from loaded EA artifacts.
  */
 
-import type { EaArtifactBase } from "./types.js";
+import type { EaArtifactBase, DataStoreArtifact } from "./types.js";
 import { getDomainForKind } from "./types.js";
 import type {
   LogicalDataModelArtifact,
@@ -143,7 +143,7 @@ export function buildSystemDataMatrix(artifacts: EaArtifactBase[]): SystemDataMa
   return {
     applications: apps.map((a) => ({ id: a.id, title: a.title, status: a.status })),
     dataStores: stores.map((s) => {
-      const tech = (s as any).technology;
+      const tech = (s as DataStoreArtifact).technology;
       return {
         id: s.id,
         title: s.title,

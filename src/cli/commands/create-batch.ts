@@ -222,6 +222,6 @@ function yamlValue(v: unknown): string {
 function formatYamlRelations(relations: unknown[]): string {
   if (!Array.isArray(relations) || relations.length === 0) return "[]";
   return "\n" + relations
-    .map((r: any) => `  - type: ${r.type}\n    target: ${r.target}`)
+    .map((r) => { const rel = r as Record<string, unknown>; return `  - type: ${rel.type}\n    target: ${rel.target}`; })
     .join("\n");
 }

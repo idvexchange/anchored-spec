@@ -8,6 +8,7 @@
 
 import type {
   EaArtifactBase,
+  EaDomain,
   ConsumerArtifact,
   CloudResourceArtifact,
   EnvironmentArtifact,
@@ -2008,7 +2009,7 @@ function applySuppression(
       const matchesRule =
         !exc.scope.rules || exc.scope.rules.length === 0 || exc.scope.rules.includes(f.rule);
       const matchesDomain =
-        !exc.scope.domains || exc.scope.domains.length === 0 || exc.scope.domains.includes(f.domain as any);
+        !exc.scope.domains || exc.scope.domains.length === 0 || exc.scope.domains.includes(f.domain as EaDomain);
 
       if (matchesArtifact && matchesRule && matchesDomain) {
         return { ...f, suppressed: true, suppressedBy: exc.id };

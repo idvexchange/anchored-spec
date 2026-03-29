@@ -170,13 +170,13 @@ function mergeRelations(existing: unknown[], incoming: unknown[]): unknown[] {
   if (!Array.isArray(incoming)) return existing;
   const seen = new Set(
     existing
-      .filter((r: any) => r && r.type && r.target)
-      .map((r: any) => `${r.type}:${r.target}`)
+      .filter((r): r is Record<string, unknown> => !!r && typeof (r as Record<string, unknown>).type === "string" && typeof (r as Record<string, unknown>).target === "string")
+      .map((r) => `${r.type}:${r.target}`)
   );
   const merged = [...existing];
   for (const r of incoming) {
-    const rel = r as any;
-    if (rel && rel.type && rel.target) {
+    const rel = r as Record<string, unknown>;
+    if (rel && typeof rel.type === "string" && typeof rel.target === "string") {
       const key = `${rel.type}:${rel.target}`;
       if (!seen.has(key)) {
         merged.push(r);

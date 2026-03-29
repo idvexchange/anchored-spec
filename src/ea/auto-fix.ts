@@ -140,7 +140,7 @@ function fixArtifactFile(filePath: string): string[] {
     const target = spec ?? raw;
     if (target.tables && Array.isArray(target.tables)) {
       let fixedColumns = false;
-      for (const table of target.tables as any[]) {
+      for (const table of target.tables as Array<Record<string, unknown>>) {
         if (table && !Array.isArray(table.columns)) {
           table.columns = [];
           fixedColumns = true;

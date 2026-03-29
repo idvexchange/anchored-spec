@@ -190,7 +190,7 @@ function updateReferences(
 
         // Update relation targets
         if (Array.isArray(raw.relations)) {
-          for (const rel of raw.relations as any[]) {
+          for (const rel of raw.relations as Array<Record<string, unknown>>) {
             if (rel.target === oldId) {
               rel.target = newId;
               changed = true;

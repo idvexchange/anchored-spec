@@ -15,7 +15,7 @@ import {
   EA_DOMAINS,
   createResolverCache,
 } from "../../ea/index.js";
-import type { ExceptionArtifact } from "../../ea/types.js";
+import type { ExceptionArtifact, EaDomain } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
 export function eaDriftCommand(): Command {
@@ -45,7 +45,7 @@ export function eaDriftCommand(): Command {
 
       // Validate domain filter
       const domainFilter = options.domain as string | undefined;
-      if (domainFilter && !EA_DOMAINS.includes(domainFilter as any)) {
+      if (domainFilter && !EA_DOMAINS.includes(domainFilter as EaDomain)) {
         throw new CliError(
           `Unknown domain "${domainFilter}". Available: ${EA_DOMAINS.join(", ")}`,
           2,

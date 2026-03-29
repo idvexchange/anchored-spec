@@ -7,7 +7,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { EaArtifactBase } from "./types.js";
+import type { EaArtifactBase, ControlArtifact } from "./types.js";
 
 // ─── EA Evidence Types ──────────────────────────────────────────────────────────
 
@@ -219,7 +219,7 @@ export function validateEaEvidence(
   }
 
   for (const a of artifacts) {
-    const producesEvidence = (a as any).producesEvidence;
+    const producesEvidence = (a as ControlArtifact).producesEvidence;
     if (producesEvidence && !evidenceByArtifact.has(a.id)) {
       issues.push({
         path: a.id,
@@ -272,7 +272,7 @@ export function summarizeEaEvidence(
   }
 
   // Count artifacts that declare evidence expectations
-  const artifactsWithEvidence = artifacts.filter((a) => (a as any).producesEvidence);
+  const artifactsWithEvidence = artifacts.filter((a) => (a as ControlArtifact).producesEvidence);
   const uncoveredArtifacts = artifactsWithEvidence.filter((a) => !coveredIds.has(a.id)).length;
 
   return {

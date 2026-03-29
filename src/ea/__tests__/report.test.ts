@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Tests for EA Reports: System-Data Matrix + Classification Coverage
  *
