@@ -894,7 +894,7 @@ export interface InformationRequirementArtifact extends EaArtifactBase {
   statusReason?: string;
 }
 
-/** An implementation change record tracking work toward a target state. */
+/** An implementation change record — auditable evidence of system modifications. */
 export interface ChangeArtifact extends EaArtifactBase {
   kind: "change";
   changeType?: string;
@@ -909,6 +909,23 @@ export interface ChangeArtifact extends EaArtifactBase {
     rootCauseHypothesis?: string;
     regressionRisk?: string;
   };
+  // NIST Configuration Management (SP 800-53 CM, SP 800-171)
+  baselineRef?: string;
+  configurationItem?: string;
+  authorizedBy?: string;
+  changeAdvisoryBoard?: boolean;
+  authorizationStatus?: "pending" | "approved" | "rejected" | "emergency";
+  // NIST RMF & CSF alignment
+  nistFunction?: "identify" | "protect" | "detect" | "respond" | "recover" | "govern";
+  riskImpact?: "none" | "low" | "moderate" | "high" | "critical";
+  securityRelevant?: boolean;
+  continuousMonitoring?: boolean;
+  auditTrail?: Array<{
+    timestamp: string;
+    actor: string;
+    action: string;
+    detail?: string;
+  }>;
 }
 
 /** An architecture decision record documenting a key design choice. */
