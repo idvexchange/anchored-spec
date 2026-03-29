@@ -142,11 +142,12 @@ export function eaInitCommand(): Command {
 
       console.log(chalk.blue("\n✅ Project initialized with anchored-spec v1.0!"));
       console.log(chalk.dim("\nNext steps:"));
-      console.log(chalk.dim("  1. Create an artifact:    anchored-spec ea create application --title \"My App\""));
-      console.log(chalk.dim("  2. Validate artifacts:    anchored-spec ea validate"));
-      console.log(chalk.dim("  3. Visualize graph:       anchored-spec ea graph --format mermaid"));
+      console.log(chalk.dim("  1. Create an artifact:    anchored-spec create application --title \"My App\""));
+      console.log(chalk.dim("  2. Validate artifacts:    anchored-spec validate"));
+      console.log(chalk.dim("  3. Run full verification: anchored-spec verify"));
+      console.log(chalk.dim("  4. Visualize graph:       anchored-spec graph --format mermaid"));
       if (!options.withPolicy) {
-        console.log(chalk.dim("  4. Create policy:         anchored-spec ea init --with-policy"));
+        console.log(chalk.dim("  5. Create policy:         anchored-spec init --with-policy"));
       }
     });
 }
@@ -319,10 +320,11 @@ function addPackageScripts(cwd: string, dryRun: boolean): void {
     let updated = false;
 
     const newScripts: Record<string, string> = {
-      "spec:validate": "anchored-spec ea validate",
-      "spec:graph": "anchored-spec ea graph --format mermaid",
-      "spec:drift": "anchored-spec ea drift",
-      "spec:report": "anchored-spec ea report",
+      "spec:validate": "anchored-spec validate",
+      "spec:verify": "anchored-spec verify",
+      "spec:graph": "anchored-spec graph --format mermaid",
+      "spec:drift": "anchored-spec drift",
+      "spec:report": "anchored-spec report",
     };
 
     for (const [key, value] of Object.entries(newScripts)) {
