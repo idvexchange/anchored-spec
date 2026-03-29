@@ -71,3 +71,7 @@ export { RelationRegistry, createDefaultRegistry } from "./relation-registry.js"
 // Graph
 export type { GraphNode, GraphEdge, MermaidOptions, DotOptions } from "./graph.js";
 export { RelationGraph, buildRelationGraph } from "./graph.js";
+
+// Drift
+export type { EaDriftContext, EaDriftRule, EaDriftResult } from "./drift.js";
+export { EA_DRIFT_RULES, evaluateEaDrift } from "./drift.js";

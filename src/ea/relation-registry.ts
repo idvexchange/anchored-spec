@@ -146,11 +146,11 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
     type: "consumes",
     inverse: "consumedBy",
     validSourceKinds: ["application", "service", "consumer"],
-    validTargetKinds: ["api-contract", "event-contract"],
+    validTargetKinds: ["api-contract", "event-contract", "system-interface"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "external-topology",
-    description: "Source system consumes an API or event contract.",
+    description: "Source system consumes an API, event contract, or system interface.",
   },
   {
     type: "dependsOn",
@@ -185,7 +185,7 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "boundedBy",
     inverse: "bounds",
-    validSourceKinds: ["deployment", "application", "service", "data-store"],
+    validSourceKinds: ["deployment", "application", "service", "data-store", "cloud-resource", "environment"],
     validTargetKinds: ["network-zone", "identity-boundary"],
     allowCycles: false,
     allowExplicitInverse: false,
@@ -214,10 +214,45 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   },
 ];
 
-/** Create a registry pre-loaded with Phase A (Systems + Delivery) relations. */
+// ─── Phase 2A Relations ─────────────────────────────────────────────────────────
+
+const PHASE_2A_RELATIONS: RelationRegistryEntry[] = [
+  {
+    type: "interfacesWith",
+    inverse: "interfacedBy",
+    validSourceKinds: ["application", "service", "integration"],
+    validTargetKinds: ["system-interface"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "anchor-resolution",
+    description: "Source system interfaces with an external system boundary.",
+  },
+  {
+    type: "standardizes",
+    inverse: "standardizedBy",
+    validSourceKinds: ["technology-standard"],
+    validTargetKinds: ["application", "service", "data-store", "cloud-resource", "platform"],
+    allowCycles: false,
+    allowExplicitInverse: true,
+    driftStrategy: "graph-integrity",
+    description: "Technology standard governs the technology choices of target artifacts.",
+  },
+  {
+    type: "providedBy",
+    inverse: "provides",
+    validSourceKinds: ["cloud-resource"],
+    validTargetKinds: ["platform"],
+    allowCycles: false,
+    allowExplicitInverse: false,
+    driftStrategy: "anchor-resolution",
+    description: "Cloud resource is provided by a platform.",
+  },
+];
+
+/** Create a registry pre-loaded with all current relations (Phase A + Phase 2A). */
 export function createDefaultRegistry(): RelationRegistry {
   const registry = new RelationRegistry();
-  for (const entry of PHASE_A_RELATIONS) {
+  for (const entry of [...PHASE_A_RELATIONS, ...PHASE_2A_RELATIONS]) {
     registry.register(entry);
   }
   return registry;

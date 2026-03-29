@@ -189,14 +189,15 @@ describe("RelationRegistry", () => {
 // ─── createDefaultRegistry ──────────────────────────────────────────────────────
 
 describe("createDefaultRegistry", () => {
-  it("contains 10 Phase A relation types", () => {
+  it("contains 13 relation types (Phase A + Phase 2A)", () => {
     const registry = createDefaultRegistry();
-    expect(registry.allTypes()).toHaveLength(10);
+    expect(registry.allTypes()).toHaveLength(13);
   });
 
   it("includes all expected canonical types", () => {
     const registry = createDefaultRegistry();
     const types = registry.allTypes();
+    // Phase A
     expect(types).toContain("realizes");
     expect(types).toContain("uses");
     expect(types).toContain("exposes");
@@ -207,6 +208,10 @@ describe("createDefaultRegistry", () => {
     expect(types).toContain("boundedBy");
     expect(types).toContain("authenticatedBy");
     expect(types).toContain("deployedTo");
+    // Phase 2A
+    expect(types).toContain("interfacesWith");
+    expect(types).toContain("standardizes");
+    expect(types).toContain("providedBy");
   });
 
   it("all entries have valid inverse names", () => {
