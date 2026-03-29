@@ -1,8 +1,8 @@
 /**
- * Anchored Spec — Public API
+ * Anchored Spec — Public API (v1.0)
  *
- * Library entry point. Re-exports everything from core
- * so consumers can `import { validateRequirement } from "anchored-spec"`.
+ * Library entry point. Re-exports the EA module which is now the
+ * sole implementation of spec-as-source enterprise architecture.
  */
 
-export * from "./core/index.js";
+export * from "./ea/index.js";
