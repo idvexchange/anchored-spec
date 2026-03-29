@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/information-requirement.schema.json",
+  "title": "Anchored Spec — EA Information Requirement",
+  "description": "An information requirement for content types and information flow governance.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "information-requirement" },
+    "informationType": {
+      "type": "string",
+      "description": "Type of information (e.g., authentication credentials, audit logs, PII)"
+    },
+    "flowDirection": {
+      "type": "string",
+      "enum": ["inbound", "outbound", "bidirectional"],
+      "description": "Direction of information flow"
+    },
+    "sensitivityLevel": {
+      "type": "string",
+      "enum": ["public", "internal", "sensitive", "restricted"],
+      "description": "Sensitivity level of the information"
+    },
+    "requiredControls": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Security controls required for this information type"
+    },
+    "complianceFrameworks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Applicable compliance frameworks"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must", "should", "could", "wont"],
+      "description": "MoSCoW priority"
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "ID of the artifact that supersedes this one"
+    },
+    "statusReason": {
+      "type": "string",
+      "description": "Reason for current status"
+    }
+  }
+}

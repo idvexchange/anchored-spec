@@ -1,0 +1,39 @@
+apiVersion: anchored-spec/ea/v1
+kind: technical-requirement
+id: TREQ-https-enforcement
+
+metadata:
+  name: HTTPS Enforcement
+  summary: >
+    All client-server communication must use TLS 1.3.
+    Aligns with NIST Zero Trust Architecture principles
+    for transport-layer encryption.
+  owners:
+    - platform-team
+  tags:
+    - zero-trust
+    - tls
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  technologyLayer: network
+  implementationPattern: Zero Trust Architecture
+  protocols:
+    - TLS 1.3
+    - HTTPS
+  performanceCriteria:
+    - metric: TLS handshake latency
+      target: "50"
+      unit: ms
+    - metric: Certificate validity
+      target: "90"
+      unit: days
+  priority: must
+
+relations:
+  - type: dependsOn
+    target: ENV-development
+  - type: dependsOn
+    target: SREQ-access-control

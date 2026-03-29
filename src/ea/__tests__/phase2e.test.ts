@@ -45,8 +45,8 @@ function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: s
 describe("Phase 2E: Transition Layer Kinds", () => {
   const TRANSITION_KINDS = ["baseline", "target", "transition-plan", "migration-wave", "exception"];
 
-  it("has 41 total kinds after Phase 2E", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(44);
+  it("has 48 total kinds after Phase 2E", () => {
+    expect(EA_KIND_REGISTRY).toHaveLength(48);
   });
 
   it("has 7 kinds in transitions domain", () => {
@@ -201,7 +201,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
 
   it("validates all schemas load correctly", () => {
     const names = getEaSchemaNames();
-    expect(names).toHaveLength(51);
+    expect(names).toHaveLength(55);
   });
 });
 

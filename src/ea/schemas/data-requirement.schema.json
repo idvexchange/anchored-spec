@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/ea/data-requirement.schema.json",
+  "title": "Anchored Spec — EA Data Requirement",
+  "description": "A data requirement defining security classification and governance constraints.",
+  "allOf": [
+    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+  ],
+  "properties": {
+    "kind": { "const": "data-requirement" },
+    "dataClassification": {
+      "type": "string",
+      "enum": ["public", "internal", "confidential", "restricted"],
+      "description": "Data classification level"
+    },
+    "fipsCategory": {
+      "type": "string",
+      "enum": ["low", "moderate", "high"],
+      "description": "FIPS 199 security categorization"
+    },
+    "securityObjective": {
+      "type": "string",
+      "enum": ["confidentiality", "integrity", "availability"],
+      "description": "Primary CIA triad objective"
+    },
+    "dataTypes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Types of data subject to this requirement (e.g., PII, PHI, financial)"
+    },
+    "complianceFrameworks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Applicable compliance frameworks (e.g., GDPR, HIPAA, CCPA)"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["must", "should", "could", "wont"],
+      "description": "MoSCoW priority"
+    },
+    "supersededBy": {
+      "type": "string",
+      "description": "ID of the artifact that supersedes this one"
+    },
+    "statusReason": {
+      "type": "string",
+      "description": "Reason for current status"
+    }
+  }
+}

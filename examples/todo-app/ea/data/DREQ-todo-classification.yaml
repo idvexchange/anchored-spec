@@ -1,0 +1,34 @@
+apiVersion: anchored-spec/ea/v1
+kind: data-requirement
+id: DREQ-todo-classification
+
+metadata:
+  name: Todo Data Classification
+  summary: >
+    Todo data must be classified as internal and protected with
+    appropriate access controls per FIPS 199 moderate categorization.
+  owners:
+    - data-team
+  tags:
+    - fips-199
+    - data-governance
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+spec:
+  dataClassification: internal
+  fipsCategory: moderate
+  securityObjective: integrity
+  dataTypes:
+    - user-content
+    - task-metadata
+  complianceFrameworks:
+    - FIPS 199
+  priority: must
+
+relations:
+  - type: dependsOn
+    target: STORE-todo-memory
+  - type: dependsOn
+    target: REQ-todo-crud

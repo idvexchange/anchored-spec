@@ -108,6 +108,10 @@ export type EaSchemaName =
   | "migration-wave"
   | "exception"
   | "requirement"
+  | "security-requirement"
+  | "data-requirement"
+  | "technical-requirement"
+  | "information-requirement"
   | "change"
   | "decision"
   | "config-v1"
@@ -161,6 +165,10 @@ const EA_SCHEMA_NAMES: EaSchemaName[] = [
   "migration-wave",
   "exception",
   "requirement",
+  "security-requirement",
+  "data-requirement",
+  "technical-requirement",
+  "information-requirement",
   "change",
   "decision",
   "config-v1",
