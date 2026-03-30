@@ -174,3 +174,7 @@ export { loadArtifactsFromGitRef, loadArtifactsFromWorkingTree, diffEaGitRefs } 
 // Compatibility Classifier
 export type { CompatibilityLevel, CompatibilityReason, CompatibilityAssessment, CompatibilityReport } from "./compat.js";
 export { assessCompatibility, renderCompatSummary, renderCompatMarkdown } from "./compat.js";
+
+// Reconcile Pipeline
+export type { ReconcileOptions, ReconcileStepResult, ReconcileReport } from "./reconcile.js";
+export { reconcileEaProject, renderReconcileOutput } from "./reconcile.js";
