@@ -72,6 +72,10 @@ export {
 export type { AnchorMatch, AnchorScanResult } from "./anchors.js";
 export { AnchorsResolver, scanAnchors } from "./anchors.js";
 
+// Config-driven resolver loader
+export type { LoadedResolver } from "./loader.js";
+export { loadResolver, loadResolversFromConfig } from "./loader.js";
+
 // Tree-sitter Discovery Resolver (language-agnostic code analysis)
 export {
   TreeSitterDiscoveryResolver,

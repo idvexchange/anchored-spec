@@ -25,6 +25,7 @@ import {
 } from "../../ea/index.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
 import type { EaArtifactDraft } from "../../ea/discovery.js";
+import { loadResolversFromConfig } from "../../ea/resolvers/loader.js";
 import { CliError } from "../errors.js";
 
 /** Map resolver names to their class constructors. */
@@ -118,8 +119,34 @@ export function eaDiscoverCommand(): Command {
             drafts.push(...discovered);
           }
         }
+      } else if (eaConfig.resolvers && eaConfig.resolvers.length > 0) {
+        // Config-driven resolvers — use resolvers[] from config.json
+        const loaded = await loadResolversFromConfig(
+          eaConfig.resolvers,
+          RESOLVER_MAP,
+          cwd,
+        );
+
+        for (const lr of loaded) {
+          resolverNames.push(lr.name);
+          const ctx = {
+            projectRoot: cwd,
+            artifacts: result.artifacts,
+            cache,
+            logger,
+            source: options.source as string | undefined,
+          };
+
+          if (lr.isAsync && lr.discoverAsync) {
+            const discovered = await lr.discoverAsync(ctx);
+            if (discovered) drafts.push(...discovered);
+          } else if (lr.discoverSync) {
+            const discovered = lr.discoverSync(ctx);
+            if (discovered) drafts.push(...discovered);
+          }
+        }
       } else {
-        // No resolver specified — run all resolvers (sync ones)
+        // No resolver specified, no config — run all built-in resolvers
         for (const [, ResolverClass] of Object.entries(RESOLVER_MAP)) {
           const resolver = new ResolverClass();
           resolverNames.push(resolver.name);

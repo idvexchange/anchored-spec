@@ -13,8 +13,10 @@ import type { EaDomain } from "./types.js";
 
 /** Resolver plugin configuration. */
 export interface EaResolverConfig {
-  /** Module path to the resolver (.js/.mjs/.cjs). */
-  path: string;
+  /** Built-in resolver name (e.g. "openapi", "tree-sitter"). Mutually exclusive with path. */
+  name?: string;
+  /** Module path to a custom resolver (.js/.mjs/.cjs). Mutually exclusive with name. */
+  path?: string;
   /** Cache TTL in seconds for this resolver. Overrides the global default. */
   cacheTTL?: number;
   /** Resolver-specific options. */
