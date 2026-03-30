@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://anchored-spec.dev/schemas/config-v1.schema.json",
+  "title": "Anchored Spec v1.0 Configuration",
+  "description": "Top-level configuration for anchored-spec v1.0. EA fields are promoted to top-level — no nested ea.* section.",
+  "type": "object",
+  "required": ["schemaVersion", "rootDir"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Config format version. Must be \"1.0\"."
+    },
+    "rootDir": {
+      "type": "string",
+      "default": "ea",
+      "description": "Root directory for EA artifacts."
+    },
+    "generatedDir": {
+      "type": "string",
+      "default": "ea/generated",
+      "description": "Directory for generated output files."
+    },
+    "idPrefix": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "Optional organizational prefix for artifact IDs (e.g., \"acme\")."
+    },
+    "domains": {
+      "type": "object",
+      "description": "Per-domain subdirectory paths.",
+      "properties": {
+        "systems": { "type": "string" },
+        "delivery": { "type": "string" },
+        "data": { "type": "string" },
+        "information": { "type": "string" },
+        "business": { "type": "string" },
+        "transitions": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "resolvers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string", "description": "Module path to the resolver." },
+          "cacheTTL": { "type": "number", "description": "Cache TTL in seconds." },
+          "options": { "type": "object", "description": "Resolver-specific options." }
+        },
+        "additionalProperties": false
+      },
+      "default": [],
+      "description": "Configured resolver plugins."
+    },
+    "generators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "outputDir"],
+        "properties": {
+          "path": { "type": "string", "description": "Module path to the generator." },
+          "outputDir": { "type": "string", "description": "Output directory." },
+          "options": { "type": "object", "description": "Generator-specific options." }
+        },
+        "additionalProperties": false
+      },
+      "default": [],
+      "description": "Configured generator plugins."
+    },
+    "evidenceSources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Evidence source paths."
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "dir": { "type": "string", "default": ".anchored-spec/cache", "description": "Cache directory." },
+        "defaultTTL": { "type": "number", "default": 3600, "description": "Default TTL in seconds." }
+      },
+      "additionalProperties": false,
+      "description": "Resolver cache settings."
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "requireOwners": { "type": "boolean", "default": true },
+        "requireSummary": { "type": "boolean", "default": true },
+        "requireRelations": { "type": "boolean", "default": false },
+        "requireAnchors": { "type": "boolean", "default": false },
+        "strictMode": { "type": "boolean", "default": false },
+        "rules": {
+          "type": "object",
+          "additionalProperties": { "enum": ["error", "warning", "info", "off"] }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Quality rule settings."
+    },
+    "sourceRoots": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Source code root directories for anchor resolution."
+    },
+    "sourceGlobs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Source code glob patterns for anchor resolution."
+    },
+    "plugins": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Plugin module paths."
+    },
+    "exclude": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Glob patterns for files to exclude from artifact loading."
+    },
+    "driftResolvers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Pluggable drift resolver module paths."
+    },
+    "hooks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event", "run"],
+        "properties": {
+          "event": { "type": "string", "description": "Hook event name." },
+          "run": { "type": "string", "description": "Command to run." }
+        },
+        "additionalProperties": false
+      },
+      "description": "Lifecycle hooks."
+    },
+    "testMetadata": {
+      "type": "object",
+      "properties": {
+        "testGlobs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for test files."
+        },
+        "requirementPattern": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
+          "description": "Regex pattern(s) to extract artifact IDs from test files."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Test metadata linking configuration."
+    },
+    "workflowPolicyPath": {
+      "type": "string",
+      "default": "ea/workflow-policy.yaml",
+      "description": "Path to workflow policy file."
+    },
+    "customChangeTypes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Custom change types beyond built-in types."
+    }
+  }
+}

@@ -1332,6 +1332,7 @@ export const REPORT_VIEWS = [
   "gap-analysis",
   "exceptions",
   "drift-heatmap",
+  "traceability-index",
 ] as const;
 
 export type ReportView = (typeof REPORT_VIEWS)[number];
@@ -1397,6 +1398,18 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
       errors: dh.summary.errors,
       warnings: dh.summary.warnings,
       suppressed: dh.summary.suppressed,
+    },
+  });
+
+  // Traceability index
+  const ti = buildTraceabilityIndex(artifacts);
+  reports.push({
+    name: "traceability-index",
+    description: "Inverted traceRef index — documents → referencing artifacts",
+    stats: {
+      documents: ti.summary.totalDocuments,
+      traceRefs: ti.summary.totalTraceRefs,
+      artifacts: ti.summary.totalArtifacts,
     },
   });
 
@@ -1511,6 +1524,137 @@ export function renderDriftHeatmapMarkdown(report: DriftHeatmapReport): string {
     lines.push("|------|----------|");
     for (const { rule, count } of report.topRules.slice(0, 10)) {
       lines.push(`| \`${rule}\` | ${count} |`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n") + "\n";
+}
+
+// ─── Traceability Index Report ──────────────────────────────────────────────────
+
+/** A single artifact reference within a traceability document group. */
+export interface TraceabilityIndexEntry {
+  artifactId: string;
+  kind: string;
+  domain: string;
+  role: string;
+  label: string | null;
+}
+
+/** A document with all artifacts that reference it via traceRefs. */
+export interface TraceabilityDocumentGroup {
+  path: string;
+  artifacts: TraceabilityIndexEntry[];
+}
+
+/** Full traceability index report. */
+export interface TraceabilityIndexReport {
+  generatedAt: string;
+  summary: {
+    totalDocuments: number;
+    totalTraceRefs: number;
+    totalArtifacts: number;
+  };
+  documents: TraceabilityDocumentGroup[];
+}
+
+/**
+ * Build an inverted traceRef index: document path → referencing artifacts.
+ *
+ * Scans all artifacts for traceRefs and groups them by target document,
+ * sorted by reference count (most-referenced first).
+ */
+export function buildTraceabilityIndex(
+  artifacts: EaArtifactBase[],
+): TraceabilityIndexReport {
+  const docMap = new Map<string, TraceabilityIndexEntry[]>();
+  let totalTraceRefs = 0;
+  const artifactsWithRefs = new Set<string>();
+
+  for (const a of artifacts) {
+    if (!a.traceRefs || a.traceRefs.length === 0) continue;
+
+    for (const ref of a.traceRefs) {
+      totalTraceRefs++;
+      artifactsWithRefs.add(a.id);
+
+      const entry: TraceabilityIndexEntry = {
+        artifactId: a.id,
+        kind: a.kind,
+        domain: getDomainForKind(a.kind) ?? "unknown",
+        role: ref.role ?? "context",
+        label: ref.label ?? null,
+      };
+
+      const existing = docMap.get(ref.path);
+      if (existing) {
+        existing.push(entry);
+      } else {
+        docMap.set(ref.path, [entry]);
+      }
+    }
+  }
+
+  // Sort documents by reference count (descending), then alphabetically
+  const documents: TraceabilityDocumentGroup[] = Array.from(docMap.entries())
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+    .map(([path, entries]) => ({
+      path,
+      artifacts: entries.sort((a, b) => a.artifactId.localeCompare(b.artifactId)),
+    }));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      totalDocuments: documents.length,
+      totalTraceRefs,
+      totalArtifacts: artifactsWithRefs.size,
+    },
+    documents,
+  };
+}
+
+/** Render a traceability index report as Markdown. */
+export function renderTraceabilityIndexMarkdown(
+  report: TraceabilityIndexReport,
+): string {
+  const lines: string[] = [];
+
+  lines.push("# Traceability Index");
+  lines.push("");
+  lines.push(`> Generated: ${report.generatedAt}`);
+  lines.push(">");
+  lines.push(`> ${report.summary.totalDocuments} documents referenced by ${report.summary.totalArtifacts} artifacts (${report.summary.totalTraceRefs} total traceRefs)`);
+  lines.push("");
+
+  if (report.documents.length === 0) {
+    lines.push("_No traceRefs found in any artifacts._");
+    lines.push("");
+    return lines.join("\n") + "\n";
+  }
+
+  // Summary table
+  lines.push("## Top Documents");
+  lines.push("");
+  lines.push("| Document | References |");
+  lines.push("|----------|-----------|");
+  for (const doc of report.documents.slice(0, 20)) {
+    lines.push(`| \`${doc.path}\` | ${doc.artifacts.length} |`);
+  }
+  if (report.documents.length > 20) {
+    lines.push(`| _... ${report.documents.length - 20} more_ | |`);
+  }
+  lines.push("");
+
+  // Per-document detail
+  for (const doc of report.documents) {
+    lines.push(`## ${doc.path} (${doc.artifacts.length} artifacts)`);
+    lines.push("");
+    lines.push("| Artifact | Kind | Domain | Role |");
+    lines.push("|----------|------|--------|------|");
+    for (const entry of doc.artifacts) {
+      lines.push(`| \`${entry.artifactId}\` | ${entry.kind} | ${entry.domain} | ${entry.role} |`);
     }
     lines.push("");
   }

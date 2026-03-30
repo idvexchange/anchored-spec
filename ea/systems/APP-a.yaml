@@ -1,0 +1,16 @@
+apiVersion: anchored-spec/ea/v1
+kind: application
+id: APP-a
+
+metadata:
+  name: App A
+  summary: >
+    TODO: Describe what this application represents.
+  owners:
+    - your-team
+  tags: []
+  confidence: declared
+  status: draft
+  schemaVersion: "1.0.0"
+
+relations: []

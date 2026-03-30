@@ -76,7 +76,7 @@ afterEach(() => {
 
 describe("REPORT_VIEWS", () => {
   it("includes 6 report views", () => {
-    expect(REPORT_VIEWS).toHaveLength(6);
+    expect(REPORT_VIEWS).toHaveLength(7);
   });
 
   it("includes exceptions view", () => {
@@ -268,13 +268,14 @@ describe("renderExceptionReportMarkdown", () => {
 describe("buildReportIndex", () => {
   it("returns index with all report types", () => {
     const index = buildReportIndex([]);
-    expect(index.reports).toHaveLength(5);
+    expect(index.reports).toHaveLength(6);
     expect(index.reports.map((r) => r.name)).toEqual([
       "system-data-matrix",
       "classification-coverage",
       "capability-map",
       "exceptions",
       "drift-heatmap",
+      "traceability-index",
     ]);
   });
 
@@ -400,13 +401,14 @@ describe("CLI: ea report (exceptions & --all)", () => {
     const outDir = join(tempDir, "ea", "generated");
     const { stdout, code } = runCLI("ea report --all");
     expect(code).toBe(0);
-    expect(stdout).toContain("Generated 5 reports + index");
+    expect(stdout).toContain("Generated 6 reports + index");
 
     // Check report files exist
     expect(existsSync(join(outDir, "system-data-matrix.md"))).toBe(true);
     expect(existsSync(join(outDir, "classification-coverage.md"))).toBe(true);
     expect(existsSync(join(outDir, "capability-map.md"))).toBe(true);
     expect(existsSync(join(outDir, "exception-report.md"))).toBe(true);
+    expect(existsSync(join(outDir, "traceability-index.md"))).toBe(true);
     expect(existsSync(join(outDir, "report-index.json"))).toBe(true);
   });
 
@@ -422,8 +424,7 @@ describe("CLI: ea report (exceptions & --all)", () => {
 
     // Validate index JSON
     const index = JSON.parse(readFileSync(join(outDir, "report-index.json"), "utf-8"));
-    expect(index.reports).toHaveLength(5);
-    expect(index.summary).toHaveProperty("totalArtifacts");
+    expect(index.reports).toHaveLength(6);    expect(index.summary).toHaveProperty("totalArtifacts");
     expect(index.summary).toHaveProperty("byDomain");
   });
 
