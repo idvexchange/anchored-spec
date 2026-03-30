@@ -15,12 +15,13 @@
 | **44 artifact kinds** | Services, APIs, deployments, data stores, business capabilities, and more across 7 domains |
 | **27 typed relations** | `dependsOn`, `implementedBy`, `consumesApi`, `deployedTo`, etc. with graph visualization |
 | **6 resolvers** | Auto-discover from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, and Tree-sitter (code analysis) |
-| **42 drift rules** | Domain-specific drift detection between declared specs and observed reality |
+| **44 drift rules** | Domain-specific drift detection between declared specs and observed reality |
 | **Transition planning** | Baselines, targets, migration waves, and gap analysis |
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
 | **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
 | **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
 | **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config for Copilot, Claude, and Kiro via `init --ai` |
+| **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
 
 ## Quick Start
 
@@ -48,6 +49,12 @@ npx anchored-spec graph --format mermaid
 
 # Run drift detection
 npx anchored-spec drift
+
+# Show traceability between artifacts and docs
+npx anchored-spec trace --summary
+
+# Assemble AI context for an artifact
+npx anchored-spec context SVC-auth-api
 
 # Check project status
 npx anchored-spec status
@@ -88,6 +95,10 @@ your-repo/
 | `transition` | Manage artifact status transitions |
 | `diff` | Semantic spec diff with compatibility and policy checks |
 | `reconcile` | Full SDD pipeline: generate → validate → drift |
+| `trace` | Show traceability web between artifacts and docs |
+| `link-docs` | Auto-sync trace links between docs and artifacts |
+| `context` | Assemble AI context package from trace graph |
+| `create-doc` | Create markdown doc pre-linked to artifacts |
 
 ## Documentation
 

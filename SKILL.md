@@ -578,9 +578,105 @@ Implement Feature X strictly according to:
 
 This eliminates ambiguity by giving the agent the exact architectural context, not vague instructions.
 
+### Shortcut: `context` command
+
+For the fastest path to structured context:
+
+```bash
+# Assemble full context for an artifact (traced docs + relations + transitive requires)
+npx anchored-spec context SVC-payment-gateway
+
+# Limit to a token budget for LLM context windows
+npx anchored-spec context SVC-payment-gateway --max-tokens 8000
+
+# Follow relations deeper (default depth: 1)
+npx anchored-spec context SVC-payment-gateway --depth 2
+
+# Get JSON for programmatic use
+npx anchored-spec context SVC-payment-gateway --json
+```
+
+The `context` command follows the trace graph automatically: artifact → `traceRefs` docs → frontmatter `requires` → related artifacts. It prioritizes documents by role (`specification` > `rationale` > `context` > `evidence`) and respects token budgets.
+
 ---
 
-## 18. Workflow — Architecture Onboarding
+## 18. Workflow — Document Traceability
+
+Link narrative documentation (markdown) to EA artifacts with bidirectional trace links. This bridges human-readable specs and machine-validated architecture.
+
+### Frontmatter convention
+
+Add YAML frontmatter to markdown documents:
+
+```yaml
+---
+type: spec
+status: current
+audience: agent, developer
+domain: systems
+requires: [api-conventions.md]
+ea-artifacts: [SVC-auth-core, API-auth-v1, SREQ-auth-pkce]
+tokens: 1200
+last-verified: 2025-07-18
+---
+```
+
+The `ea-artifacts` field lists EA artifact IDs this document relates to. The framework also accepts `anchored-spec` as an alternative field name.
+
+### Check trace integrity
+
+```bash
+# Show trace summary
+npx anchored-spec trace --summary
+
+# Full bidirectional integrity check
+npx anchored-spec trace --check
+
+# Inspect a specific artifact's trace web
+npx anchored-spec trace SVC-auth-core
+
+# Inspect a specific document's artifact links
+npx anchored-spec trace docs/security/auth-contracts.md
+
+# Find docs with frontmatter refs but no traceRef back
+npx anchored-spec trace --orphans
+```
+
+### Auto-sync trace links
+
+```bash
+# Preview what would change
+npx anchored-spec link-docs --dry-run
+
+# Add missing traceRefs to artifacts (from doc frontmatter)
+npx anchored-spec link-docs
+
+# Also update doc frontmatter from artifact traceRefs
+npx anchored-spec link-docs --bidirectional
+```
+
+### Create pre-linked documents
+
+```bash
+# Create a spec doc linked to artifacts
+npx anchored-spec create-doc --title "Auth Contracts" --type spec \
+  --artifacts API-auth-v1 SVC-auth-core SREQ-auth-pkce
+
+# Create an ADR with rationale role
+npx anchored-spec create-doc --title "ADR-01 Auth Strategy" --type adr \
+  --artifacts DECISION-auth-strategy --dir docs/decisions
+```
+
+### When to use
+
+- **Before starting work**: Run `context <artifact-id>` to assemble full AI context
+- **After writing docs**: Run `link-docs` to sync trace links
+- **In CI**: Run `trace --check` to catch broken or orphaned links
+- **During onboarding**: Use `trace <artifact-id>` to understand documentation coverage
+
+---
+
+## 19. Workflow — Architecture Onboarding
 
 When starting a new AI session, onboarding a new team member, or re-engaging with an unfamiliar part of the codebase, use this workflow to rapidly build system understanding.
 
@@ -630,7 +726,7 @@ npx anchored-spec graph --focus <artifact-id> --depth 3
 
 ---
 
-## 19. Workflow — Confidence Audit
+## 20. Workflow — Confidence Audit
 
 Periodically assess the health of the EA model to identify where confidence is eroding. This catches the slow decay that leads to the gap between what's in production and what the team understands.
 
@@ -677,7 +773,7 @@ Check each category and flag issues:
 
 ---
 
-## 20. Relation Types
+## 21. Relation Types
 
 28 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
@@ -714,7 +810,7 @@ Check each category and flag issues:
 
 ---
 
-## 21. Quality Rules
+## 22. Quality Rules
 
 When creating or modifying EA artifacts, enforce these rules:
 
@@ -731,7 +827,7 @@ When creating or modifying EA artifacts, enforce these rules:
 
 ---
 
-## 22. Lifecycle Rules
+## 23. Lifecycle Rules
 
 Status transitions follow a defined lifecycle:
 
@@ -757,7 +853,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 23. Command Reference
+## 24. Command Reference
 
 | Command | Description |
 |---|---|
@@ -776,13 +872,17 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `transition` | Manage artifact status transitions |
 | `diff` | Semantic diff of EA artifacts between git refs (`--compat`, `--policy`, `--fail-on`) |
 | `reconcile` | Full SDD pipeline: generate → validate → drift (`--write`, `--fix`, `--fail-fast`) |
+| `trace` | Show traceability web between artifacts and docs (`--check`, `--orphans`, `--summary`) |
+| `link-docs` | Auto-sync trace links: doc frontmatter ↔ artifact traceRefs (`--dry-run`, `--bidirectional`) |
+| `context` | Assemble AI context package for an artifact (`--max-tokens`, `--depth`) |
+| `create-doc` | Create markdown doc pre-linked to artifacts (`--type`, `--artifacts`, `--link-back`) |
 | `move` | Move/reclassify an artifact to a different kind with reference rewrites |
 | `enrich` | Merge fields from a JSON file into an existing artifact |
 | `create-batch` | Bulk-create artifacts from a JSON manifest |
 
 ---
 
-## 24. Before Claiming Completion
+## 25. Before Claiming Completion
 
 Before telling the user a task is complete, **always** run:
 
@@ -800,7 +900,7 @@ If it fails, fix the issues. Additionally:
 
 ---
 
-## 25. Anti-Patterns
+## 26. Anti-Patterns
 
 ### Do not model everything at once
 
@@ -832,7 +932,7 @@ Architecture is not static. Use baselines, targets, and transition plans to mana
 
 ---
 
-## 26. Integration Guide
+## 27. Integration Guide
 
 ### GitHub Copilot
 

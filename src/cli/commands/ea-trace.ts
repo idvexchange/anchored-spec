@@ -1,0 +1,584 @@
+/**
+ * anchored-spec ea trace
+ *
+ * Show the traceability web between EA artifacts (`traceRefs`) and
+ * markdown documents (frontmatter `ea-artifacts`).  Supports single-target
+ * lookup, orphan detection, full bidirectional integrity checks, and
+ * summary statistics.
+ */
+
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { Command } from "commander";
+import chalk from "chalk";
+import { EaRoot } from "../../ea/loader.js";
+import { resolveEaConfig } from "../../ea/config.js";
+import type { EaArtifactBase } from "../../ea/types.js";
+import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
+import type { ScannedDoc } from "../../ea/docs/scanner.js";
+import { CliError } from "../errors.js";
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+
+/** Returns `true` when `ref` is an HTTP(S) URL. */
+function isUrl(ref: string): boolean {
+  return ref.startsWith("http://") || ref.startsWith("https://");
+}
+
+/** Heuristic: artifact IDs contain uppercase + hyphens and no `/` or `\`. */
+function looksLikeArtifactId(value: string): boolean {
+  return /[A-Z]/.test(value) && value.includes("-") && !/[/\\]/.test(value);
+}
+
+// ─── Types (internal) ─────────────────────────────────────────────────
+
+interface TraceLink {
+  artifactId: string;
+  docPath: string;
+  role?: string;
+  artifactToDoc: boolean;
+  docToArtifact: boolean;
+  fileExists: boolean;
+  isUrl: boolean;
+}
+
+interface CheckReport {
+  brokenTraceRefs: { artifactId: string; path: string; reason: string }[];
+  oneWayArtifactToDoc: { artifactId: string; path: string }[];
+  oneWayDocToArtifact: { docPath: string; artifactId: string }[];
+  bidirectionalCount: number;
+}
+
+interface SummaryReport {
+  artifactsWithTraceRefs: number;
+  totalArtifacts: number;
+  docsWithEaArtifacts: number;
+  totalDocsScanned: number;
+  totalTraceLinks: number;
+  totalFrontmatterRefs: number;
+  bidirectionalPairs: number;
+  oneWayPairs: number;
+}
+
+// ─── Core analysis helpers ────────────────────────────────────────────
+
+/**
+ * Build the full set of {@link TraceLink}s from artifacts and scanned docs.
+ */
+function buildTraceLinks(
+  artifacts: EaArtifactBase[],
+  docs: ScannedDoc[],
+  cwd: string,
+): TraceLink[] {
+  const artifactMap = new Map<string, EaArtifactBase>();
+  for (const a of artifacts) artifactMap.set(a.id, a);
+
+  const linkKey = (aid: string, dpath: string) => `${aid}::${dpath}`;
+  const seen = new Map<string, TraceLink>();
+
+  // artifact → doc (traceRefs)
+  for (const a of artifacts) {
+    for (const ref of a.traceRefs ?? []) {
+      const url = isUrl(ref.path);
+      const key = linkKey(a.id, ref.path);
+      const existing = seen.get(key);
+      if (existing) {
+        existing.artifactToDoc = true;
+        existing.isUrl = url;
+      } else {
+        seen.set(key, {
+          artifactId: a.id,
+          docPath: ref.path,
+          role: ref.role,
+          artifactToDoc: true,
+          docToArtifact: false,
+          fileExists: url ? false : existsSync(resolve(cwd, ref.path)),
+          isUrl: url,
+        });
+      }
+    }
+  }
+
+  // doc → artifact (frontmatter ea-artifacts)
+  for (const doc of docs) {
+    for (const aid of doc.artifactIds) {
+      const key = linkKey(aid, doc.relativePath);
+      const existing = seen.get(key);
+      if (existing) {
+        existing.docToArtifact = true;
+      } else {
+        seen.set(key, {
+          artifactId: aid,
+          docPath: doc.relativePath,
+          role: undefined,
+          artifactToDoc: false,
+          docToArtifact: true,
+          fileExists: true, // doc was scanned, so it exists
+          isUrl: false,
+        });
+      }
+    }
+  }
+
+  return [...seen.values()];
+}
+
+function buildCheckReport(links: TraceLink[]): CheckReport {
+  const broken: CheckReport["brokenTraceRefs"] = [];
+  const oneWayA2D: CheckReport["oneWayArtifactToDoc"] = [];
+  const oneWayD2A: CheckReport["oneWayDocToArtifact"] = [];
+  let bidir = 0;
+
+  for (const l of links) {
+    if (l.artifactToDoc && l.isUrl) {
+      broken.push({ artifactId: l.artifactId, path: l.docPath, reason: "URL, skipped" });
+      continue;
+    }
+    if (l.artifactToDoc && !l.fileExists) {
+      broken.push({ artifactId: l.artifactId, path: l.docPath, reason: "file not found" });
+      continue;
+    }
+    if (l.artifactToDoc && l.docToArtifact) {
+      bidir++;
+    } else if (l.artifactToDoc && !l.docToArtifact) {
+      oneWayA2D.push({ artifactId: l.artifactId, path: l.docPath });
+    } else if (!l.artifactToDoc && l.docToArtifact) {
+      oneWayD2A.push({ docPath: l.docPath, artifactId: l.artifactId });
+    }
+  }
+
+  return {
+    brokenTraceRefs: broken,
+    oneWayArtifactToDoc: oneWayA2D,
+    oneWayDocToArtifact: oneWayD2A,
+    bidirectionalCount: bidir,
+  };
+}
+
+function buildSummaryReport(
+  artifacts: EaArtifactBase[],
+  docs: ScannedDoc[],
+  totalScanned: number,
+  links: TraceLink[],
+): SummaryReport {
+  const check = buildCheckReport(links);
+  const artifactsWithRefs = new Set(
+    artifacts.filter((a) => (a.traceRefs?.length ?? 0) > 0).map((a) => a.id),
+  ).size;
+  const totalTraceLinks = links.filter((l) => l.artifactToDoc).length;
+  const totalFmRefs = links.filter((l) => l.docToArtifact).length;
+
+  return {
+    artifactsWithTraceRefs: artifactsWithRefs,
+    totalArtifacts: artifacts.length,
+    docsWithEaArtifacts: docs.length,
+    totalDocsScanned: totalScanned,
+    totalTraceLinks,
+    totalFrontmatterRefs: totalFmRefs,
+    bidirectionalPairs: check.bidirectionalCount,
+    oneWayPairs:
+      check.oneWayArtifactToDoc.length + check.oneWayDocToArtifact.length,
+  };
+}
+
+// ─── Render helpers (human-readable) ──────────────────────────────────
+
+function renderTargetArtifact(
+  artifact: EaArtifactBase,
+  docs: ScannedDoc[],
+  cwd: string,
+): string {
+  const lines: string[] = [];
+  const docIndex = buildDocIndex(docs);
+  const referencingDocs = docIndex.get(artifact.id) ?? [];
+
+  lines.push(
+    chalk.bold(`${artifact.id}`) +
+      chalk.dim(` (${artifact.kind}, ${artifact.status})`),
+  );
+
+  // traceRefs
+  const refs = artifact.traceRefs ?? [];
+  if (refs.length > 0) {
+    lines.push("  traceRefs:");
+    for (const ref of refs) {
+      const url = isUrl(ref.path);
+      const roleStr = ref.role ? ` (${ref.role})` : "";
+      if (url) {
+        lines.push(
+          `    → ${ref.path}${roleStr} ${chalk.dim("(URL, skipped)")}`,
+        );
+        continue;
+      }
+      const exists = existsSync(resolve(cwd, ref.path));
+      if (!exists) {
+        lines.push(
+          `    → ${ref.path}${roleStr} ${chalk.red("❌ file not found")}`,
+        );
+        continue;
+      }
+      lines.push(
+        `    → ${ref.path}${roleStr} ${chalk.green("✅ exists")}`,
+      );
+    }
+  }
+
+  // Referenced by (frontmatter)
+  if (referencingDocs.length > 0) {
+    lines.push("  Referenced by (frontmatter):");
+    for (const doc of referencingDocs) {
+      const hasTraceBack = refs.some((r) => r.path === doc.relativePath);
+      if (hasTraceBack) {
+        lines.push(
+          `    ← ${doc.relativePath} ${chalk.green("✅ (bidirectional)")}`,
+        );
+      } else {
+        lines.push(
+          `    ← ${doc.relativePath} ${chalk.yellow("⚠ (no traceRef back)")}`,
+        );
+      }
+    }
+  }
+
+  // Missing backlinks
+  const missingBacklinks = refs.filter((r) => {
+    if (isUrl(r.path)) return false;
+    if (!existsSync(resolve(cwd, r.path))) return false;
+    return !referencingDocs.some((d) => d.relativePath === r.path);
+  });
+  if (missingBacklinks.length > 0) {
+    lines.push("  Missing backlinks:");
+    for (const ref of missingBacklinks) {
+      lines.push(
+        `    ${chalk.yellow("⚠")} ${ref.path} has traceRef but no ea-artifacts frontmatter`,
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function renderTargetDoc(
+  doc: ScannedDoc,
+  artifactMap: Map<string, EaArtifactBase>,
+): string {
+  const lines: string[] = [];
+  const fm = doc.frontmatter;
+
+  lines.push(
+    chalk.bold(doc.relativePath) +
+      chalk.dim(
+        ` (${fm.type ?? "unknown"}, ${fm.status ?? "unknown"})`,
+      ),
+  );
+
+  // Frontmatter summary
+  lines.push("  Frontmatter:");
+  const parts: string[] = [];
+  if (fm.type) parts.push(`type: ${fm.type}`);
+  if (fm.status) parts.push(`status: ${fm.status}`);
+  if (fm.audience) parts.push(`audience: ${fm.audience.join(", ")}`);
+  if (fm.domain) parts.push(`domain: ${fm.domain.join(", ")}`);
+  if (fm.tokens != null) parts.push(`tokens: ${fm.tokens}`);
+  lines.push(`    ${parts.join(" | ")}`);
+
+  // ea-artifacts
+  if (doc.artifactIds.length > 0) {
+    lines.push("  ea-artifacts:");
+    for (const aid of doc.artifactIds) {
+      const artifact = artifactMap.get(aid);
+      if (!artifact) {
+        lines.push(`    → ${aid} ${chalk.red("❌ (artifact not found)")}`);
+        continue;
+      }
+      const hasTraceBack = (artifact.traceRefs ?? []).some(
+        (r) => r.path === doc.relativePath,
+      );
+      if (hasTraceBack) {
+        lines.push(
+          `    → ${aid} ${chalk.green("✅ (exists, has traceRef back)")}`,
+        );
+      } else {
+        lines.push(
+          `    → ${aid} ${chalk.yellow("⚠ (exists, NO traceRef back)")}`,
+        );
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function renderOrphans(
+  docs: ScannedDoc[],
+  artifactMap: Map<string, EaArtifactBase>,
+): string {
+  const lines: string[] = [];
+  let orphanDocs = 0;
+  let missingLinks = 0;
+
+  for (const doc of docs) {
+    const orphanIds = doc.artifactIds.filter((aid) => {
+      const a = artifactMap.get(aid);
+      if (!a) return false; // artifact doesn't exist — different issue
+      return !(a.traceRefs ?? []).some((r) => r.path === doc.relativePath);
+    });
+    if (orphanIds.length === 0) continue;
+
+    orphanDocs++;
+    lines.push(`  ${doc.relativePath}`);
+    for (const aid of orphanIds) {
+      lines.push(`    → ${aid} (no traceRef back to this doc)`);
+      missingLinks++;
+    }
+    lines.push("");
+  }
+
+  if (orphanDocs === 0) {
+    return chalk.green("No orphaned documents found. All backlinks present.");
+  }
+
+  const header =
+    chalk.bold(
+      "Orphaned documents (frontmatter → artifact, but no traceRef back):",
+    ) + "\n";
+  const footer = `${orphanDocs} document${orphanDocs === 1 ? "" : "s"}, ${missingLinks} missing backlink${missingLinks === 1 ? "" : "s"}`;
+
+  return header + "\n" + lines.join("\n") + footer;
+}
+
+function renderCheck(report: CheckReport): string {
+  const lines: string[] = [];
+  lines.push(chalk.bold("Bidirectional Trace Integrity Check\n"));
+
+  // Broken traceRefs
+  if (report.brokenTraceRefs.length > 0) {
+    lines.push("  Artifacts with broken traceRefs:");
+    for (const b of report.brokenTraceRefs) {
+      lines.push(`    ${chalk.red("❌")} ${b.artifactId} → ${b.path} (${b.reason})`);
+    }
+    lines.push("");
+  }
+
+  // One-way artifact → doc
+  if (report.oneWayArtifactToDoc.length > 0) {
+    lines.push("  Artifacts with one-way traceRefs (no frontmatter back):");
+    for (const o of report.oneWayArtifactToDoc) {
+      lines.push(`    ${chalk.yellow("⚠")} ${o.artifactId} → ${o.path} (no ea-artifacts frontmatter)`);
+    }
+    lines.push("");
+  }
+
+  // One-way doc → artifact
+  if (report.oneWayDocToArtifact.length > 0) {
+    lines.push("  Docs with one-way frontmatter (no traceRef back):");
+    for (const o of report.oneWayDocToArtifact) {
+      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.artifactId} (no traceRef in artifact)`);
+    }
+    lines.push("");
+  }
+
+  const totalIssues =
+    report.oneWayArtifactToDoc.length +
+    report.oneWayDocToArtifact.length +
+    report.brokenTraceRefs.length;
+
+  lines.push(`  Fully bidirectional links: ${report.bidirectionalCount} ${chalk.green("✅")}`);
+  lines.push(`  One-way artifact→doc: ${report.oneWayArtifactToDoc.length} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way doc→artifact: ${report.oneWayDocToArtifact.length} ${chalk.yellow("⚠")}`);
+  lines.push(`  Broken references: ${report.brokenTraceRefs.length} ${chalk.red("❌")}`);
+  lines.push("");
+
+  if (totalIssues === 0) {
+    lines.push(`  Result: ${chalk.green("OK")} (no issues)`);
+  } else if (report.brokenTraceRefs.filter((b) => b.reason === "file not found").length > 0) {
+    lines.push(`  Result: ${chalk.red("ERRORS")} (${totalIssues} issue${totalIssues === 1 ? "" : "s"})`);
+  } else {
+    lines.push(`  Result: ${chalk.yellow("WARNINGS")} (${totalIssues} issue${totalIssues === 1 ? "" : "s"})`);
+  }
+
+  return lines.join("\n");
+}
+
+function renderSummary(report: SummaryReport): string {
+  const lines: string[] = [];
+  lines.push(chalk.bold("Trace Summary:"));
+  lines.push(`  Artifacts with traceRefs: ${report.artifactsWithTraceRefs} / ${report.totalArtifacts}`);
+  lines.push(`  Documents with ea-artifacts: ${report.docsWithEaArtifacts} / ${report.totalDocsScanned} scanned`);
+  lines.push(`  Total trace links (artifact→doc): ${report.totalTraceLinks}`);
+  lines.push(`  Total frontmatter refs (doc→artifact): ${report.totalFrontmatterRefs}`);
+  lines.push(`  Bidirectional pairs: ${report.bidirectionalPairs}`);
+  lines.push(`  One-way pairs: ${report.oneWayPairs}`);
+  return lines.join("\n");
+}
+
+// ─── Command ──────────────────────────────────────────────────────────
+
+export function eaTraceCommand(): Command {
+  return new Command("trace")
+    .description("Show traceability web between EA artifacts and documents")
+    .argument("[target]", "Artifact ID or document path to inspect")
+    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
+    .option("--orphans", "Show orphaned docs (frontmatter refs with no traceRef back)")
+    .option("--check", "Full bidirectional integrity report")
+    .option("--summary", "Show summary counts")
+    .option("--json", "Output as JSON")
+    .action(async (target: string | undefined, options) => {
+      const cwd = process.cwd();
+      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+
+      if (!root.isInitialized()) {
+        throw new CliError("EA not initialized. Run 'anchored-spec ea init' first.", 2);
+      }
+
+      const loadResult = await root.loadArtifacts();
+      const { artifacts } = loadResult;
+
+      const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+      const scanResult = scanDocs(cwd, { dirs: docDirs });
+      const { docs, totalScanned } = scanResult;
+
+      const artifactMap = new Map<string, EaArtifactBase>();
+      for (const a of artifacts) artifactMap.set(a.id, a);
+
+      const links = buildTraceLinks(artifacts, docs, cwd);
+
+      // ── --check ───────────────────────────────────────────────────
+      if (options.check) {
+        const report = buildCheckReport(links);
+        if (options.json) {
+          process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+        } else {
+          process.stdout.write(renderCheck(report) + "\n");
+        }
+
+        // Exit 1 when broken file references exist
+        const hasBrokenFiles = report.brokenTraceRefs.some(
+          (b) => b.reason === "file not found",
+        );
+        if (hasBrokenFiles) {
+          throw new CliError("Broken trace references found.", 1);
+        }
+        return;
+      }
+
+      // ── --orphans ─────────────────────────────────────────────────
+      if (options.orphans) {
+        if (options.json) {
+          const orphanData: { docPath: string; missingBacklinks: string[] }[] = [];
+          for (const doc of docs) {
+            const orphanIds = doc.artifactIds.filter((aid) => {
+              const a = artifactMap.get(aid);
+              if (!a) return false;
+              return !(a.traceRefs ?? []).some((r) => r.path === doc.relativePath);
+            });
+            if (orphanIds.length > 0) {
+              orphanData.push({ docPath: doc.relativePath, missingBacklinks: orphanIds });
+            }
+          }
+          process.stdout.write(JSON.stringify(orphanData, null, 2) + "\n");
+        } else {
+          process.stdout.write(renderOrphans(docs, artifactMap) + "\n");
+        }
+        return;
+      }
+
+      // ── --summary ─────────────────────────────────────────────────
+      if (options.summary) {
+        const report = buildSummaryReport(artifacts, docs, totalScanned, links);
+        if (options.json) {
+          process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+        } else {
+          process.stdout.write(renderSummary(report) + "\n");
+        }
+        return;
+      }
+
+      // ── target lookup ─────────────────────────────────────────────
+      if (target) {
+        if (looksLikeArtifactId(target)) {
+          const artifact = artifactMap.get(target);
+          if (!artifact) {
+            throw new CliError(`Artifact "${target}" not found.`, 1);
+          }
+          if (options.json) {
+            const docIndex = buildDocIndex(docs);
+            process.stdout.write(
+              JSON.stringify(
+                {
+                  artifact: {
+                    id: artifact.id,
+                    kind: artifact.kind,
+                    status: artifact.status,
+                  },
+                  traceRefs: (artifact.traceRefs ?? []).map((r) => ({
+                    path: r.path,
+                    role: r.role ?? null,
+                    isUrl: isUrl(r.path),
+                    fileExists: isUrl(r.path) ? null : existsSync(resolve(cwd, r.path)),
+                  })),
+                  referencedBy: (docIndex.get(artifact.id) ?? []).map((d) => ({
+                    path: d.relativePath,
+                    bidirectional: (artifact.traceRefs ?? []).some(
+                      (r) => r.path === d.relativePath,
+                    ),
+                  })),
+                },
+                null,
+                2,
+              ) + "\n",
+            );
+          } else {
+            process.stdout.write(renderTargetArtifact(artifact, docs, cwd) + "\n");
+          }
+          return;
+        }
+
+        // Looks like a doc path
+        const doc = docs.find(
+          (d) => d.relativePath === target || d.path === target,
+        );
+        if (!doc) {
+          throw new CliError(
+            `Document "${target}" not found in scanned docs. Searched: ${docDirs.join(", ")}`,
+            1,
+          );
+        }
+        if (options.json) {
+          process.stdout.write(
+            JSON.stringify(
+              {
+                doc: {
+                  path: doc.relativePath,
+                  frontmatter: doc.frontmatter,
+                },
+                eaArtifacts: doc.artifactIds.map((aid) => {
+                  const a = artifactMap.get(aid);
+                  if (!a) return { id: aid, found: false, hasTraceBack: false };
+                  const hasBack = (a.traceRefs ?? []).some(
+                    (r) => r.path === doc.relativePath,
+                  );
+                  return { id: aid, found: true, hasTraceBack: hasBack };
+                }),
+              },
+              null,
+              2,
+            ) + "\n",
+          );
+        } else {
+          process.stdout.write(renderTargetDoc(doc, artifactMap) + "\n");
+        }
+        return;
+      }
+
+      // ── No target, no flag — show summary as default ──────────────
+      const report = buildSummaryReport(artifacts, docs, totalScanned, links);
+      if (options.json) {
+        process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+      } else {
+        process.stdout.write(renderSummary(report) + "\n");
+      }
+    });
+}

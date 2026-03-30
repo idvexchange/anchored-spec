@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **VS Code integration** (`init --ide`) — Generates `.vscode/settings.json` with schema-to-file mappings for all 48 artifact kinds, `.vscode/anchored-spec.code-snippets` with 17 snippets, and `.vscode/extensions.json` recommending Red Hat YAML extension. Instant autocomplete, validation, and hovers.
 - **AI assistant configuration** (`init --ai`) — Generates `.github/copilot-instructions.md` (GitHub Copilot), `CLAUDE.md` (Claude Code), and `.kiro/steering/` files (Kiro IDE). Targets: `copilot`, `claude`, `kiro`, `all`.
 - **`$schema` injection** — `create` command now includes `$schema` in JSON artifacts for instant VS Code validation without settings.
+- **Document traceability** — Bidirectional trace links between markdown docs (`ea-artifacts` frontmatter) and EA artifacts (`traceRefs`). New commands: `trace`, `link-docs`, `context`, `create-doc`.
+- **`trace` command** — Show the traceability web for an artifact or document. Supports `--check` (bidirectional integrity), `--orphans` (missing backlinks), `--summary` (counts), and `--json`.
+- **`link-docs` command** — Auto-sync trace links. Scans docs for `ea-artifacts` frontmatter and adds missing `traceRefs` to artifacts. `--bidirectional` also updates doc frontmatter. `--dry-run` for preview.
+- **`context` command** — Assemble AI context packages from the trace graph. Loads artifact spec, traced docs, transitive `requires`, and related artifacts. Supports `--max-tokens` budget and `--depth` for relation traversal.
+- **`create-doc` command** — Create markdown documents pre-linked to EA artifacts. Generates frontmatter, body with artifact references, and optionally updates artifacts' `traceRefs` back.
+- **Frontmatter parser** — `parseFrontmatter()`, `serializeFrontmatter()`, `extractArtifactIds()`, and `hasEaFrontmatter()` functions for YAML frontmatter in markdown documents. Supports `ea-artifacts` (primary) and `anchored-spec` (alternative) field names.
+- **Document scanner** — `scanDocs()` and `buildDocIndex()` for finding markdown files with EA-relevant frontmatter across project directories.
+- **Trace integrity drift rules** — 2 new drift rules: `ea:trace/ref-target-exists` (validates traceRef paths) and `ea:trace/duplicate-ref` (detects duplicate traceRefs). Total: 44 drift rules.
 
 ### Changed
 
