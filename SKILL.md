@@ -878,7 +878,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs, `--ai speckit` for Spec-Kit extension) |
+| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs, `--ai kiro` for 3 steering + 4 hooks, `--ai speckit` for Spec-Kit extension) |
 | `create` | Create a new EA artifact from template |
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
@@ -992,6 +992,27 @@ Read and follow the rules in SKILL.md for all code changes in this repository.
 ```
 Read and follow the rules in SKILL.md for all code changes in this repository.
 ```
+
+### Kiro IDE
+
+Generate with `npx anchored-spec init --ai kiro`. This creates 3 steering files in `.kiro/steering/` plus 4 event-driven hooks in `.kiro/hooks/`:
+
+**Steering files** (always generated):
+
+| File | Purpose |
+|---|---|
+| `product.md` | Product context for the EA framework |
+| `structure.md` | Repository structure guide |
+| `tech.md` | Technology stack and constraints |
+
+**Event-driven hooks** (always generated):
+
+| File | Trigger | Purpose |
+|---|---|---|
+| `validate-artifact.yml` | `onSave` on `ea/**/*.{yaml,yml,json}` | Validate artifacts against JSON schemas |
+| `enrich-spec.yml` | `onCreate` on `{docs,specs}/**/*.md` | Auto-generate `ea-artifacts` frontmatter for new docs |
+| `trace-integrity.yml` | `onSave` on `{docs,specs}/**/*.md` | Check bidirectional trace links |
+| `drift-detection.yml` | `onSave` on `src/**/*.{ts,js,...}` | Detect drift when implementation changes |
 
 ### Spec-Kit Extension
 

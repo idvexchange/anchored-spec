@@ -185,6 +185,7 @@ export function eaInitCommand(): Command {
           }
           if (targets.includes("kiro") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .kiro/steering/ files"));
+            console.log(chalk.green("  → Generate .kiro/hooks/ (4 event-driven agent hooks)"));
           }
           if (targets.includes("speckit") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .specify/extensions/anchored-spec/ (Spec-Kit extension)"));

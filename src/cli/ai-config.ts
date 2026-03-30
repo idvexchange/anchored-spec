@@ -170,6 +170,137 @@ Each artifact kind has a unique prefix:
   return { product, tech, structure };
 }
 
+// ── Kiro Hooks Generator ────────────────────────────────────────────────────────
+
+export interface KiroHooks {
+  validateOnSave: string;
+  enrichOnCreate: string;
+  traceOnSave: string;
+  driftOnSave: string;
+}
+
+export function generateKiroHooks(config: AiConfigInput): KiroHooks {
+  const { rootDir } = config;
+
+  const validateOnSave = `name: "Validate EA Artifact"
+description: "Validate EA artifacts against JSON schemas when saved"
+trigger: onSave
+pattern: "${rootDir}/**/*.{yaml,yml,json}"
+throttle: 2000
+action: |
+  An EA artifact file was just saved. Validate it:
+
+  1. Run the anchored-spec validator on the saved file:
+     \`\`\`bash
+     npx anchored-spec validate --json
+     \`\`\`
+  2. If there are schema errors, report them concisely with the field path and expected type.
+  3. If there are drift warnings, mention them but don't block.
+  4. If everything is valid, report "✓ Artifact valid" and nothing more.
+
+  Be concise — only report problems. A clean artifact needs no explanation.
+`;
+
+  const enrichOnCreate = `name: "Enrich New Spec Document"
+description: "Auto-generate ea-artifacts frontmatter when a new markdown spec is created"
+trigger: onCreate
+pattern: "{docs,specs,doc,documentation}/**/*.md"
+action: |
+  A new markdown document was created. Help the author connect it to the EA model.
+
+  1. Read the new file and analyze its content for architectural references:
+     - Service names → SVC-{name}
+     - API endpoints → API-{name}
+     - Database schemas → SCHEMA-{name}
+     - Business capabilities → CAP-{name}
+     - Any explicit artifact IDs mentioned in the text
+
+  2. Check which EA artifacts currently exist:
+     \`\`\`bash
+     npx anchored-spec status 2>/dev/null
+     \`\`\`
+
+  3. Determine the document metadata:
+     - type: spec | architecture | guide | adr | runbook
+     - audience: agent, developer, architect, or stakeholder
+     - domain: which EA domain(s) — systems, delivery, data, information, business, transitions
+
+  4. Add YAML frontmatter at the top of the file:
+     \`\`\`yaml
+     ---
+     type: spec
+     status: draft
+     audience: developer
+     domain: systems
+     ea-artifacts: [SVC-auth-core, API-auth-v1]
+     ---
+     \`\`\`
+
+  5. If new artifact IDs were referenced that don't exist yet, suggest:
+     \`\`\`bash
+     npx anchored-spec discover --from-docs
+     \`\`\`
+
+  Rules:
+  - Only add artifact IDs that the document genuinely relates to
+  - Use correct EA prefixes (APP, SVC, API, SCHEMA, CAP, etc.)
+  - If the document is clearly non-architectural (e.g. a meeting note), skip enrichment
+  - Preserve any existing frontmatter and merge new fields
+`;
+
+  const traceOnSave = `name: "Check Trace Integrity"
+description: "Verify bidirectional trace links when a spec document is saved"
+trigger: onSave
+pattern: "{docs,specs,doc,documentation}/**/*.md"
+throttle: 3000
+action: |
+  A spec document was saved. Check that trace links between this document and EA artifacts are intact.
+
+  1. Run trace check:
+     \`\`\`bash
+     npx anchored-spec trace --check --json 2>/dev/null
+     \`\`\`
+
+  2. Report only problems:
+     - ⚠ One-way links: artifact references the doc but doc doesn't list the artifact (or vice versa)
+     - ❌ Broken links: traceRef points to a file that doesn't exist
+
+  3. If there are one-way links, suggest running:
+     \`\`\`bash
+     npx anchored-spec link-docs
+     \`\`\`
+
+  4. If everything is bidirectional, report nothing — silence means success.
+`;
+
+  const driftOnSave = `name: "Drift Detection on Code Changes"
+description: "Check for EA drift when implementation files change"
+trigger: onSave
+pattern: "src/**/*.{ts,js,tsx,jsx,py,java,go,rs}"
+throttle: 5000
+action: |
+  An implementation file was saved. Check if it has drifted from the EA specification.
+
+  1. Run drift detection:
+     \`\`\`bash
+     npx anchored-spec drift --json 2>/dev/null
+     \`\`\`
+
+  2. If drift is detected, report:
+     - Which artifact(s) are affected
+     - What the drift is (e.g. "endpoint /api/users not declared in API-users-v1")
+     - Whether it's a warning or error
+
+  3. Suggest resolution:
+     - If the code is correct: "Update the artifact to match: npx anchored-spec reconcile"
+     - If the spec is correct: "Revert the code change to match the spec"
+
+  4. If no drift is detected, report nothing.
+`;
+
+  return { validateOnSave, enrichOnCreate, traceOnSave, driftOnSave };
+}
+
 // ── Spec-Kit Extension Generator ────────────────────────────────────────────────
 
 export interface SpecKitExtension {
@@ -536,6 +667,15 @@ export function writeAiConfigFiles(
       { rel: join(steeringDir, "product.md"), content: kiro.product },
       { rel: join(steeringDir, "tech.md"), content: kiro.tech },
       { rel: join(steeringDir, "structure.md"), content: kiro.structure },
+    );
+
+    const hooks = generateKiroHooks(config);
+    const hooksDir = join(".kiro", "hooks");
+    filesToWrite.push(
+      { rel: join(hooksDir, "validate-artifact.yml"), content: hooks.validateOnSave },
+      { rel: join(hooksDir, "enrich-spec.yml"), content: hooks.enrichOnCreate },
+      { rel: join(hooksDir, "trace-integrity.yml"), content: hooks.traceOnSave },
+      { rel: join(hooksDir, "drift-detection.yml"), content: hooks.driftOnSave },
     );
   }
 

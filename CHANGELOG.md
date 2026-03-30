@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Trace integrity drift rules** — 2 new drift rules: `ea:trace/ref-target-exists` (validates traceRef paths) and `ea:trace/duplicate-ref` (detects duplicate traceRefs). Total: 44 drift rules.
 - **Document-driven discovery** (`discover --from-docs`) — Prose-first workflow: write docs with `ea-artifacts` frontmatter referencing artifact IDs that don't yet exist, then run `discover --from-docs` to scaffold draft artifacts. Infers kind from ID prefix, uses doc context for summary.
 - **Spec-Kit extension generation** (`init --ai speckit`) — Generates a complete Spec-Kit extension in `.specify/extensions/anchored-spec/` with `extension.yml` manifest, 4 AI commands (`enrich`, `scaffold`, `trace`, `context`), and an `after_tasks` hook. The `all` target now includes `speckit` alongside `copilot`, `claude`, and `kiro`.
+- **Kiro event-driven hooks** (`init --ai kiro`) — Generates 4 agent hooks in `.kiro/hooks/` alongside the 3 steering files: `validate-artifact.yml` (onSave, validates artifacts against JSON schemas), `enrich-spec.yml` (onCreate, auto-generates ea-artifacts frontmatter), `trace-integrity.yml` (onSave, checks bidirectional trace links), and `drift-detection.yml` (onSave, detects drift when implementation changes). Total Kiro output: 3 steering + 4 hooks = 7 files.
 
 ### Changed
 
