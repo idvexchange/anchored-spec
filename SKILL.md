@@ -878,8 +878,8 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI configs). Copilot/Claude targets include 6 reusable prompt commands; Kiro includes 4 event-driven hooks; Spec-Kit includes extension with 4 AI commands |
-| `create` | Create a new EA artifact from template |
+| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI configs, `--ci` for CI workflow + pre-commit hook). `--force` overwrites existing files. Copilot/Claude targets include 6 reusable prompt commands; Kiro includes 4 event-driven hooks; Spec-Kit includes extension with 4 AI commands |
+| `create` | Create a new EA artifact from template. `--interactive` / `-i` launches a step-by-step wizard (domain → kind → title → owner → relations). Without `-i`, `[kind]` and `--title` are required as before |
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
 | `drift` | Run drift detection (supports `--from-snapshot`, `--domain`, `--severity`) |
@@ -1047,6 +1047,17 @@ Generate the extension with `npx anchored-spec init --ai speckit`. This creates 
 | `commands/context.md` | AI command: assemble an AI context package for an artifact |
 
 The `after_tasks` hook in `extension.yml` runs `npx anchored-spec validate` automatically after task completion, ensuring artifacts stay valid.
+
+### CI / Pre-commit
+
+Generate with `npx anchored-spec init --ci`. This creates:
+
+| File | Purpose |
+|---|---|
+| `.github/workflows/ea-validation.yml` | GitHub Action that runs `validate --strict`, `trace --check`, `drift`, and semantic `diff` on every PR |
+| `.anchored-spec/hooks/pre-commit` | Shell script that validates EA artifacts and checks trace integrity before commits |
+
+Use `--force` to overwrite existing files. Pair with `init --ai` to get both CI enforcement and developer-facing slash commands.
 
 ### Generic / Other Agents
 

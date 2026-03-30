@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Idempotent AI config regeneration** (`init --ai --force`) — `writeAiConfigFiles()` now accepts `options?: { force?: boolean }`. With `--force`, existing files are overwritten (reported as "overwritten"); without it, existing files are skipped. `WriteResult` now has 3 arrays: `created`, `skipped`, `overwritten`.
+- **CI integration recipes** (`init --ci`) — Generates `.github/workflows/ea-validation.yml` (GitHub Action running validate --strict, trace --check, drift, and semantic diff on PRs) and `.anchored-spec/hooks/pre-commit` (shell script validating EA artifacts before commits). Supports `--force` to overwrite. New module: `src/cli/ci-recipes.ts`.
+- **Interactive create wizard** (`create --interactive` / `-i`) — Step-by-step wizard for artifact creation: domain selection, kind selection (filtered by domain), title, owner, and a relations loop. `[kind]` is now optional (was required `<kind>`); `--title` is optional when `--interactive` is used. Relations from the wizard are included in generated YAML/JSON. Without `--interactive`, behaves exactly as before.
 - **Tree-sitter discovery resolver** — Language-agnostic source code analysis using Tree-sitter WASM. Discovers `api-contract`, `physical-schema`, `event-contract`, and `service` artifacts from code patterns. 8 built-in JavaScript/TypeScript query packs (Express, Next.js, Prisma, TypeORM, EventEmitter, Bull, fetch, axios). Optional `web-tree-sitter` peer dependency.
 - **Config-driven resolver loading** — The `resolvers[]` config array in `.anchored-spec/config.json` is now wired at runtime. Reference built-in resolvers by `name`, tree-sitter with `queryPacks`/`customPacks` options, or load custom resolver modules via `path`.
 - **Resolver loader module** — `loadResolver()` and `loadResolversFromConfig()` functions for programmatic resolver instantiation.

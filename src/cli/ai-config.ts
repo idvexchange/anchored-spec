@@ -19,6 +19,7 @@ export interface AiConfigInput {
 export interface WriteResult {
   created: string[];
   skipped: string[];
+  overwritten: string[];
 }
 
 export interface KiroSteering {
@@ -800,13 +801,19 @@ Organize the output into these context blocks for the implementing agent:
 
 // ── Writer ──────────────────────────────────────────────────────────────────────
 
+export interface WriteOptions {
+  force?: boolean;
+}
+
 export function writeAiConfigFiles(
   projectRoot: string,
   config: AiConfigInput,
   targets: string[],
+  options?: WriteOptions,
 ): WriteResult {
   const created: string[] = [];
   const skipped: string[] = [];
+  const overwritten: string[] = [];
 
   const resolvedTargets = new Set(
     targets.includes("all")
@@ -881,7 +888,12 @@ export function writeAiConfigFiles(
   for (const { rel, content } of filesToWrite) {
     const abs = join(projectRoot, rel);
     if (existsSync(abs)) {
-      skipped.push(rel);
+      if (options?.force) {
+        writeFileSync(abs, content, "utf-8");
+        overwritten.push(rel);
+      } else {
+        skipped.push(rel);
+      }
     } else {
       mkdirSync(dirname(abs), { recursive: true });
       writeFileSync(abs, content, "utf-8");
@@ -889,5 +901,5 @@ export function writeAiConfigFiles(
     }
   }
 
-  return { created, skipped };
+  return { created, skipped, overwritten };
 }

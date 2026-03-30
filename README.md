@@ -38,8 +38,14 @@ npx anchored-spec init --ide
 # Generate AI assistant config files (Copilot, Claude, Kiro, Spec-Kit)
 npx anchored-spec init --ai all
 
+# Generate CI workflow and pre-commit hook
+npx anchored-spec init --ci
+
 # Create your first artifact
 npx anchored-spec create --kind service --id SVC-auth-api
+
+# Or use the interactive wizard
+npx anchored-spec create --interactive
 
 # Validate all artifacts
 npx anchored-spec validate
@@ -81,8 +87,8 @@ your-repo/
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config |
-| `create` | Create a new EA artifact |
+| `init` | Initialize project with v1.0 config (`--ide`, `--ai`, `--ci`) |
+| `create` | Create a new EA artifact (`--interactive` / `-i` for step-by-step wizard) |
 | `validate` | Validate artifacts against schemas and quality rules |
 | `graph` | Generate architecture dependency graph |
 | `report` | Generate architecture reports |

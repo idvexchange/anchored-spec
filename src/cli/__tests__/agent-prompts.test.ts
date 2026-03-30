@@ -162,4 +162,48 @@ describe("Agent Prompt Templates", () => {
       expect(content).toContain("npx anchored-spec drift");
     });
   });
+
+  // ─── --force overwrites existing files ───────────────────────────
+  describe("writeAiConfigFiles — force mode", () => {
+    let tempDir: string;
+
+    beforeEach(() => {
+      tempDir = join(tmpdir(), `force-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      mkdirSync(tempDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it("overwrites existing files when force is true", () => {
+      // First write
+      writeAiConfigFiles(tempDir, config, ["copilot"]);
+      const original = readFileSync(join(tempDir, ".github", "copilot-instructions.md"), "utf-8");
+
+      // Second write with force
+      const result = writeAiConfigFiles(tempDir, config, ["copilot"], { force: true });
+
+      expect(result.overwritten).toHaveLength(7);
+      expect(result.created).toHaveLength(0);
+      expect(result.skipped).toHaveLength(0);
+
+      // Content is regenerated (same in this case, but the write happened)
+      const updated = readFileSync(join(tempDir, ".github", "copilot-instructions.md"), "utf-8");
+      expect(updated).toBe(original);
+    });
+
+    it("skips existing files when force is false (default)", () => {
+      writeAiConfigFiles(tempDir, config, ["claude"]);
+      const result = writeAiConfigFiles(tempDir, config, ["claude"]);
+
+      expect(result.skipped).toHaveLength(7);
+      expect(result.overwritten).toHaveLength(0);
+    });
+
+    it("returns empty overwritten array on fresh write", () => {
+      const result = writeAiConfigFiles(tempDir, config, ["copilot"]);
+      expect(result.overwritten).toHaveLength(0);
+    });
+  });
 });
