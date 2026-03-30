@@ -9,5 +9,5 @@ export type { DocFrontmatter, ParsedDoc } from "./frontmatter.js";
 export { parseFrontmatter, extractArtifactIds, hasEaFrontmatter, serializeFrontmatter } from "./frontmatter.js";
 
 // Document scanner
-export type { ScannedDoc, ScanResult, ScanOptions } from "./scanner.js";
-export { DEFAULT_DOC_DIRS, scanDocs, buildDocIndex } from "./scanner.js";
+export type { ScannedDoc, ScanResult, ScanOptions, DocDiscoveryResult } from "./scanner.js";
+export { DEFAULT_DOC_DIRS, scanDocs, buildDocIndex, discoverFromDocs } from "./scanner.js";

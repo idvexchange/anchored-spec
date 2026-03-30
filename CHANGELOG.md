@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Frontmatter parser** — `parseFrontmatter()`, `serializeFrontmatter()`, `extractArtifactIds()`, and `hasEaFrontmatter()` functions for YAML frontmatter in markdown documents. Supports `ea-artifacts` (primary) and `anchored-spec` (alternative) field names.
 - **Document scanner** — `scanDocs()` and `buildDocIndex()` for finding markdown files with EA-relevant frontmatter across project directories.
 - **Trace integrity drift rules** — 2 new drift rules: `ea:trace/ref-target-exists` (validates traceRef paths) and `ea:trace/duplicate-ref` (detects duplicate traceRefs). Total: 44 drift rules.
+- **Document-driven discovery** (`discover --from-docs`) — Prose-first workflow: write docs with `ea-artifacts` frontmatter referencing artifact IDs that don't yet exist, then run `discover --from-docs` to scaffold draft artifacts. Infers kind from ID prefix, uses doc context for summary.
 
 ### Changed
 

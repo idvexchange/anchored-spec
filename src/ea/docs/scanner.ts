@@ -9,6 +9,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, extname } from "node:path";
 import { parseFrontmatter, extractArtifactIds } from "./frontmatter.js";
 import type { DocFrontmatter } from "./frontmatter.js";
+import { EA_KIND_REGISTRY } from "../types.js";
+import type { EaArtifactBase } from "../types.js";
+import type { EaArtifactDraft } from "../discovery.js";
+import { createDraft } from "../discovery.js";
 
 // ─── Constants ────────────────────────────────────────────────────────
 
@@ -194,4 +198,121 @@ export function buildDocIndex(docs: ScannedDoc[]): Map<string, ScannedDoc[]> {
   }
 
   return index;
+}
+
+// ─── Prefix → Kind lookup ─────────────────────────────────────────
+
+/** Reverse lookup: uppercase prefix → kind entry. Built once, cached. */
+const PREFIX_TO_KIND = new Map(
+  EA_KIND_REGISTRY.map((e) => [e.prefix, e]),
+);
+
+/**
+ * Parse a frontmatter artifact ID into its prefix and slug components.
+ * Example: `"SVC-auth-core"` → `{ prefix: "SVC", slug: "auth-core" }`
+ */
+function parseArtifactId(id: string): { prefix: string; slug: string } | null {
+  const dashIdx = id.indexOf("-");
+  if (dashIdx < 1) return null;
+  const prefix = id.slice(0, dashIdx);
+  const slug = id.slice(dashIdx + 1);
+  // Prefix must be all uppercase to match EA conventions
+  if (prefix !== prefix.toUpperCase()) return null;
+  return { prefix, slug };
+}
+
+/**
+ * Convert an artifact ID slug to a human-readable title.
+ * Example: `"auth-core"` → `"Auth Core"`
+ */
+function slugToTitle(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// ─── Document-Driven Discovery ────────────────────────────────────
+
+/** Result of document-driven discovery. */
+export interface DocDiscoveryResult {
+  /** Draft artifacts scaffolded from doc frontmatter references. */
+  drafts: EaArtifactDraft[];
+  /** Artifact IDs that were already modeled (skipped). */
+  alreadyExists: string[];
+  /** Artifact IDs whose prefix didn't match any known kind. */
+  unknownPrefix: string[];
+}
+
+/**
+ * Discover draft artifacts from document frontmatter.
+ *
+ * Scans docs for `ea-artifacts` references, identifies IDs that don't
+ * match any existing artifact, and scaffolds draft artifacts from the
+ * ID prefix (to determine kind) and the doc context (for summary).
+ *
+ * This enables the **prose-first workflow**: write docs first, then
+ * run `discover --from-docs` to scaffold the artifacts they reference.
+ *
+ * @param docs - Scanned documents with frontmatter.
+ * @param existingArtifacts - Already-loaded artifacts to skip.
+ * @returns Drafts for missing artifacts plus diagnostic arrays.
+ */
+export function discoverFromDocs(
+  docs: ScannedDoc[],
+  existingArtifacts: EaArtifactBase[],
+): DocDiscoveryResult {
+  const existingIds = new Set(existingArtifacts.map((a) => a.id));
+  const alreadyExists: string[] = [];
+  const unknownPrefix: string[] = [];
+  const drafts: EaArtifactDraft[] = [];
+  const seen = new Set<string>();
+
+  for (const doc of docs) {
+    for (const id of doc.artifactIds) {
+      // Skip duplicates across docs
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      // Skip existing artifacts
+      if (existingIds.has(id)) {
+        alreadyExists.push(id);
+        continue;
+      }
+
+      // Parse prefix to determine kind
+      const parsed = parseArtifactId(id);
+      if (!parsed) {
+        unknownPrefix.push(id);
+        continue;
+      }
+
+      const kindEntry = PREFIX_TO_KIND.get(parsed.prefix);
+      if (!kindEntry) {
+        unknownPrefix.push(id);
+        continue;
+      }
+
+      // Build a context-aware summary from the doc
+      const docType = doc.frontmatter.type ?? "document";
+      const docDomain = doc.frontmatter.domain?.join(", ") ?? "";
+      const domainHint = docDomain ? ` (${docDomain})` : "";
+      const summary =
+        `Referenced in ${docType}${domainHint}: ${doc.relativePath}`;
+
+      const draft = createDraft(kindEntry.kind, slugToTitle(parsed.slug), "doc-frontmatter", {
+        confidence: "inferred",
+        summary,
+        anchors: { docs: [doc.relativePath] },
+      });
+
+      // Override the auto-generated ID with the one from frontmatter
+      // (the user chose this ID intentionally)
+      draft.suggestedId = id;
+
+      drafts.push(draft);
+    }
+  }
+
+  return { drafts, alreadyExists, unknownPrefix };
 }

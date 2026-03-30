@@ -10,7 +10,9 @@ import {
   serializeFrontmatter,
 } from "../docs/frontmatter.js";
 import type { DocFrontmatter } from "../docs/frontmatter.js";
-import { scanDocs, buildDocIndex } from "../docs/scanner.js";
+import { scanDocs, buildDocIndex, discoverFromDocs } from "../docs/scanner.js";
+import type { ScannedDoc } from "../docs/scanner.js";
+import type { EaArtifactBase } from "../types.js";
 
 describe("Document Traceability", () => {
   // ─── parseFrontmatter ─────────────────────────────────────────────
@@ -389,6 +391,119 @@ describe("Document Traceability", () => {
 
       expect(index.size).toBe(1);
       expect(index.has("APP-web")).toBe(true);
+    });
+  });
+
+  // ─── discoverFromDocs ───────────────────────────────────────────
+
+  describe("discoverFromDocs", () => {
+    function makeArtifact(id: string, kind: string): EaArtifactBase {
+      return {
+        id,
+        kind,
+        schemaVersion: "1.0",
+        title: id,
+        status: "active",
+        summary: "test",
+        owners: ["test"],
+        confidence: "declared",
+      };
+    }
+
+    function makeDoc(relativePath: string, artifactIds: string[], type?: string): ScannedDoc {
+      return {
+        path: `/project/${relativePath}`,
+        relativePath,
+        frontmatter: {
+          type: (type as DocFrontmatter["type"]) ?? "spec",
+          domain: ["systems"],
+          eaArtifacts: artifactIds,
+        },
+        artifactIds,
+      };
+    }
+
+    it("scaffolds drafts for missing artifacts", () => {
+      const docs = [makeDoc("docs/auth.md", ["SVC-auth-core", "API-auth-v1"])];
+      const existing: EaArtifactBase[] = [];
+
+      const result = discoverFromDocs(docs, existing);
+
+      expect(result.drafts).toHaveLength(2);
+      expect(result.drafts[0]!.suggestedId).toBe("SVC-auth-core");
+      expect(result.drafts[0]!.kind).toBe("service");
+      expect(result.drafts[1]!.suggestedId).toBe("API-auth-v1");
+      expect(result.drafts[1]!.kind).toBe("api-contract");
+      expect(result.alreadyExists).toHaveLength(0);
+      expect(result.unknownPrefix).toHaveLength(0);
+    });
+
+    it("skips existing artifacts", () => {
+      const docs = [makeDoc("docs/arch.md", ["SVC-auth-core", "APP-web"])];
+      const existing = [makeArtifact("SVC-auth-core", "service")];
+
+      const result = discoverFromDocs(docs, existing);
+
+      expect(result.drafts).toHaveLength(1);
+      expect(result.drafts[0]!.suggestedId).toBe("APP-web");
+      expect(result.alreadyExists).toEqual(["SVC-auth-core"]);
+    });
+
+    it("reports unknown prefixes", () => {
+      const docs = [makeDoc("docs/misc.md", ["UNKNOWN-thing", "SVC-real"])];
+      const existing: EaArtifactBase[] = [];
+
+      const result = discoverFromDocs(docs, existing);
+
+      expect(result.drafts).toHaveLength(1);
+      expect(result.drafts[0]!.suggestedId).toBe("SVC-real");
+      expect(result.unknownPrefix).toEqual(["UNKNOWN-thing"]);
+    });
+
+    it("deduplicates across multiple docs", () => {
+      const docs = [
+        makeDoc("docs/a.md", ["SVC-shared"]),
+        makeDoc("docs/b.md", ["SVC-shared"]),
+      ];
+      const existing: EaArtifactBase[] = [];
+
+      const result = discoverFromDocs(docs, existing);
+
+      expect(result.drafts).toHaveLength(1);
+      expect(result.drafts[0]!.suggestedId).toBe("SVC-shared");
+    });
+
+    it("preserves the exact artifact ID from frontmatter", () => {
+      const docs = [makeDoc("docs/api.md", ["API-orders-v2"])];
+      const existing: EaArtifactBase[] = [];
+
+      const result = discoverFromDocs(docs, existing);
+
+      // The ID should be exactly what the user wrote, not auto-generated
+      expect(result.drafts[0]!.suggestedId).toBe("API-orders-v2");
+      expect(result.drafts[0]!.kind).toBe("api-contract");
+      expect(result.drafts[0]!.title).toBe("Orders V2");
+    });
+
+    it("includes doc path in draft summary and anchors", () => {
+      const docs = [makeDoc("docs/security/auth-contracts.md", ["SREQ-auth-pkce"], "spec")];
+      const existing: EaArtifactBase[] = [];
+
+      const result = discoverFromDocs(docs, existing);
+
+      expect(result.drafts[0]!.summary).toContain("docs/security/auth-contracts.md");
+      expect(result.drafts[0]!.summary).toContain("spec");
+      expect(result.drafts[0]!.anchors?.docs).toEqual(["docs/security/auth-contracts.md"]);
+    });
+
+    it("handles IDs without valid prefix format", () => {
+      const docs = [makeDoc("docs/misc.md", ["lowercase-thing", "nohyphen"])];
+      const existing: EaArtifactBase[] = [];
+
+      const result = discoverFromDocs(docs, existing);
+
+      expect(result.drafts).toHaveLength(0);
+      expect(result.unknownPrefix).toEqual(["lowercase-thing", "nohyphen"]);
     });
   });
 });

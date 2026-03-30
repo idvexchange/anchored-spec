@@ -667,8 +667,29 @@ npx anchored-spec create-doc --title "ADR-01 Auth Strategy" --type adr \
   --artifacts DECISION-auth-strategy --dir docs/decisions
 ```
 
+### Prose-first workflow (doc-driven discovery)
+
+Write docs first, then scaffold the artifacts they reference:
+
+```bash
+# 1. Write your spec docs with ea-artifacts listing desired artifact IDs
+#    (the artifacts don't need to exist yet)
+
+# 2. Discover and scaffold missing artifacts from doc frontmatter
+npx anchored-spec discover --from-docs --dry-run   # preview
+npx anchored-spec discover --from-docs              # create drafts
+
+# 3. Refine the generated drafts (fill in kind-specific fields)
+# 4. Sync bidirectional trace links
+npx anchored-spec link-docs
+```
+
+The `--from-docs` flag parses each doc's `ea-artifacts` field, identifies IDs that don't match existing artifacts, infers the kind from the ID prefix (e.g., `SVC-` → service), and scaffolds draft artifacts. This eliminates the chicken-and-egg problem.
+
 ### When to use
 
+- **Prose-first**: Write docs → `discover --from-docs` → refine → `link-docs`
+- **Artifact-first**: Create artifact → add `traceRefs` → write docs → `link-docs`
 - **Before starting work**: Run `context <artifact-id>` to assemble full AI context
 - **After writing docs**: Run `link-docs` to sync trace links
 - **In CI**: Run `trace --check` to catch broken or orphaned links
