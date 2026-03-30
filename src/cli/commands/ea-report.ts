@@ -24,6 +24,8 @@ import {
   buildReportIndex,
   buildDriftHeatmap,
   renderDriftHeatmapMarkdown,
+  buildTraceabilityIndex,
+  renderTraceabilityIndexMarkdown,
   REPORT_VIEWS,
   EA_DOMAINS,
   getDomainForKind,
@@ -131,6 +133,14 @@ export function eaReportCommand(): Command {
         writeFileSync(join(outputDir, `drift-heatmap${ext}`), dhContent + "\n");
         count++;
 
+        // Traceability index
+        const ti = buildTraceabilityIndex(artifacts);
+        const tiContent = format === "json"
+          ? JSON.stringify(ti, null, 2)
+          : renderTraceabilityIndexMarkdown(ti);
+        writeFileSync(join(outputDir, `traceability-index${ext}`), tiContent + "\n");
+        count++;
+
         // Report index (always JSON)
         const index = buildReportIndex(artifacts);
         writeFileSync(join(outputDir, "report-index.json"), JSON.stringify(index, null, 2) + "\n");
@@ -206,6 +216,15 @@ export function eaReportCommand(): Command {
             output = JSON.stringify(report, null, 2);
           } else {
             output = renderDriftHeatmapMarkdown(report);
+          }
+          break;
+        }
+        case "traceability-index": {
+          const report = buildTraceabilityIndex(artifacts);
+          if (format === "json") {
+            output = JSON.stringify(report, null, 2);
+          } else {
+            output = renderTraceabilityIndexMarkdown(report);
           }
           break;
         }

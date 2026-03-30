@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "rootDir": "ea",
+  "generatedDir": "ea/generated",
+  "idPrefix": null,
+  "domains": {
+    "systems": "ea/systems",
+    "delivery": "ea/delivery",
+    "data": "ea/data",
+    "information": "ea/information",
+    "business": "ea/business",
+    "transitions": "ea/transitions"
+  },
+  "resolvers": [],
+  "generators": [],
+  "evidenceSources": [],
+  "cache": {
+    "dir": ".anchored-spec/cache",
+    "defaultTTL": 3600
+  },
+  "quality": {
+    "requireOwners": true,
+    "requireSummary": true,
+    "requireRelations": false,
+    "requireAnchors": false,
+    "strictMode": false,
+    "rules": {}
+  },
+  "workflowPolicyPath": "ea/workflow-policy.yaml"
+}
