@@ -110,10 +110,35 @@ Full documentation is in the [`docs/`](docs/) directory:
 
 ## AI Agent Skill
 
-Anchored Spec ships with **[SKILL.md](SKILL.md)** — an agent-agnostic instruction set that teaches AI coding agents to work with the EA framework. It works with GitHub Copilot, Cursor, Cline, Windsurf, Aider, and any agent that reads project-root markdown.
+Anchored Spec ships with **[SKILL.md](SKILL.md)** — an agent-agnostic instruction set (26 sections, 15 workflows) that teaches AI coding agents to work with the EA framework. It works with GitHub Copilot, Cursor, Cline, Windsurf, Aider, and any agent that reads project-root markdown.
 
 ```
 Read and follow the rules in SKILL.md for all code changes in this repository.
+```
+
+**Day-to-day workflow prompts** you can use with any AI agent:
+
+```
+# Spec-first implementation
+Add a new payment gateway service. Follow the spec-first workflow in SKILL.md.
+
+# Explain changes before merging
+What changed in this branch compared to main? Walk me through the impact.
+
+# Pre-implementation audit
+I need to modify the order entity. Audit the relevant specs before I start coding.
+
+# Architecture onboarding
+I'm new to this codebase. Give me an architecture overview using the EA model.
+
+# Confidence audit
+Run a confidence audit — find artifacts that are decaying or missing coverage.
+
+# Impact assessment
+What would break if we retired SVC-legacy-auth? Show me the full dependency chain.
+
+# Compatibility check
+Is this PR safe to merge? Check for breaking changes against main.
 ```
 
 ## Development
