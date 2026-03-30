@@ -230,7 +230,101 @@ Generation rules:
 
 ---
 
-## 10. Relation Types
+## 10. Workflow — Spec Diffing
+
+Compare EA artifact states between git refs with semantic awareness:
+
+```bash
+npx anchored-spec diff main                   # Diff working tree vs main
+npx anchored-spec diff --base v1.0 --head v2.0  # Diff between tags
+npx anchored-spec diff main --summary         # One-line summary for CI
+npx anchored-spec diff main --domain systems  # Filter to domain
+npx anchored-spec diff main --json            # JSON output
+```
+
+Diff capabilities:
+- Semantic field classification: identity, metadata, structural, behavioral, contractual, governance
+- Relation diffing with set semantics (type+target as composite key)
+- Array diffing for tags, traceRefs, anchors — set operations, not positional
+- Domain-level and semantic-level summary breakdowns
+
+---
+
+## 11. Workflow — Compatibility Assessment
+
+Classify changes as breaking, additive, compatible, ambiguous, or no-impact:
+
+```bash
+npx anchored-spec diff main --compat                    # Show compatibility assessment
+npx anchored-spec diff main --compat --fail-on breaking # CI gate: exit 1 if breaking
+npx anchored-spec diff main --compat --fail-on ambiguous # Stricter: fail on ambiguous too
+```
+
+16 built-in compatibility rules covering:
+- Artifact removal (breaking if active/shipped, compatible if deprecated)
+- Status regression (active→draft = breaking)
+- Relation removal (breaking), relation addition (additive)
+- Anchor removal (breaking), anchor addition (additive)
+- Kind reclassification (breaking)
+- Contractual field changes (removal = breaking, addition = additive, modification = ambiguous)
+- Confidence downgrade (ambiguous)
+- Metadata-only changes (no impact)
+
+---
+
+## 12. Workflow — Reconcile Pipeline
+
+Run the full SDD control loop as a single command — generate → validate → drift:
+
+```bash
+npx anchored-spec reconcile                    # Full pipeline (check mode)
+npx anchored-spec reconcile --write            # Generate + write + validate + drift
+npx anchored-spec reconcile --fix              # Auto-fix validation issues
+npx anchored-spec reconcile --fail-on warning  # Strict CI mode
+npx anchored-spec reconcile --skip-generate    # Validate + drift only
+npx anchored-spec reconcile --fail-fast        # Stop at first failing step
+```
+
+This is the single command for CI pipelines. It replaces running validate, generate --check, and drift separately.
+
+---
+
+## 13. Workflow — Version Policy Enforcement
+
+Declare compatibility policies and enforce them automatically:
+
+```bash
+npx anchored-spec diff main --policy          # Enforce version policies
+npx anchored-spec diff main --policy --json   # JSON policy report
+```
+
+Four compatibility modes:
+- `backward-only` — no breaking changes allowed
+- `full` — no breaking or ambiguous changes
+- `breaking-allowed` — all changes allowed (default — zero disruption)
+- `frozen` — no changes at all (artifact is immutable)
+
+Policy resolution cascade: artifact-level (`extensions.versionPolicy`) → kind-level → domain-level → global default.
+
+Configure in `.anchored-spec/config.json`:
+```json
+{
+  "versionPolicy": {
+    "defaultCompatibility": "backward-only",
+    "perKind": {
+      "api-contract": { "compatibility": "backward-only", "deprecationWindow": "90d" },
+      "canonical-entity": { "compatibility": "full" }
+    },
+    "perDomain": {
+      "business": { "compatibility": "breaking-allowed" }
+    }
+  }
+}
+```
+
+---
+
+## 14. Relation Types
 
 28 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
@@ -267,7 +361,7 @@ Generation rules:
 
 ---
 
-## 11. Quality Rules
+## 15. Quality Rules
 
 When creating or modifying EA artifacts, enforce these rules:
 
@@ -284,7 +378,7 @@ When creating or modifying EA artifacts, enforce these rules:
 
 ---
 
-## 12. Lifecycle Rules
+## 16. Lifecycle Rules
 
 Status transitions follow a defined lifecycle:
 
@@ -310,7 +404,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 13. Command Reference
+## 17. Command Reference
 
 | Command | Description |
 |---|---|
@@ -323,14 +417,19 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `generate` | Generate derived files from EA artifacts (OpenAPI, JSON Schema) |
 | `graph` | Export the relation graph (Mermaid, DOT, JSON; supports `--kind`, `--focus`, `--domain`) |
 | `impact` | Analyze transitive impact of changes to an artifact |
-| `report` | Generate reports (system-data-matrix, capability-map, gap-analysis, exceptions, drift-heatmap) |
+| `report` | Generate reports (system-data-matrix, capability-map, gap-analysis, exceptions, drift-heatmap, traceability-index) |
 | `evidence` | Manage EA evidence collection |
 | `status` | Show artifact lifecycle status dashboard |
 | `transition` | Manage artifact status transitions |
+| `diff` | Semantic diff of EA artifacts between git refs (`--compat`, `--policy`, `--fail-on`) |
+| `reconcile` | Full SDD pipeline: generate → validate → drift (`--write`, `--fix`, `--fail-fast`) |
+| `move` | Move/reclassify an artifact to a different kind with reference rewrites |
+| `enrich` | Merge fields from a JSON file into an existing artifact |
+| `create-batch` | Bulk-create artifacts from a JSON manifest |
 
 ---
 
-## 14. Before Claiming Completion
+## 18. Before Claiming Completion
 
 Before telling the user a task is complete, **always** run:
 
@@ -343,10 +442,12 @@ If it fails, fix the issues. Additionally:
 - After any code change touching declared `anchors` -> run `npx anchored-spec drift`
 - After creating/editing artifact files -> run `npx anchored-spec validate`
 - After all changes -> run `npx anchored-spec generate --check` if generators are configured
+- For comprehensive CI check -> run `npx anchored-spec reconcile` (runs generate + validate + drift)
+- Before merging to main -> run `npx anchored-spec diff main --compat` to assess breaking changes
 
 ---
 
-## 15. Anti-Patterns
+## 19. Anti-Patterns
 
 ### Do not model everything at once
 
@@ -378,7 +479,7 @@ Architecture is not static. Use baselines, targets, and transition plans to mana
 
 ---
 
-## 16. Integration Guide
+## 20. Integration Guide
 
 ### GitHub Copilot
 
