@@ -178,3 +178,7 @@ export { assessCompatibility, renderCompatSummary, renderCompatMarkdown } from "
 // Reconcile Pipeline
 export type { ReconcileOptions, ReconcileStepResult, ReconcileReport } from "./reconcile.js";
 export { reconcileEaProject, renderReconcileOutput } from "./reconcile.js";
+
+// Version Policy Enforcement
+export type { CompatibilityMode, VersionPolicy, VersionPolicyConfig, PolicyViolation, PolicyEnforcementReport } from "./version-policy.js";
+export { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, renderPolicyMarkdown } from "./version-policy.js";

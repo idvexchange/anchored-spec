@@ -167,6 +167,56 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Custom change types beyond built-in types."
+    },
+    "versionPolicy": {
+      "type": "object",
+      "description": "Version compatibility policy enforcement configuration.",
+      "properties": {
+        "defaultCompatibility": {
+          "type": "string",
+          "enum": ["backward-only", "full", "breaking-allowed", "frozen"],
+          "default": "breaking-allowed",
+          "description": "Default compatibility mode for all artifacts."
+        },
+        "perKind": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "compatibility": {
+                "type": "string",
+                "enum": ["backward-only", "full", "breaking-allowed", "frozen"]
+              },
+              "deprecationWindow": {
+                "type": "string",
+                "pattern": "^\\d+(d|m|y)$",
+                "description": "Minimum time in deprecated state before removal (e.g., '90d', '6m')."
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Per-kind compatibility policy overrides."
+        },
+        "perDomain": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "compatibility": {
+                "type": "string",
+                "enum": ["backward-only", "full", "breaking-allowed", "frozen"]
+              },
+              "deprecationWindow": {
+                "type": "string",
+                "pattern": "^\\d+(d|m|y)$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Per-domain compatibility policy overrides."
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

@@ -23,6 +23,12 @@ import {
   renderCompatSummary,
 } from "../../ea/compat.js";
 import type { CompatibilityLevel } from "../../ea/compat.js";
+import {
+  enforceVersionPolicies,
+  renderPolicyMarkdown,
+  renderPolicySummary,
+} from "../../ea/version-policy.js";
+import type { VersionPolicyConfig } from "../../ea/version-policy.js";
 import { CliError } from "../errors.js";
 
 export function eaDiffCommand(): Command {
@@ -39,6 +45,7 @@ export function eaDiffCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--json", "Shorthand for --format json")
     .option("--compat", "Show compatibility assessment (breaking/additive/etc.)")
+    .option("--policy", "Enforce version policies against compatibility assessment")
     .option("--fail-on <level>", "Exit non-zero if compatibility level met: breaking, ambiguous")
     .action(async (ref, options) => {
       const cwd = process.cwd();
@@ -82,9 +89,59 @@ export function eaDiffCommand(): Command {
       }
 
       // Compatibility assessment
-      if (options.compat) {
+      if (options.compat || options.policy) {
         const compatReport = assessCompatibility(report);
 
+        // Policy enforcement (requires compat)
+        if (options.policy) {
+          // Load config for version policy
+          let policyConfig: VersionPolicyConfig | undefined;
+          try {
+            const { readFileSync } = await import("node:fs");
+            const { join } = await import("node:path");
+            const configPath = join(cwd, ".anchored-spec", "config.json");
+            const rawConfig = JSON.parse(readFileSync(configPath, "utf-8"));
+            policyConfig = rawConfig.versionPolicy as VersionPolicyConfig | undefined;
+          } catch {
+            // No config or no versionPolicy section — use defaults
+          }
+
+          const policyReport = enforceVersionPolicies(
+            compatReport,
+            { base: [], head: [] }, // artifacts not available from git ref loading
+            policyConfig,
+          );
+
+          if (options.summary) {
+            process.stdout.write(renderPolicySummary(policyReport) + "\n");
+          } else if (format === "json") {
+            const output = JSON.stringify(policyReport, null, 2);
+            if (options.output) {
+              writeFileSync(options.output, output + "\n");
+              process.stdout.write(chalk.green(`✓ Policy report written to ${options.output}`) + "\n");
+            } else {
+              process.stdout.write(output + "\n");
+            }
+          } else {
+            const output = renderPolicyMarkdown(policyReport);
+            if (options.output) {
+              writeFileSync(options.output, output + "\n");
+              process.stdout.write(chalk.green(`✓ Policy report written to ${options.output}`) + "\n");
+            } else {
+              process.stdout.write(output + "\n");
+            }
+          }
+
+          if (!policyReport.passed) {
+            throw new CliError(
+              `Version policy check failed: ${policyReport.summary.violations} violation(s)`,
+              1,
+            );
+          }
+          return;
+        }
+
+        // Compat-only (no policy)
         if (options.summary) {
           process.stdout.write(renderCompatSummary(compatReport) + "\n");
         } else if (format === "json") {
