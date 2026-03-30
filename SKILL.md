@@ -324,7 +324,97 @@ Configure in `.anchored-spec/config.json`:
 
 ---
 
-## 14. Relation Types
+## 14. Workflow — Explain Change (Narrative Synthesis)
+
+When a user asks you to explain, summarize, or review architecture changes (e.g., "what changed?", "explain this PR", "walk me through the impact"), synthesize a narrative using existing commands. Do not just dump command output — tell the story.
+
+### Step 1: Gather the raw data
+
+Run these commands and capture their output:
+
+```bash
+npx anchored-spec diff main --compat --json   # Semantic diff + compatibility
+npx anchored-spec diff main --summary          # One-line summary
+```
+
+For each artifact with breaking or ambiguous changes, also run:
+
+```bash
+npx anchored-spec impact <artifact-id>         # Transitive dependency graph
+npx anchored-spec graph --focus <artifact-id> --format mermaid  # Visual context
+```
+
+### Step 2: Synthesize into three narrative layers
+
+**Layer 1 — Executive Summary (2-3 sentences)**
+What changed at a high level. Use the `--summary` output as a starting point but rewrite it in natural language. Include the compatibility verdict.
+
+Example: *"This PR adds a new payment gateway service and modifies the order entity's data contract. The changes are additive — no breaking impact on existing consumers. Two new `dependsOn` relations connect the gateway to the auth and billing services."*
+
+**Layer 2 — Structural Walkthrough (per-artifact)**
+For each modified artifact, explain:
+- **What** changed (field-level, using semantic categories)
+- **Why** it matters (is it contractual? structural? just metadata?)
+- **Who** is affected (use `impact` output to name downstream dependents)
+
+Group by risk level: breaking first, then ambiguous, then additive, then metadata-only.
+
+**Layer 3 — Recommendations**
+Based on the compatibility assessment and impact analysis:
+- Flag artifacts that need version policy review
+- Suggest migration steps for breaking changes
+- Identify artifacts whose status should transition (e.g., a new artifact still at `draft` that should be `planned`)
+- Note if any changed artifacts lack owners, anchors, or traceRefs
+
+### Step 3: Offer interactive drill-down
+
+After presenting the narrative, offer the user targeted follow-ups:
+- "Want me to show the full dependency graph for [artifact]?"
+- "Should I check if [breaking change] is covered by version policy?"
+- "Want me to trace which source files are anchored to the modified artifacts?"
+
+### When to use this workflow
+
+- User asks "what changed?" or "explain this diff" or "summarize the PR"
+- User asks "what's the impact of these changes?"
+- User asks "is this safe to merge?"
+- User asks for a change review or architecture review
+- Before claiming a task is complete, if the changes span multiple artifacts or domains
+
+### Example output
+
+```
+## Change Narrative: feat/payment-gateway → main
+
+### Summary
+3 artifacts modified, 1 added. Overall compatibility: **additive** (safe to merge).
+
+### New: SVC-payment-gateway (service, systems)
+A new payment gateway service connecting to Stripe. Depends on SVC-auth
+for token validation and CE-billing-account for account lookup.
+- Status: draft (promote to planned when approved)
+- Missing: no anchors yet — add source file anchors after implementation
+
+### Modified: CE-order (canonical-entity, data)
+Added `paymentGatewayRef` field to the entity contract.
+- Semantic: contractual (new field = additive, no breakage)
+- Impact: 4 downstream consumers (APP-checkout, APP-admin, RPT-orders, API-orders)
+  All consume order data — the new field is additive, no action needed.
+
+### Modified: API-orders (api-contract, systems)
+Added `GET /orders/{id}/payment-status` endpoint to anchors.
+- Semantic: structural (anchor addition = additive)
+- No downstream impact — this is a leaf endpoint.
+
+### Recommendations
+- Promote SVC-payment-gateway from draft → planned once this PR is approved
+- Add source anchors to SVC-payment-gateway after implementation lands
+- Consider adding a traceRef to the payment integration spec document
+```
+
+---
+
+## 15. Relation Types
 
 28 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
@@ -361,7 +451,7 @@ Configure in `.anchored-spec/config.json`:
 
 ---
 
-## 15. Quality Rules
+## 16. Quality Rules
 
 When creating or modifying EA artifacts, enforce these rules:
 
@@ -378,7 +468,7 @@ When creating or modifying EA artifacts, enforce these rules:
 
 ---
 
-## 16. Lifecycle Rules
+## 17. Lifecycle Rules
 
 Status transitions follow a defined lifecycle:
 
@@ -404,7 +494,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 17. Command Reference
+## 18. Command Reference
 
 | Command | Description |
 |---|---|
@@ -429,7 +519,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 18. Before Claiming Completion
+## 19. Before Claiming Completion
 
 Before telling the user a task is complete, **always** run:
 
@@ -447,7 +537,7 @@ If it fails, fix the issues. Additionally:
 
 ---
 
-## 19. Anti-Patterns
+## 20. Anti-Patterns
 
 ### Do not model everything at once
 
@@ -479,7 +569,7 @@ Architecture is not static. Use baselines, targets, and transition plans to mana
 
 ---
 
-## 20. Integration Guide
+## 21. Integration Guide
 
 ### GitHub Copilot
 
