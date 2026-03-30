@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Tree-sitter discovery resolver** — Language-agnostic source code analysis using Tree-sitter WASM. Discovers `api-contract`, `physical-schema`, `event-contract`, and `service` artifacts from code patterns. 8 built-in JavaScript/TypeScript query packs (Express, Next.js, Prisma, TypeORM, EventEmitter, Bull, fetch, axios). Optional `web-tree-sitter` peer dependency.
+- **Config-driven resolver loading** — The `resolvers[]` config array in `.anchored-spec/config.json` is now wired at runtime. Reference built-in resolvers by `name`, tree-sitter with `queryPacks`/`customPacks` options, or load custom resolver modules via `path`.
+- **Resolver loader module** — `loadResolver()` and `loadResolversFromConfig()` functions for programmatic resolver instantiation.
+- **`EaResolverConfig.name` field** — Built-in resolvers can be referenced by name (e.g. `"openapi"`, `"tree-sitter"`) instead of file path. `path` is still supported for custom modules.
+- **Spec diffing** (`diff` command) — Semantic diff of EA artifacts between git refs with compatibility and policy checks.
+- **Reconcile pipeline** (`reconcile` command) — Full SDD pipeline: generate → validate → drift in a single pass.
+- **Version policy enforcement** — Per-kind and global compatibility policies (`backward-only`, `full`, `breaking-allowed`) with automatic violation detection.
+- **SKILL.md workflows** — 9 new AI agent workflows: Explain Change, Spec-First Implementation, Pre-Implementation Audit, Context Assembly, Architecture Onboarding, Confidence Audit, and more.
+
+### Changed
+
+- **`EaResolverConfig` type** — `path` is now optional (either `name` or `path` required). Added `name?: string` for built-in references.
+- **`config-v1.schema.json`** — `resolvers` items no longer require `path`; supports `name` for built-in resolvers.
+- **`ea discover` command** — 3-way dispatch: `--resolver` flag → config `resolvers[]` → all built-ins fallback.
+- **SKILL.md** — Now 26 sections with 15 workflows (was 16 sections in v1.0).
+
 ## [1.0.0] — 2025-07-18
 
 ### Breaking Changes

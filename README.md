@@ -14,7 +14,7 @@
 |---|---|
 | **44 artifact kinds** | Services, APIs, deployments, data stores, business capabilities, and more across 7 domains |
 | **27 typed relations** | `dependsOn`, `implementedBy`, `consumesApi`, `deployedTo`, etc. with graph visualization |
-| **5 resolvers** | Auto-discover state from OpenAPI, Kubernetes, Terraform, SQL DDL, and dbt |
+| **6 resolvers** | Auto-discover from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, and Tree-sitter (code analysis) |
 | **42 drift rules** | Domain-specific drift detection between declared specs and observed reality |
 | **Transition planning** | Baselines, targets, migration waves, and gap analysis |
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |

@@ -205,6 +205,27 @@ npx anchored-spec discover --resolver dbt --source ./dbt/models/
 npx anchored-spec discover --resolver tree-sitter                 # Semantic code analysis
 ```
 
+### Config-Driven Resolvers
+
+Instead of specifying `--resolver` each time, configure resolvers in `.anchored-spec/config.json`:
+
+```json
+{
+  "resolvers": [
+    { "name": "openapi" },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
+    { "path": "./ea/resolvers/custom.js" }
+  ]
+}
+```
+
+Then run `npx anchored-spec discover` with no flags — only configured resolvers execute. Resolution order:
+1. `--resolver <name>` flag → that resolver only
+2. `config.resolvers[]` non-empty → configured resolvers in order
+3. No config → all built-in resolvers run
+
+Built-in resolver names: `openapi`, `kubernetes`, `terraform`, `sql-ddl`, `dbt`, `tree-sitter`.
+
 Discovery rules:
 - Always creates artifacts with `confidence: "inferred"` or `"observed"`
 - Never overwrites existing artifacts

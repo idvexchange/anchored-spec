@@ -165,3 +165,33 @@ npx anchored-spec drift --root examples/todo-app
 # Show status summary
 npx anchored-spec status --root examples/todo-app
 ```
+
+## Discovering Artifacts from Code
+
+The example includes config-driven resolver loading in `.anchored-spec/config.json`:
+
+```json
+{
+  "resolvers": [
+    { "name": "openapi" },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } }
+  ]
+}
+```
+
+Run discovery to find artifacts from the codebase:
+
+```bash
+# Dry run — preview what would be discovered
+npx anchored-spec discover --root examples/todo-app --dry-run
+
+# Run discovery and create draft artifacts
+npx anchored-spec discover --root examples/todo-app
+```
+
+The tree-sitter resolver scans `app/`, `components/`, and `lib/` (per `sourceRoots`) for:
+- **API routes** (Next.js handlers in `app/api/`) → `api-contract` drafts
+- **Data access patterns** → `physical-schema` drafts
+- **Event patterns** → `event-contract` drafts
+
+Discovered artifacts are created as drafts with `confidence: "inferred"`. Review and promote to `"declared"` to make them authoritative.
