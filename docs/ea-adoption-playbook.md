@@ -18,10 +18,10 @@ This is a practical guide for teams adopting the enterprise architecture extensi
 ### Step 1: Initialize EA (2 min)
 
 ```bash
-npx anchored-spec init
+npx anchored-spec init --ide --ai all
 ```
 
-This creates the `specs/ea/` directory structure and adds the `ea` section to your config.
+This creates the EA directory structure, config, VS Code integration (autocomplete + snippets), and AI assistant configs (Copilot, Claude, Kiro).
 
 ### Step 2: Discover What You Have (10 min)
 

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reconcile pipeline** (`reconcile` command) — Full SDD pipeline: generate → validate → drift in a single pass.
 - **Version policy enforcement** — Per-kind and global compatibility policies (`backward-only`, `full`, `breaking-allowed`) with automatic violation detection.
 - **SKILL.md workflows** — 9 new AI agent workflows: Explain Change, Spec-First Implementation, Pre-Implementation Audit, Context Assembly, Architecture Onboarding, Confidence Audit, and more.
+- **VS Code integration** (`init --ide`) — Generates `.vscode/settings.json` with schema-to-file mappings for all 48 artifact kinds, `.vscode/anchored-spec.code-snippets` with 17 snippets, and `.vscode/extensions.json` recommending Red Hat YAML extension. Instant autocomplete, validation, and hovers.
+- **AI assistant configuration** (`init --ai`) — Generates `.github/copilot-instructions.md` (GitHub Copilot), `CLAUDE.md` (Claude Code), and `.kiro/steering/` files (Kiro IDE). Targets: `copilot`, `claude`, `kiro`, `all`.
+- **`$schema` injection** — `create` command now includes `$schema` in JSON artifacts for instant VS Code validation without settings.
 
 ### Changed
 

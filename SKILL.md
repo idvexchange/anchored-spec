@@ -761,7 +761,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config |
+| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs) |
 | `create` | Create a new EA artifact from template |
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |

@@ -18,8 +18,9 @@
 | **42 drift rules** | Domain-specific drift detection between declared specs and observed reality |
 | **Transition planning** | Baselines, targets, migration waves, and gap analysis |
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
-| **Schema validation** | 51 JSON Schemas with quality rules and confidence tracking |
+| **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
 | **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
+| **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config for Copilot, Claude, and Kiro via `init --ai` |
 
 ## Quick Start
 
@@ -29,6 +30,12 @@ npm install --save-dev anchored-spec
 
 # Initialize EA project
 npx anchored-spec init
+
+# Set up VS Code autocomplete, snippets, and validation
+npx anchored-spec init --ide
+
+# Generate AI assistant config files (Copilot, Claude, Kiro)
+npx anchored-spec init --ai all
 
 # Create your first artifact
 npx anchored-spec create --kind service --id SVC-auth-api
