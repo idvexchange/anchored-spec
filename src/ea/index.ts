@@ -124,8 +124,8 @@ export type { EaDriftContext, EaDriftRule, EaDriftResult, EaDriftFinding, Domain
 export { EA_DRIFT_RULES, evaluateEaDrift, detectEaDrift } from "./drift.js";
 
 // Reports
-export type { SystemDataCell, SystemDataMatrixReport, ClassifiedEntity, ClassificationStore, ClassificationCoverageEntry, ClassificationCoverageReport, CapabilityMapNode, CapabilityMapMission, CapabilityMapReport, GapNewWorkItem, GapRetirementItem, GapMilestoneStatus, GapSuccessMetric, GapAnalysisReport, ExceptionStatus, ExceptionReportEntry, ExceptionReport, ReportIndexEntry, ReportIndex, ReportView, DriftHeatmapReport } from "./report.js";
-export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown, buildClassificationCoverage, renderClassificationCoverageMarkdown, buildCapabilityMap, renderCapabilityMapMarkdown, buildGapAnalysis, renderGapAnalysisMarkdown, buildExceptionReport, renderExceptionReportMarkdown, REPORT_VIEWS, buildReportIndex, buildDriftHeatmap, renderDriftHeatmapMarkdown } from "./report.js";
+export type { SystemDataCell, SystemDataMatrixReport, ClassifiedEntity, ClassificationStore, ClassificationCoverageEntry, ClassificationCoverageReport, CapabilityMapNode, CapabilityMapMission, CapabilityMapReport, GapNewWorkItem, GapRetirementItem, GapMilestoneStatus, GapSuccessMetric, GapAnalysisReport, ExceptionStatus, ExceptionReportEntry, ExceptionReport, ReportIndexEntry, ReportIndex, ReportView, DriftHeatmapReport, TraceabilityIndexEntry, TraceabilityDocumentGroup, TraceabilityIndexReport } from "./report.js";
+export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown, buildClassificationCoverage, renderClassificationCoverageMarkdown, buildCapabilityMap, renderCapabilityMapMarkdown, buildGapAnalysis, renderGapAnalysisMarkdown, buildExceptionReport, renderExceptionReportMarkdown, REPORT_VIEWS, buildReportIndex, buildDriftHeatmap, renderDriftHeatmapMarkdown, buildTraceabilityIndex, renderTraceabilityIndexMarkdown } from "./report.js";
 
 // Evidence
 export type { EaEvidenceKind, EaEvidenceRecord, EaEvidence, EaEvidenceValidationError, EaEvidenceSummary } from "./evidence.js";

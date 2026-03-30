@@ -394,7 +394,7 @@ describe("REPORT_VIEWS includes drift-heatmap", () => {
   });
 
   it("has 6 views", () => {
-    expect(REPORT_VIEWS).toHaveLength(6);
+    expect(REPORT_VIEWS).toHaveLength(7);
   });
 });
 
