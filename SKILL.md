@@ -414,7 +414,237 @@ Added `GET /orders/{id}/payment-status` endpoint to anchors.
 
 ---
 
-## 15. Relation Types
+## 15. Workflow — Spec-First Implementation
+
+When a user asks to build a feature, add a capability, or implement a change, follow the spec-first workflow. Do not write implementation code until the spec artifacts exist and validate.
+
+### Step 1: Spec before code
+
+1. **Identify affected artifacts** — Which EA artifacts describe the feature? Do they exist already?
+2. **Create missing artifacts** — Use `anchored-spec create` for any new services, entities, contracts, or capabilities. Fill all required fields: summary, owners, status, relations.
+3. **Update existing artifacts** — Modify relations, anchors, or contractual fields on artifacts affected by the change.
+4. **Validate** — Run `npx anchored-spec validate` to ensure the spec is structurally sound.
+
+### Step 2: Implement against the spec
+
+5. **Write code** — Implement the feature as described by the artifacts. Code should match the declared anchors, relations, and contractual fields.
+6. **Anchor the code** — Add file/API/event anchors to artifacts pointing to the new code.
+
+### Step 3: Verify alignment
+
+7. **Drift check** — Run `npx anchored-spec drift` to verify implementation matches spec.
+8. **Reconcile** — Run `npx anchored-spec reconcile` for full pipeline verification.
+
+### Why this order matters
+
+Writing code first and documenting later creates two problems:
+- The spec reflects what was built, not what was intended — losing the "why"
+- AI agents implementing subsequent features will reason from an incomplete spec, amplifying ambiguity
+
+Spec-first ensures the intent is captured precisely before any implementation begins. This is the core principle of Spec-Driven Development.
+
+### When to apply
+
+- Always, when the change involves creating or modifying architecture (new services, APIs, entities, contracts)
+- For pure bug fixes in existing code that don't change architecture, skip to Step 2
+
+---
+
+## 16. Workflow — Pre-Implementation Spec Audit
+
+Before writing any implementation code, audit whether the relevant specs are complete enough to guide the work. Incomplete specs produce ambiguous implementations.
+
+### Run the audit
+
+```bash
+npx anchored-spec validate --strict
+npx anchored-spec graph --focus <artifact-id> --format mermaid
+```
+
+### Checklist
+
+For each artifact relevant to the task, verify:
+
+| Check | Command / Field | Why |
+|---|---|---|
+| Has a meaningful summary (not placeholder) | `summary` field | Agents use summaries to understand intent |
+| Has at least one owner | `owners` field | Ownership = accountability |
+| Has relations to dependencies | `relations` array | Isolated artifacts can't constrain the solution space |
+| Has anchors to code (if active) | `anchors` object | No anchors = no drift detection = no confidence |
+| Has traceRefs to normative docs | `traceRefs` array | Traceability to requirements/decisions |
+| Status matches reality | `status` field | A "draft" spec guiding production code is a red flag |
+| Confidence is declared (not inferred) | `confidence` field | Inferred artifacts are provisional — don't build on them |
+
+### If the audit fails
+
+Do not proceed to implementation. Instead:
+1. Fix the spec gaps (add missing owners, relations, summaries)
+2. Promote inferred artifacts to declared if they're accurate
+3. Re-validate, then continue to implementation
+
+### Example
+
+```
+⚠ Spec audit for task "Add payment gateway":
+
+  SVC-payment-gateway — MISSING (needs creation)
+  API-orders — incomplete:
+    → No anchors (can't verify implementation matches spec)
+    → Summary is "TODO" (agents will guess intent)
+  CE-billing-account — OK ✓
+  CE-order — OK ✓
+
+Action: Create SVC-payment-gateway, fix API-orders before coding.
+```
+
+---
+
+## 17. Workflow — Context Assembly
+
+Before starting any task, assemble the relevant architectural context from EA artifacts. This is structured context engineering — not ad-hoc prompt context.
+
+### Step 1: Identify the context perimeter
+
+Determine which artifacts are relevant to the task:
+
+```bash
+# Find artifacts in the affected domain
+npx anchored-spec report --view system-data-matrix --domain systems
+
+# Trace dependencies from the focal artifact
+npx anchored-spec impact <artifact-id>
+
+# Visualize the local neighborhood
+npx anchored-spec graph --focus <artifact-id> --depth 2 --format mermaid
+```
+
+### Step 2: Assemble context blocks
+
+For each relevant artifact, gather these structured context blocks:
+
+| Block | Source | Purpose |
+|---|---|---|
+| **Feature intent** | Artifact `summary` + `traceRefs` to spec docs | What we're building and why |
+| **Architecture** | `relations` + `graph --focus` output | How components connect |
+| **Standards** | `compliance` field + linked `standard` artifacts | What rules apply |
+| **Guardrails** | Version policies + quality rules + active exceptions | What constraints exist |
+| **Current state** | `status`, `confidence`, `drift` findings | Where we are now |
+
+### Step 3: Use context in prompts
+
+When delegating to sub-agents or continuing implementation:
+
+```
+Implement Feature X strictly according to:
+- SVC-payment-gateway (artifact): handles Stripe integration
+- Depends on: SVC-auth (token validation), CE-billing-account (account lookup)
+- Contract: API-orders exposes GET /orders/{id}/payment-status
+- Constraint: API-orders has backward-only version policy — no breaking changes
+- Standard: Must comply with PCI-DSS (linked via STD-pci-compliance)
+```
+
+This eliminates ambiguity by giving the agent the exact architectural context, not vague instructions.
+
+---
+
+## 18. Workflow — Architecture Onboarding
+
+When starting a new AI session, onboarding a new team member, or re-engaging with an unfamiliar part of the codebase, use this workflow to rapidly build system understanding.
+
+### Quick orientation (< 2 minutes)
+
+```bash
+# What does this project contain?
+npx anchored-spec validate --json | head -5       # Artifact count and health
+
+# What are the key systems?
+npx anchored-spec report --view capability-map     # Business capabilities
+
+# What's the dependency structure?
+npx anchored-spec graph --format mermaid           # Full architecture graph
+
+# What's at risk?
+npx anchored-spec report --view exceptions         # Active exceptions
+npx anchored-spec report --view drift-heatmap      # Drift hotspots
+```
+
+### Deep dive into a domain
+
+```bash
+# Focus on a specific domain
+npx anchored-spec graph --domain systems --format mermaid
+npx anchored-spec report --view system-data-matrix
+
+# Understand a specific artifact's context
+npx anchored-spec impact <artifact-id>
+npx anchored-spec graph --focus <artifact-id> --depth 3
+```
+
+### What to look for
+
+- **High-risk artifacts**: status=active but confidence=inferred — these are guesses in production
+- **Drift hotspots**: artifacts with chronic drift findings — spec and reality have diverged
+- **Orphan artifacts**: no relations to anything — possibly stale or missing connections
+- **Stale exceptions**: expired exceptions that haven't been resolved
+- **Missing anchors**: active artifacts with no code anchors — invisible to drift detection
+
+### When to use
+
+- Starting a new coding session on an unfamiliar part of the system
+- Before making cross-domain changes
+- When an AI agent asks "how does this system work?"
+- During architecture review meetings
+
+---
+
+## 19. Workflow — Confidence Audit
+
+Periodically assess the health of the EA model to identify where confidence is eroding. This catches the slow decay that leads to the gap between what's in production and what the team understands.
+
+### Run the audit
+
+```bash
+npx anchored-spec validate --strict --json
+npx anchored-spec drift --json
+npx anchored-spec report --view exceptions
+npx anchored-spec report --view drift-heatmap
+```
+
+### Confidence indicators
+
+Check each category and flag issues:
+
+| Indicator | How to check | Red flag |
+|---|---|---|
+| **Inferred artifacts** | `confidence: "inferred"` artifacts | Active systems described by guesses, not declarations |
+| **Missing owners** | `validate` rule `ea:active-needs-owner` | Nobody accountable for the artifact |
+| **Stale exceptions** | `report --view exceptions` | Expired exceptions still suppressing real drift |
+| **Anchor coverage** | Active artifacts without `anchors` | No drift detection = silent divergence |
+| **Relation completeness** | Artifacts with 0 relations | Isolated artifacts can't model dependencies |
+| **Draft sprawl** | Many `draft` artifacts never promoted | Discovery ran but nobody curated the results |
+| **Drift density** | `report --view drift-heatmap` | Domains with chronic unsuppressed drift |
+
+### Triage actions
+
+| Priority | Condition | Action |
+|---|---|---|
+| **P0** | Active + inferred + no anchor | Promote to declared or delete — this is a blind spot |
+| **P1** | Expired exception still active | Review and either renew, fix the drift, or retire the artifact |
+| **P1** | Active artifact, chronic drift | Spec is wrong or code is wrong — investigate and align |
+| **P2** | Draft artifacts older than 30 days | Promote, delete, or mark deferred — don't let drafts accumulate |
+| **P2** | Active artifact, no relations | Add relations or verify it's truly standalone |
+| **P3** | Missing traceRefs | Add links to normative docs for audit trail |
+
+### When to run
+
+- Weekly for teams actively building (high rate of change)
+- Before major releases or compliance reviews
+- When onboarding reveals "nobody knows what this does"
+- After a production incident to check if the EA model predicted the failure path
+
+---
+
+## 20. Relation Types
 
 28 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
@@ -451,7 +681,7 @@ Added `GET /orders/{id}/payment-status` endpoint to anchors.
 
 ---
 
-## 16. Quality Rules
+## 21. Quality Rules
 
 When creating or modifying EA artifacts, enforce these rules:
 
@@ -468,7 +698,7 @@ When creating or modifying EA artifacts, enforce these rules:
 
 ---
 
-## 17. Lifecycle Rules
+## 22. Lifecycle Rules
 
 Status transitions follow a defined lifecycle:
 
@@ -494,7 +724,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 18. Command Reference
+## 23. Command Reference
 
 | Command | Description |
 |---|---|
@@ -519,7 +749,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 19. Before Claiming Completion
+## 24. Before Claiming Completion
 
 Before telling the user a task is complete, **always** run:
 
@@ -537,7 +767,7 @@ If it fails, fix the issues. Additionally:
 
 ---
 
-## 20. Anti-Patterns
+## 25. Anti-Patterns
 
 ### Do not model everything at once
 
@@ -569,7 +799,7 @@ Architecture is not static. Use baselines, targets, and transition plans to mana
 
 ---
 
-## 21. Integration Guide
+## 26. Integration Guide
 
 ### GitHub Copilot
 
