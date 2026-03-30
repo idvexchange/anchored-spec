@@ -31,6 +31,7 @@ import { moveCommand } from "./commands/move.js";
 import { enrichCommand } from "./commands/enrich.js";
 import { createBatchCommand } from "./commands/create-batch.js";
 import { migrateConfigCommand } from "./commands/migrate-config.js";
+import { eaDiffCommand } from "./commands/ea-diff.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -71,6 +72,7 @@ program.addCommand(moveCommand());
 program.addCommand(enrichCommand());
 program.addCommand(createBatchCommand());
 program.addCommand(migrateConfigCommand());
+program.addCommand(eaDiffCommand());
 
 // ─── Deprecated "ea" alias group ────────────────────────────────────────────────
 // Keeps `anchored-spec ea <cmd>` working but emits a deprecation warning.

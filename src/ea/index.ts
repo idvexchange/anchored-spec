@@ -162,3 +162,11 @@ export { VitestEaAdapter, collectEaTestEvidence, registerEvidenceAdapter, getAva
 // Verification Engine (EA-native)
 export type { EaVerificationOptions, EaVerificationSummary, EaVerificationResult } from "./verify.js";
 export { runEaVerification } from "./verify.js";
+
+// Diff Engine
+export type { ArtifactChangeType, FieldSemantic, FieldChange, RelationDiff, ArtifactDiff, DomainDiffSummary, EaDiffReport } from "./diff.js";
+export { diffEaArtifacts, renderDiffSummary, renderDiffMarkdown, getFieldSemantic, deepEqual } from "./diff.js";
+
+// Diff — Git Integration
+export type { DiffGitOptions } from "./diff-git.js";
+export { loadArtifactsFromGitRef, loadArtifactsFromWorkingTree, diffEaGitRefs } from "./diff-git.js";
