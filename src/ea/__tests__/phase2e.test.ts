@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Tests for Phase 2E: Transition Layer Schemas, Types, Quality Rules
  *

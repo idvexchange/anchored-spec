@@ -8,6 +8,7 @@
 
 import type {
   EaArtifactBase,
+  EaDomain,
   ConsumerArtifact,
   CloudResourceArtifact,
   EnvironmentArtifact,
@@ -18,14 +19,12 @@ import type {
   MasterDataDomainArtifact,
   InformationExchangeArtifact,
   CanonicalEntityArtifact,
-  ClassificationArtifact,
   RetentionPolicyArtifact,
   CapabilityArtifact,
   ValueStreamArtifact,
   ProcessArtifact,
   PolicyObjectiveArtifact,
   ControlArtifact,
-  MissionArtifact,
   BaselineArtifact,
   TargetArtifact,
   TransitionPlanArtifact,
@@ -98,7 +97,7 @@ const consumerContractVersionMismatch: EaDriftRule = {
   requiresResolver: false,
   evaluate(ctx) {
     const results: EaValidationError[] = [];
-    const apiContracts = ctx.artifacts.filter((a) => a.kind === "api-contract");
+    const _apiContracts = ctx.artifacts.filter((a) => a.kind === "api-contract");
 
     for (const a of ctx.artifacts) {
       if (a.kind !== "consumer") continue;
@@ -789,7 +788,7 @@ const glossaryInconsistency: EaDriftRule = {
       // Find canonical entities whose conceptRef links to the same information-concept
       // that this glossary term is related to
       for (const entity of entities) {
-        const ce = entity as unknown as CanonicalEntityArtifact;
+        const _ce = entity as unknown as CanonicalEntityArtifact;
         // Check if entity title matches glossary term title (case-insensitive)
         const termTitle = a.title.toLowerCase();
         const entityTitle = entity.title.toLowerCase();
@@ -1935,6 +1934,9 @@ export function detectEaDrift(options: EaDriftOptions): EaDriftReport {
     findings = applySuppression(findings, exceptions);
   }
 
+  // Step 4b: Apply inline per-artifact drift suppression (extensions.driftSuppress)
+  findings = applyInlineSuppression(findings, artifacts);
+
   // Step 5: Apply severity overrides
   if (ruleOverrides) {
     findings = applySeverityOverrides(findings, ruleOverrides);
@@ -2005,11 +2007,47 @@ function applySuppression(
       const matchesRule =
         !exc.scope.rules || exc.scope.rules.length === 0 || exc.scope.rules.includes(f.rule);
       const matchesDomain =
-        !exc.scope.domains || exc.scope.domains.length === 0 || exc.scope.domains.includes(f.domain as any);
+        !exc.scope.domains || exc.scope.domains.length === 0 || exc.scope.domains.includes(f.domain as EaDomain);
 
       if (matchesArtifact && matchesRule && matchesDomain) {
         return { ...f, suppressed: true, suppressedBy: exc.id };
       }
+    }
+    return f;
+  });
+}
+
+/**
+ * Apply inline per-artifact drift suppression.
+ *
+ * Artifacts can declare `extensions.driftSuppress: string[]` — an array
+ * of drift rule IDs to suppress for that artifact. Example:
+ *
+ *   extensions:
+ *     driftSuppress:
+ *       - "ea:business/unowned-critical-system"
+ *       - "ea:information/exchange-missing-contract"
+ */
+function applyInlineSuppression(
+  findings: EaDriftFinding[],
+  artifacts: EaArtifactBase[],
+): EaDriftFinding[] {
+  // Build a map: artifactId → Set<suppressed rule IDs>
+  const suppressMap = new Map<string, Set<string>>();
+  for (const a of artifacts) {
+    const suppress = (a.extensions as Record<string, unknown>)?.driftSuppress;
+    if (Array.isArray(suppress) && suppress.length > 0) {
+      suppressMap.set(a.id, new Set(suppress.map(String)));
+    }
+  }
+
+  if (suppressMap.size === 0) return findings;
+
+  return findings.map((f) => {
+    if (f.suppressed) return f;
+    const rules = suppressMap.get(f.artifactId);
+    if (rules && rules.has(f.rule)) {
+      return { ...f, suppressed: true, suppressedBy: `${f.artifactId}:inline` };
     }
     return f;
   });

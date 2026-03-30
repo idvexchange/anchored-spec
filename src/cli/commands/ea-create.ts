@@ -41,12 +41,14 @@ export function eaCreateCommand(): Command {
         );
       }
 
-      // Resolve ID — strip prefix if user already included it
+      // Resolve ID — strip prefix if user explicitly provided --id with the prefix
       const prefix = getKindPrefix(kind)!;
       let slug = (options.id as string) ?? slugify(options.title as string);
-      const prefixWithDash = `${prefix}-`.toLowerCase();
-      if (slug.toLowerCase().startsWith(prefixWithDash)) {
-        slug = slug.slice(prefixWithDash.length);
+      if (options.id) {
+        const prefixWithDash = `${prefix}-`.toLowerCase();
+        if (slug.toLowerCase().startsWith(prefixWithDash)) {
+          slug = slug.slice(prefixWithDash.length);
+        }
       }
       const id = `${prefix}-${slug}`;
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -28,7 +28,7 @@ function makeTestGenerator(overrides?: Partial<EaGenerator>): EaGenerator {
     name: "test-gen",
     kinds: ["api-contract"],
     outputFormat: "json",
-    generate(artifact: EaArtifactBase, ctx: EaGeneratorContext): GeneratedOutput[] {
+    generate(artifact: EaArtifactBase, _ctx: EaGeneratorContext): GeneratedOutput[] {
       return [
         {
           relativePath: `${artifact.id.replace(/\//g, "-")}.json`,
@@ -253,7 +253,7 @@ describe("runGenerators check mode", () => {
   it("should detect missing generated files", () => {
     mkdirSync(TEST_ROOT, { recursive: true });
     const generator = makeTestGenerator({
-      diff(currentOutput, artifact) {
+      diff(_currentOutput, _artifact) {
         return [];
       },
     });

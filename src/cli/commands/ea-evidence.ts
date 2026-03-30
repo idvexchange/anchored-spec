@@ -6,7 +6,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { resolve, join } from "node:path";
+import { join } from "node:path";
 import {
   EaRoot,
   resolveEaConfig,

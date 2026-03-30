@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Tests for Phase 2C: Information Layer Schemas, Types, Quality Rules
  *
@@ -13,7 +14,6 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  EA_KIND_REGISTRY,
   getKindEntry,
   getKindsByDomain,
   createDefaultRegistry,

@@ -8,7 +8,7 @@
  * Design reference: docs/ea-drift-resolvers-generators.md
  */
 
-import type { EaArtifactBase, EaDomain, EaRelation } from "../types.js";
+import type { EaArtifactBase, EaDomain } from "../types.js";
 import type { ResolverCache } from "../cache.js";
 
 // ─── Resolver Context ───────────────────────────────────────────────────────────

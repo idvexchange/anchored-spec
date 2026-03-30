@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Tests for Phase 2B: Data Layer Relations, Quality Rules, and Drift Rules
  *

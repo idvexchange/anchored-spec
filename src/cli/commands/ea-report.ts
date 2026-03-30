@@ -28,7 +28,7 @@ import {
   EA_DOMAINS,
   getDomainForKind,
 } from "../../ea/index.js";
-import type { EaArtifactBase } from "../../ea/index.js";
+import type { EaArtifactBase, EaDomain } from "../../ea/index.js";
 import { CliError } from "../errors.js";
 
 /** Filter artifacts to a specific domain. */
@@ -72,7 +72,7 @@ export function eaReportCommand(): Command {
 
       // Apply domain filter
       const domainFilter = options.domain as string | undefined;
-      if (domainFilter && !EA_DOMAINS.includes(domainFilter as any)) {
+      if (domainFilter && !EA_DOMAINS.includes(domainFilter as EaDomain)) {
         throw new CliError(
           `Unknown domain "${domainFilter}". Available: ${EA_DOMAINS.join(", ")}`,
           2

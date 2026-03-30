@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "node:path";
 import type { EaArtifactBase } from "../types.js";
-import type { EaResolverContext, EaAnchorResolution } from "../resolvers/types.js";
+import type { EaResolverContext } from "../resolvers/types.js";
 import { silentLogger } from "../resolvers/types.js";
 import {
   OpenApiResolver,

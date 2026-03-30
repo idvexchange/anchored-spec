@@ -8,9 +8,7 @@
  * Design reference: docs/ea-implementation-guide.md §Phase A
  */
 
-import type { EaArtifactBase, EaDomain } from "./types.js";
-import { getDomainForKind } from "./types.js";
-import type { RelationGraph, GraphNode, GraphEdge } from "./graph.js";
+import type { RelationGraph } from "./graph.js";
 
 // ─── Impact Analysis Types ──────────────────────────────────────────────────────
 

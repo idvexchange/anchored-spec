@@ -10,6 +10,7 @@ import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveEaConfig } from "../../ea/config.js";
 import { getDomainForKind, EA_DOMAINS } from "../../ea/types.js";
+import type { EaDomain } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
 export function eaStatusCommand(): Command {
@@ -33,7 +34,7 @@ export function eaStatusCommand(): Command {
       // Filter by domain
       if (options.domain) {
         const domain = options.domain as string;
-        if (!EA_DOMAINS.includes(domain as any)) {
+        if (!EA_DOMAINS.includes(domain as EaDomain)) {
           throw new CliError(`Invalid domain "${domain}". Valid: ${EA_DOMAINS.join(", ")}`);
         }
         artifacts = artifacts.filter((a) => getDomainForKind(a.kind) === domain);

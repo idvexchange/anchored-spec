@@ -38,7 +38,7 @@ export const openapiGenerator: EaGenerator = {
   kinds: ["api-contract"],
   outputFormat: "openapi",
 
-  generate(artifact: EaArtifactBase, ctx: EaGeneratorContext): GeneratedOutput[] {
+  generate(artifact: EaArtifactBase, _ctx: EaGeneratorContext): GeneratedOutput[] {
     const fields = (artifact as EaArtifactBase & ApiContractFields);
 
     // Only generate for REST / OpenAPI contracts

@@ -69,7 +69,7 @@ export const jsonSchemaGenerator: EaGenerator = {
   kinds: ["canonical-entity"],
   outputFormat: "json-schema",
 
-  generate(artifact: EaArtifactBase, ctx: EaGeneratorContext): GeneratedOutput[] {
+  generate(artifact: EaArtifactBase, _ctx: EaGeneratorContext): GeneratedOutput[] {
     const fields = artifact as EaArtifactBase & CanonicalEntityFields;
     const attributes = fields.attributes ?? [];
 

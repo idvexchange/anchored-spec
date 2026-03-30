@@ -15,6 +15,7 @@ import {
   resolveEaConfig,
 } from "../../ea/index.js";
 import type { EaValidationError, EaDomain } from "../../ea/index.js";
+import { autoFixArtifacts } from "../../ea/auto-fix.js";
 import { CliError } from "../errors.js";
 
 export function eaValidateCommand(): Command {
@@ -23,6 +24,7 @@ export function eaValidateCommand(): Command {
     .option("--domain <domain>", "Validate only a specific domain")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--strict", "Treat warnings as errors")
+    .option("--fix", "Auto-fix common validation issues before validating")
     .option("--json", "Output structured JSON")
     .action(async (options) => {
       const cwd = process.cwd();
@@ -34,6 +36,21 @@ export function eaValidateCommand(): Command {
           "EA not initialized. Run 'anchored-spec ea init' first.",
           2
         );
+      }
+
+      // Auto-fix before validation if requested
+      if (options.fix) {
+        const fixResults = autoFixArtifacts(cwd, eaConfig.domains);
+        if (fixResults.length > 0) {
+          console.log(chalk.blue("🔧 Auto-fix applied:\n"));
+          for (const r of fixResults) {
+            console.log(chalk.green(`  ✓ ${r.relativePath}`));
+            for (const fix of r.fixes) {
+              console.log(chalk.dim(`    ${fix}`));
+            }
+          }
+          console.log("");
+        }
       }
 
       // Load artifacts

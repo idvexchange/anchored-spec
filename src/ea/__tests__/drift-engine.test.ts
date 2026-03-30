@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * EA Drift Engine Core — Tests
  *
@@ -13,7 +14,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -27,8 +28,6 @@ import {
 } from "../index.js";
 import type {
   EaArtifactBase,
-  EaDriftFinding,
-  EaDriftReport,
 } from "../index.js";
 import type { ExceptionArtifact } from "../types.js";
 

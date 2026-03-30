@@ -12,6 +12,18 @@ export default [
     plugins: { onlyWarn },
   },
   {
-    ignores: ["dist/**", "node_modules/**"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  {
+    ignores: ["dist/**", "node_modules/**", "examples/**"],
   },
 ];

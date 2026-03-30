@@ -8,10 +8,9 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  resolveConfigV1,
   detectConfigVersion,
   migrateConfigV0ToV1,
 } from "../../ea/index.js";

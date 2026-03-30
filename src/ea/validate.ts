@@ -10,7 +10,7 @@ import addFormats from "ajv-formats";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { EaArtifactBase, EaRelation } from "./types.js";
+import type { EaArtifactBase } from "./types.js";
 import type {
   SystemInterfaceArtifact,
   ConsumerArtifact,
@@ -41,7 +41,7 @@ import type {
   MigrationWaveArtifact,
   ExceptionArtifact,
 } from "./types.js";
-import { EA_KIND_REGISTRY, isValidEaId } from "./types.js";
+import { isValidEaId } from "./types.js";
 import type { EaQualityConfig } from "./config.js";
 import type { RelationRegistry } from "./relation-registry.js";
 
