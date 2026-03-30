@@ -44,16 +44,16 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["path"],
         "properties": {
-          "path": { "type": "string", "description": "Module path to the resolver." },
+          "name": { "type": "string", "description": "Built-in resolver name (e.g. openapi, tree-sitter)." },
+          "path": { "type": "string", "description": "Module path to a custom resolver." },
           "cacheTTL": { "type": "number", "description": "Cache TTL in seconds." },
           "options": { "type": "object", "description": "Resolver-specific options." }
         },
         "additionalProperties": false
       },
       "default": [],
-      "description": "Configured resolver plugins."
+      "description": "Configured resolver plugins. Use 'name' for built-in resolvers or 'path' for custom modules."
     },
     "generators": {
       "type": "array",

@@ -71,3 +71,23 @@ export {
 // Anchors Resolver (code-symbol scanning)
 export type { AnchorMatch, AnchorScanResult } from "./anchors.js";
 export { AnchorsResolver, scanAnchors } from "./anchors.js";
+
+// Config-driven resolver loader
+export type { LoadedResolver } from "./loader.js";
+export { loadResolver, loadResolversFromConfig } from "./loader.js";
+
+// Tree-sitter Discovery Resolver (language-agnostic code analysis)
+export {
+  TreeSitterDiscoveryResolver,
+  resetTreeSitterCache,
+  aggregateMatches,
+  getQueryPacks,
+  builtinPacks,
+} from "./tree-sitter/index.js";
+export type {
+  QueryPack,
+  QueryPattern,
+  CaptureMapping,
+  QueryMatch,
+  PackRegistry,
+} from "./tree-sitter/index.js";

@@ -202,13 +202,46 @@ npx anchored-spec discover --resolver kubernetes --source ~/.kube/config
 npx anchored-spec discover --resolver terraform --source ./infrastructure/
 npx anchored-spec discover --resolver sql-ddl --source ./migrations/
 npx anchored-spec discover --resolver dbt --source ./dbt/models/
+npx anchored-spec discover --resolver tree-sitter                 # Semantic code analysis
 ```
+
+### Config-Driven Resolvers
+
+Instead of specifying `--resolver` each time, configure resolvers in `.anchored-spec/config.json`:
+
+```json
+{
+  "resolvers": [
+    { "name": "openapi" },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
+    { "path": "./ea/resolvers/custom.js" }
+  ]
+}
+```
+
+Then run `npx anchored-spec discover` with no flags — only configured resolvers execute. Resolution order:
+1. `--resolver <name>` flag → that resolver only
+2. `config.resolvers[]` non-empty → configured resolvers in order
+3. No config → all built-in resolvers run
+
+Built-in resolver names: `openapi`, `kubernetes`, `terraform`, `sql-ddl`, `dbt`, `tree-sitter`.
 
 Discovery rules:
 - Always creates artifacts with `confidence: "inferred"` or `"observed"`
 - Never overwrites existing artifacts
 - Produces a discovery report showing: new artifacts found, matches, suggested relations
 - Human must review and promote drafts to `confidence: "declared"` before they become authoritative
+
+### Tree-sitter Code Analysis
+
+The `tree-sitter` resolver uses language-agnostic AST analysis to discover artifacts directly from source code (requires `web-tree-sitter` peer dependency):
+
+- **Routes**: Express, Fastify, Hono, Next.js API handlers → `api-contract` artifacts
+- **DB access**: Prisma, TypeORM model operations → `physical-schema` artifacts
+- **Events**: EventEmitter, Bull/BullMQ queue patterns → `event-contract` artifacts
+- **External calls**: fetch/axios HTTP calls → `service` artifacts (inferred)
+
+Patterns are defined as declarative Tree-sitter query packs. Custom packs can be added for any language with a Tree-sitter grammar.
 
 ---
 
@@ -733,7 +766,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
 | `drift` | Run drift detection (supports `--from-snapshot`, `--domain`, `--severity`) |
-| `discover` | Discover artifacts from resolvers (openapi, kubernetes, terraform, sql-ddl, dbt) |
+| `discover` | Discover artifacts from resolvers (openapi, kubernetes, terraform, sql-ddl, dbt, tree-sitter) |
 | `generate` | Generate derived files from EA artifacts (OpenAPI, JSON Schema) |
 | `graph` | Export the relation graph (Mermaid, DOT, JSON; supports `--kind`, `--focus`, `--domain`) |
 | `impact` | Analyze transitive impact of changes to an artifact |

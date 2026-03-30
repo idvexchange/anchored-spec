@@ -36,6 +36,25 @@ npx anchored-spec discover --resolver kubernetes --dry-run
 
 # Discover from Terraform state
 npx anchored-spec discover --resolver terraform --from-snapshot terraform.tfstate.json --dry-run
+
+# Discover from source code patterns (requires web-tree-sitter)
+npx anchored-spec discover --resolver tree-sitter --dry-run
+```
+
+Or configure resolvers in `.anchored-spec/config.json` and run them all at once:
+
+```json
+{
+  "resolvers": [
+    { "name": "openapi" },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } }
+  ]
+}
+```
+
+```bash
+# Runs all configured resolvers
+npx anchored-spec discover --dry-run
 ```
 
 Review the dry-run output. If it looks reasonable:

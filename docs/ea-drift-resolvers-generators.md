@@ -132,18 +132,18 @@ export interface ResolverCache {
 }
 ```
 
-Cache is stored on disk at `.anchored-spec/cache/ea/`. Cache TTL is configurable per resolver in the EA config:
+Cache is stored on disk at `.anchored-spec/cache/ea/`. Cache TTL is configurable per resolver in the EA config.
+
+Resolvers can be referenced by `name` for built-in resolvers or by `path` for custom modules. When `resolvers[]` is configured, only the listed resolvers run. When omitted, all built-in resolvers run by default.
 
 ```json
 {
-  "ea": {
-    "resolvers": [
-      {
-        "path": "./.anchored-spec/ea-resolvers/kubernetes.js",
-        "cacheTTL": 3600
-      }
-    ]
-  }
+  "resolvers": [
+    { "name": "openapi" },
+    { "name": "kubernetes", "cacheTTL": 3600 },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
+    { "path": "./ea/resolvers/custom-resolver.js", "options": { "source": "./specs" } }
+  ]
 }
 ```
 
@@ -759,6 +759,12 @@ anchored-spec discover --dry-run
 
 # Output discovery report
 anchored-spec discover --json
+
+# Discover from source code using tree-sitter
+anchored-spec discover --resolver tree-sitter
+
+# Discover using resolvers from config.json (no --resolver flag needed)
+anchored-spec discover
 ```
 
 ### Discovery Report
@@ -766,7 +772,7 @@ anchored-spec discover --json
 ```json
 {
   "discoveredAt": "2026-03-28T12:00:00Z",
-  "resolversUsed": ["kubernetes", "terraform"],
+  "resolversUsed": ["openapi", "kubernetes", "tree-sitter"],
   "summary": {
     "newArtifacts": 12,
     "matchedExisting": 5,
@@ -844,3 +850,91 @@ These resolvers are planned for implementation. Each is a separate module.
 - **resolveAnchors**: checks `other.dbt` anchors against dbt models
 - **collectObservedState**: builds dbt model graph with sources and exposures
 - **discoverArtifacts**: creates draft `lineage` and `data-product` artifacts
+
+### Tree-sitter Resolver (Cross-Domain)
+
+- **Input**: Application source code (any language with a Tree-sitter grammar)
+- **Peer dependency**: `web-tree-sitter` (optional; resolver skips silently if not installed)
+- **discoverArtifacts**: Scans source code using declarative query packs to discover:
+  - **Routes** (Express, Fastify, Next.js) → `api-contract` artifacts
+  - **DB access** (Prisma, TypeORM) → `physical-schema` artifacts
+  - **Events** (EventEmitter, Bull/BullMQ) → `event-contract` artifacts
+  - **External calls** (fetch, axios) → `service` artifacts
+
+Query packs are language-specific collections of Tree-sitter S-expression patterns. Built-in packs cover JavaScript/TypeScript; custom packs can be added for any language via config:
+
+```json
+{
+  "resolvers": [
+    {
+      "name": "tree-sitter",
+      "options": {
+        "queryPacks": ["javascript"],
+        "customPacks": ["./ea/resolvers/packs/python-routes.js"]
+      }
+    }
+  ]
+}
+```
+
+All discovered artifacts are created with `status: "draft"` and `confidence: "observed"` or `"inferred"`. Human review and promotion is required.
+
+## Config-Driven Resolver Loading
+
+The `resolvers` array in `.anchored-spec/config.json` controls which resolvers run and how they are configured. When this array is populated, only the listed resolvers are used. When omitted or empty, all built-in resolvers run by default.
+
+### Built-in Resolvers by Name
+
+Reference any built-in resolver by `name`:
+
+| Name | Resolver | Primary Artifacts |
+|------|----------|-------------------|
+| `openapi` | OpenAPI Resolver | `api-contract` |
+| `kubernetes` | Kubernetes Resolver | `deployment`, `platform` |
+| `terraform` | Terraform Resolver | `cloud-resource`, `platform` |
+| `sql-ddl` | SQL DDL Resolver | `physical-schema`, `data-store` |
+| `dbt` | dbt Resolver | `lineage`, `data-product` |
+| `tree-sitter` | Tree-sitter Resolver | `api-contract`, `physical-schema`, `event-contract`, `service` |
+
+### Custom Resolvers by Path
+
+Load custom resolver modules via `path`. The module must export an `EaResolver` implementation (default export as class or instance):
+
+```json
+{
+  "resolvers": [
+    { "path": "./ea/resolvers/custom-graphql.js" }
+  ]
+}
+```
+
+```typescript
+// ea/resolvers/custom-graphql.js
+export default class GraphQLResolver {
+  name = "graphql";
+  discoverArtifacts(ctx) {
+    // Scan for .graphql files and create api-contract drafts
+    return [...];
+  }
+}
+```
+
+### Resolver Options
+
+Both built-in and custom resolvers accept `options` and `cacheTTL`:
+
+```json
+{
+  "resolvers": [
+    { "name": "openapi", "cacheTTL": 3600 },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"], "customPacks": ["./packs/vue.js"] } },
+    { "path": "./custom.js", "options": { "endpoint": "https://api.example.com" } }
+  ]
+}
+```
+
+### Resolution Order
+
+1. If `--resolver <name>` CLI flag is provided → only that resolver runs
+2. Else if `config.resolvers[]` is non-empty → listed resolvers run in order
+3. Else → all built-in resolvers run (including tree-sitter if `web-tree-sitter` is installed)

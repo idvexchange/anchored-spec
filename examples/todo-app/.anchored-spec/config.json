@@ -29,5 +29,9 @@
   },
   "workflowPolicyPath": "ea/workflow-policy.yaml",
   "plugins": [],
+  "resolvers": [
+    { "name": "openapi" },
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } }
+  ],
   "exclude": ["node_modules", ".next", "public"]
 }

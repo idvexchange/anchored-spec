@@ -20,9 +20,12 @@ import {
   DbtResolver,
   silentLogger,
   consoleLogger,
+  TreeSitterDiscoveryResolver,
+  getQueryPacks,
 } from "../../ea/index.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
 import type { EaArtifactDraft } from "../../ea/discovery.js";
+import { loadResolversFromConfig } from "../../ea/resolvers/loader.js";
 import { CliError } from "../errors.js";
 
 /** Map resolver names to their class constructors. */
@@ -34,7 +37,7 @@ const RESOLVER_MAP: Record<string, new () => EaResolver> = {
   dbt: DbtResolver,
 };
 
-const AVAILABLE_RESOLVERS = Object.keys(RESOLVER_MAP).join(", ");
+const AVAILABLE_RESOLVERS = [...Object.keys(RESOLVER_MAP), "tree-sitter"].join(", ");
 
 export function eaDiscoverCommand(): Command {
   return new Command("discover")
@@ -74,31 +77,76 @@ export function eaDiscoverCommand(): Command {
       const resolverNames: string[] = [];
 
       if (resolverName) {
-        // Run specific resolver
-        const ResolverClass = RESOLVER_MAP[resolverName];
-        if (!ResolverClass) {
-          throw new CliError(
-            `Unknown resolver "${resolverName}". Available: ${AVAILABLE_RESOLVERS}`,
-            2,
-          );
+        if (resolverName === "tree-sitter") {
+          // Tree-sitter resolver (async, language-agnostic)
+          const packs = getQueryPacks();
+          const resolver = new TreeSitterDiscoveryResolver(packs);
+          resolverNames.push(resolver.name);
+
+          const discovered = await resolver.discoverArtifacts({
+            projectRoot: cwd,
+            artifacts: result.artifacts,
+            cache,
+            logger,
+            source: options.source as string | undefined,
+          });
+
+          if (discovered) {
+            drafts.push(...discovered);
+          }
+        } else {
+          // Standard sync resolver
+          const ResolverClass = RESOLVER_MAP[resolverName];
+          if (!ResolverClass) {
+            throw new CliError(
+              `Unknown resolver "${resolverName}". Available: ${AVAILABLE_RESOLVERS}`,
+              2,
+            );
+          }
+
+          const resolver = new ResolverClass();
+          resolverNames.push(resolver.name);
+
+          const discovered = resolver.discoverArtifacts?.({
+            projectRoot: cwd,
+            artifacts: result.artifacts,
+            cache,
+            logger,
+            source: options.source as string | undefined,
+          });
+
+          if (discovered) {
+            drafts.push(...discovered);
+          }
         }
+      } else if (eaConfig.resolvers && eaConfig.resolvers.length > 0) {
+        // Config-driven resolvers — use resolvers[] from config.json
+        const loaded = await loadResolversFromConfig(
+          eaConfig.resolvers,
+          RESOLVER_MAP,
+          cwd,
+        );
 
-        const resolver = new ResolverClass();
-        resolverNames.push(resolver.name);
+        for (const lr of loaded) {
+          resolverNames.push(lr.name);
+          const ctx = {
+            projectRoot: cwd,
+            artifacts: result.artifacts,
+            cache,
+            logger,
+            source: options.source as string | undefined,
+          };
 
-        const discovered = resolver.discoverArtifacts?.({
-          projectRoot: cwd,
-          artifacts: result.artifacts,
-          cache,
-          logger,
-          source: options.source as string | undefined,
-        });
-
-        if (discovered) {
-          drafts.push(...discovered);
+          if (lr.isAsync && lr.discoverAsync) {
+            const discovered = await lr.discoverAsync(ctx);
+            if (discovered) drafts.push(...discovered);
+          } else if (lr.discoverSync) {
+            const discovered = lr.discoverSync(ctx);
+            if (discovered) drafts.push(...discovered);
+          }
         }
       } else {
-        // No resolver specified — run all resolvers
+        // No resolver specified, no config — run all built-in resolvers
         for (const [, ResolverClass] of Object.entries(RESOLVER_MAP)) {
           const resolver = new ResolverClass();
           resolverNames.push(resolver.name);
@@ -114,6 +162,27 @@ export function eaDiscoverCommand(): Command {
           if (discovered) {
             drafts.push(...discovered);
           }
+        }
+
+        // Also run tree-sitter if web-tree-sitter is available
+        try {
+          const packs = getQueryPacks();
+          if (packs.length > 0) {
+            const tsResolver = new TreeSitterDiscoveryResolver(packs);
+            resolverNames.push(tsResolver.name);
+            const discovered = await tsResolver.discoverArtifacts({
+              projectRoot: cwd,
+              artifacts: result.artifacts,
+              cache,
+              logger,
+              source: options.source as string | undefined,
+            });
+            if (discovered) {
+              drafts.push(...discovered);
+            }
+          }
+        } catch {
+          // web-tree-sitter not installed — skip silently
         }
       }
 
