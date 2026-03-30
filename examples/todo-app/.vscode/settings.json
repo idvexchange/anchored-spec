@@ -1,0 +1,207 @@
+{
+  "yaml.schemas": {
+    "./node_modules/anchored-spec/dist/ea/schemas/application.schema.json": [
+      "**/APP-*.yaml",
+      "**/APP-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/service.schema.json": [
+      "**/SVC-*.yaml",
+      "**/SVC-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/api-contract.schema.json": [
+      "**/API-*.yaml",
+      "**/API-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/event-contract.schema.json": [
+      "**/EVT-*.yaml",
+      "**/EVT-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/integration.schema.json": [
+      "**/INT-*.yaml",
+      "**/INT-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/system-interface.schema.json": [
+      "**/SIF-*.yaml",
+      "**/SIF-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/consumer.schema.json": [
+      "**/CON-*.yaml",
+      "**/CON-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/platform.schema.json": [
+      "**/PLAT-*.yaml",
+      "**/PLAT-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/deployment.schema.json": [
+      "**/DEPLOY-*.yaml",
+      "**/DEPLOY-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/runtime-cluster.schema.json": [
+      "**/CLUSTER-*.yaml",
+      "**/CLUSTER-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/network-zone.schema.json": [
+      "**/ZONE-*.yaml",
+      "**/ZONE-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/identity-boundary.schema.json": [
+      "**/IDB-*.yaml",
+      "**/IDB-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/cloud-resource.schema.json": [
+      "**/CLOUD-*.yaml",
+      "**/CLOUD-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/environment.schema.json": [
+      "**/ENV-*.yaml",
+      "**/ENV-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/technology-standard.schema.json": [
+      "**/TECH-*.yaml",
+      "**/TECH-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/logical-data-model.schema.json": [
+      "**/LDM-*.yaml",
+      "**/LDM-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/physical-schema.schema.json": [
+      "**/SCHEMA-*.yaml",
+      "**/SCHEMA-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/data-store.schema.json": [
+      "**/STORE-*.yaml",
+      "**/STORE-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/lineage.schema.json": [
+      "**/LINEAGE-*.yaml",
+      "**/LINEAGE-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/master-data-domain.schema.json": [
+      "**/MDM-*.yaml",
+      "**/MDM-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/data-quality-rule.schema.json": [
+      "**/DQR-*.yaml",
+      "**/DQR-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/data-product.schema.json": [
+      "**/DPROD-*.yaml",
+      "**/DPROD-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/information-concept.schema.json": [
+      "**/IC-*.yaml",
+      "**/IC-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/canonical-entity.schema.json": [
+      "**/CE-*.yaml",
+      "**/CE-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/information-exchange.schema.json": [
+      "**/EXCH-*.yaml",
+      "**/EXCH-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/classification.schema.json": [
+      "**/CLASS-*.yaml",
+      "**/CLASS-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/retention-policy.schema.json": [
+      "**/RET-*.yaml",
+      "**/RET-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/glossary-term.schema.json": [
+      "**/TERM-*.yaml",
+      "**/TERM-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/mission.schema.json": [
+      "**/MISSION-*.yaml",
+      "**/MISSION-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/capability.schema.json": [
+      "**/CAP-*.yaml",
+      "**/CAP-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/value-stream.schema.json": [
+      "**/VS-*.yaml",
+      "**/VS-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/process.schema.json": [
+      "**/PROC-*.yaml",
+      "**/PROC-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/org-unit.schema.json": [
+      "**/ORG-*.yaml",
+      "**/ORG-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/policy-objective.schema.json": [
+      "**/POL-*.yaml",
+      "**/POL-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/business-service.schema.json": [
+      "**/BSVC-*.yaml",
+      "**/BSVC-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/control.schema.json": [
+      "**/CTRL-*.yaml",
+      "**/CTRL-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/baseline.schema.json": [
+      "**/BASELINE-*.yaml",
+      "**/BASELINE-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/target.schema.json": [
+      "**/TARGET-*.yaml",
+      "**/TARGET-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/transition-plan.schema.json": [
+      "**/PLAN-*.yaml",
+      "**/PLAN-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/migration-wave.schema.json": [
+      "**/WAVE-*.yaml",
+      "**/WAVE-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/exception.schema.json": [
+      "**/EXCEPT-*.yaml",
+      "**/EXCEPT-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/requirement.schema.json": [
+      "**/REQ-*.yaml",
+      "**/REQ-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/security-requirement.schema.json": [
+      "**/SREQ-*.yaml",
+      "**/SREQ-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/data-requirement.schema.json": [
+      "**/DREQ-*.yaml",
+      "**/DREQ-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/technical-requirement.schema.json": [
+      "**/TREQ-*.yaml",
+      "**/TREQ-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/information-requirement.schema.json": [
+      "**/IREQ-*.yaml",
+      "**/IREQ-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/change.schema.json": [
+      "**/CHG-*.yaml",
+      "**/CHG-*.yml"
+    ],
+    "./node_modules/anchored-spec/dist/ea/schemas/decision.schema.json": [
+      "**/ADR-*.yaml",
+      "**/ADR-*.yml"
+    ]
+  },
+  "json.schemas": [
+    {
+      "fileMatch": [
+        ".anchored-spec/config.json"
+      ],
+      "url": "./node_modules/anchored-spec/dist/ea/schemas/config-v1.schema.json"
+    }
+  ],
+  "files.associations": {
+    "ea/**/*.yaml": "yaml"
+  }
+}

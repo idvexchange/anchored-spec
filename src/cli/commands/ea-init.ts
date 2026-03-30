@@ -12,6 +12,8 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EA_DOMAINS, resolveConfigV1, detectConfigVersion, migrateConfigV0ToV1 } from "../../ea/index.js";
 import type { EaDomain, AnchoredSpecConfigV1, LegacyConfigInput } from "../../ea/index.js";
+import { writeIdeFiles } from "../ide-scaffold.js";
+import { writeAiConfigFiles } from "../ai-config.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +26,9 @@ export function eaInitCommand(): Command {
     .option("--migrate", "Migrate existing v0.x config to v1.0 format")
     .option("--force", "Overwrite existing files")
     .option("--dry-run", "Show what would be created without writing")
+    .option("--ide", "Generate VS Code workspace settings, snippets, and extension recommendations")
+    .option("--no-ide", "Skip VS Code integration files")
+    .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, all)")
     .action((options) => {
       const cwd = process.cwd();
       const rootDir = options.rootDir as string;
@@ -140,6 +145,50 @@ export function eaInitCommand(): Command {
       // 10. Update package.json scripts
       addPackageScripts(cwd, dryRun);
 
+      // 11. Generate VS Code integration files (--ide flag or explicit)
+      if (options.ide) {
+        if (!dryRun) {
+          const result = writeIdeFiles(cwd, { domains: v1Config.domains });
+          for (const f of result.created) {
+            console.log(chalk.green(`  ✓ Create ${f}`));
+          }
+          for (const f of result.skipped) {
+            console.log(chalk.dim(`  · Merge ${f}`));
+          }
+        } else {
+          console.log(chalk.green("  → Generate .vscode/settings.json"));
+          console.log(chalk.green("  → Generate .vscode/extensions.json"));
+          console.log(chalk.green("  → Generate .vscode/anchored-spec.code-snippets"));
+        }
+      }
+
+      // 12. Generate AI assistant config files (--ai flag)
+      if (options.ai) {
+        const targets = (options.ai as string).split(",").map((t: string) => t.trim());
+        if (!dryRun) {
+          const result = writeAiConfigFiles(cwd, {
+            rootDir: v1Config.rootDir,
+            domains: v1Config.domains,
+          }, targets);
+          for (const f of result.created) {
+            console.log(chalk.green(`  ✓ Create ${f}`));
+          }
+          for (const f of result.skipped) {
+            console.log(chalk.dim(`  · Skip ${f} (already exists)`));
+          }
+        } else {
+          if (targets.includes("copilot") || targets.includes("all")) {
+            console.log(chalk.green("  → Generate .github/copilot-instructions.md"));
+          }
+          if (targets.includes("claude") || targets.includes("all")) {
+            console.log(chalk.green("  → Generate CLAUDE.md"));
+          }
+          if (targets.includes("kiro") || targets.includes("all")) {
+            console.log(chalk.green("  → Generate .kiro/steering/ files"));
+          }
+        }
+      }
+
       console.log(chalk.blue("\n✅ Project initialized with anchored-spec v1.0!"));
       console.log(chalk.dim("\nNext steps:"));
       console.log(chalk.dim("  1. Create an artifact:    anchored-spec create application --title \"My App\""));
@@ -148,6 +197,12 @@ export function eaInitCommand(): Command {
       console.log(chalk.dim("  4. Visualize graph:       anchored-spec graph --format mermaid"));
       if (!options.withPolicy) {
         console.log(chalk.dim("  5. Create policy:         anchored-spec init --with-policy"));
+      }
+      if (!options.ide) {
+        console.log(chalk.dim("  6. VS Code integration:   anchored-spec init --ide"));
+      }
+      if (!options.ai) {
+        console.log(chalk.dim("  7. AI assistant config:   anchored-spec init --ai all"));
       }
     });
 }

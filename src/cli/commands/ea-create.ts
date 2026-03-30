@@ -126,6 +126,7 @@ relations: []
 
 function generateJson(id: string, kind: string, title: string, owner: string): string {
   const artifact: Record<string, unknown> = {
+    $schema: `./node_modules/anchored-spec/dist/ea/schemas/${kind}.schema.json`,
     id,
     schemaVersion: "1.0.0",
     kind,
