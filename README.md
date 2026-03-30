@@ -79,6 +79,8 @@ your-repo/
 | `impact` | Analyze impact of changes across dependencies |
 | `status` | Show artifact lifecycle status |
 | `transition` | Manage artifact status transitions |
+| `diff` | Semantic spec diff with compatibility and policy checks |
+| `reconcile` | Full SDD pipeline: generate → validate → drift |
 
 ## Documentation
 
@@ -98,6 +100,7 @@ Full documentation is in the [`docs/`](docs/) directory:
 - **[Drift, Resolvers & Generators](docs/ea-drift-resolvers-generators.md)** — Drift detection, resolvers, and code generation
 - **[Visualization](docs/ea-visualization.md)** — Architecture graph rendering and export
 - **[CI Integration](docs/ea-ci-integration.md)** — CI pipeline setup for validation and drift
+- **[Governed Evolution](docs/ea-governed-evolution.md)** — Spec diffing, compatibility checks, reconcile pipeline, version policies
 
 ### Reference
 - **[Schema Evolution](docs/ea-schema-evolution.md)** — Schema versioning and migration

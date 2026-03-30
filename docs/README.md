@@ -22,6 +22,7 @@ Welcome to the Anchored Spec v1.0 documentation. All content covers the EA (Ente
 - **[Drift, Resolvers & Generators](ea-drift-resolvers-generators.md)** — Drift detection, resolvers, and code generation
 - **[Visualization](ea-visualization.md)** — Architecture graph rendering (Mermaid, DOT, JSON)
 - **[CI Integration](ea-ci-integration.md)** — CI pipeline setup for validation, drift, and generation
+- **[Governed Evolution](ea-governed-evolution.md)** — Spec diffing, compatibility assessment, reconcile pipeline, version policy enforcement
 - **[Testing Guide](ea-testing-guide.md)** — Test patterns for EA artifacts
 
 ## Reference

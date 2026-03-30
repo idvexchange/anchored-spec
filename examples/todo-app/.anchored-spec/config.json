@@ -19,6 +19,14 @@
     "requireAnchors": false,
     "strictMode": false
   },
+  "versionPolicy": {
+    "defaultCompatibility": "backward-only",
+    "perKind": {
+      "api-contract": { "compatibility": "backward-only" },
+      "canonical-entity": { "compatibility": "full" },
+      "capability": { "compatibility": "breaking-allowed" }
+    }
+  },
   "workflowPolicyPath": "ea/workflow-policy.yaml",
   "plugins": [],
   "exclude": ["node_modules", ".next", "public"]

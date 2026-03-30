@@ -162,3 +162,23 @@ export { VitestEaAdapter, collectEaTestEvidence, registerEvidenceAdapter, getAva
 // Verification Engine (EA-native)
 export type { EaVerificationOptions, EaVerificationSummary, EaVerificationResult } from "./verify.js";
 export { runEaVerification } from "./verify.js";
+
+// Diff Engine
+export type { ArtifactChangeType, FieldSemantic, FieldChange, RelationDiff, ArtifactDiff, DomainDiffSummary, EaDiffReport } from "./diff.js";
+export { diffEaArtifacts, renderDiffSummary, renderDiffMarkdown, getFieldSemantic, deepEqual } from "./diff.js";
+
+// Diff — Git Integration
+export type { DiffGitOptions } from "./diff-git.js";
+export { loadArtifactsFromGitRef, loadArtifactsFromWorkingTree, diffEaGitRefs } from "./diff-git.js";
+
+// Compatibility Classifier
+export type { CompatibilityLevel, CompatibilityReason, CompatibilityAssessment, CompatibilityReport } from "./compat.js";
+export { assessCompatibility, renderCompatSummary, renderCompatMarkdown } from "./compat.js";
+
+// Reconcile Pipeline
+export type { ReconcileOptions, ReconcileStepResult, ReconcileReport } from "./reconcile.js";
+export { reconcileEaProject, renderReconcileOutput } from "./reconcile.js";
+
+// Version Policy Enforcement
+export type { CompatibilityMode, VersionPolicy, VersionPolicyConfig, PolicyViolation, PolicyEnforcementReport } from "./version-policy.js";
+export { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, renderPolicyMarkdown } from "./version-policy.js";

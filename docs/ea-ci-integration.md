@@ -225,6 +225,66 @@ Teams don't need to enable all stages at once. Recommended rollout:
   run: npx anchored-spec drift --fail-on-warning
 ```
 
+### Week 6+: Replace Individual Steps with Reconcile
+
+Once comfortable with validate, generate, and drift individually, replace them with a single reconcile command:
+
+```yaml
+- name: EA Reconcile
+  run: npx anchored-spec reconcile --fail-on error
+```
+
+This runs generate → validate → drift as a unified pipeline with a single exit code.
+
+### Week 7+: Add Compatibility Gating
+
+```yaml
+- name: Breaking change detection
+  run: npx anchored-spec diff ${{ github.event.pull_request.base.ref }} --compat --fail-on breaking
+```
+
+### Week 8+: Enforce Version Policies
+
+```yaml
+- name: Version policy enforcement
+  run: npx anchored-spec diff ${{ github.event.pull_request.base.ref }} --policy
+```
+
+See [Governed Evolution Guide](ea-governed-evolution.md) for full details on configuring compatibility modes and version policies.
+
+## Simplified Pipeline with Reconcile
+
+For teams that want a single-command CI pipeline replacing the multi-stage approach above:
+
+```yaml
+name: EA Checks
+on: [pull_request]
+
+jobs:
+  ea:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for diff
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+
+      # Single command: generate + validate + drift
+      - name: Reconcile
+        run: npx anchored-spec reconcile --fail-on error
+
+      # Optional: compatibility check on PRs
+      - name: Compatibility
+        run: npx anchored-spec diff ${{ github.event.pull_request.base.ref }} --compat --fail-on breaking
+
+      # Optional: version policy enforcement
+      - name: Version policy
+        run: npx anchored-spec diff ${{ github.event.pull_request.base.ref }} --policy
+```
+
 ## PR Comment Integration
 
 For teams that want drift findings as PR comments:
