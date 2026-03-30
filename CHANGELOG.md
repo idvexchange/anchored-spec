@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Version policy enforcement** — Per-kind and global compatibility policies (`backward-only`, `full`, `breaking-allowed`) with automatic violation detection.
 - **SKILL.md workflows** — 9 new AI agent workflows: Explain Change, Spec-First Implementation, Pre-Implementation Audit, Context Assembly, Architecture Onboarding, Confidence Audit, and more.
 - **VS Code integration** (`init --ide`) — Generates `.vscode/settings.json` with schema-to-file mappings for all 48 artifact kinds, `.vscode/anchored-spec.code-snippets` with 17 snippets, and `.vscode/extensions.json` recommending Red Hat YAML extension. Instant autocomplete, validation, and hovers.
-- **AI assistant configuration** (`init --ai`) — Generates `.github/copilot-instructions.md` (GitHub Copilot), `CLAUDE.md` (Claude Code), and `.kiro/steering/` files (Kiro IDE). Targets: `copilot`, `claude`, `kiro`, `all`.
+- **AI assistant configuration** (`init --ai`) — Generates `.github/copilot-instructions.md` (GitHub Copilot), `CLAUDE.md` (Claude Code), `.kiro/steering/` files (Kiro IDE), and `.specify/extensions/anchored-spec/` (Spec-Kit). Targets: `copilot`, `claude`, `kiro`, `speckit`, `all`.
 - **`$schema` injection** — `create` command now includes `$schema` in JSON artifacts for instant VS Code validation without settings.
 - **Document traceability** — Bidirectional trace links between markdown docs (`ea-artifacts` frontmatter) and EA artifacts (`traceRefs`). New commands: `trace`, `link-docs`, `context`, `create-doc`.
 - **`trace` command** — Show the traceability web for an artifact or document. Supports `--check` (bidirectional integrity), `--orphans` (missing backlinks), `--summary` (counts), and `--json`.
@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Document scanner** — `scanDocs()` and `buildDocIndex()` for finding markdown files with EA-relevant frontmatter across project directories.
 - **Trace integrity drift rules** — 2 new drift rules: `ea:trace/ref-target-exists` (validates traceRef paths) and `ea:trace/duplicate-ref` (detects duplicate traceRefs). Total: 44 drift rules.
 - **Document-driven discovery** (`discover --from-docs`) — Prose-first workflow: write docs with `ea-artifacts` frontmatter referencing artifact IDs that don't yet exist, then run `discover --from-docs` to scaffold draft artifacts. Infers kind from ID prefix, uses doc context for summary.
+- **Spec-Kit extension generation** (`init --ai speckit`) — Generates a complete Spec-Kit extension in `.specify/extensions/anchored-spec/` with `extension.yml` manifest, 4 AI commands (`enrich`, `scaffold`, `trace`, `context`), and an `after_tasks` hook. The `all` target now includes `speckit` alongside `copilot`, `claude`, and `kiro`.
 
 ### Changed
 

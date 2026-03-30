@@ -170,6 +170,333 @@ Each artifact kind has a unique prefix:
   return { product, tech, structure };
 }
 
+// ── Spec-Kit Extension Generator ────────────────────────────────────────────────
+
+export interface SpecKitExtension {
+  manifest: string;
+  enrichCmd: string;
+  scaffoldCmd: string;
+  traceCmd: string;
+  contextCmd: string;
+}
+
+export function generateSpecKitExtension(config: AiConfigInput): SpecKitExtension {
+  const { rootDir } = config;
+
+  const manifest = `schema_version: "1.0"
+
+extension:
+  id: "anchored-spec"
+  name: "Anchored Spec EA Framework"
+  version: "1.0.0"
+  description: "Spec-as-source enterprise architecture: frontmatter enrichment, artifact scaffolding, trace validation, and AI context assembly"
+  author: "anchored-spec"
+  repository: "https://github.com/idvexchange/anchored-spec"
+  license: "MIT"
+
+requires:
+  speckit_version: ">=0.5.0"
+  tools:
+    - name: "npx"
+      required: true
+      version: ">=8.0.0"
+
+provides:
+  commands:
+    - name: "speckit.anchored-spec.enrich"
+      file: "commands/enrich.md"
+      description: "Analyze a spec and auto-generate ea-artifacts YAML frontmatter"
+      aliases: ["speckit.anchored-spec.fm"]
+
+    - name: "speckit.anchored-spec.scaffold"
+      file: "commands/scaffold.md"
+      description: "Scaffold EA artifacts from spec document frontmatter references"
+
+    - name: "speckit.anchored-spec.trace"
+      file: "commands/trace.md"
+      description: "Check bidirectional traceability between specs and EA artifacts"
+
+    - name: "speckit.anchored-spec.context"
+      file: "commands/context.md"
+      description: "Assemble AI context package for an EA artifact"
+
+hooks:
+  after_tasks:
+    command: "speckit.anchored-spec.scaffold"
+    optional: true
+    prompt: "Scaffold EA artifacts from spec frontmatter references?"
+
+tags:
+  - "enterprise-architecture"
+  - "traceability"
+  - "spec-driven"
+  - "frontmatter"
+`;
+
+  const enrichCmd = `---
+description: "Analyze a markdown spec and auto-generate ea-artifacts YAML frontmatter"
+---
+
+# Enrich Spec with EA Frontmatter
+
+You are an EA frontmatter enrichment agent. Your job is to analyze a spec document
+and generate accurate YAML frontmatter that links it to EA artifacts.
+
+## User Input
+
+$ARGUMENTS
+
+If no file is specified, operate on the currently open file.
+
+## Steps
+
+### 1. Understand the project's EA model
+
+\`\`\`bash
+npx anchored-spec status 2>/dev/null || echo "No artifacts yet"
+npx anchored-spec trace --summary --json 2>/dev/null || echo "{}"
+\`\`\`
+
+### 2. Read the target spec document
+
+Read the file specified in $ARGUMENTS. Analyze its content for:
+- **Domain**: Which EA domain(s) does this spec relate to? (systems, delivery, data, information, business, transitions)
+- **Type**: Is this a spec, architecture doc, guide, ADR, or runbook?
+- **Audience**: Who is this for? (agent, developer, architect, stakeholder)
+- **Artifact references**: Which EA artifact IDs are mentioned or implied?
+
+### 3. Identify artifact IDs
+
+Look for references to:
+- Service names → \`SVC-{name}\`
+- API endpoints → \`API-{name}\`
+- Database tables/schemas → \`SCHEMA-{name}\` or \`STORE-{name}\`
+- Events/messages → \`EVT-{name}\`
+- Business capabilities → \`CAP-{name}\`
+- Any explicit artifact IDs already in the text
+
+Cross-reference against existing artifacts:
+\`\`\`bash
+npx anchored-spec validate --json 2>/dev/null | head -5
+\`\`\`
+
+### 4. Generate frontmatter
+
+Add or update the YAML frontmatter at the top of the file:
+
+\`\`\`yaml
+---
+type: spec          # spec | architecture | guide | adr | runbook
+status: draft       # draft | current | deprecated | superseded
+audience: agent, developer
+domain: systems     # EA domain(s)
+requires: []        # Other docs this depends on (relative paths)
+ea-artifacts: [SVC-auth-core, API-auth-v1]  # EA artifact IDs
+last-verified: {today's date in YYYY-MM-DD}
+---
+\`\`\`
+
+### 5. Validate the result
+
+\`\`\`bash
+npx anchored-spec trace $ARGUMENTS 2>/dev/null
+\`\`\`
+
+Report which artifacts exist, which are new, and whether \`discover --from-docs\`
+should be run to scaffold the new ones.
+
+## Rules
+
+- **Be accurate**: Only list artifact IDs that the spec genuinely relates to
+- **Use correct prefixes**: SVC for services, API for APIs, SCHEMA for schemas, etc.
+- **Preserve existing frontmatter**: Merge new fields with any existing frontmatter
+- **Don't invent artifacts**: If unsure whether an artifact exists, list it anyway — \`trace --check\` will catch mismatches
+`;
+
+  const scaffoldCmd = `---
+description: "Scaffold EA artifacts from spec document frontmatter references"
+---
+
+# Scaffold EA Artifacts from Specs
+
+You are an EA scaffolding agent. Your job is to create draft EA artifacts
+for any artifact IDs referenced in spec documents that don't yet exist.
+
+## User Input
+
+$ARGUMENTS
+
+If empty, scaffold from all docs in the project.
+
+## Steps
+
+### 1. Preview what would be created
+
+\`\`\`bash
+npx anchored-spec discover --from-docs --dry-run
+\`\`\`
+
+Review the output. It shows:
+- **New artifacts**: IDs from frontmatter that don't match existing artifacts
+- **Already exists**: IDs that are already modeled (skipped)
+- **Unknown prefix**: IDs whose prefix doesn't match any EA kind
+
+### 2. Create the draft artifacts
+
+If the preview looks correct:
+
+\`\`\`bash
+npx anchored-spec discover --from-docs
+\`\`\`
+
+### 3. Enrich the drafts
+
+For each newly created draft artifact in \`${rootDir}/\`:
+1. Read the draft (it will have \`status: "draft"\` and \`confidence: "inferred"\`)
+2. Read the source spec document (listed in the draft's \`anchors.docs\`)
+3. Fill in kind-specific fields based on the spec content:
+   - Services: \`techStack\`, \`endpoints\`
+   - APIs: \`protocol\`, \`basePath\`, \`operations\`
+   - Schemas: \`engine\`, \`tables\`
+   - Events: \`channel\`, \`payload\`
+4. Update \`summary\` with an accurate description from the spec
+5. Set \`confidence\` to \`"declared"\` (human-reviewed)
+
+### 4. Sync trace links
+
+\`\`\`bash
+npx anchored-spec link-docs
+\`\`\`
+
+### 5. Validate
+
+\`\`\`bash
+npx anchored-spec validate
+npx anchored-spec trace --check
+\`\`\`
+
+## Rules
+
+- **Never overwrite existing artifacts** — the discovery pipeline prevents this
+- **Draft artifacts need human review** — always enrich with kind-specific fields
+- **Run link-docs after scaffolding** — this establishes bidirectional traces
+- **Validate after every change** — catch schema errors early
+`;
+
+  const traceCmd = `---
+description: "Check bidirectional traceability between specs and EA artifacts"
+---
+
+# Trace Integrity Check
+
+You are a traceability validation agent. Your job is to check that
+spec documents and EA artifacts are properly linked in both directions.
+
+## User Input
+
+$ARGUMENTS
+
+If a specific artifact ID or file path is given, trace that item.
+Otherwise, run a full integrity check.
+
+## Steps
+
+### 1. Run the integrity check
+
+If $ARGUMENTS is empty:
+\`\`\`bash
+npx anchored-spec trace --check
+\`\`\`
+
+If $ARGUMENTS is a specific target:
+\`\`\`bash
+npx anchored-spec trace $ARGUMENTS
+\`\`\`
+
+### 2. Analyze the results
+
+Report:
+- ✅ **Bidirectional links**: artifact has traceRef → doc, doc has ea-artifacts → artifact
+- ⚠ **One-way links**: only one direction exists
+- ❌ **Broken links**: traceRef points to a file that doesn't exist
+
+### 3. Fix issues
+
+For one-way links (most common):
+\`\`\`bash
+npx anchored-spec link-docs --dry-run    # preview fixes
+npx anchored-spec link-docs              # apply fixes
+\`\`\`
+
+For broken links:
+- Check if the file was moved/renamed
+- Update the traceRef path in the artifact
+
+### 4. Show summary
+
+\`\`\`bash
+npx anchored-spec trace --summary
+\`\`\`
+`;
+
+  const contextCmd = `---
+description: "Assemble AI context package for an EA artifact"
+---
+
+# Context Assembly
+
+You are a context assembly agent. Your job is to gather all relevant
+architectural context for an artifact before starting implementation work.
+
+## User Input
+
+$ARGUMENTS
+
+The artifact ID to assemble context for.
+
+## Steps
+
+### 1. Assemble the context
+
+\`\`\`bash
+npx anchored-spec context $ARGUMENTS
+\`\`\`
+
+This outputs:
+- The artifact's full specification
+- All traced documents (sorted by role: specification > rationale > context)
+- Transitive document dependencies (from \`requires\` frontmatter)
+- Related artifacts (from \`relations[]\`)
+
+### 2. For token-limited contexts
+
+\`\`\`bash
+npx anchored-spec context $ARGUMENTS --max-tokens 8000
+\`\`\`
+
+### 3. Show the dependency neighborhood
+
+\`\`\`bash
+npx anchored-spec graph --focus $ARGUMENTS --depth 2 --format mermaid
+npx anchored-spec impact $ARGUMENTS
+\`\`\`
+
+### 4. Present the context
+
+Organize the output into these context blocks for the implementing agent:
+
+| Block | Source | Purpose |
+|---|---|---|
+| **Feature intent** | Artifact summary + spec docs | What we're building |
+| **Architecture** | Relations + graph | How components connect |
+| **Standards** | Compliance fields + tech standards | What rules apply |
+| **Guardrails** | Version policies + drift findings | What constraints exist |
+| **Current state** | Status, confidence, evidence | Where we are now |
+`;
+
+  return { manifest, enrichCmd, scaffoldCmd, traceCmd, contextCmd };
+}
+
 // ── Writer ──────────────────────────────────────────────────────────────────────
 
 export function writeAiConfigFiles(
@@ -182,7 +509,7 @@ export function writeAiConfigFiles(
 
   const resolvedTargets = new Set(
     targets.includes("all")
-      ? ["copilot", "claude", "kiro"]
+      ? ["copilot", "claude", "kiro", "speckit"]
       : targets,
   );
 
@@ -209,6 +536,19 @@ export function writeAiConfigFiles(
       { rel: join(steeringDir, "product.md"), content: kiro.product },
       { rel: join(steeringDir, "tech.md"), content: kiro.tech },
       { rel: join(steeringDir, "structure.md"), content: kiro.structure },
+    );
+  }
+
+  if (resolvedTargets.has("speckit")) {
+    const sk = generateSpecKitExtension(config);
+    const extDir = join(".specify", "extensions", "anchored-spec");
+    const cmdDir = join(extDir, "commands");
+    filesToWrite.push(
+      { rel: join(extDir, "extension.yml"), content: sk.manifest },
+      { rel: join(cmdDir, "enrich.md"), content: sk.enrichCmd },
+      { rel: join(cmdDir, "scaffold.md"), content: sk.scaffoldCmd },
+      { rel: join(cmdDir, "trace.md"), content: sk.traceCmd },
+      { rel: join(cmdDir, "context.md"), content: sk.contextCmd },
     );
   }
 

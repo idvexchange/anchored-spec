@@ -20,7 +20,7 @@
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
 | **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
 | **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
-| **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config for Copilot, Claude, and Kiro via `init --ai` |
+| **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config for Copilot, Claude, Kiro, and Spec-Kit via `init --ai` |
 | **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
 
 ## Quick Start
@@ -35,7 +35,7 @@ npx anchored-spec init
 # Set up VS Code autocomplete, snippets, and validation
 npx anchored-spec init --ide
 
-# Generate AI assistant config files (Copilot, Claude, Kiro)
+# Generate AI assistant config files (Copilot, Claude, Kiro, Spec-Kit)
 npx anchored-spec init --ai all
 
 # Create your first artifact

@@ -28,7 +28,7 @@ export function eaInitCommand(): Command {
     .option("--dry-run", "Show what would be created without writing")
     .option("--ide", "Generate VS Code workspace settings, snippets, and extension recommendations")
     .option("--no-ide", "Skip VS Code integration files")
-    .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, all)")
+    .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, speckit, all)")
     .action((options) => {
       const cwd = process.cwd();
       const rootDir = options.rootDir as string;
@@ -185,6 +185,9 @@ export function eaInitCommand(): Command {
           }
           if (targets.includes("kiro") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .kiro/steering/ files"));
+          }
+          if (targets.includes("speckit") || targets.includes("all")) {
+            console.log(chalk.green("  → Generate .specify/extensions/anchored-spec/ (Spec-Kit extension)"));
           }
         }
       }

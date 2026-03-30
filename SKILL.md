@@ -878,7 +878,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs) |
+| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs, `--ai speckit` for Spec-Kit extension) |
 | `create` | Create a new EA artifact from template |
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
@@ -992,6 +992,20 @@ Read and follow the rules in SKILL.md for all code changes in this repository.
 ```
 Read and follow the rules in SKILL.md for all code changes in this repository.
 ```
+
+### Spec-Kit Extension
+
+Generate the extension with `npx anchored-spec init --ai speckit`. This creates `.specify/extensions/anchored-spec/` containing:
+
+| File | Purpose |
+|---|---|
+| `extension.yml` | Manifest declaring 4 commands and an `after_tasks` hook |
+| `commands/enrich.md` | AI command: analyze a spec and auto-generate `ea-artifacts` YAML frontmatter |
+| `commands/scaffold.md` | AI command: run `discover --from-docs` to scaffold EA artifacts from spec references |
+| `commands/trace.md` | AI command: check bidirectional trace integrity between docs and artifacts |
+| `commands/context.md` | AI command: assemble an AI context package for an artifact |
+
+The `after_tasks` hook in `extension.yml` runs `npx anchored-spec validate` automatically after task completion, ensuring artifacts stay valid.
 
 ### Generic / Other Agents
 
