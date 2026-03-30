@@ -108,6 +108,176 @@ ${domainList(domains, "- ")}
 `;
 }
 
+// ── Reusable Prompt Generators ──────────────────────────────────────────────────
+
+export interface AgentPrompts {
+  enrich: string;
+  scaffold: string;
+  trace: string;
+  context: string;
+  drift: string;
+  audit: string;
+}
+
+/**
+ * Generate reusable prompt templates for EA workflows.
+ * Used by both Copilot (.prompt.md) and Claude (.claude/commands/) generators.
+ * The format is agent-agnostic markdown with $ARGUMENTS placeholder.
+ */
+export function generateAgentPrompts(_config: AiConfigInput): AgentPrompts {
+  const enrich = `Analyze the file $ARGUMENTS (or the currently open file) and generate accurate EA frontmatter metadata.
+
+Steps:
+1. Read the document content and identify architectural references (services, APIs, schemas, events, capabilities)
+2. Run \`npx anchored-spec status\` to see existing EA artifacts
+3. Map references to artifact IDs using the correct prefix: SVC- (service), API- (api-contract), SCHEMA- (schema), EVT- (event), CAP- (capability), APP- (application), etc.
+4. Determine the document type (spec, architecture, guide, adr, runbook), audience, and domain
+5. Add or update YAML frontmatter at the top of the file:
+   \`\`\`yaml
+   ---
+   type: spec
+   status: draft
+   audience: developer
+   domain: systems
+   ea-artifacts: [SVC-auth-core, API-auth-v1]
+   last-verified: {today}
+   ---
+   \`\`\`
+6. Run \`npx anchored-spec trace $ARGUMENTS\` to verify the links
+
+Rules: Only list artifact IDs the document genuinely relates to. Preserve existing frontmatter. Use correct EA prefixes from SKILL.md §4.
+`;
+
+  const scaffold = `Scaffold EA artifacts from document frontmatter references.
+
+Steps:
+1. Preview: \`npx anchored-spec discover --from-docs --dry-run\`
+2. Review the output — it shows new artifacts to create, existing ones (skipped), and unknown prefixes
+3. If the preview looks correct: \`npx anchored-spec discover --from-docs\`
+4. For each new draft artifact, read the source spec and fill in kind-specific fields (tech stack, endpoints, schemas, etc.)
+5. Set confidence to "declared" after human review
+6. Sync trace links: \`npx anchored-spec link-docs\`
+7. Validate: \`npx anchored-spec validate\`
+`;
+
+  const trace = `Check bidirectional traceability between docs and EA artifacts.
+
+If $ARGUMENTS is provided, trace that specific artifact or file. Otherwise run a full check.
+
+Steps:
+1. Run: \`npx anchored-spec trace --check\` (or \`npx anchored-spec trace $ARGUMENTS\`)
+2. Report findings:
+   - ✅ Bidirectional: artifact traceRef → doc AND doc ea-artifacts → artifact
+   - ⚠ One-way: link exists in only one direction
+   - ❌ Broken: traceRef points to a missing file
+3. To fix one-way links: \`npx anchored-spec link-docs\`
+4. Show summary: \`npx anchored-spec trace --summary\`
+`;
+
+  const context = `Assemble the full architectural context for artifact $ARGUMENTS before starting implementation.
+
+Steps:
+1. Run: \`npx anchored-spec context $ARGUMENTS\`
+2. This gathers: the artifact spec, all traced docs (by role), transitive dependencies, and related artifacts
+3. For token-limited contexts: \`npx anchored-spec context $ARGUMENTS --max-tokens 8000\`
+4. Show the dependency graph: \`npx anchored-spec graph --focus $ARGUMENTS --depth 2 --format mermaid\`
+5. Check impact: \`npx anchored-spec impact $ARGUMENTS\`
+6. Present context blocks: Feature intent | Architecture | Standards | Guardrails | Current state
+`;
+
+  const drift = `Check for drift between EA specifications and the current codebase.
+
+Steps:
+1. Run: \`npx anchored-spec drift\`
+2. If drift is detected, report which artifacts are affected and what drifted
+3. For each finding, suggest resolution:
+   - Code is correct → update the artifact: \`npx anchored-spec reconcile\`
+   - Spec is correct → revert the code change
+4. Run \`npx anchored-spec validate\` after any reconciliation
+`;
+
+  const audit = `Run a pre-implementation spec audit to verify the architecture is ready for coding.
+
+Steps:
+1. Run: \`npx anchored-spec validate\` — zero schema errors required
+2. Run: \`npx anchored-spec drift\` — check for existing drift
+3. Run: \`npx anchored-spec trace --check\` — verify doc↔artifact links
+4. Check confidence: are key artifacts at "declared" (not "inferred")?
+5. Check relations: does the target artifact have defined dependencies?
+6. Report a go/no-go decision with specific items to fix before implementation
+`;
+
+  return { enrich, scaffold, trace, context, drift, audit };
+}
+
+/**
+ * Generate Copilot prompt files (.prompt.md) for .github/prompts/
+ */
+export function generateCopilotPrompts(config: AiConfigInput): Array<{ name: string; content: string }> {
+  const prompts = generateAgentPrompts(config);
+
+  return [
+    {
+      name: "ea-enrich",
+      content: `---
+description: "Analyze a spec document and generate EA artifact frontmatter metadata"
+---
+${prompts.enrich}`,
+    },
+    {
+      name: "ea-scaffold",
+      content: `---
+description: "Scaffold EA artifacts from document frontmatter references"
+---
+${prompts.scaffold}`,
+    },
+    {
+      name: "ea-trace",
+      content: `---
+description: "Check bidirectional traceability between docs and EA artifacts"
+---
+${prompts.trace}`,
+    },
+    {
+      name: "ea-context",
+      content: `---
+description: "Assemble full architectural context for an EA artifact"
+---
+${prompts.context}`,
+    },
+    {
+      name: "ea-drift",
+      content: `---
+description: "Check for drift between EA specs and the codebase"
+---
+${prompts.drift}`,
+    },
+    {
+      name: "ea-audit",
+      content: `---
+description: "Pre-implementation spec audit — verify architecture is ready for coding"
+---
+${prompts.audit}`,
+    },
+  ];
+}
+
+/**
+ * Generate Claude Code command files (.md) for .claude/commands/
+ */
+export function generateClaudeCommands(config: AiConfigInput): Array<{ name: string; content: string }> {
+  const prompts = generateAgentPrompts(config);
+
+  return [
+    { name: "ea-enrich", content: prompts.enrich },
+    { name: "ea-scaffold", content: prompts.scaffold },
+    { name: "ea-trace", content: prompts.trace },
+    { name: "ea-context", content: prompts.context },
+    { name: "ea-drift", content: prompts.drift },
+    { name: "ea-audit", content: prompts.audit },
+  ];
+}
+
 export function generateKiroSteering(config: AiConfigInput): KiroSteering {
   const { rootDir, domains } = config;
 
@@ -651,6 +821,14 @@ export function writeAiConfigFiles(
       rel: join(".github", "copilot-instructions.md"),
       content: generateCopilotInstructions(config),
     });
+
+    const copilotPrompts = generateCopilotPrompts(config);
+    for (const p of copilotPrompts) {
+      filesToWrite.push({
+        rel: join(".github", "prompts", `${p.name}.prompt.md`),
+        content: p.content,
+      });
+    }
   }
 
   if (resolvedTargets.has("claude")) {
@@ -658,6 +836,14 @@ export function writeAiConfigFiles(
       rel: "CLAUDE.md",
       content: generateClaudeMd(config),
     });
+
+    const claudeCommands = generateClaudeCommands(config);
+    for (const c of claudeCommands) {
+      filesToWrite.push({
+        rel: join(".claude", "commands", `${c.name}.md`),
+        content: c.content,
+      });
+    }
   }
 
   if (resolvedTargets.has("kiro")) {

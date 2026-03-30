@@ -179,9 +179,11 @@ export function eaInitCommand(): Command {
         } else {
           if (targets.includes("copilot") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .github/copilot-instructions.md"));
+            console.log(chalk.green("  → Generate .github/prompts/ (6 reusable prompt commands)"));
           }
           if (targets.includes("claude") || targets.includes("all")) {
             console.log(chalk.green("  → Generate CLAUDE.md"));
+            console.log(chalk.green("  → Generate .claude/commands/ (6 slash commands)"));
           }
           if (targets.includes("kiro") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .kiro/steering/ files"));

@@ -120,7 +120,7 @@ describe("Spec-Kit Extension", () => {
 
       // Also generates other targets
       expect(existsSync(join(tempDir, "CLAUDE.md"))).toBe(true);
-      // All targets: copilot(1) + claude(1) + kiro(3 steering + 4 hooks) + speckit(5) = 14
+      // All targets: copilot(1+6) + claude(1+6) + kiro(3+4) + speckit(5) = 26
       expect(result.created.length).toBeGreaterThanOrEqual(5);
     });
 

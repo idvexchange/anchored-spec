@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Document-driven discovery** (`discover --from-docs`) — Prose-first workflow: write docs with `ea-artifacts` frontmatter referencing artifact IDs that don't yet exist, then run `discover --from-docs` to scaffold draft artifacts. Infers kind from ID prefix, uses doc context for summary.
 - **Spec-Kit extension generation** (`init --ai speckit`) — Generates a complete Spec-Kit extension in `.specify/extensions/anchored-spec/` with `extension.yml` manifest, 4 AI commands (`enrich`, `scaffold`, `trace`, `context`), and an `after_tasks` hook. The `all` target now includes `speckit` alongside `copilot`, `claude`, and `kiro`.
 - **Kiro event-driven hooks** (`init --ai kiro`) — Generates 4 agent hooks in `.kiro/hooks/` alongside the 3 steering files: `validate-artifact.yml` (onSave, validates artifacts against JSON schemas), `enrich-spec.yml` (onCreate, auto-generates ea-artifacts frontmatter), `trace-integrity.yml` (onSave, checks bidirectional trace links), and `drift-detection.yml` (onSave, detects drift when implementation changes). Total Kiro output: 3 steering + 4 hooks = 7 files.
+- **Reusable prompt commands** (`init --ai copilot`, `init --ai claude`) — Generates 6 slash-command prompt files for Copilot (`.github/prompts/ea-*.prompt.md`) and Claude (`.claude/commands/ea-*.md`): `ea-enrich`, `ea-scaffold`, `ea-trace`, `ea-context`, `ea-drift`, `ea-audit`. Gives plain-agent users the same workflows that Kiro and Spec-Kit users get via hooks.
 
 ### Changed
 

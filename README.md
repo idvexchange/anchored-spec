@@ -20,7 +20,7 @@
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
 | **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
 | **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
-| **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config for Copilot, Claude, Kiro (3 steering files + 4 event-driven hooks), and Spec-Kit via `init --ai` |
+| **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config with reusable slash commands for Copilot and Claude, event-driven hooks for Kiro, and Spec-Kit extension via `init --ai` |
 | **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
 
 ## Quick Start

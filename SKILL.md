@@ -878,7 +878,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs, `--ai kiro` for 3 steering + 4 hooks, `--ai speckit` for Spec-Kit extension) |
+| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI configs). Copilot/Claude targets include 6 reusable prompt commands; Kiro includes 4 event-driven hooks; Spec-Kit includes extension with 4 AI commands |
 | `create` | Create a new EA artifact from template |
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
@@ -955,13 +955,33 @@ Architecture is not static. Use baselines, targets, and transition plans to mana
 
 ## 27. Integration Guide
 
+### Quick Prompts — Copy-Paste Workflow Triggers
+
+These prompts work with **any** AI agent. Copy-paste them into your chat, or generate them as slash commands with `init --ai copilot` or `init --ai claude`.
+
+| When you… | Say this to your agent |
+|---|---|
+| Create a new spec doc | "Enrich this doc with EA frontmatter — identify artifact references and add `ea-artifacts` to the YAML frontmatter" |
+| Want artifacts from docs | "Run `npx anchored-spec discover --from-docs --dry-run` and scaffold any missing artifacts" |
+| Finish editing a spec | "Check trace integrity: `npx anchored-spec trace --check` and fix any one-way links with `link-docs`" |
+| Start implementation | "Assemble context for `SVC-auth-core`: run `npx anchored-spec context SVC-auth-core`" |
+| Change implementation code | "Check for EA drift: `npx anchored-spec drift` and report any spec violations" |
+| Before marking done | "Run a spec audit: `npx anchored-spec validate && npx anchored-spec drift && npx anchored-spec trace --check`" |
+
+**Generated slash commands** (available after `init --ai`):
+
+| Agent | Commands directory | Invocation |
+|---|---|---|
+| **GitHub Copilot** | `.github/prompts/ea-*.prompt.md` | Type `/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit` in Copilot Chat |
+| **Claude Code** | `.claude/commands/ea-*.md` | Type `/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit` in Claude |
+| **Kiro** | `.kiro/hooks/*.yml` | Automatic — hooks fire on save/create events |
+| **Spec-Kit** | `.specify/extensions/anchored-spec/` | `speckit.anchored-spec.enrich`, `.scaffold`, `.trace`, `.context` |
+
 ### GitHub Copilot
 
-Add to `.github/copilot-instructions.md`:
-
-```markdown
-Read and follow the rules in SKILL.md for all code changes in this repository.
-```
+Generate with `npx anchored-spec init --ai copilot`. This creates:
+- `.github/copilot-instructions.md` — Project context
+- `.github/prompts/ea-*.prompt.md` — 6 reusable slash commands (`/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit`)
 
 ### Cursor
 
@@ -989,9 +1009,9 @@ Read and follow the rules in SKILL.md for all code changes in this repository.
 
 ### Claude Code (CLAUDE.md)
 
-```
-Read and follow the rules in SKILL.md for all code changes in this repository.
-```
+Generate with `npx anchored-spec init --ai claude`. This creates:
+- `CLAUDE.md` — Project context
+- `.claude/commands/ea-*.md` — 6 slash commands (`/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit`)
 
 ### Kiro IDE
 
