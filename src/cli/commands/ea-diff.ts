@@ -17,6 +17,12 @@ import {
   renderDiffMarkdown,
   renderDiffSummary,
 } from "../../ea/diff.js";
+import {
+  assessCompatibility,
+  renderCompatMarkdown,
+  renderCompatSummary,
+} from "../../ea/compat.js";
+import type { CompatibilityLevel } from "../../ea/compat.js";
 import { CliError } from "../errors.js";
 
 export function eaDiffCommand(): Command {
@@ -32,6 +38,8 @@ export function eaDiffCommand(): Command {
     .option("--output <file>", "Write to file instead of stdout")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--json", "Shorthand for --format json")
+    .option("--compat", "Show compatibility assessment (breaking/additive/etc.)")
+    .option("--fail-on <level>", "Exit non-zero if compatibility level met: breaking, ambiguous")
     .action(async (ref, options) => {
       const cwd = process.cwd();
       const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
@@ -71,6 +79,48 @@ export function eaDiffCommand(): Command {
             (fc) => fc.semantic === options.semantic,
           );
         }
+      }
+
+      // Compatibility assessment
+      if (options.compat) {
+        const compatReport = assessCompatibility(report);
+
+        if (options.summary) {
+          process.stdout.write(renderCompatSummary(compatReport) + "\n");
+        } else if (format === "json") {
+          const output = JSON.stringify(compatReport, null, 2);
+          if (options.output) {
+            writeFileSync(options.output, output + "\n");
+            process.stdout.write(chalk.green(`✓ Compat report written to ${options.output}`) + "\n");
+          } else {
+            process.stdout.write(output + "\n");
+          }
+        } else {
+          const output = renderCompatMarkdown(compatReport);
+          if (options.output) {
+            writeFileSync(options.output, output + "\n");
+            process.stdout.write(chalk.green(`✓ Compat report written to ${options.output}`) + "\n");
+          } else {
+            process.stdout.write(output + "\n");
+          }
+        }
+
+        // --fail-on gate
+        if (options.failOn) {
+          const threshold = options.failOn as string;
+          const levels: Record<string, CompatibilityLevel[]> = {
+            breaking: ["breaking"],
+            ambiguous: ["breaking", "ambiguous"],
+          };
+          const failLevels = levels[threshold];
+          if (failLevels && failLevels.includes(compatReport.overallLevel)) {
+            throw new CliError(
+              `Compatibility check failed: ${compatReport.overallLevel} changes detected`,
+              1,
+            );
+          }
+        }
+        return;
       }
 
       // Output

@@ -170,3 +170,7 @@ export { diffEaArtifacts, renderDiffSummary, renderDiffMarkdown, getFieldSemanti
 // Diff — Git Integration
 export type { DiffGitOptions } from "./diff-git.js";
 export { loadArtifactsFromGitRef, loadArtifactsFromWorkingTree, diffEaGitRefs } from "./diff-git.js";
+
+// Compatibility Classifier
+export type { CompatibilityLevel, CompatibilityReason, CompatibilityAssessment, CompatibilityReport } from "./compat.js";
+export { assessCompatibility, renderCompatSummary, renderCompatMarkdown } from "./compat.js";
