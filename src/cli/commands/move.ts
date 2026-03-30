@@ -183,8 +183,7 @@ function updateReferences(
       const isYaml = ext === ".yaml" || ext === ".yml";
 
       try {
-        let raw: Record<string, unknown>;
-        raw = isYaml ? parseYaml(content) : JSON.parse(content);
+        const raw: Record<string, unknown> = isYaml ? parseYaml(content) : JSON.parse(content);
 
         let changed = false;
 

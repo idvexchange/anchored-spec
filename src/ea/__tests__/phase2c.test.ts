@@ -14,7 +14,6 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  EA_KIND_REGISTRY,
   getKindEntry,
   getKindsByDomain,
   createDefaultRegistry,

@@ -19,7 +19,6 @@ import {
   registerEvidenceAdapter,
   getAvailableAdapters,
   type EvidenceAdapter,
-  type EaTestRecord,
 } from "../evidence-adapters/index.js";
 import type { EaArtifactBase } from "../types.js";
 

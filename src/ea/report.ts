@@ -10,11 +10,9 @@ import { getDomainForKind } from "./types.js";
 import type {
   LogicalDataModelArtifact,
   ClassificationArtifact,
-  CanonicalEntityArtifact,
   InformationExchangeArtifact,
   CapabilityArtifact,
   MissionArtifact,
-  ControlArtifact,
   BaselineArtifact,
   TargetArtifact,
   TransitionPlanArtifact,
@@ -1414,7 +1412,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
 
 // ─── Drift Heatmap Report ───────────────────────────────────────────────────────
 
-import type { EaDriftReport, DomainDriftSummary } from "./drift.js";
+import type { DomainDriftSummary } from "./drift.js";
 import { detectEaDrift } from "./drift.js";
 import { EA_DOMAINS } from "./types.js";
 

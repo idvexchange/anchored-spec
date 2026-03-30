@@ -13,8 +13,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "
 import { join, extname } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import type { EaDomain } from "./types.js";
-import { EA_DOMAINS, getDomainForKind } from "./types.js";
-import type { EaConfig } from "./config.js";
+import { EA_DOMAINS } from "./types.js";
 
 export interface FixResult {
   filePath: string;

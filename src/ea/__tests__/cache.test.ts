@@ -50,6 +50,7 @@ describe("DiskResolverCache", () => {
     cache.set("disk-check", "hello");
     const cacheDir = cache.cacheDir;
     expect(existsSync(cacheDir)).toBe(true);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const files = require("node:fs").readdirSync(cacheDir);
     expect(files.length).toBe(1);
     const content = JSON.parse(readFileSync(join(cacheDir, files[0]), "utf-8"));

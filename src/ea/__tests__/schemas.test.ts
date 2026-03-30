@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { validateEaSchema, resetEaAjv, getSchemaForKind, getEaSchemaNames } from "../validate.js";
-import type { EaSchemaName } from "../validate.js";
 import { EA_KIND_REGISTRY } from "../types.js";
 
 beforeEach(() => {

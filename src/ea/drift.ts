@@ -19,14 +19,12 @@ import type {
   MasterDataDomainArtifact,
   InformationExchangeArtifact,
   CanonicalEntityArtifact,
-  ClassificationArtifact,
   RetentionPolicyArtifact,
   CapabilityArtifact,
   ValueStreamArtifact,
   ProcessArtifact,
   PolicyObjectiveArtifact,
   ControlArtifact,
-  MissionArtifact,
   BaselineArtifact,
   TargetArtifact,
   TransitionPlanArtifact,
@@ -99,7 +97,7 @@ const consumerContractVersionMismatch: EaDriftRule = {
   requiresResolver: false,
   evaluate(ctx) {
     const results: EaValidationError[] = [];
-    const apiContracts = ctx.artifacts.filter((a) => a.kind === "api-contract");
+    const _apiContracts = ctx.artifacts.filter((a) => a.kind === "api-contract");
 
     for (const a of ctx.artifacts) {
       if (a.kind !== "consumer") continue;
@@ -790,7 +788,7 @@ const glossaryInconsistency: EaDriftRule = {
       // Find canonical entities whose conceptRef links to the same information-concept
       // that this glossary term is related to
       for (const entity of entities) {
-        const ce = entity as unknown as CanonicalEntityArtifact;
+        const _ce = entity as unknown as CanonicalEntityArtifact;
         // Check if entity title matches glossary term title (case-insensitive)
         const termTitle = a.title.toLowerCase();
         const entityTitle = entity.title.toLowerCase();

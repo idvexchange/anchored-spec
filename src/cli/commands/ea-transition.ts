@@ -9,8 +9,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { writeFileSync, readFileSync, existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { writeFileSync, readFileSync } from "node:fs";
+import { relative } from "node:path";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveEaConfig } from "../../ea/config.js";
 import type { EaArtifactBase, ArtifactStatus } from "../../ea/types.js";

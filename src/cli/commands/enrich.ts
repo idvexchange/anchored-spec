@@ -8,12 +8,10 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join, resolve, extname } from "node:path";
+import { join, resolve } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import {
-  EaRoot,
   resolveEaConfig,
-  normalizeArtifact,
 } from "../../ea/index.js";
 import type { EaDomain } from "../../ea/index.js";
 import { EA_DOMAINS } from "../../ea/types.js";
