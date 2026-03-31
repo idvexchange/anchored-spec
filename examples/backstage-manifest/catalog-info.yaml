@@ -1,0 +1,110 @@
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: identity
+  description: Identity verification and authentication domain.
+spec:
+  owner: group:default/platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: idv-platform
+  description: Core identity verification platform.
+spec:
+  owner: group:default/platform-team
+  domain: identity
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: auth-service
+  description: Authentication microservice handling OAuth2 and MFA.
+  annotations:
+    anchored-spec.dev/confidence: "0.9"
+    anchored-spec.dev/source: src/auth/
+    anchored-spec.dev/expect-anchors: code-symbols,endpoints
+  tags:
+    - typescript
+    - grpc
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/platform-team
+  system: idv-platform
+  providesApis:
+    - api:default/auth-api
+  dependsOn:
+    - resource:default/users-db
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: auth-api
+  description: Authentication API for login, logout, and token refresh.
+  annotations:
+    anchored-spec.dev/confidence: "0.85"
+spec:
+  type: openapi
+  lifecycle: production
+  owner: group:default/platform-team
+  system: idv-platform
+  definition: |
+    openapi: "3.1.0"
+    info:
+      title: Auth API
+      version: "1.0.0"
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: users-db
+  description: PostgreSQL database storing user accounts and credentials.
+spec:
+  type: database
+  lifecycle: production
+  owner: group:default/platform-team
+  system: idv-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: platform-team
+  description: Platform engineering team.
+spec:
+  type: team
+  profile:
+    displayName: Platform Team
+  children: []
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Requirement
+metadata:
+  name: req-mfa-enforcement
+  title: Multi-Factor Authentication Enforcement
+  description: All user-facing login flows must support MFA.
+  annotations:
+    anchored-spec.dev/compliance: SOC2,ISO27001
+    anchored-spec.dev/risk: high
+spec:
+  type: security
+  status: approved
+  owner: group:default/platform-team
+  implementedBy:
+    - component:default/auth-service
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Decision
+metadata:
+  name: adr-001-grpc-internal
+  title: "ADR-001: Use gRPC for internal service communication"
+  description: Standardize on gRPC for all service-to-service calls.
+spec:
+  status: accepted
+  owner: group:default/platform-team
+  decision: Use gRPC with Protocol Buffers for all internal APIs.
+  rationale: Better performance, type safety, and streaming support vs REST.
+  alternatives:
+    - REST with JSON
+    - GraphQL
