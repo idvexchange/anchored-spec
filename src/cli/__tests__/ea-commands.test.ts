@@ -582,3 +582,96 @@ relations: []
     expect(result.exitCode).not.toBe(0);
   });
 });
+
+// ─── EA link-docs ────────────────────────────────────────────────────────────
+
+describe("CLI: ea link-docs --bidirectional", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+    // Create an artifact with a traceRef pointing at a .md file and a .ts file
+    mkdirSync(join(tempDir, "docs"), { recursive: true });
+    mkdirSync(join(tempDir, "apps", "api", "src"), { recursive: true });
+
+    writeFileSync(
+      join(tempDir, "ea", "systems", "SVC-api.yaml"),
+      `apiVersion: anchored-spec/ea/v1
+kind: service
+id: SVC-api
+
+metadata:
+  name: API Service
+  summary: The API service
+  owners: [team-api]
+  tags: [api]
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+relations: []
+
+traceRefs:
+  - path: docs/api-design.md
+    role: context
+  - path: apps/api/src/index.ts
+    role: source
+`,
+    );
+
+    // Create the referenced files
+    writeFileSync(
+      join(tempDir, "docs", "api-design.md"),
+      "---\ntype: spec\n---\n# API Design\n",
+    );
+    writeFileSync(
+      join(tempDir, "apps", "api", "src", "index.ts"),
+      'export function main() { console.log("hello"); }\n',
+    );
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("adds frontmatter to .md files referenced by traceRefs", () => {
+    const result = runCLI("link-docs --bidirectional", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const mdContent = readFileSync(
+      join(tempDir, "docs", "api-design.md"),
+      "utf-8",
+    );
+    expect(mdContent).toContain("SVC-api");
+  });
+
+  it("does not inject frontmatter into .ts files", () => {
+    const result = runCLI("link-docs --bidirectional", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const tsContent = readFileSync(
+      join(tempDir, "apps", "api", "src", "index.ts"),
+      "utf-8",
+    );
+    // .ts file must be untouched — no YAML frontmatter injected
+    expect(tsContent).not.toContain("---");
+    expect(tsContent).not.toContain("ea-artifacts");
+    expect(tsContent).toBe(
+      'export function main() { console.log("hello"); }\n',
+    );
+  });
+
+  it("skips non-markdown files in dry-run as well", () => {
+    const result = runCLI("link-docs --bidirectional --dry-run --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    // Only the .md file should appear in docsUpdated, not the .ts file
+    const updatedPaths = json.docsUpdated.map(
+      (d: { path: string }) => d.path,
+    );
+    expect(updatedPaths).toContain("docs/api-design.md");
+    expect(updatedPaths).not.toContain("apps/api/src/index.ts");
+  });
+});

@@ -600,6 +600,39 @@ describe("validateEaRelations", () => {
       const result = validateEaRelations(artifacts, registry);
       const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
       expect(warns).toHaveLength(1);
+      expect(warns[0].message).toContain("unregistered relation type");
+    });
+
+    it("suggests canonical type when virtual inverse is used directly", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "APP-src",
+          kind: "application",
+          relations: [{ type: "ownedBy", target: "SVC-tgt" }],
+        }),
+        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
+      expect(warns).toHaveLength(1);
+      expect(warns[0].message).toContain("virtual inverse");
+      expect(warns[0].message).toContain('"owns"');
+    });
+
+    it("gives generic message for truly unknown types, not inverse hint", () => {
+      const artifacts = [
+        makeArtifact({
+          id: "APP-src",
+          kind: "application",
+          relations: [{ type: "totallyFakeType", target: "SVC-tgt" }],
+        }),
+        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      ];
+      const result = validateEaRelations(artifacts, registry);
+      const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
+      expect(warns).toHaveLength(1);
+      expect(warns[0].message).toContain("unregistered relation type");
+      expect(warns[0].message).not.toContain("virtual inverse");
     });
   });
 

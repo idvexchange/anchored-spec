@@ -11,7 +11,7 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { extname, resolve } from "node:path";
 import { Command } from "commander";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
@@ -139,6 +139,10 @@ export function eaLinkDocsCommand(): Command {
           for (const ref of artifact.traceRefs) {
             // Skip URLs — only handle local file paths.
             if (/^https?:\/\//.test(ref.path)) continue;
+
+            // Only inject frontmatter into Markdown files.
+            const ext = extname(ref.path).toLowerCase();
+            if (ext !== ".md" && ext !== ".markdown") continue;
 
             const absPath = resolve(cwd, ref.path);
             let content: string;

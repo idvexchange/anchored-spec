@@ -934,12 +934,23 @@ export function validateEaRelations(
       // 3. Relation type registered
       const entry = registry.get(rel.type);
       if (!entry) {
-        push(
-          ruleSeverity("ea:relation:unknown-type", "warning", q),
-          "ea:relation:unknown-type",
-          a.id,
-          `Artifact "${a.id}" uses unregistered relation type "${rel.type}"`
-        );
+        // Check if the type is a known virtual inverse
+        const canonicalEntry = registry.getCanonicalEntry(rel.type);
+        if (canonicalEntry) {
+          push(
+            ruleSeverity("ea:relation:unknown-type", "warning", q),
+            "ea:relation:unknown-type",
+            a.id,
+            `Artifact "${a.id}" relation type "${rel.type}" is a virtual inverse — use "${canonicalEntry.type}" as the canonical direction instead`
+          );
+        } else {
+          push(
+            ruleSeverity("ea:relation:unknown-type", "warning", q),
+            "ea:relation:unknown-type",
+            a.id,
+            `Artifact "${a.id}" uses unregistered relation type "${rel.type}"`
+          );
+        }
         // Skip further checks for unregistered types
         continue;
       }
