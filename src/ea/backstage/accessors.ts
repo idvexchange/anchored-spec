@@ -224,6 +224,28 @@ export function getEntitySource(entity: BackstageEntity): string | undefined {
 }
 
 /**
+ * Get all traceRefs from spec.traceRefs (full fidelity) or the source annotation (single ref).
+ * Returns an array of `{ path, role? }` objects.
+ */
+export function getEntityTraceRefs(entity: BackstageEntity): Array<{ path: string; role?: string }> {
+  // Prefer spec.traceRefs — preserves all refs with role metadata
+  const specRefs = entity.spec?.traceRefs;
+  if (Array.isArray(specRefs) && specRefs.length > 0) {
+    return (specRefs as Array<{ path?: string; role?: string }>)
+      .filter((r) => typeof r.path === "string")
+      .map((r) => ({
+        path: r.path as string,
+        ...(typeof r.role === "string" && { role: r.role }),
+      }));
+  }
+
+  // Fall back to source annotation
+  const source = getAnnotation(entity, ANNOTATION_KEYS.SOURCE);
+  if (!source) return [];
+  return [{ path: source, role: "specification" }];
+}
+
+/**
  * Get expected anchors from the anchored-spec annotation.
  */
 export function getEntityExpectAnchors(entity: BackstageEntity): string[] {

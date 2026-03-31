@@ -12,8 +12,11 @@ import {
   createDefaultRegistry,
   buildRelationGraph,
   resolveEaConfig,
+  artifactToBackstage,
 } from "../../ea/index.js";
 import type { EaDomain } from "../../ea/index.js";
+import { getEntityLegacyKind, getEntityId } from "../../ea/backstage/accessors.js";
+import { ANNOTATION_KEYS } from "../../ea/backstage/types.js";
 import { CliError } from "../errors.js";
 
 export function eaGraphCommand(): Command {
@@ -59,11 +62,12 @@ export function eaGraphCommand(): Command {
       }
 
       // Apply kind filter
-      let graphArtifacts = result.artifacts;
+      const entities = result.artifacts.map(artifactToBackstage);
+      let graphEntities = entities;
       if (options.kind) {
         const kindFilter = options.kind as string;
-        graphArtifacts = graphArtifacts.filter((a) => a.kind === kindFilter);
-        if (graphArtifacts.length === 0) {
+        graphEntities = graphEntities.filter((e) => getEntityLegacyKind(e) === kindFilter);
+        if (graphEntities.length === 0) {
           console.error(`No artifacts of kind "${kindFilter}" found.`);
           return;
         }
@@ -71,12 +75,20 @@ export function eaGraphCommand(): Command {
 
       // Build graph
       const registry = createDefaultRegistry();
-      let graph = buildRelationGraph(graphArtifacts, registry);
+      let graph = buildRelationGraph(graphEntities, registry);
 
       // Focus mode: build a subgraph around a specific artifact
       if (options.focus) {
-        const focusId = options.focus as string;
+        let focusId = options.focus as string;
         const depth = parseInt(options.depth as string, 10) || 2;
+
+        // Resolve legacy ID to entity ref if needed
+        if (!graph.node(focusId)) {
+          const match = graphEntities.find(
+            (e) => e.metadata.annotations?.[ANNOTATION_KEYS.LEGACY_ID] === focusId,
+          );
+          if (match) focusId = getEntityId(match);
+        }
 
         if (!graph.node(focusId)) {
           throw new CliError(`Artifact "${focusId}" not found in graph.`, 1);
@@ -96,8 +108,8 @@ export function eaGraphCommand(): Command {
         };
         collectNeighbors(focusId, depth);
 
-        // Rebuild graph with only the focused artifacts
-        const focused = graphArtifacts.filter((a) => nodeIds.has(a.id));
+        // Rebuild graph with only the focused entities
+        const focused = graphEntities.filter((e) => nodeIds.has(getEntityId(e)));
         graph = buildRelationGraph(focused, registry);
       }
 

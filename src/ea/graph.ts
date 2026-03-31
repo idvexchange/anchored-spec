@@ -1,15 +1,25 @@
 /**
  * Anchored Spec — EA Relation Graph
  *
- * Builds an in-memory directed graph from EA artifacts: forward edges from
- * stored relations, virtual inverse edges computed via the registry.
+ * Builds an in-memory directed graph from Backstage entities: forward edges from
+ * spec relation fields, virtual inverse edges computed via the registry.
  * Supports traversal, impact analysis, cycle detection, and export.
  *
  * Design reference: docs/ea-relationship-model.md §Graph Builder
  */
 
-import type { EaArtifactBase, EaDomain, ArtifactStatus, ArtifactConfidence } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import type { EntityStatus } from "./backstage/accessors.js";
+import {
+  getEntityId,
+  getEntityTitle,
+  getEntityStatus,
+  getEntityConfidence,
+  getEntityLegacyKind,
+  getEntitySpecRelations,
+} from "./backstage/accessors.js";
 import { getDomainForKind } from "./types.js";
+import type { EaDomain } from "./types.js";
 import type { RelationRegistry } from "./relation-registry.js";
 
 // ─── Graph Types ────────────────────────────────────────────────────────────────
@@ -18,9 +28,9 @@ export interface GraphNode {
   id: string;
   kind: string;
   domain: EaDomain | "unknown";
-  status: ArtifactStatus;
+  status: EntityStatus;
   title: string;
-  confidence: ArtifactConfidence;
+  confidence: "declared" | "observed" | "inferred";
 }
 
 export interface GraphEdge {
@@ -29,7 +39,7 @@ export interface GraphEdge {
   type: string;
   isVirtual: boolean;
   criticality: "low" | "medium" | "high" | "critical";
-  confidence: ArtifactConfidence;
+  confidence: "declared" | "observed" | "inferred";
   status: "active" | "deprecated";
 }
 
@@ -283,101 +293,110 @@ export class RelationGraph {
 // ─── Build Function ─────────────────────────────────────────────────────────────
 
 /**
- * Build a relation graph from loaded EA artifacts and a relation registry.
+ * Build a relation graph from Backstage entities and a relation registry.
  *
- * 1. Creates a GraphNode for every artifact.
- * 2. Creates forward edges from each artifact's `relations` array.
+ * 1. Creates a GraphNode for every entity.
+ * 2. Creates forward edges from each entity's spec relation fields.
  * 3. Creates virtual inverse edges using the registry.
  * 4. If an explicit inverse exists on the target, replaces the virtual edge.
  */
 export function buildRelationGraph(
-  artifacts: EaArtifactBase[],
-  registry: RelationRegistry
+  entities: BackstageEntity[],
+  registry: RelationRegistry,
 ): RelationGraph {
   const graph = new RelationGraph();
-  const artifactMap = new Map<string, EaArtifactBase>();
+  const entityMap = new Map<string, BackstageEntity>();
 
-  // 1. Create nodes
-  for (const a of artifacts) {
-    artifactMap.set(a.id, a);
+  // 1. Create nodes — use entity ref as node ID
+  for (const entity of entities) {
+    const nodeId = getEntityId(entity);
+    const legacyKind = getEntityLegacyKind(entity);
+    entityMap.set(nodeId, entity);
     graph.addNode({
-      id: a.id,
-      kind: a.kind,
-      domain: getDomainForKind(a.kind) ?? "unknown",
-      status: a.status,
-      title: a.title,
-      confidence: a.confidence,
+      id: nodeId,
+      kind: legacyKind,
+      domain: getDomainForKind(legacyKind) ?? "unknown",
+      status: getEntityStatus(entity),
+      title: getEntityTitle(entity),
+      confidence: getEntityConfidence(entity),
     });
+  }
+
+  // Extract relations from all entities (exclude ownership — it's metadata, not a dependency)
+  const EXCLUDED_RELATION_TYPES = new Set(["owns"]);
+  const entityRelations = new Map<string, Array<{ legacyType: string; targets: string[] }>>();
+  for (const entity of entities) {
+    const rels = getEntitySpecRelations(entity)
+      .filter((r) => !EXCLUDED_RELATION_TYPES.has(r.legacyType));
+    entityRelations.set(getEntityId(entity), rels);
   }
 
   // Collect explicit inverse relations for override detection
   const explicitInverses = new Map<string, GraphEdge>();
-  for (const a of artifacts) {
-    if (!a.relations) continue;
-    for (const rel of a.relations) {
-      // Check if this relation type is an inverse name in the registry
-      const entry = registry.getCanonicalEntry(rel.type);
-      if (entry && rel.type === entry.inverse) {
-        // This is an explicit inverse stored on the target
-        const key = `${rel.target}→${entry.type}→${a.id}`;
-        explicitInverses.set(key, {
-          source: rel.target,
-          target: a.id,
-          type: entry.inverse,
-          isVirtual: false,
-          criticality: rel.criticality ?? "medium",
-          confidence: a.confidence,
-          status: rel.status ?? "active",
-        });
+  for (const entity of entities) {
+    const nodeId = getEntityId(entity);
+    for (const { legacyType, targets } of entityRelations.get(nodeId) ?? []) {
+      const entry = registry.getCanonicalEntry(legacyType);
+      if (entry && legacyType === entry.inverse) {
+        for (const target of targets) {
+          const key = `${target}→${entry.type}→${nodeId}`;
+          explicitInverses.set(key, {
+            source: target,
+            target: nodeId,
+            type: entry.inverse,
+            isVirtual: false,
+            criticality: "medium",
+            confidence: getEntityConfidence(entity),
+            status: "active",
+          });
+        }
       }
     }
   }
 
   // 2. Create forward edges + 3. Virtual inverses
-  for (const a of artifacts) {
-    if (!a.relations) continue;
+  for (const entity of entities) {
+    const nodeId = getEntityId(entity);
+    for (const { legacyType, targets } of entityRelations.get(nodeId) ?? []) {
+      const entry = registry.get(legacyType);
 
-    for (const rel of a.relations) {
-      const entry = registry.get(rel.type);
-
-      // Skip if this is an explicit inverse (handled above)
+      // Skip explicit inverses (handled above)
       if (!entry) {
-        const canonical = registry.getCanonicalEntry(rel.type);
-        if (canonical && rel.type === canonical.inverse) continue;
+        const canonical = registry.getCanonicalEntry(legacyType);
+        if (canonical && legacyType === canonical.inverse) continue;
       }
 
-      // Forward edge
-      const forwardEdge: GraphEdge = {
-        source: a.id,
-        target: rel.target,
-        type: rel.type,
-        isVirtual: false,
-        criticality: rel.criticality ?? "medium",
-        confidence: a.confidence,
-        status: rel.status ?? "active",
-      };
-      graph.addEdge(forwardEdge);
+      for (const target of targets) {
+        // Forward edge
+        graph.addEdge({
+          source: nodeId,
+          target,
+          type: legacyType,
+          isVirtual: false,
+          criticality: "medium",
+          confidence: getEntityConfidence(entity),
+          status: "active",
+        });
 
-      // Virtual inverse edge (only if registry knows the type)
-      if (entry) {
-        const inverseKey = `${a.id}→${entry.type}→${rel.target}`;
-        const explicitOverride = explicitInverses.get(inverseKey);
+        // Virtual inverse edge
+        if (entry) {
+          const inverseKey = `${nodeId}→${entry.type}→${target}`;
+          const explicitOverride = explicitInverses.get(inverseKey);
 
-        if (explicitOverride) {
-          // Use explicit override instead of virtual
-          graph.addEdge(explicitOverride);
-        } else {
-          // Create virtual inverse
-          const targetArtifact = artifactMap.get(rel.target);
-          graph.addEdge({
-            source: rel.target,
-            target: a.id,
-            type: entry.inverse,
-            isVirtual: true,
-            criticality: rel.criticality ?? "medium",
-            confidence: targetArtifact?.confidence ?? a.confidence,
-            status: rel.status ?? "active",
-          });
+          if (explicitOverride) {
+            graph.addEdge(explicitOverride);
+          } else {
+            const targetEntity = entityMap.get(target);
+            graph.addEdge({
+              source: target,
+              target: nodeId,
+              type: entry.inverse,
+              isVirtual: true,
+              criticality: "medium",
+              confidence: targetEntity ? getEntityConfidence(targetEntity) : getEntityConfidence(entity),
+              status: "active",
+            });
+          }
         }
       }
     }

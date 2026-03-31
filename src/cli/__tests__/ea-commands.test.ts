@@ -396,7 +396,8 @@ describe("CLI: ea graph", () => {
     const result = runCLI("ea graph", tempDir);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("graph LR");
-    expect(result.stdout).toContain("APP-app-a");
+    // Graph now uses entity refs as node IDs (sanitized for Mermaid)
+    expect(result.stdout).toContain("app-a");
   });
 
   it("outputs Mermaid with --format mermaid", () => {
@@ -467,8 +468,9 @@ relations: []
 
     const result = runCLI("ea graph --format mermaid", tempDir);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("APP-frontend");
-    expect(result.stdout).toContain("APP-backend");
+    // Graph uses entity refs as node IDs (sanitized for Mermaid)
+    expect(result.stdout).toContain("frontend");
+    expect(result.stdout).toContain("backend");
     expect(result.stdout).toContain("uses");
   });
 

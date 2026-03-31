@@ -159,6 +159,7 @@ export {
   getEntityRisk,
   getEntityCompliance,
   getEntitySource,
+  getEntityTraceRefs,
   getEntityExpectAnchors,
   getEntitySuppressions,
   getEntityLegacyId,

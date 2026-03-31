@@ -15,7 +15,9 @@ import {
   resolveEaConfig,
   analyzeImpact,
   renderImpactReportMarkdown,
+  artifactToBackstage,
 } from "../../ea/index.js";
+import { ANNOTATION_KEYS, getEntityId } from "../../ea/backstage/index.js";
 import { CliError } from "../errors.js";
 
 export function eaImpactCommand(): Command {
@@ -47,10 +49,23 @@ export function eaImpactCommand(): Command {
 
       // Build graph
       const registry = createDefaultRegistry();
-      const graph = buildRelationGraph(result.artifacts, registry);
+      const entities = result.artifacts.map(artifactToBackstage);
+      const graph = buildRelationGraph(entities, registry);
+
+      // Resolve artifact ID: try as entity ref first, then as legacy ID
+      let resolvedId = artifactId;
+      if (!graph.node(resolvedId)) {
+        // Try to find by legacy ID annotation
+        const match = entities.find(
+          (e) => e.metadata.annotations?.[ANNOTATION_KEYS.LEGACY_ID] === artifactId,
+        );
+        if (match) {
+          resolvedId = getEntityId(match);
+        }
+      }
 
       // Verify artifact exists
-      if (!graph.node(artifactId)) {
+      if (!graph.node(resolvedId)) {
         throw new CliError(
           `Artifact "${artifactId}" not found. Use 'ea validate' to list artifacts.`,
           2,
@@ -59,7 +74,7 @@ export function eaImpactCommand(): Command {
 
       // Analyze impact
       const maxDepth = options.maxDepth ? parseInt(options.maxDepth as string, 10) : undefined;
-      const report = analyzeImpact(graph, artifactId, { maxDepth });
+      const report = analyzeImpact(graph, resolvedId, { maxDepth });
 
       // Output
       let output: string;

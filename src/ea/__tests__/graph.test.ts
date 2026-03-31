@@ -19,6 +19,7 @@ import {
 import { RelationGraph, buildRelationGraph } from "../graph.js";
 import { validateEaRelations } from "../validate.js";
 import { EaRoot } from "../loader.js";
+import type { BackstageEntity } from "../backstage/types.js";
 import type { EaArtifactBase } from "../types.js";
 
 /** Minimal v0.x config shape for test backward-compat. */
@@ -26,6 +27,30 @@ type LegacyConfig = { specRoot?: string; ea?: { enabled: boolean; rootDir: strin
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
+function makeEntity(
+  overrides: Partial<BackstageEntity> & { kind: string; name: string },
+): BackstageEntity {
+  const { name, kind, ...rest } = overrides;
+  return {
+    apiVersion: "backstage.io/v1alpha1",
+    kind,
+    metadata: {
+      name,
+      title: `Test ${kind}`,
+      description: `A test entity for graph/registry testing.`,
+      ...(rest.metadata ?? {}),
+    },
+    spec: {
+      type: "service",
+      lifecycle: "production",
+      owner: "group:default/test-team",
+      ...(rest.spec ?? {}),
+    },
+    ...("relations" in rest ? { relations: rest.relations } : {}),
+  };
+}
+
+/** Legacy helper — still needed for validateEaRelations tests which haven't been migrated yet. */
 function makeArtifact(
   overrides: Partial<EaArtifactBase> & { id: string; kind: string }
 ): EaArtifactBase {
@@ -260,33 +285,40 @@ describe("RelationGraph", () => {
   const registry = createDefaultRegistry();
 
   function buildTestGraph(): RelationGraph {
-    const artifacts: EaArtifactBase[] = [
-      makeArtifact({
-        id: "APP-orders",
-        kind: "application",
-        relations: [
-          { type: "dependsOn", target: "SVC-payment" },
-          { type: "exposes", target: "API-orders" },
-        ],
+    const entities: BackstageEntity[] = [
+      makeEntity({
+        kind: "Component",
+        name: "orders",
+        spec: {
+          type: "service",
+          lifecycle: "production",
+          owner: "group:default/test-team",
+          dependsOn: ["component:payment"],
+          providesApis: ["api:orders"],
+        },
       }),
-      makeArtifact({ id: "SVC-payment", kind: "service" }),
-      makeArtifact({ id: "API-orders", kind: "api-contract" }),
+      makeEntity({ kind: "Component", name: "payment" }),
+      makeEntity({
+        kind: "API",
+        name: "orders",
+        spec: { type: "openapi", lifecycle: "production", owner: "group:default/test-team", definition: "openapi: 3.0" },
+      }),
     ];
-    return buildRelationGraph(artifacts, registry);
+    return buildRelationGraph(entities, registry);
   }
 
   describe("build", () => {
-    it("creates nodes for all artifacts", () => {
+    it("creates nodes for all entities", () => {
       const graph = buildTestGraph();
       expect(graph.nodes()).toHaveLength(3);
-      expect(graph.node("APP-orders")).toBeDefined();
-      expect(graph.node("SVC-payment")).toBeDefined();
-      expect(graph.node("API-orders")).toBeDefined();
+      expect(graph.node("component:orders")).toBeDefined();
+      expect(graph.node("component:payment")).toBeDefined();
+      expect(graph.node("api:orders")).toBeDefined();
     });
 
-    it("creates forward edges from relations", () => {
+    it("creates forward edges from spec relation fields", () => {
       const graph = buildTestGraph();
-      const out = graph.outgoing("APP-orders");
+      const out = graph.outgoing("component:orders");
       const forward = out.filter((e) => !e.isVirtual);
       expect(forward).toHaveLength(2);
       expect(forward.map((e) => e.type).sort()).toEqual(["dependsOn", "exposes"]);
@@ -294,44 +326,44 @@ describe("RelationGraph", () => {
 
     it("creates virtual inverse edges", () => {
       const graph = buildTestGraph();
-      const paymentOut = graph.outgoing("SVC-payment");
+      const paymentOut = graph.outgoing("component:payment");
       const virtual = paymentOut.filter((e) => e.isVirtual);
       expect(virtual).toHaveLength(1);
-      expect(virtual[0].type).toBe("dependedOnBy");
-      expect(virtual[0].target).toBe("APP-orders");
+      expect(virtual[0]!.type).toBe("dependedOnBy");
+      expect(virtual[0]!.target).toBe("component:orders");
     });
 
     it("sets correct edge properties", () => {
       const graph = buildTestGraph();
-      const forward = graph.outgoing("APP-orders").find((e) => e.type === "dependsOn")!;
+      const forward = graph.outgoing("component:orders").find((e) => e.type === "dependsOn")!;
       expect(forward.isVirtual).toBe(false);
-      expect(forward.source).toBe("APP-orders");
-      expect(forward.target).toBe("SVC-payment");
-      expect(forward.criticality).toBe("medium"); // default
-      expect(forward.status).toBe("active"); // default
+      expect(forward.source).toBe("component:orders");
+      expect(forward.target).toBe("component:payment");
+      expect(forward.criticality).toBe("medium");
+      expect(forward.status).toBe("active");
     });
   });
 
   describe("queries", () => {
     it("outgoing returns forward + virtual edges from a node", () => {
       const graph = buildTestGraph();
-      expect(graph.outgoing("APP-orders").length).toBe(2);
+      expect(graph.outgoing("component:orders").length).toBe(2);
       expect(graph.outgoing("nonexistent")).toEqual([]);
     });
 
     it("incoming returns all edges pointing to a node", () => {
       const graph = buildTestGraph();
-      const incoming = graph.incoming("SVC-payment");
+      const incoming = graph.incoming("component:payment");
       expect(incoming).toHaveLength(1);
-      expect(incoming[0].source).toBe("APP-orders");
-      expect(incoming[0].type).toBe("dependsOn");
+      expect(incoming[0]!.source).toBe("component:orders");
+      expect(incoming[0]!.type).toBe("dependsOn");
     });
 
     it("edgesOfType filters by relation type", () => {
       const graph = buildTestGraph();
       const deps = graph.edgesOfType("dependsOn");
       expect(deps).toHaveLength(1);
-      expect(deps[0].source).toBe("APP-orders");
+      expect(deps[0]!.source).toBe("component:orders");
     });
 
     it("edges returns all edges including virtual", () => {
@@ -344,102 +376,99 @@ describe("RelationGraph", () => {
 
   describe("traverse", () => {
     it("follows a relation type from a start node", () => {
-      const artifacts: EaArtifactBase[] = [
-        makeArtifact({
-          id: "APP-a",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-b" }],
+      const entities: BackstageEntity[] = [
+        makeEntity({
+          kind: "Component",
+          name: "a",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:b"] },
         }),
-        makeArtifact({
-          id: "APP-b",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-c" }],
+        makeEntity({
+          kind: "Component",
+          name: "b",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:c"] },
         }),
-        makeArtifact({ id: "APP-c", kind: "application" }),
+        makeEntity({ kind: "Component", name: "c" }),
       ];
-      const graph = buildRelationGraph(artifacts, registry);
-      const reachable = graph.traverse("APP-a", "dependsOn");
-      expect(reachable.map((n) => n.id)).toEqual(["APP-b", "APP-c"]);
+      const graph = buildRelationGraph(entities, registry);
+      const reachable = graph.traverse("component:a", "dependsOn");
+      expect(reachable.map((n) => n.id)).toEqual(["component:b", "component:c"]);
     });
 
     it("respects maxDepth", () => {
-      const artifacts: EaArtifactBase[] = [
-        makeArtifact({
-          id: "APP-a",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-b" }],
+      const entities: BackstageEntity[] = [
+        makeEntity({
+          kind: "Component",
+          name: "a",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:b"] },
         }),
-        makeArtifact({
-          id: "APP-b",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-c" }],
+        makeEntity({
+          kind: "Component",
+          name: "b",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:c"] },
         }),
-        makeArtifact({ id: "APP-c", kind: "application" }),
+        makeEntity({ kind: "Component", name: "c" }),
       ];
-      const graph = buildRelationGraph(artifacts, registry);
-      const reachable = graph.traverse("APP-a", "dependsOn", 1);
-      expect(reachable.map((n) => n.id)).toEqual(["APP-b"]);
+      const graph = buildRelationGraph(entities, registry);
+      const reachable = graph.traverse("component:a", "dependsOn", 1);
+      expect(reachable.map((n) => n.id)).toEqual(["component:b"]);
     });
 
     it("returns empty for no matching edges", () => {
       const graph = buildTestGraph();
-      const reachable = graph.traverse("APP-orders", "runsOn");
+      const reachable = graph.traverse("component:orders", "runsOn");
       expect(reachable).toEqual([]);
     });
   });
 
   describe("impactSet", () => {
     it("computes transitive impact via incoming edges", () => {
-      const artifacts: EaArtifactBase[] = [
-        makeArtifact({
-          id: "APP-a",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "SVC-core" }],
+      const entities: BackstageEntity[] = [
+        makeEntity({
+          kind: "Component",
+          name: "a",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:core"] },
         }),
-        makeArtifact({
-          id: "APP-b",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "SVC-core" }],
+        makeEntity({
+          kind: "Component",
+          name: "b",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:core"] },
         }),
-        makeArtifact({ id: "SVC-core", kind: "service" }),
+        makeEntity({ kind: "Component", name: "core" }),
       ];
-      const graph = buildRelationGraph(artifacts, registry);
-      const impacted = graph.impactSet("SVC-core");
-      expect(impacted.map((n) => n.id).sort()).toEqual(["APP-a", "APP-b"]);
+      const graph = buildRelationGraph(entities, registry);
+      const impacted = graph.impactSet("component:core");
+      expect(impacted.map((n) => n.id).sort()).toEqual(["component:a", "component:b"]);
     });
 
     it("returns empty for leaf nodes with no incoming edges", () => {
-      // In the test graph, APP-orders has outgoing edges but SVC-payment
-      // and API-orders have virtual inverse edges pointing back to APP-orders,
-      // so APP-orders actually has incoming edges. Test with an isolated node.
-      const artifacts: EaArtifactBase[] = [
-        makeArtifact({ id: "APP-isolated", kind: "application" }),
+      const entities: BackstageEntity[] = [
+        makeEntity({ kind: "Component", name: "isolated" }),
       ];
-      const graph = buildRelationGraph(artifacts, registry);
-      const impacted = graph.impactSet("APP-isolated");
+      const graph = buildRelationGraph(entities, registry);
+      const impacted = graph.impactSet("component:isolated");
       expect(impacted).toHaveLength(0);
     });
   });
 
   describe("detectCycles", () => {
     it("detects a simple cycle", () => {
-      const artifacts: EaArtifactBase[] = [
-        makeArtifact({
-          id: "APP-a",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-b" }],
+      const entities: BackstageEntity[] = [
+        makeEntity({
+          kind: "Component",
+          name: "a",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:b"] },
         }),
-        makeArtifact({
-          id: "APP-b",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-a" }],
+        makeEntity({
+          kind: "Component",
+          name: "b",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:a"] },
         }),
       ];
-      const graph = buildRelationGraph(artifacts, registry);
+      const graph = buildRelationGraph(entities, registry);
       const cycles = graph.detectCycles("dependsOn");
       expect(cycles.length).toBeGreaterThan(0);
-      expect(cycles[0]).toContain("APP-a");
-      expect(cycles[0]).toContain("APP-b");
+      expect(cycles[0]!).toContain("component:a");
+      expect(cycles[0]!).toContain("component:b");
     });
 
     it("returns empty when no cycles exist", () => {
@@ -449,22 +478,23 @@ describe("RelationGraph", () => {
     });
 
     it("detects cycles only in the specified relation type", () => {
-      const artifacts: EaArtifactBase[] = [
-        makeArtifact({
-          id: "APP-a",
-          kind: "application",
-          relations: [
-            { type: "dependsOn", target: "APP-b" },
-            { type: "uses", target: "APP-b" },
-          ],
+      const entities: BackstageEntity[] = [
+        makeEntity({
+          kind: "Component",
+          name: "a",
+          spec: {
+            type: "service", lifecycle: "production", owner: "t",
+            dependsOn: ["component:b"],
+            consumesApis: ["component:b"],
+          },
         }),
-        makeArtifact({
-          id: "APP-b",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-a" }],
+        makeEntity({
+          kind: "Component",
+          name: "b",
+          spec: { type: "service", lifecycle: "production", owner: "t", dependsOn: ["component:a"] },
         }),
       ];
-      const graph = buildRelationGraph(artifacts, registry);
+      const graph = buildRelationGraph(entities, registry);
       expect(graph.detectCycles("dependsOn").length).toBeGreaterThan(0);
       expect(graph.detectCycles("uses")).toHaveLength(0);
     });
@@ -475,7 +505,7 @@ describe("RelationGraph", () => {
       const graph = buildTestGraph();
       const mermaid = graph.toMermaid();
       expect(mermaid).toContain("graph LR");
-      expect(mermaid).toContain("APP-orders");
+      expect(mermaid).toContain("orders");
       expect(mermaid).toContain("-->|dependsOn|");
       expect(mermaid).toContain("-->|exposes|");
     });
@@ -527,13 +557,13 @@ describe("RelationGraph", () => {
       const graph = buildTestGraph();
       const adj = graph.toAdjacencyJson();
 
-      expect(adj["APP-orders"]).toBeDefined();
-      expect(adj["APP-orders"]).toHaveLength(2);
+      expect(adj["component:orders"]).toBeDefined();
+      expect(adj["component:orders"]).toHaveLength(2);
 
-      // Virtual inverse on SVC-payment
-      const paymentAdj = adj["SVC-payment"];
+      // Virtual inverse on payment
+      const paymentAdj = adj["component:payment"];
       expect(paymentAdj).toBeDefined();
-      expect(paymentAdj.some((e) => e.virtual === true)).toBe(true);
+      expect(paymentAdj!.some((e) => e.virtual === true)).toBe(true);
     });
   });
 });
@@ -793,8 +823,10 @@ describe("Integration: graph from examples/ea/", () => {
     } as LegacyConfig);
 
     const { artifacts } = await root.loadArtifacts();
+    const { artifactToBackstage } = await import("../backstage/bridge.js");
+    const entities = artifacts.map(artifactToBackstage);
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
+    const graph = buildRelationGraph(entities, registry);
 
     expect(graph.nodes().length).toBeGreaterThan(0);
     expect(graph.edges().length).toBeGreaterThan(0);
@@ -808,8 +840,10 @@ describe("Integration: graph from examples/ea/", () => {
     } as LegacyConfig);
 
     const { artifacts } = await root.loadArtifacts();
+    const { artifactToBackstage } = await import("../backstage/bridge.js");
+    const entities = artifacts.map(artifactToBackstage);
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
+    const graph = buildRelationGraph(entities, registry);
     const mermaid = graph.toMermaid();
 
     expect(mermaid).toContain("graph LR");
@@ -824,8 +858,10 @@ describe("Integration: graph from examples/ea/", () => {
     } as LegacyConfig);
 
     const { artifacts } = await root.loadArtifacts();
+    const { artifactToBackstage } = await import("../backstage/bridge.js");
+    const entities = artifacts.map(artifactToBackstage);
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
+    const graph = buildRelationGraph(entities, registry);
     const dot = graph.toDot();
 
     expect(dot).toContain("digraph EA {");

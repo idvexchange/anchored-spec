@@ -551,6 +551,106 @@ describe("round-trip: artifact → backstage → artifact", () => {
     const backToArtifact = backstageToArtifact(entity);
 
     expect(backToArtifact.traceRefs).toHaveLength(1);
-    expect(backToArtifact.traceRefs![0].path).toBe(originalArtifact.traceRefs![0].path);
+    expect(backToArtifact.traceRefs![0]!.path).toBe(originalArtifact.traceRefs![0]!.path);
+  });
+
+  it("preserves all traceRefs in spec.traceRefs when multiple exist", () => {
+    const artifact: EaArtifactBase = {
+      id: "SREQ-test-multi-ref",
+      schemaVersion: "1.0.0",
+      kind: "security-requirement",
+      title: "Multi-ref Test",
+      summary: "Test artifact with multiple traceRefs",
+      status: "active",
+      owners: ["team"],
+      confidence: "observed",
+      traceRefs: [
+        { path: "docs/spec.md", role: "specification" },
+        { path: "docs/arch.md", role: "context" },
+        { path: "src/impl.ts", role: "implementation" },
+      ],
+    };
+
+    const entity = artifactToBackstage(artifact);
+
+    // Primary source should be the specification doc
+    expect(entity.metadata.annotations!["anchored-spec.dev/source"]).toBe("docs/spec.md");
+
+    // All traceRefs preserved in spec
+    expect(entity.spec.traceRefs).toEqual([
+      { path: "docs/spec.md", role: "specification" },
+      { path: "docs/arch.md", role: "context" },
+      { path: "src/impl.ts", role: "implementation" },
+    ]);
+
+    // Round-trip
+    const roundTripped = backstageToArtifact(entity);
+    expect(roundTripped.traceRefs).toEqual(artifact.traceRefs);
+  });
+
+  it("uses specification role for primary source heuristic", () => {
+    const artifact: EaArtifactBase = {
+      id: "SREQ-heuristic-test",
+      schemaVersion: "1.0.0",
+      kind: "security-requirement",
+      title: "Heuristic Test",
+      summary: "Test primary source heuristic",
+      status: "active",
+      owners: ["team"],
+      confidence: "declared",
+      traceRefs: [
+        { path: "src/impl.ts", role: "implementation" },
+        { path: "docs/spec.md", role: "specification" },
+      ],
+    };
+
+    const entity = artifactToBackstage(artifact);
+
+    // Should pick role=specification, not first entry
+    expect(entity.metadata.annotations!["anchored-spec.dev/source"]).toBe("docs/spec.md");
+  });
+
+  it("falls back to .md file for primary source when no specification role", () => {
+    const artifact: EaArtifactBase = {
+      id: "SREQ-fallback-test",
+      schemaVersion: "1.0.0",
+      kind: "security-requirement",
+      title: "Fallback Test",
+      summary: "Test .md fallback heuristic",
+      status: "active",
+      owners: ["team"],
+      confidence: "declared",
+      traceRefs: [
+        { path: "src/impl.ts", role: "implementation" },
+        { path: "docs/arch.md", role: "context" },
+      ],
+    };
+
+    const entity = artifactToBackstage(artifact);
+
+    // Should pick .md file, not first entry
+    expect(entity.metadata.annotations!["anchored-spec.dev/source"]).toBe("docs/arch.md");
+  });
+
+  it("does not write spec.traceRefs for single traceRef", () => {
+    const artifact: EaArtifactBase = {
+      id: "SREQ-single-ref",
+      schemaVersion: "1.0.0",
+      kind: "security-requirement",
+      title: "Single Ref",
+      summary: "Single traceRef test",
+      status: "active",
+      owners: ["team"],
+      confidence: "declared",
+      traceRefs: [
+        { path: "docs/spec.md", role: "specification" },
+      ],
+    };
+
+    const entity = artifactToBackstage(artifact);
+
+    // Should NOT write spec.traceRefs (keep single-ref entities clean)
+    expect(entity.spec.traceRefs).toBeUndefined();
+    expect(entity.metadata.annotations!["anchored-spec.dev/source"]).toBe("docs/spec.md");
   });
 });

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * EA Impact Analysis — Tests
  *
@@ -20,85 +19,95 @@ import {
   buildRelationGraph,
   createDefaultRegistry,
 } from "../index.js";
-import type { EaArtifactBase } from "../index.js";
+import type { BackstageEntity } from "../backstage/types.js";
+
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+function makeEntity(overrides: {
+  kind?: string;
+  name: string;
+  title?: string;
+  specType?: string;
+  spec?: Record<string, unknown>;
+}): BackstageEntity {
+  const kind = overrides.kind ?? "Component";
+  const apiVersion = kind === "Component" || kind === "API" || kind === "Resource" || kind === "System" || kind === "Domain" || kind === "Group"
+    ? "backstage.io/v1alpha1"
+    : "anchored-spec.dev/v1alpha1";
+  return {
+    apiVersion,
+    kind,
+    metadata: {
+      name: overrides.name,
+      title: overrides.title ?? overrides.name,
+      annotations: {
+        "anchored-spec.dev/confidence": "declared",
+      },
+    },
+    spec: {
+      type: overrides.specType ?? "service",
+      owner: "team-a",
+      lifecycle: "production",
+      ...overrides.spec,
+    },
+  };
+}
 
 // ─── Unit Tests ─────────────────────────────────────────────────────────────────
 
 describe("analyzeImpact", () => {
-  const makeArtifact = (overrides: Partial<EaArtifactBase>): EaArtifactBase => ({
-    id: "test/SYS-001",
-    schemaVersion: "1.0.0",
-    kind: "system",
-    title: "Test",
-    status: "active",
-    summary: "test",
-    owners: ["team-a"],
-    ...overrides,
-  });
-
   it("returns empty impact for isolated artifact", () => {
-    const artifacts = [
-      makeArtifact({ id: "systems/APP-001", kind: "application", title: "App A" }),
-      makeArtifact({ id: "systems/APP-002", kind: "application", title: "App B" }),
+    const entities: BackstageEntity[] = [
+      makeEntity({ name: "app-a", title: "App A" }),
+      makeEntity({ name: "app-b", title: "App B" }),
     ];
 
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
-    const report = analyzeImpact(graph, "systems/APP-001");
+    const graph = buildRelationGraph(entities, registry);
+    const report = analyzeImpact(graph, "component:app-a");
 
     expect(report.totalImpacted).toBe(0);
-    expect(report.sourceId).toBe("systems/APP-001");
+    expect(report.sourceId).toBe("component:app-a");
     expect(report.impacted).toHaveLength(0);
   });
 
   it("finds direct dependents", () => {
-    const artifacts = [
-      makeArtifact({
-        id: "systems/SVC-001",
-        kind: "service",
-        title: "Auth Service",
-      }),
-      makeArtifact({
-        id: "systems/APP-001",
-        kind: "application",
+    const entities: BackstageEntity[] = [
+      makeEntity({ name: "auth-service", title: "Auth Service" }),
+      makeEntity({
+        name: "web-app",
         title: "Web App",
-        relations: [{ type: "dependsOn", target: "systems/SVC-001" }],
-      } as any),
+        spec: { dependsOn: ["component:auth-service"] },
+      }),
     ];
 
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
-    const report = analyzeImpact(graph, "systems/SVC-001");
+    const graph = buildRelationGraph(entities, registry);
+    const report = analyzeImpact(graph, "component:auth-service");
 
     expect(report.totalImpacted).toBe(1);
-    expect(report.impacted[0]!.id).toBe("systems/APP-001");
+    expect(report.impacted[0]!.id).toBe("component:web-app");
     expect(report.impacted[0]!.depth).toBe(1);
   });
 
   it("finds transitive dependents", () => {
-    const artifacts = [
-      makeArtifact({
-        id: "systems/SVC-001",
-        kind: "service",
-        title: "Auth Service",
-      }),
-      makeArtifact({
-        id: "systems/SVC-002",
-        kind: "service",
+    const entities: BackstageEntity[] = [
+      makeEntity({ name: "auth-service", title: "Auth Service" }),
+      makeEntity({
+        name: "api-gateway",
         title: "API Gateway",
-        relations: [{ type: "dependsOn", target: "systems/SVC-001" }],
-      } as any),
-      makeArtifact({
-        id: "systems/APP-001",
-        kind: "application",
+        spec: { dependsOn: ["component:auth-service"] },
+      }),
+      makeEntity({
+        name: "web-app",
         title: "Web App",
-        relations: [{ type: "dependsOn", target: "systems/SVC-002" }],
-      } as any),
+        spec: { dependsOn: ["component:api-gateway"] },
+      }),
     ];
 
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
-    const report = analyzeImpact(graph, "systems/SVC-001");
+    const graph = buildRelationGraph(entities, registry);
+    const report = analyzeImpact(graph, "component:auth-service");
 
     expect(report.totalImpacted).toBe(2);
     expect(report.maxDepth).toBe(2);
@@ -108,69 +117,64 @@ describe("analyzeImpact", () => {
   });
 
   it("respects maxDepth", () => {
-    const artifacts = [
-      makeArtifact({
-        id: "systems/SVC-001",
-        kind: "service",
-        title: "Auth Service",
-      }),
-      makeArtifact({
-        id: "systems/SVC-002",
-        kind: "service",
+    const entities: BackstageEntity[] = [
+      makeEntity({ name: "auth-service", title: "Auth Service" }),
+      makeEntity({
+        name: "api-gateway",
         title: "API Gateway",
-        relations: [{ type: "dependsOn", target: "systems/SVC-001" }],
-      } as any),
-      makeArtifact({
-        id: "systems/APP-001",
-        kind: "application",
+        spec: { dependsOn: ["component:auth-service"] },
+      }),
+      makeEntity({
+        name: "web-app",
         title: "Web App",
-        relations: [{ type: "dependsOn", target: "systems/SVC-002" }],
-      } as any),
+        spec: { dependsOn: ["component:api-gateway"] },
+      }),
     ];
 
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
-    const report = analyzeImpact(graph, "systems/SVC-001", { maxDepth: 1 });
+    const graph = buildRelationGraph(entities, registry);
+    const report = analyzeImpact(graph, "component:auth-service", { maxDepth: 1 });
 
     expect(report.totalImpacted).toBe(1);
-    expect(report.impacted[0]!.id).toBe("systems/SVC-002");
+    expect(report.impacted[0]!.id).toBe("component:api-gateway");
   });
 
   it("groups by domain", () => {
-    const artifacts = [
-      makeArtifact({
-        id: "data/DS-001",
-        kind: "data-store",
+    const entities: BackstageEntity[] = [
+      makeEntity({
+        kind: "Resource",
+        name: "user-db",
         title: "User DB",
-        technology: { engine: "postgres", category: "relational" },
-      } as any),
-      makeArtifact({
-        id: "systems/APP-001",
-        kind: "application",
+        specType: "database",
+      }),
+      makeEntity({
+        name: "web-app",
         title: "Web App",
-        relations: [{ type: "dependsOn", target: "data/DS-001" }],
-      } as any),
-      makeArtifact({
-        id: "business/CAP-001",
-        kind: "capability",
+        spec: { dependsOn: ["resource:user-db"] },
+      }),
+      makeEntity({
+        kind: "Capability",
+        name: "user-mgmt",
         title: "User Management",
-        relations: [{ type: "supports", target: "systems/APP-001" }],
-      } as any),
+        spec: { supports: ["component:web-app"] },
+      }),
     ];
 
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
-    const report = analyzeImpact(graph, "data/DS-001");
+    const graph = buildRelationGraph(entities, registry);
+    const report = analyzeImpact(graph, "resource:user-db");
 
     expect(report.byDomain.length).toBeGreaterThanOrEqual(1);
     expect(report.totalImpacted).toBeGreaterThanOrEqual(1);
   });
 
   it("returns safe result for unknown artifact", () => {
-    const artifacts = [makeArtifact({ id: "systems/APP-001", kind: "application" })];
+    const entities: BackstageEntity[] = [
+      makeEntity({ name: "app-001" }),
+    ];
     const registry = createDefaultRegistry();
-    const graph = buildRelationGraph(artifacts, registry);
-    const report = analyzeImpact(graph, "nonexistent/X-001");
+    const graph = buildRelationGraph(entities, registry);
+    const report = analyzeImpact(graph, "component:nonexistent");
 
     expect(report.totalImpacted).toBe(0);
     expect(report.sourceKind).toBe("unknown");
@@ -333,7 +337,8 @@ owners:
     const { stdout, code } = runCLI("ea impact systems/APP-001 --format json");
     expect(code).toBe(0);
     const report = JSON.parse(stdout);
-    expect(report).toHaveProperty("sourceId", "systems/APP-001");
+    // Graph uses entity refs — legacy "systems/APP-001" becomes "component:001"
+    expect(report).toHaveProperty("sourceId", "component:001");
     expect(report).toHaveProperty("totalImpacted", 0);
   });
 });

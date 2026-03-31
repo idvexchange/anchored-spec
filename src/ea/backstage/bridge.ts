@@ -90,8 +90,8 @@ export function backstageToArtifact(entity: BackstageEntity): EaArtifactBase {
   // Build anchors from expect-anchors annotation
   const anchors = buildAnchorsFromAnnotations(annotations);
 
-  // Build trace refs from source annotation
-  const traceRefs = buildTraceRefs(annotations);
+  // Build trace refs from spec.traceRefs (full fidelity) or source annotation (single ref)
+  const traceRefs = buildTraceRefs(annotations, spec);
 
   // Build risk from annotation
   const risk = buildRisk(annotations);
@@ -150,11 +150,14 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
   // Build annotations
   const annotations: Record<string, string> = {};
 
-  // Source annotation from traceRefs
+  // Source annotation from traceRefs — use best heuristic for primary
   if (artifact.traceRefs?.length) {
-    const specRef = artifact.traceRefs.find((r) => r.role === "specification") ?? artifact.traceRefs[0];
-    if (specRef) {
-      annotations[ANNOTATION_KEYS.SOURCE] = specRef.path;
+    // 1. Prefer role=specification, 2. first .md file, 3. first ref
+    const specRef = artifact.traceRefs.find((r) => r.role === "specification");
+    const docRef = !specRef ? artifact.traceRefs.find((r) => r.path.endsWith(".md")) : undefined;
+    const primary = specRef ?? docRef ?? artifact.traceRefs[0];
+    if (primary) {
+      annotations[ANNOTATION_KEYS.SOURCE] = primary.path;
     }
   }
 
@@ -231,6 +234,14 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
         spec[key] = value;
       }
     }
+  }
+
+  // Preserve all traceRefs in spec.traceRefs (when multiple exist)
+  if (artifact.traceRefs && artifact.traceRefs.length > 1) {
+    spec.traceRefs = artifact.traceRefs.map((r) => ({
+      path: r.path,
+      ...(r.role && { role: r.role }),
+    }));
   }
 
   return {
@@ -348,8 +359,22 @@ function buildAnchorsFromAnnotations(annotations: Record<string, string>): EaAnc
   return { symbols: values };
 }
 
-/** Build EaTraceRef[] from source annotation. */
-function buildTraceRefs(annotations: Record<string, string>): EaTraceRef[] {
+/** Build EaTraceRef[] from spec.traceRefs (full fidelity) or source annotation (single ref fallback). */
+function buildTraceRefs(annotations: Record<string, string>, spec: Record<string, unknown>): EaTraceRef[] {
+  // Prefer spec.traceRefs — preserves all refs with role metadata
+  if (Array.isArray(spec.traceRefs) && spec.traceRefs.length > 0) {
+    return (spec.traceRefs as Array<{ path?: string; role?: string }>)
+      .filter((r) => typeof r.path === "string")
+      .map((r) => {
+        const ref: EaTraceRef = { path: r.path as string };
+        if (typeof r.role === "string") {
+          ref.role = r.role as EaTraceRef["role"];
+        }
+        return ref;
+      });
+  }
+
+  // Fall back to source annotation (single ref)
   const source = annotations[ANNOTATION_KEYS.SOURCE];
   if (!source) return [];
 
@@ -461,7 +486,7 @@ function extractExtensions(spec: Record<string, unknown>, entityKind: string): R
   const standardFields = new Set([
     "type", "lifecycle", "owner", "system",
     "subcomponentOf", "profile", "parent", "children", "members",
-    "domain",
+    "domain", "traceRefs", "status",
   ]);
 
   // Also exclude all known relation spec fields
