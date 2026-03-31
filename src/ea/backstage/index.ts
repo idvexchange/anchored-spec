@@ -68,3 +68,18 @@ export {
   legacyIdToEntityName,
   entityNameToLegacyId,
 } from "./kind-mapping.js";
+
+// Relation mapping
+export type { RelationMappingEntry } from "./relation-mapping.js";
+
+export {
+  RELATION_MAPPING_REGISTRY,
+  mapLegacyRelation,
+  mapBackstageRelation,
+  mapSpecField,
+  getWellKnownRelations,
+  getCustomRelations,
+  isWellKnownRelation,
+  legacyRelationToSpecEntry,
+  extractRelationsFromSpec,
+} from "./relation-mapping.js";
