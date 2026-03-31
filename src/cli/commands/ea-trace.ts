@@ -7,9 +7,10 @@
  * summary statistics.
  */
 
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { extname, resolve } from "node:path";
 import { Command } from "commander";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveEaConfig } from "../../ea/config.js";
@@ -30,6 +31,12 @@ function looksLikeArtifactId(value: string): boolean {
   return /[A-Z]/.test(value) && value.includes("-") && !/[/\\]/.test(value);
 }
 
+/** Returns `true` for Markdown file extensions. */
+function isMarkdownFile(filePath: string): boolean {
+  const ext = extname(filePath).toLowerCase();
+  return ext === ".md" || ext === ".markdown";
+}
+
 // ─── Types (internal) ─────────────────────────────────────────────────
 
 interface TraceLink {
@@ -44,7 +51,12 @@ interface TraceLink {
 
 interface CheckReport {
   brokenTraceRefs: { artifactId: string; path: string; reason: string }[];
-  oneWayArtifactToDoc: { artifactId: string; path: string }[];
+  oneWayArtifactToDoc: {
+    artifactId: string;
+    path: string;
+    severity: "warning" | "info";
+    reason: string;
+  }[];
   oneWayDocToArtifact: { docPath: string; artifactId: string }[];
   bidirectionalCount: number;
 }
@@ -141,7 +153,21 @@ function buildCheckReport(links: TraceLink[]): CheckReport {
     if (l.artifactToDoc && l.docToArtifact) {
       bidir++;
     } else if (l.artifactToDoc && !l.docToArtifact) {
-      oneWayA2D.push({ artifactId: l.artifactId, path: l.docPath });
+      if (isMarkdownFile(l.docPath)) {
+        oneWayA2D.push({
+          artifactId: l.artifactId,
+          path: l.docPath,
+          severity: "warning",
+          reason: "missing frontmatter",
+        });
+      } else {
+        oneWayA2D.push({
+          artifactId: l.artifactId,
+          path: l.docPath,
+          severity: "info",
+          reason: "non-markdown file",
+        });
+      }
     } else if (!l.artifactToDoc && l.docToArtifact) {
       oneWayD2A.push({ docPath: l.docPath, artifactId: l.artifactId });
     }
@@ -362,11 +388,27 @@ function renderCheck(report: CheckReport): string {
 
   // One-way artifact → doc
   if (report.oneWayArtifactToDoc.length > 0) {
-    lines.push("  Artifacts with one-way traceRefs (no frontmatter back):");
-    for (const o of report.oneWayArtifactToDoc) {
-      lines.push(`    ${chalk.yellow("⚠")} ${o.artifactId} → ${o.path} (no ea-artifacts frontmatter)`);
+    const actionable = report.oneWayArtifactToDoc.filter(
+      (o) => o.severity === "warning",
+    );
+    const structural = report.oneWayArtifactToDoc.filter(
+      (o) => o.severity === "info",
+    );
+
+    if (actionable.length > 0) {
+      lines.push("  Artifacts with one-way traceRefs (actionable — missing frontmatter):");
+      for (const o of actionable) {
+        lines.push(`    ${chalk.yellow("⚠")} ${o.artifactId} → ${o.path} (${o.reason})`);
+      }
+      lines.push("");
     }
-    lines.push("");
+    if (structural.length > 0) {
+      lines.push("  Artifacts with one-way traceRefs (structural — non-markdown files):");
+      for (const o of structural) {
+        lines.push(`    ${chalk.blue("ℹ")} ${o.artifactId} → ${o.path} (${o.reason})`);
+      }
+      lines.push("");
+    }
   }
 
   // One-way doc → artifact
@@ -378,13 +420,21 @@ function renderCheck(report: CheckReport): string {
     lines.push("");
   }
 
+  const actionableOneWay = report.oneWayArtifactToDoc.filter(
+    (o) => o.severity === "warning",
+  ).length;
+  const structuralOneWay = report.oneWayArtifactToDoc.filter(
+    (o) => o.severity === "info",
+  ).length;
+
   const totalIssues =
-    report.oneWayArtifactToDoc.length +
+    actionableOneWay +
     report.oneWayDocToArtifact.length +
     report.brokenTraceRefs.length;
 
   lines.push(`  Fully bidirectional links: ${report.bidirectionalCount} ${chalk.green("✅")}`);
-  lines.push(`  One-way artifact→doc: ${report.oneWayArtifactToDoc.length} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way artifact→doc (actionable): ${actionableOneWay} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way artifact→doc (structural): ${structuralOneWay} ${chalk.blue("ℹ")}`);
   lines.push(`  One-way doc→artifact: ${report.oneWayDocToArtifact.length} ${chalk.yellow("⚠")}`);
   lines.push(`  Broken references: ${report.brokenTraceRefs.length} ${chalk.red("❌")}`);
   lines.push("");
@@ -422,6 +472,8 @@ export function eaTraceCommand(): Command {
     .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
     .option("--orphans", "Show orphaned docs (frontmatter refs with no traceRef back)")
     .option("--check", "Full bidirectional integrity report")
+    .option("--fix-broken", "Remove traceRefs pointing to non-existent files")
+    .option("--dry-run", "Show what would change without writing files")
     .option("--summary", "Show summary counts")
     .option("--json", "Output as JSON")
     .action(async (target: string | undefined, options) => {
@@ -444,6 +496,85 @@ export function eaTraceCommand(): Command {
       for (const a of artifacts) artifactMap.set(a.id, a);
 
       const links = buildTraceLinks(artifacts, docs, cwd);
+
+      // ── --fix-broken ──────────────────────────────────────────────
+      if (options.fixBroken) {
+        const report = buildCheckReport(links);
+        const toRemove = report.brokenTraceRefs.filter(
+          (b) => b.reason === "file not found",
+        );
+
+        if (toRemove.length === 0) {
+          if (options.json) {
+            process.stdout.write(
+              JSON.stringify({ removed: [], artifactsModified: 0 }, null, 2) + "\n",
+            );
+          } else {
+            console.log(
+              chalk.green("✓ No broken trace references to remove."),
+            );
+          }
+          return;
+        }
+
+        // Group broken refs by artifact ID
+        const brokenByArtifact = new Map<string, string[]>();
+        for (const b of toRemove) {
+          const list = brokenByArtifact.get(b.artifactId) ?? [];
+          list.push(b.path);
+          brokenByArtifact.set(b.artifactId, list);
+        }
+
+        const removed: { artifactId: string; path: string }[] = [];
+
+        if (!options.dryRun) {
+          for (const [artifactId, paths] of brokenByArtifact) {
+            const detail = loadResult.details.find(
+              (d) => d.artifact?.id === artifactId,
+            );
+            if (!detail) continue;
+
+            const pathSet = new Set(paths);
+            removeBrokenTraceRefs(detail.filePath, pathSet);
+            for (const p of paths) {
+              removed.push({ artifactId, path: p });
+            }
+          }
+        } else {
+          for (const b of toRemove) {
+            removed.push({ artifactId: b.artifactId, path: b.path });
+          }
+        }
+
+        if (options.json) {
+          process.stdout.write(
+            JSON.stringify(
+              {
+                dryRun: !!options.dryRun,
+                removed,
+                artifactsModified: brokenByArtifact.size,
+              },
+              null,
+              2,
+            ) + "\n",
+          );
+        } else {
+          if (options.dryRun) {
+            console.log(chalk.yellow("  DRY RUN — no files modified\n"));
+          }
+          console.log(
+            chalk.bold(
+              `Removing ${toRemove.length} broken traceRef${toRemove.length === 1 ? "" : "s"} from ${brokenByArtifact.size} artifact${brokenByArtifact.size === 1 ? "" : "s"}:\n`,
+            ),
+          );
+          for (const r of removed) {
+            console.log(
+              `  ${chalk.red("✕")} ${r.artifactId} → ${r.path}`,
+            );
+          }
+        }
+        return;
+      }
 
       // ── --check ───────────────────────────────────────────────────
       if (options.check) {
@@ -581,4 +712,48 @@ export function eaTraceCommand(): Command {
         process.stdout.write(renderSummary(report) + "\n");
       }
     });
+}
+
+// ─── Fix-broken helper ─────────────────────────────────────────────
+
+/**
+ * Read an artifact file, remove traceRefs matching the given paths,
+ * and write it back in the same format (JSON or YAML).
+ */
+function removeBrokenTraceRefs(
+  filePath: string,
+  pathsToRemove: Set<string>,
+): void {
+  const raw = readFileSync(filePath, "utf-8");
+  const isJson = filePath.endsWith(".json");
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any;
+  if (isJson) {
+    data = JSON.parse(raw);
+  } else {
+    data = parseYaml(raw);
+  }
+
+  if (!Array.isArray(data.traceRefs) && !Array.isArray(data.spec?.traceRefs)) {
+    return;
+  }
+
+  // Handle both flat and envelope formats
+  if (Array.isArray(data.traceRefs)) {
+    data.traceRefs = data.traceRefs.filter(
+      (ref: { path?: string }) => !ref.path || !pathsToRemove.has(ref.path),
+    );
+  }
+  if (Array.isArray(data.spec?.traceRefs)) {
+    data.spec.traceRefs = data.spec.traceRefs.filter(
+      (ref: { path?: string }) => !ref.path || !pathsToRemove.has(ref.path),
+    );
+  }
+
+  if (isJson) {
+    writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  } else {
+    writeFileSync(filePath, stringifyYaml(data), "utf-8");
+  }
 }
