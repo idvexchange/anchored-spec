@@ -28,6 +28,8 @@ const KIND_TO_ANCHOR_FIELD: Partial<Record<FactKind, keyof EaAnchors>> = {
   "entity-fields": "symbols",
   "type-enum": "schemas",
   "payload-schema": "schemas",
+  "status-enum": "statuses",
+  "state-transition": "transitions",
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────

@@ -1031,3 +1031,196 @@ describe("mapping table detection", () => {
     expect(naming!.severity).toBe("error");
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// 12. Status-Enum & State-Transition Reconciliation
+// ═══════════════════════════════════════════════════════════════════════
+
+describe("status-enum and state-transition reconciliation", () => {
+  it("reconciles status-enum facts against artifact statuses anchor", () => {
+    const annotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const manifest = makeManifest("statuses.md", [
+      makeBlock("status-enum", [
+        makeFact({ key: "open", kind: "status-enum", source: { file: "statuses.md", line: 5 } }),
+        makeFact({ key: "processing", kind: "status-enum", source: { file: "statuses.md", line: 6 } }),
+        makeFact({ key: "closed", kind: "status-enum", source: { file: "statuses.md", line: 7 } }),
+      ], { annotation, source: { file: "statuses.md", line: 1 } }),
+    ]);
+
+    const artifact = makeArtifact({
+      id: "SVC-orders",
+      kind: "service",
+      anchors: { statuses: ["open", "processing", "closed"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    // All statuses match — no mismatches
+    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-mismatch")).toHaveLength(0);
+    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact")).toHaveLength(0);
+  });
+
+  it("detects artifact-missing-fact for status-enum not in docs", () => {
+    const annotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const manifest = makeManifest("statuses.md", [
+      makeBlock("status-enum", [
+        makeFact({ key: "open", kind: "status-enum", source: { file: "statuses.md", line: 5 } }),
+      ], { annotation, source: { file: "statuses.md", line: 1 } }),
+    ]);
+
+    const artifact = makeArtifact({
+      id: "SVC-orders",
+      kind: "service",
+      anchors: { statuses: ["open", "processing", "closed"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    // "processing" and "closed" declared in artifact but missing from docs
+    const missing = report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact");
+    expect(missing.length).toBeGreaterThanOrEqual(2);
+    expect(missing.some(f => f.message.includes("processing"))).toBe(true);
+    expect(missing.some(f => f.message.includes("closed"))).toBe(true);
+  });
+
+  it("detects fact-missing-artifact for status-enum in docs but not in any artifact", () => {
+    const annotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const manifest = makeManifest("statuses.md", [
+      makeBlock("status-enum", [
+        makeFact({ key: "open", kind: "status-enum", source: { file: "statuses.md", line: 5 } }),
+        makeFact({ key: "archived", kind: "status-enum", source: { file: "statuses.md", line: 6 } }),
+      ], { annotation, source: { file: "statuses.md", line: 1 } }),
+    ]);
+
+    const artifact = makeArtifact({
+      id: "SVC-orders",
+      kind: "service",
+      anchors: { statuses: ["open"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const factMissing = report.findings.filter(f => f.rule === "ea:docs/fact-missing-artifact");
+    expect(factMissing.some(f => f.message.includes("archived"))).toBe(true);
+  });
+
+  it("reconciles state-transition facts against artifact transitions anchor", () => {
+    const annotation = { kind: "transitions", raw: "<!-- @ea:transitions -->", line: 1 };
+    const manifest = makeManifest("workflow.md", [
+      makeBlock("state-transition", [
+        makeFact({ key: "open→processing", kind: "state-transition", source: { file: "workflow.md", line: 5 } }),
+        makeFact({ key: "processing→closed", kind: "state-transition", source: { file: "workflow.md", line: 6 } }),
+      ], { annotation, source: { file: "workflow.md", line: 1 } }),
+    ]);
+
+    const artifact = makeArtifact({
+      id: "SVC-orders",
+      kind: "service",
+      anchors: { transitions: ["open→processing", "processing→closed"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-mismatch")).toHaveLength(0);
+    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact")).toHaveLength(0);
+  });
+
+  it("detects artifact-missing-fact for transition in artifact but not in docs", () => {
+    const annotation = { kind: "transitions", raw: "<!-- @ea:transitions -->", line: 1 };
+    const manifest = makeManifest("workflow.md", [
+      makeBlock("state-transition", [
+        makeFact({ key: "open→processing", kind: "state-transition", source: { file: "workflow.md", line: 5 } }),
+      ], { annotation, source: { file: "workflow.md", line: 1 } }),
+    ]);
+
+    const artifact = makeArtifact({
+      id: "SVC-orders",
+      kind: "service",
+      anchors: { transitions: ["open→processing", "processing→closed", "closed→archived"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const missing = report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact");
+    expect(missing.some(f => f.message.includes("processing→closed"))).toBe(true);
+    expect(missing.some(f => f.message.includes("closed→archived"))).toBe(true);
+  });
+
+  it("reconciles mixed statuses and transitions on same artifact", () => {
+    const stateAnnotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const transAnnotation = { kind: "transitions", raw: "<!-- @ea:transitions -->", line: 10 };
+    const manifest = makeManifest("lifecycle.md", [
+      makeBlock("status-enum", [
+        makeFact({ key: "open", kind: "status-enum", source: { file: "lifecycle.md", line: 3 } }),
+        makeFact({ key: "closed", kind: "status-enum", source: { file: "lifecycle.md", line: 4 } }),
+      ], { annotation: stateAnnotation, source: { file: "lifecycle.md", line: 1 } }),
+      makeBlock("state-transition", [
+        makeFact({ key: "open→closed", kind: "state-transition", source: { file: "lifecycle.md", line: 12 } }),
+      ], { annotation: transAnnotation, source: { file: "lifecycle.md", line: 10 } }),
+    ]);
+
+    const artifact = makeArtifact({
+      id: "SVC-orders",
+      kind: "service",
+      anchors: {
+        statuses: ["open", "closed", "pending"],
+        transitions: ["open→closed"],
+      },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    // "pending" in artifact but not in docs
+    expect(report.findings.some(f =>
+      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("pending"),
+    )).toBe(true);
+    // Transition matches — no extra findings for transitions
+    expect(report.findings.filter(f =>
+      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("→"),
+    )).toHaveLength(0);
+  });
+
+  it("full pipeline: markdown status table → reconciliation", () => {
+    const md = `<!-- @ea:states lifecycle -->
+| Status | Description |
+|--------|-------------|
+| open | Newly created |
+| processing | Being worked on |
+| closed | Completed |
+<!-- @ea:end -->`;
+
+    const manifest = buildFactManifest(parseMarkdown(md, "lifecycle.md"));
+    expect(manifest.blocks.some(b => b.kind === "status-enum")).toBe(true);
+
+    const artifact = makeArtifact({
+      id: "SVC-lifecycle",
+      kind: "service",
+      anchors: { statuses: ["open", "processing", "closed", "archived"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    // "archived" in artifact but not in docs
+    expect(report.findings.some(f =>
+      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("archived"),
+    )).toBe(true);
+  });
+
+  it("full pipeline: mermaid state diagram → transition reconciliation", () => {
+    const md = `<!-- @ea:transitions order-flow -->
+\`\`\`mermaid
+stateDiagram-v2
+  open --> processing : start_work
+  processing --> closed : complete
+\`\`\`
+<!-- @ea:end -->`;
+
+    const manifest = buildFactManifest(parseMarkdown(md, "flow.md"));
+    expect(manifest.blocks.some(b => b.kind === "state-transition")).toBe(true);
+
+    const artifact = makeArtifact({
+      id: "SVC-flow",
+      kind: "service",
+      anchors: { transitions: ["open→processing", "processing→closed", "closed→archived"] },
+    });
+
+    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    // "closed→archived" in artifact but not in docs
+    expect(report.findings.some(f =>
+      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("closed→archived"),
+    )).toBe(true);
+  });
+});

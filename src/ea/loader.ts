@@ -200,6 +200,9 @@ function normalizeAnchors(raw: Record<string, unknown>): EaAnchors {
     catalogRefs: { target: "catalogRefs", field: "ref" },
     iam: { target: "iam", field: "ref" },
     network: { target: "network", field: "ref" },
+    statuses: { target: "statuses", field: "value" },
+    states: { target: "statuses", field: "value" },
+    transitions: { target: "transitions", field: "value" },
   };
 
   for (const [yamlKey, { target, field }] of Object.entries(mapping)) {

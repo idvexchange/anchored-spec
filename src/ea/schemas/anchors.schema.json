@@ -46,6 +46,16 @@
       "items": { "type": "string" },
       "description": "Network references: \"aws:security-group/sg-12345\""
     },
+    "statuses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Status/state enum values: \"open\", \"closed\", \"pending\""
+    },
+    "transitions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "State machine transitions: \"open→processing\", \"processing→completed\""
+    },
     "other": {
       "type": "object",
       "additionalProperties": {

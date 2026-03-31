@@ -88,6 +88,12 @@ export interface EaAnchors {
   /** Network references: "aws:security-group/sg-12345" */
   network?: string[];
 
+  /** Status/state enum values: "open", "closed", "pending" */
+  statuses?: string[];
+
+  /** State machine transitions: "open→processing", "processing→completed" */
+  transitions?: string[];
+
   /** Extensible anchors for tools not covered above */
   other?: Record<string, string[]>;
 }
