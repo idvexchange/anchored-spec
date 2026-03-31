@@ -22,6 +22,8 @@ export function eaInitCommand(): Command {
   return new Command("init")
     .description("Initialize EA directory structure and v1.0 configuration")
     .option("--root-dir <path>", "Root directory for EA artifacts", "ea")
+    .option("--format <format>", "Entity format: ea (default), backstage", "ea")
+    .option("--mode <mode>", "Storage mode for backstage format: manifest (default), inline", "manifest")
     .option("--with-examples", "Create starter artifacts in systems and delivery domains")
     .option("--with-policy", "Create a starter workflow policy file")
     .option("--migrate", "Migrate existing v0.x config to v1.0 format")
@@ -72,6 +74,19 @@ export function eaInitCommand(): Command {
         v1Config = resolveConfigV1({ rootDir });
       }
 
+      // 1a. Apply Backstage format settings if requested
+      const format = (options.format as string) ?? "ea";
+      const storageMode = (options.mode as string) ?? "manifest";
+      if (format === "backstage") {
+        v1Config.entityFormat = "backstage";
+        v1Config.entityMode = storageMode as "manifest" | "inline";
+        if (storageMode === "manifest") {
+          v1Config.manifestPath = v1Config.manifestPath ?? "catalog-info.yaml";
+        } else if (storageMode === "inline") {
+          v1Config.inlineDocDirs = v1Config.inlineDocDirs ?? ["docs"];
+        }
+      }
+
       // 1b. Apply version policy defaults if requested
       if (options.versionPolicyDefaults) {
         v1Config.versionPolicy = {
@@ -101,30 +116,58 @@ export function eaInitCommand(): Command {
         console.log(chalk.dim("  · .anchored-spec/config.json already exists (use --force to overwrite)"));
       }
 
-      // 3. Create root and domain directories
-      for (const domain of EA_DOMAINS) {
-        const dir = join(cwd, v1Config.domains[domain]);
-        if (!existsSync(dir)) {
-          if (!dryRun) mkdirSync(dir, { recursive: true });
-          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.domains[domain]}/`));
-        } else {
-          console.log(chalk.dim(`  · ${v1Config.domains[domain]}/ already exists`));
+      // 3. Create directories (mode-dependent)
+      if (format === "backstage") {
+        // Backstage mode: create appropriate directories
+        if (storageMode === "manifest") {
+          // Create catalog-info.yaml if it doesn't exist
+          const manifestPath = join(cwd, v1Config.manifestPath ?? "catalog-info.yaml");
+          if (!existsSync(manifestPath) || force) {
+            if (!dryRun) writeFileSync(manifestPath, "# Backstage Software Catalog\n# Add entities as YAML documents separated by ---\n");
+            console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.manifestPath ?? "catalog-info.yaml"}`));
+          }
+        } else if (storageMode === "inline") {
+          const docDirs = v1Config.inlineDocDirs ?? ["docs"];
+          for (const dir of docDirs) {
+            const absDir = join(cwd, dir);
+            if (!existsSync(absDir)) {
+              if (!dryRun) mkdirSync(absDir, { recursive: true });
+              console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${dir}/`));
+            }
+          }
         }
-      }
-
-      // 4. Create generated directory
-      const generatedDir = join(cwd, v1Config.generatedDir);
-      if (!existsSync(generatedDir)) {
-        if (!dryRun) mkdirSync(generatedDir, { recursive: true });
-        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.generatedDir}/`));
-      }
-
-      // 5. Create .gitkeep files in domain dirs
-      if (!dryRun) {
+        // Also create generated dir
+        const generatedDir = join(cwd, v1Config.generatedDir);
+        if (!existsSync(generatedDir)) {
+          if (!dryRun) mkdirSync(generatedDir, { recursive: true });
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.generatedDir}/`));
+        }
+      } else {
+        // Legacy EA artifacts mode: create domain directories
         for (const domain of EA_DOMAINS) {
-          const keepFile = join(cwd, v1Config.domains[domain], ".gitkeep");
-          if (!existsSync(keepFile)) {
-            writeFileSync(keepFile, "");
+          const dir = join(cwd, v1Config.domains[domain]);
+          if (!existsSync(dir)) {
+            if (!dryRun) mkdirSync(dir, { recursive: true });
+            console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.domains[domain]}/`));
+          } else {
+            console.log(chalk.dim(`  · ${v1Config.domains[domain]}/ already exists`));
+          }
+        }
+
+        // 4. Create generated directory
+        const generatedDir = join(cwd, v1Config.generatedDir);
+        if (!existsSync(generatedDir)) {
+          if (!dryRun) mkdirSync(generatedDir, { recursive: true });
+          console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${v1Config.generatedDir}/`));
+        }
+
+        // 5. Create .gitkeep files in domain dirs
+        if (!dryRun) {
+          for (const domain of EA_DOMAINS) {
+            const keepFile = join(cwd, v1Config.domains[domain], ".gitkeep");
+            if (!existsSync(keepFile)) {
+              writeFileSync(keepFile, "");
+            }
           }
         }
       }
@@ -158,7 +201,11 @@ export function eaInitCommand(): Command {
 
       // 9. Optionally create starter examples
       if (options.withExamples) {
-        createExamples(cwd, v1Config.domains, dryRun);
+        if (format === "backstage") {
+          createBackstageExamples(cwd, v1Config, dryRun);
+        } else {
+          createExamples(cwd, v1Config.domains, dryRun);
+        }
       }
 
       // 10. Update package.json scripts
@@ -446,5 +493,63 @@ function addPackageScripts(cwd: string, dryRun: boolean): void {
     }
   } catch {
     // Non-fatal — package.json might be malformed
+  }
+}
+
+function createBackstageExamples(
+  cwd: string,
+  config: AnchoredSpecConfigV1,
+  dryRun: boolean,
+): void {
+  const mode = config.entityMode ?? "manifest";
+
+  const componentYaml = `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: example-service
+  description: >
+    A starter component. Replace this with your actual service description.
+  annotations:
+    anchored-spec.dev/confidence: "0.5"
+  tags:
+    - example
+spec:
+  type: service
+  lifecycle: experimental
+  owner: your-team
+  system: example-system
+`;
+
+  const systemYaml = `apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: example-system
+  description: An example system grouping related components.
+spec:
+  owner: your-team
+`;
+
+  if (mode === "manifest") {
+    const manifestPath = join(cwd, config.manifestPath ?? "catalog-info.yaml");
+    const content = `---\n${systemYaml}---\n${componentYaml}`;
+    if (!dryRun) writeFileSync(manifestPath, content);
+    console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create example entities in ${config.manifestPath ?? "catalog-info.yaml"}`));
+  } else if (mode === "inline") {
+    const docDir = join(cwd, (config.inlineDocDirs ?? ["docs"])[0]);
+    if (!existsSync(docDir) && !dryRun) mkdirSync(docDir, { recursive: true });
+
+    const svcPath = join(docDir, "example-service.md");
+    if (!existsSync(svcPath)) {
+      const md = `---\n${componentYaml}---\n\n# Example Service\n\nTODO: Add documentation for this service.\n`;
+      if (!dryRun) writeFileSync(svcPath, md);
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create docs/example-service.md`));
+    }
+
+    const sysPath = join(docDir, "example-system.md");
+    if (!existsSync(sysPath)) {
+      const md = `---\n${systemYaml}---\n\n# Example System\n\nTODO: Add documentation for this system.\n`;
+      if (!dryRun) writeFileSync(sysPath, md);
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create docs/example-system.md`));
+    }
   }
 }

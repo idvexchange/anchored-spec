@@ -122,3 +122,16 @@ export {
   loadInlineEntities,
   loadBackstageEntities,
 } from "./loader.js";
+
+// Entity Writer
+export type { EntityWriteResult, EntityDeleteResult } from "./entity-writer.js";
+
+export {
+  writeToManifest,
+  removeFromManifest,
+  writeToCatalogDir,
+  removeFromCatalogDir,
+  writeToFrontmatter,
+  writeEntity,
+  deleteEntity,
+} from "./entity-writer.js";
