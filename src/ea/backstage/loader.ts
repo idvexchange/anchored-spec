@@ -18,6 +18,7 @@ import type { AnchoredSpecConfigV1 } from "../config.js";
 import type { BackstageEntity } from "./types.js";
 import { parseBackstageYaml, parseFrontmatterEntity } from "./parser.js";
 import { backstageToArtifact } from "./bridge.js";
+import { validateBackstageEntity } from "./validate.js";
 
 // Re-use the loader types from the main loader
 export interface BackstageLoadedEntity {
@@ -257,6 +258,28 @@ function convertEntity(
   relativePath: string,
 ): BackstageLoadedEntity {
   const errors: EaValidationError[] = [];
+
+  // Validate entity against Backstage schema before bridge conversion
+  const schemaResult = validateBackstageEntity(entity);
+  if (!schemaResult.valid) {
+    for (const err of schemaResult.errors) {
+      errors.push({
+        path: relativePath,
+        message: `${relativePath}: ${err.message}`,
+        severity: err.severity,
+        rule: err.rule,
+      });
+    }
+  }
+  // Include warnings from schema validation
+  for (const warn of schemaResult.warnings) {
+    errors.push({
+      path: relativePath,
+      message: `${relativePath}: ${warn.message}`,
+      severity: "warning",
+      rule: warn.rule,
+    });
+  }
 
   try {
     const artifact = backstageToArtifact(entity);

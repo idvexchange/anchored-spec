@@ -173,3 +173,14 @@ export {
   getEntityDomain,
   getEntityLinks,
 } from "./accessors.js";
+
+// Validation
+export type { BackstageSchemaName } from "./validate.js";
+
+export {
+  validateBackstageEntity,
+  validateBackstageEntities,
+  getBackstageSchemaForKind,
+  getBackstageSchemaNames,
+  resetBackstageAjv,
+} from "./validate.js";

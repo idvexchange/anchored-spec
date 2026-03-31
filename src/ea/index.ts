@@ -378,3 +378,14 @@ export {
   writeEntity,
   deleteEntity,
 } from "./backstage/entity-writer.js";
+
+// Backstage Validation
+export type { BackstageSchemaName } from "./backstage/validate.js";
+
+export {
+  validateBackstageEntity,
+  validateBackstageEntities,
+  getBackstageSchemaForKind,
+  getBackstageSchemaNames,
+  resetBackstageAjv,
+} from "./backstage/validate.js";
