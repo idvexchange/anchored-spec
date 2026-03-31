@@ -22,13 +22,17 @@ const processor = unified()
   .use(remarkFrontmatter, ["yaml"]);
 
 // ─── Annotation Patterns ────────────────────────────────────────────
+// Recognise both legacy @ea: and new @anchored-spec: decorator prefixes.
 
-const ANNOTATION_RE = /^<!--\s*@ea:(\S+)(?:\s+(\S+))?\s*-->$/;
-const END_RE = /^<!--\s*@ea:end\s*-->$/;
-const SUPPRESS_RE =
-  /^<!--\s*@ea:suppress\s+(\S+)\s+reason="([^"]*)"\s*-->$/;
-const CANONICAL_RE = /^<!--\s*@ea:canonical\s*-->$/;
-const DERIVED_RE = /^<!--\s*@ea:derived\s+source="([^"]+)"\s*-->$/;
+const PREFIX = `@(?:ea|anchored-spec):`;
+
+const ANNOTATION_RE = new RegExp(`^<!--\\s*${PREFIX}(\\S+)(?:\\s+(\\S+))?\\s*-->$`);
+const END_RE = new RegExp(`^<!--\\s*${PREFIX}end\\s*-->$`);
+const SUPPRESS_RE = new RegExp(
+  `^<!--\\s*${PREFIX}suppress\\s+(\\S+)\\s+reason="([^"]*)"\\s*-->$`,
+);
+const CANONICAL_RE = new RegExp(`^<!--\\s*${PREFIX}canonical\\s*-->$`);
+const DERIVED_RE = new RegExp(`^<!--\\s*${PREFIX}derived\\s+source="([^"]+)"\\s*-->$`);
 
 // ─── Public API ─────────────────────────────────────────────────────
 

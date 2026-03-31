@@ -200,6 +200,45 @@ export interface AnchoredSpecConfigV1 {
 
   /** Custom change types beyond built-in types. */
   customChangeTypes?: string[];
+
+  // ─── Backstage Entity Mode (v1.1+) ─────────────────────────────────────────
+
+  /**
+   * Entity storage mode.
+   * - `"artifacts"` — legacy per-file YAML/JSON artifacts in domain dirs (default)
+   * - `"manifest"` — single or multi-doc Backstage YAML catalog file
+   * - `"inline"`   — Backstage YAML frontmatter in markdown docs
+   */
+  entityMode?: "artifacts" | "manifest" | "inline";
+
+  /**
+   * Entity format for non-artifacts modes.
+   * - `"backstage"` — Backstage Software Catalog entity format (default for manifest/inline)
+   * - `"legacy"`    — current anchored-spec artifact format
+   */
+  entityFormat?: "backstage" | "legacy";
+
+  /**
+   * Path to the manifest file (relative to project root).
+   * Only used when `entityMode` is `"manifest"`.
+   * Default: `"catalog-info.yaml"`.
+   */
+  manifestPath?: string;
+
+  /**
+   * Directory containing individual Backstage entity YAML files.
+   * Only used when `entityMode` is `"manifest"` and entities are
+   * split across multiple catalog files.
+   * Default: `"catalog"`.
+   */
+  catalogDir?: string;
+
+  /**
+   * Directories containing markdown docs with Backstage YAML frontmatter.
+   * Only used when `entityMode` is `"inline"`.
+   * Default: `["docs"]`.
+   */
+  inlineDocDirs?: string[];
 }
 
 // ─── v0.x Defaults & Resolution ─────────────────────────────────────────────────
@@ -332,6 +371,11 @@ export function resolveConfigV1(
     testMetadata: partial.testMetadata,
     workflowPolicyPath: partial.workflowPolicyPath ?? defaults.workflowPolicyPath,
     customChangeTypes: partial.customChangeTypes,
+    entityMode: partial.entityMode,
+    entityFormat: partial.entityFormat,
+    manifestPath: partial.manifestPath,
+    catalogDir: partial.catalogDir,
+    inlineDocDirs: partial.inlineDocDirs,
   };
 }
 

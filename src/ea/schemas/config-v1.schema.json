@@ -239,6 +239,32 @@
         }
       },
       "additionalProperties": false
+    },
+    "entityMode": {
+      "type": "string",
+      "enum": ["artifacts", "manifest", "inline"],
+      "description": "Entity storage mode: 'artifacts' (legacy per-file), 'manifest' (multi-doc Backstage YAML), or 'inline' (Backstage YAML frontmatter in markdown)."
+    },
+    "entityFormat": {
+      "type": "string",
+      "enum": ["backstage", "legacy"],
+      "description": "Entity format for manifest/inline modes: 'backstage' (Backstage Software Catalog) or 'legacy' (anchored-spec artifact format)."
+    },
+    "manifestPath": {
+      "type": "string",
+      "default": "catalog-info.yaml",
+      "description": "Path to the manifest file (relative to project root). Used when entityMode is 'manifest'."
+    },
+    "catalogDir": {
+      "type": "string",
+      "default": "catalog",
+      "description": "Directory containing individual Backstage entity YAML files. Used when entityMode is 'manifest' with split files."
+    },
+    "inlineDocDirs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["docs"],
+      "description": "Directories containing markdown docs with Backstage YAML frontmatter. Used when entityMode is 'inline'."
     }
   }
 }
