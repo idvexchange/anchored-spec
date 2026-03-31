@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Tests for EA Reports: System-Data Matrix + Classification Coverage
  *
@@ -16,23 +15,27 @@ import {
   buildClassificationCoverage,
   renderClassificationCoverageMarkdown,
 } from "../index.js";
-import type { EaArtifactBase } from "../index.js";
+import { artifactToBackstage } from "../backstage/bridge.js";
+import type { BackstageEntity } from "../backstage/types.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
-  return {
-    apiVersion: "anchored-spec/ea/v1",
-    title: overrides.title ?? overrides.id,
-    summary: "A well-described artifact for testing purposes.",
-    owners: ["team-test"],
-    tags: [],
-    confidence: "declared",
-    status: "active",
-    schemaVersion: "1.0.0",
-    relations: [],
-    ...overrides,
-  } as EaArtifactBase;
+function makeEntity(overrides: Record<string, unknown> & { id: string; kind: string }): BackstageEntity {
+  const { id, kind, title, summary, owners, tags, confidence, status, schemaVersion, apiVersion, name, domain, owner, lastUpdated, relations, ...specFields } = overrides;
+  const artifact = {
+    id,
+    kind,
+    schemaVersion: (schemaVersion as string) ?? "1.0.0",
+    title: (title as string) ?? id,
+    summary: (summary as string) ?? "A well-described artifact for testing purposes.",
+    owners: (owners as string[]) ?? ["team-test"],
+    tags: (tags as string[]) ?? [],
+    confidence: (confidence as string) ?? "declared",
+    status: (status as string) ?? "active",
+    relations: (relations as Array<{ type: string; target: string }>) ?? [],
+    ...(Object.keys(specFields).length > 0 && { extensions: specFields }),
+  } as import("../types.js").EaArtifactBase;
+  return artifactToBackstage(artifact);
 }
 
 // ─── buildSystemDataMatrix ──────────────────────────────────────────────────────
@@ -48,42 +51,42 @@ describe("buildSystemDataMatrix", () => {
 
   it("finds app → data-store connections via uses relation", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         title: "Order Service",
         relations: [{ type: "uses", target: "STORE-orders-db" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-orders-db",
         kind: "data-store",
         title: "Orders DB",
         technology: { engine: "postgresql", category: "relational" },
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
     expect(report.applications).toHaveLength(1);
     expect(report.dataStores).toHaveLength(1);
     expect(report.matrix).toHaveLength(1);
-    expect(report.matrix[0].applicationId).toBe("APP-orders");
-    expect(report.matrix[0].dataStoreId).toBe("STORE-orders-db");
+    expect(report.matrix[0].applicationId).toBe("component:orders");
+    expect(report.matrix[0].dataStoreId).toBe("resource:orders-db");
     expect(report.summary.connectionCount).toBe(1);
   });
 
   it("includes logical models linked via stores relation", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         relations: [{ type: "uses", target: "STORE-orders-db" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-orders-db",
         kind: "data-store",
         relations: [{ type: "stores", target: "LDM-order" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "LDM-order",
         kind: "logical-data-model",
         title: "Order Entity",
@@ -91,29 +94,29 @@ describe("buildSystemDataMatrix", () => {
           { name: "id", type: "uuid" },
           { name: "email", type: "string", classification: "PII" },
         ],
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
     expect(report.matrix[0].logicalModels).toHaveLength(1);
-    expect(report.matrix[0].logicalModels[0].id).toBe("LDM-order");
+    expect(report.matrix[0].logicalModels[0].id).toBe("canonicalentity:order");
     expect(report.matrix[0].logicalModels[0].title).toBe("Order Entity");
     expect(report.matrix[0].logicalModels[0].classifications).toContain("PII");
   });
 
   it("collects classifications from LDM attributes", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-crm",
         kind: "application",
         relations: [{ type: "uses", target: "STORE-customer" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-customer",
         kind: "data-store",
         relations: [{ type: "stores", target: "LDM-customer" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "LDM-customer",
         kind: "logical-data-model",
         title: "Customer",
@@ -122,7 +125,7 @@ describe("buildSystemDataMatrix", () => {
           { name: "salary", type: "decimal", classification: "financial" },
           { name: "name", type: "string", classification: "PII" },
         ],
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -135,20 +138,20 @@ describe("buildSystemDataMatrix", () => {
 
   it("handles multiple apps using same store", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         relations: [{ type: "uses", target: "STORE-shared" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "APP-billing",
         kind: "application",
         relations: [{ type: "uses", target: "STORE-shared" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-shared",
         kind: "data-store",
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -158,7 +161,7 @@ describe("buildSystemDataMatrix", () => {
 
   it("handles app using multiple stores", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-monolith",
         kind: "application",
         relations: [
@@ -166,8 +169,8 @@ describe("buildSystemDataMatrix", () => {
           { type: "uses", target: "STORE-redis" },
         ],
       }),
-      makeArtifact({ id: "STORE-pg", kind: "data-store" } as any),
-      makeArtifact({ id: "STORE-redis", kind: "data-store" } as any),
+      makeEntity({ id: "STORE-pg", kind: "data-store" }),
+      makeEntity({ id: "STORE-redis", kind: "data-store" }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -176,12 +179,12 @@ describe("buildSystemDataMatrix", () => {
 
   it("ignores non-uses relations", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         relations: [{ type: "dependsOn", target: "STORE-orders-db" }],
       }),
-      makeArtifact({ id: "STORE-orders-db", kind: "data-store" } as any),
+      makeEntity({ id: "STORE-orders-db", kind: "data-store" }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -190,37 +193,37 @@ describe("buildSystemDataMatrix", () => {
 
   it("includes LDMs linked via implementedBy relation", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         relations: [{ type: "uses", target: "STORE-orders-db" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-orders-db",
         kind: "data-store",
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "LDM-order",
         kind: "logical-data-model",
         title: "Order Model",
         attributes: [{ name: "id", type: "uuid" }],
         relations: [{ type: "implementedBy", target: "STORE-orders-db" }],
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
     expect(report.matrix[0].logicalModels).toHaveLength(1);
-    expect(report.matrix[0].logicalModels[0].id).toBe("LDM-order");
+    expect(report.matrix[0].logicalModels[0].id).toBe("canonicalentity:order");
   });
 
   it("extracts technology from data-store", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "STORE-pg",
         kind: "data-store",
         title: "PG Store",
         technology: { engine: "postgresql", category: "relational" },
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -241,18 +244,18 @@ describe("renderSystemDataMatrixMarkdown", () => {
 
   it("renders table with connections", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         title: "Order Service",
         relations: [{ type: "uses", target: "STORE-pg" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-pg",
         kind: "data-store",
         title: "Orders DB",
         technology: { engine: "postgresql", category: "relational" },
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -265,22 +268,22 @@ describe("renderSystemDataMatrixMarkdown", () => {
 
   it("includes classifications section when present", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-crm",
         kind: "application",
         relations: [{ type: "uses", target: "STORE-cust" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "STORE-cust",
         kind: "data-store",
         relations: [{ type: "stores", target: "LDM-cust" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "LDM-cust",
         kind: "logical-data-model",
         title: "Customer",
         attributes: [{ name: "ssn", type: "string", classification: "PII" }],
-      } as any),
+      }),
     ];
 
     const report = buildSystemDataMatrix(artifacts);
@@ -301,38 +304,38 @@ describe("buildClassificationCoverage", () => {
 
   it("finds entities classified under a classification", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer Entity",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
     expect(report.classifications).toHaveLength(1);
-    expect(report.classifications[0].classificationId).toBe("CLASS-pii");
+    expect(report.classifications[0].classificationId).toBe("control:pii");
     expect(report.classifications[0].coveredEntities).toHaveLength(1);
-    expect(report.classifications[0].coveredEntities[0].entityId).toBe("CE-customer");
+    expect(report.classifications[0].coveredEntities[0].entityId).toBe("canonicalentity:customer");
   });
 
   it("detects enforcement gap when store lacks classification", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer Entity",
@@ -340,32 +343,32 @@ describe("buildClassificationCoverage", () => {
           { type: "classifiedAs", target: "CLASS-pii" },
           { type: "implementedBy", target: "STORE-customers" },
         ],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-customers",
         kind: "data-store",
         title: "Customers DB",
         // No classifiedAs relation — this is the gap
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
     expect(report.classifications[0].stores).toHaveLength(1);
     expect(report.classifications[0].stores[0].enforced).toBe(false);
-    expect(report.classifications[0].enforcementGaps).toContain("STORE-customers");
+    expect(report.classifications[0].enforcementGaps).toContain("resource:customers");
     expect(report.summary.gapCount).toBe(1);
   });
 
   it("detects no gap when store carries same classification", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer Entity",
@@ -373,13 +376,13 @@ describe("buildClassificationCoverage", () => {
           { type: "classifiedAs", target: "CLASS-pii" },
           { type: "implementedBy", target: "STORE-customers" },
         ],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-customers",
         kind: "data-store",
         title: "Customers DB",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
@@ -390,58 +393,57 @@ describe("buildClassificationCoverage", () => {
 
   it("finds stores via stores relation (reverse direction)", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-orders",
         kind: "data-store",
         title: "Orders DB",
         relations: [{ type: "stores", target: "CE-customer" }],
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
     expect(report.classifications[0].stores).toHaveLength(1);
-    expect(report.classifications[0].stores[0].storeId).toBe("STORE-orders");
-    expect(report.classifications[0].enforcementGaps).toContain("STORE-orders");
+    expect(report.classifications[0].stores[0].storeId).toBe("resource:orders");
+    expect(report.classifications[0].enforcementGaps).toContain("resource:orders");
   });
 
   it("detects exchange carrying classified entity without declaration", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "EXCH-onboarding",
         kind: "information-exchange",
         title: "Customer Onboarding",
         source: { artifactId: "APP-frontend" },
         destination: { artifactId: "APP-backend" },
-        exchangedEntities: ["CE-customer"],
+        exchangedEntities: ["canonicalentity:customer"],
         purpose: "Onboarding flow",
-        // No classificationLevel — gap
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
@@ -452,29 +454,29 @@ describe("buildClassificationCoverage", () => {
 
   it("reports no exchange gap when classificationLevel matches", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "EXCH-onboarding",
         kind: "information-exchange",
         title: "Customer Onboarding",
         source: { artifactId: "APP-frontend" },
         destination: { artifactId: "APP-backend" },
-        exchangedEntities: ["CE-customer"],
+        exchangedEntities: ["canonicalentity:customer"],
         purpose: "Onboarding flow",
-        classificationLevel: "CLASS-pii",
-      } as any),
+        classificationLevel: "control:pii",
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
@@ -484,21 +486,21 @@ describe("buildClassificationCoverage", () => {
 
   it("handles multiple classifications with mixed enforcement", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CLASS-financial",
         kind: "classification",
         title: "Financial",
         level: "confidential",
         requiredControls: [{ control: "audit", description: "audit" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer",
@@ -506,8 +508,8 @@ describe("buildClassificationCoverage", () => {
           { type: "classifiedAs", target: "CLASS-pii" },
           { type: "implementedBy", target: "STORE-crm" },
         ],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-payment",
         kind: "canonical-entity",
         title: "Payment",
@@ -515,29 +517,29 @@ describe("buildClassificationCoverage", () => {
           { type: "classifiedAs", target: "CLASS-financial" },
           { type: "implementedBy", target: "STORE-billing" },
         ],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-crm",
         kind: "data-store",
         title: "CRM DB",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-billing",
         kind: "data-store",
         title: "Billing DB",
         // No classifiedAs — gap
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
     expect(report.summary.classificationCount).toBe(2);
     
-    const pii = report.classifications.find((c) => c.classificationId === "CLASS-pii");
+    const pii = report.classifications.find((c) => c.classificationId === "control:pii");
     expect(pii!.enforcementGaps).toHaveLength(0);
 
-    const fin = report.classifications.find((c) => c.classificationId === "CLASS-financial");
-    expect(fin!.enforcementGaps).toContain("STORE-billing");
+    const fin = report.classifications.find((c) => c.classificationId === "control:financial");
+    expect(fin!.enforcementGaps).toContain("resource:billing");
     
     expect(report.summary.gapCount).toBe(1);
     expect(report.summary.enforcedStoreCount).toBe(1);
@@ -556,14 +558,14 @@ describe("renderClassificationCoverageMarkdown", () => {
 
   it("renders classification with entities and gaps", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII Classification",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer Entity",
@@ -571,12 +573,12 @@ describe("renderClassificationCoverageMarkdown", () => {
           { type: "classifiedAs", target: "CLASS-pii" },
           { type: "implementedBy", target: "STORE-customers" },
         ],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-customers",
         kind: "data-store",
         title: "Customers DB",
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);
@@ -588,20 +590,20 @@ describe("renderClassificationCoverageMarkdown", () => {
     expect(md).toContain("Customer Entity");
     expect(md).toContain("Customers DB");
     expect(md).toContain("Enforcement Gaps");
-    expect(md).toContain("STORE-customers");
+    expect(md).toContain("resource:customers");
     expect(md).toContain("## Summary");
   });
 
   it("shows enforced stores with checkmarks", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLASS-pii",
         kind: "classification",
         title: "PII",
         level: "restricted",
         requiredControls: [{ control: "encrypt", description: "encrypt" }],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "CE-customer",
         kind: "canonical-entity",
         title: "Customer",
@@ -609,13 +611,13 @@ describe("renderClassificationCoverageMarkdown", () => {
           { type: "classifiedAs", target: "CLASS-pii" },
           { type: "implementedBy", target: "STORE-customers" },
         ],
-      } as any),
-      makeArtifact({
+      }),
+      makeEntity({
         id: "STORE-customers",
         kind: "data-store",
         title: "Customers DB",
         relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
-      } as any),
+      }),
     ];
 
     const report = buildClassificationCoverage(artifacts);

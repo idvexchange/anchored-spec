@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * EA Exception Report & Report Index — Tests
  *
@@ -23,43 +22,42 @@ import {
   buildReportIndex,
   REPORT_VIEWS,
 } from "../index.js";
-import type { EaArtifactBase } from "../index.js";
+import { artifactToBackstage } from "../backstage/bridge.js";
+import type { BackstageEntity } from "../backstage/types.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
-  return {
-    apiVersion: "anchored-spec/ea/v1",
-    title: overrides.title ?? overrides.id,
-    name: overrides.name ?? overrides.id,
-    summary: "Test artifact",
-    owners: ["team-test"],
-    tags: [],
-    confidence: "declared",
-    status: "active",
-    domain: "systems",
-    owner: "team-a",
-    lastUpdated: "2025-01-01",
-    schemaVersion: "1.0.0",
-    relations: [],
-    ...overrides,
-  } as EaArtifactBase;
+function makeEntity(overrides: Record<string, unknown> & { id: string; kind: string }): BackstageEntity {
+  const { id, kind, title, summary, owners, tags, confidence, status, schemaVersion, apiVersion, name, domain, owner, lastUpdated, relations, ...specFields } = overrides;
+  const artifact = {
+    id,
+    kind,
+    schemaVersion: (schemaVersion as string) ?? "1.0.0",
+    title: (title as string) ?? id,
+    summary: (summary as string) ?? "Test artifact",
+    owners: (owners as string[]) ?? ["team-test"],
+    tags: (tags as string[]) ?? [],
+    confidence: (confidence as string) ?? "declared",
+    status: (status as string) ?? "active",
+    relations: (relations as Array<{ type: string; target: string }>) ?? [],
+    ...(Object.keys(specFields).length > 0 && { extensions: specFields }),
+  } as import("../types.js").EaArtifactBase;
+  return artifactToBackstage(artifact);
 }
 
-function makeException(overrides: Record<string, unknown> = {}) {
+function makeException(overrides: Record<string, unknown> = {}): BackstageEntity {
   const future = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000); // 120 days from now
-  return makeArtifact({
-    id: overrides.id as string ?? "EXCEPT-001",
+  return makeEntity({
+    id: (overrides.id as string) ?? "EXCEPT-001",
     kind: "exception",
-    domain: "transitions" as any,
     scope: { artifactIds: ["SYS-001"], rules: ["ea:drift/stale"], domains: [] },
     approvedBy: "chief-architect",
     approvedAt: "2025-01-15",
-    expiresAt: overrides.expiresAt as string ?? future.toISOString().split("T")[0],
-    reason: overrides.reason as string ?? "Legacy system migration in progress",
+    expiresAt: (overrides.expiresAt as string) ?? future.toISOString().split("T")[0],
+    reason: (overrides.reason as string) ?? "Legacy system migration in progress",
     reviewSchedule: overrides.reviewSchedule ?? "quarterly",
     ...overrides,
-  } as any);
+  });
 }
 
 let tempDir: string;
@@ -106,8 +104,8 @@ describe("buildExceptionReport", () => {
 
   it("ignores non-exception artifacts", () => {
     const artifacts = [
-      makeArtifact({ id: "SYS-001", kind: "system" }),
-      makeArtifact({ id: "APP-001", kind: "application" }),
+      makeEntity({ id: "SYS-001", kind: "system" }),
+      makeEntity({ id: "APP-001", kind: "application" }),
     ];
     const report = buildExceptionReport(artifacts);
     expect(report.summary.total).toBe(0);
@@ -175,9 +173,9 @@ describe("buildExceptionReport", () => {
     ];
 
     const report = buildExceptionReport(artifacts);
-    expect(report.exceptions[0].id).toBe("EXCEPT-EXPIRED");
-    expect(report.exceptions[1].id).toBe("EXCEPT-SOON");
-    expect(report.exceptions[2].id).toBe("EXCEPT-ACTIVE");
+    expect(report.exceptions[0].id).toBe("exception:expired");
+    expect(report.exceptions[1].id).toBe("exception:soon");
+    expect(report.exceptions[2].id).toBe("exception:active");
   });
 
   it("counts scope sizes", () => {
@@ -239,7 +237,7 @@ describe("renderExceptionReportMarkdown", () => {
     expect(md).toContain("# Exception Report");
     expect(md).toContain("## Summary");
     expect(md).toContain("## Exceptions");
-    expect(md).toContain("`EXCEPT-001`");
+    expect(md).toContain("`exception:001`");
     expect(md).toContain("chief-architect");
     expect(md).toContain("quarterly");
   });
@@ -281,9 +279,9 @@ describe("buildReportIndex", () => {
 
   it("counts artifacts by domain", () => {
     const artifacts = [
-      makeArtifact({ id: "APP-001", kind: "application" }),
-      makeArtifact({ id: "APP-002", kind: "application" }),
-      makeArtifact({ id: "DS-001", kind: "data-store" }),
+      makeEntity({ id: "APP-001", kind: "application" }),
+      makeEntity({ id: "APP-002", kind: "application" }),
+      makeEntity({ id: "DS-001", kind: "data-store" }),
     ];
     const index = buildReportIndex(artifacts);
 
@@ -383,7 +381,7 @@ describe("CLI: ea report (exceptions & --all)", () => {
 
     const { stdout, code } = runCLI("ea report --view exceptions");
     expect(code).toBe(0);
-    expect(stdout).toContain("EXCEPT-001");
+    expect(stdout).toContain("exception:001");
     expect(stdout).toContain("active");
   });
 

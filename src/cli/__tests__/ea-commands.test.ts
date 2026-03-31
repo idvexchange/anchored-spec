@@ -572,8 +572,8 @@ relations: []
     expect(result.exitCode).toBe(0);
     const json = JSON.parse(result.stdout);
     expect(json.summary.connectionCount).toBe(1);
-    expect(json.matrix[0].applicationId).toBe("APP-test");
-    expect(json.matrix[0].dataStoreId).toBe("STORE-test-db");
+    expect(json.matrix[0].applicationId).toBe("component:test");
+    expect(json.matrix[0].dataStoreId).toBe("resource:test-db");
   });
 
   it("fails for unknown view", () => {
