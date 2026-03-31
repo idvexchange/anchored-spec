@@ -675,3 +675,190 @@ traceRefs:
     expect(updatedPaths).not.toContain("apps/api/src/index.ts");
   });
 });
+
+// ─── EA trace --check severity classification ────────────────────────────────
+
+describe("CLI: trace --check severity", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+    mkdirSync(join(tempDir, "docs"), { recursive: true });
+    mkdirSync(join(tempDir, "apps", "api", "src"), { recursive: true });
+
+    // Artifact with traceRefs to both .md and .ts files (both exist, no backlink)
+    writeFileSync(
+      join(tempDir, "ea", "systems", "SVC-mixed.yaml"),
+      `apiVersion: anchored-spec/ea/v1
+kind: service
+id: SVC-mixed
+
+metadata:
+  name: Mixed Service
+  summary: Service with mixed trace targets
+  owners: [team-core]
+  tags: [core]
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+relations: []
+
+traceRefs:
+  - path: docs/design.md
+    role: context
+  - path: apps/api/src/handler.ts
+    role: source
+`,
+    );
+
+    // Create the referenced files (no frontmatter in the .md)
+    writeFileSync(
+      join(tempDir, "docs", "design.md"),
+      "# Design\nNo frontmatter here.\n",
+    );
+    writeFileSync(
+      join(tempDir, "apps", "api", "src", "handler.ts"),
+      'export function handle() {}\n',
+    );
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("classifies .md one-way links as warning and .ts as info in JSON", () => {
+    const result = runCLI("trace --check --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.oneWayArtifactToDoc).toHaveLength(2);
+
+    const mdLink = json.oneWayArtifactToDoc.find(
+      (o: { path: string }) => o.path === "docs/design.md",
+    );
+    const tsLink = json.oneWayArtifactToDoc.find(
+      (o: { path: string }) => o.path === "apps/api/src/handler.ts",
+    );
+
+    expect(mdLink).toBeDefined();
+    expect(mdLink.severity).toBe("warning");
+    expect(mdLink.reason).toBe("missing frontmatter");
+
+    expect(tsLink).toBeDefined();
+    expect(tsLink.severity).toBe("info");
+    expect(tsLink.reason).toBe("non-markdown file");
+  });
+
+  it("shows different indicators for actionable vs structural in human output", () => {
+    const result = runCLI("trace --check", tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("actionable");
+    expect(result.stdout).toContain("structural");
+  });
+});
+
+// ─── EA trace --fix-broken ───────────────────────────────────────────────────
+
+describe("CLI: trace --fix-broken", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+    mkdirSync(join(tempDir, "docs"), { recursive: true });
+
+    // Artifact with one valid and one broken traceRef
+    writeFileSync(
+      join(tempDir, "ea", "systems", "SVC-stale.yaml"),
+      `apiVersion: anchored-spec/ea/v1
+kind: service
+id: SVC-stale
+
+metadata:
+  name: Stale Service
+  summary: Service with broken refs
+  owners: [team-core]
+  tags: [core]
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+relations: []
+
+traceRefs:
+  - path: docs/existing.md
+    role: context
+  - path: docs/deleted-spec.md
+    role: context
+  - path: docs/also-deleted.md
+    role: context
+`,
+    );
+
+    // Only create the first doc — the other two are "deleted"
+    writeFileSync(
+      join(tempDir, "docs", "existing.md"),
+      "---\nea-artifacts: [SVC-stale]\n---\n# Existing\n",
+    );
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("reports broken refs in dry-run without modifying files", () => {
+    const result = runCLI("trace --fix-broken --dry-run --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.dryRun).toBe(true);
+    expect(json.removed).toHaveLength(2);
+    expect(json.removed.map((r: { path: string }) => r.path)).toContain(
+      "docs/deleted-spec.md",
+    );
+    expect(json.removed.map((r: { path: string }) => r.path)).toContain(
+      "docs/also-deleted.md",
+    );
+
+    // File should be unchanged
+    const artifact = readFileSync(
+      join(tempDir, "ea", "systems", "SVC-stale.yaml"),
+      "utf-8",
+    );
+    expect(artifact).toContain("deleted-spec.md");
+  });
+
+  it("removes broken traceRefs and keeps valid ones", () => {
+    const result = runCLI("trace --fix-broken --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.dryRun).toBe(false);
+    expect(json.removed).toHaveLength(2);
+    expect(json.artifactsModified).toBe(1);
+
+    // Artifact file should now only have the valid ref
+    const artifact = readFileSync(
+      join(tempDir, "ea", "systems", "SVC-stale.yaml"),
+      "utf-8",
+    );
+    expect(artifact).toContain("docs/existing.md");
+    expect(artifact).not.toContain("deleted-spec.md");
+    expect(artifact).not.toContain("also-deleted.md");
+  });
+
+  it("reports nothing to remove when all refs are valid", () => {
+    // Remove the broken refs first
+    runCLI("trace --fix-broken", tempDir);
+
+    // Run again — should find nothing
+    const result = runCLI("trace --fix-broken --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.removed).toHaveLength(0);
+    expect(json.artifactsModified).toBe(0);
+  });
+});
