@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/api.schema.json",
+  "title": "Backstage API Entity",
+  "description": "An API definition (OpenAPI, AsyncAPI, gRPC, GraphQL).",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "backstage.io/v1alpha1" },
+    "kind": { "const": "API" },
+    "spec": {
+      "type": "object",
+      "required": ["type", "lifecycle", "owner", "definition"],
+      "properties": {
+        "type": { "type": "string", "description": "API type (e.g., openapi, asyncapi, grpc, graphql)." },
+        "lifecycle": { "type": "string", "enum": ["experimental", "production", "deprecated"], "description": "Lifecycle stage." },
+        "owner": { "type": "string", "description": "Owner entity reference." },
+        "system": { "type": "string", "description": "System this API belongs to." },
+        "definition": { "type": "string", "description": "The API definition content or a URL reference." }
+      },
+      "additionalProperties": true
+    }
+  }
+}

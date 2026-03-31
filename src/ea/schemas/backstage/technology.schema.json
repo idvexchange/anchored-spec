@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/technology.schema.json",
+  "title": "Anchored Spec — Technology Entity",
+  "description": "A technology standard.",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
+    "kind": { "const": "Technology" },
+    "spec": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "status": { "type": "string" },
+        "owner": { "type": "string" },
+        "dependsOn": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

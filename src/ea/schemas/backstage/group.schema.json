@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/group.schema.json",
+  "title": "Backstage Group Entity",
+  "description": "An organizational group (team, department, org).",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "backstage.io/v1alpha1" },
+    "kind": { "const": "Group" },
+    "spec": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "description": "Group type (e.g., team, department, org)." },
+        "parent": { "type": "string", "description": "Parent group entity reference." },
+        "children": { "type": "array", "items": { "type": "string" }, "description": "Child group entity references." },
+        "members": { "type": "array", "items": { "type": "string" }, "description": "Member user entity references." },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "displayName": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "picture": { "type": "string", "format": "uri" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

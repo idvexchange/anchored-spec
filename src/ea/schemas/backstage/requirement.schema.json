@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/requirement.schema.json",
+  "title": "Anchored Spec — Requirement Entity",
+  "description": "A requirement (functional, security, data, technical, or information).",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
+    "kind": { "const": "Requirement" },
+    "spec": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "type": { "type": "string", "description": "Requirement type (e.g., functional, security, data, technical, information)." },
+        "status": { "type": "string", "description": "Requirement status (e.g., draft, approved, implemented)." },
+        "owner": { "type": "string", "description": "Owner entity reference." },
+        "implementedBy": { "type": "array", "items": { "type": "string" }, "description": "Components implementing this requirement." },
+        "dependsOn": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

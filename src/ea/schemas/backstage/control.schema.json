@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/control.schema.json",
+  "title": "Anchored Spec — Control Entity",
+  "description": "A governance or security control.",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
+    "kind": { "const": "Control" },
+    "spec": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "status": { "type": "string" },
+        "owner": { "type": "string" },
+        "implementedBy": { "type": "array", "items": { "type": "string" } },
+        "dependsOn": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

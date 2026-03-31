@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/system.schema.json",
+  "title": "Backstage System Entity",
+  "description": "A collection of components and resources forming a system.",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "backstage.io/v1alpha1" },
+    "kind": { "const": "System" },
+    "spec": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "owner": { "type": "string", "description": "Owner entity reference." },
+        "domain": { "type": "string", "description": "Domain this system belongs to." }
+      },
+      "additionalProperties": true
+    }
+  }
+}

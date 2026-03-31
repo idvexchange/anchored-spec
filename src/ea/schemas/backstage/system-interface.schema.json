@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/system-interface.schema.json",
+  "title": "Anchored Spec — SystemInterface Entity",
+  "description": "A system interface or identity boundary.",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
+    "kind": { "const": "SystemInterface" },
+    "spec": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "type": { "type": "string", "description": "Subtype (e.g., system-interface, identity-boundary)." },
+        "status": { "type": "string" },
+        "owner": { "type": "string" },
+        "dependsOn": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/canonical-entity.schema.json",
+  "title": "Anchored Spec — CanonicalEntity",
+  "description": "A canonical data entity, information concept, glossary term, or master data domain.",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
+    "kind": { "const": "CanonicalEntity" },
+    "spec": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "type": { "type": "string", "description": "Entity subtype (e.g., canonical-entity, information-concept, glossary-term, master-data-domain)." },
+        "status": { "type": "string" },
+        "owner": { "type": "string" },
+        "dependsOn": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

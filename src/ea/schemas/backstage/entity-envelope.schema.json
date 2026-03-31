@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json",
+  "title": "Backstage Entity Envelope",
+  "description": "Base schema for all Backstage-format entities used by anchored-spec. Every entity must have apiVersion, kind, and metadata.name.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "enum": ["backstage.io/v1alpha1", "backstage.io/v1beta1", "anchored-spec.dev/v1alpha1"],
+      "description": "API version — either Backstage built-in or anchored-spec custom."
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Entity kind (e.g., Component, API, Requirement)."
+    },
+    "metadata": {
+      "$ref": "#/$defs/EntityMetadata"
+    },
+    "spec": {
+      "type": "object",
+      "description": "Kind-specific specification fields."
+    },
+    "relations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/EntityRelation" },
+      "description": "Resolved entity relations (typically computed, not user-authored)."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "EntityMetadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9._-]*[a-z0-9]$",
+          "description": "Machine-readable entity name. Must be unique within kind+namespace."
+        },
+        "namespace": {
+          "type": "string",
+          "default": "default",
+          "description": "Namespace for multi-tenant catalogs."
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Human-readable display title."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Human-readable description."
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Key-value labels for filtering."
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Key-value annotations for tooling metadata.",
+          "properties": {
+            "anchored-spec.dev/source": { "type": "string" },
+            "anchored-spec.dev/confidence": { "type": "string", "pattern": "^(0(\\.\\d+)?|1(\\.0+)?)$" },
+            "anchored-spec.dev/expect-anchors": { "type": "string" },
+            "anchored-spec.dev/compliance": { "type": "string" },
+            "anchored-spec.dev/risk": { "type": "string", "enum": ["low", "moderate", "high", "critical"] },
+            "anchored-spec.dev/suppress": { "type": "string" },
+            "anchored-spec.dev/legacy-id": { "type": "string" },
+            "anchored-spec.dev/legacy-kind": { "type": "string" }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9:._-]+$" },
+          "description": "Searchable tags."
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["url"],
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "title": { "type": "string" },
+              "icon": { "type": "string" },
+              "type": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "description": "External links."
+        }
+      },
+      "additionalProperties": true
+    },
+    "EntityRelation": {
+      "type": "object",
+      "required": ["type", "targetRef"],
+      "properties": {
+        "type": { "type": "string", "description": "Relation type (e.g., dependsOn, ownedBy)." },
+        "targetRef": { "type": "string", "description": "Entity reference of the target." }
+      },
+      "additionalProperties": false
+    }
+  }
+}

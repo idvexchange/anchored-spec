@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/component.schema.json",
+  "title": "Backstage Component Entity",
+  "description": "A software component (service, library, website, etc.).",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "backstage.io/v1alpha1" },
+    "kind": { "const": "Component" },
+    "spec": {
+      "type": "object",
+      "required": ["type", "lifecycle", "owner"],
+      "properties": {
+        "type": { "type": "string", "description": "Component type (e.g., service, library, website, worker, data-pipeline)." },
+        "lifecycle": { "type": "string", "enum": ["experimental", "production", "deprecated"], "description": "Lifecycle stage." },
+        "owner": { "type": "string", "description": "Owner entity reference." },
+        "system": { "type": "string", "description": "System this component belongs to." },
+        "subcomponentOf": { "type": "string", "description": "Parent component entity reference." },
+        "providesApis": { "type": "array", "items": { "type": "string" }, "description": "APIs provided by this component." },
+        "consumesApis": { "type": "array", "items": { "type": "string" }, "description": "APIs consumed by this component." },
+        "dependsOn": { "type": "array", "items": { "type": "string" }, "description": "Dependencies (resources or components)." }
+      },
+      "additionalProperties": true
+    }
+  }
+}

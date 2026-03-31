@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchored-spec.dev/schemas/backstage/resource.schema.json",
+  "title": "Backstage Resource Entity",
+  "description": "An infrastructure resource (database, queue, bucket, etc.).",
+  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "properties": {
+    "apiVersion": { "const": "backstage.io/v1alpha1" },
+    "kind": { "const": "Resource" },
+    "spec": {
+      "type": "object",
+      "required": ["type", "owner"],
+      "properties": {
+        "type": { "type": "string", "description": "Resource type (e.g., database, s3-bucket, queue, cache)." },
+        "lifecycle": { "type": "string", "enum": ["experimental", "production", "deprecated"] },
+        "owner": { "type": "string", "description": "Owner entity reference." },
+        "system": { "type": "string", "description": "System this resource belongs to." },
+        "dependsOn": { "type": "array", "items": { "type": "string" } },
+        "dependencyOf": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

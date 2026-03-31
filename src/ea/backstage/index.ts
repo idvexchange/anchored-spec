@@ -109,3 +109,16 @@ export {
   writeBackstageManifest,
   writeBackstageFrontmatter,
 } from "./writer.js";
+
+// Loader
+export type {
+  BackstageLoadedEntity,
+  BackstageLoadResult,
+} from "./loader.js";
+
+export {
+  loadManifestFile,
+  loadCatalogDirectory,
+  loadInlineEntities,
+  loadBackstageEntities,
+} from "./loader.js";
