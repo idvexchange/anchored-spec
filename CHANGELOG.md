@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Markdown prose resolver** (`discover --resolver markdown`) — Extracts structured facts from tables, TypeScript/JSON code blocks, Mermaid state diagrams, heading+list patterns, and YAML frontmatter. Supports `@ea:events`, `@ea:states`, `@ea:endpoints`, `@ea:entities`, `@ea:enums`, `@ea:schema`, `@ea:transitions` annotation hints for precise fact classification.
+- **Doc consistency drift domain** (`drift --domain docs`) — 7 new drift rules detecting value mismatches, naming inconsistencies, missing entries, and state machine conflicts across documents. Total: 51 drift rules.
+- **Fact-to-artifact reconciliation** (`drift --domain docs --include-artifacts`) — Compares doc facts against artifact anchor declarations to detect spec/prose divergence.
+- **Doc consistency in reconcile pipeline** (`reconcile --include-docs`) — Adds a doc consistency step to the full SDD pipeline.
+- **`@ea:suppress` inline annotations** — Mark intentional contradictions in markdown to suppress false-positive drift findings.
+- **`--write-facts` option** — Persist extracted fact manifests to disk for caching and downstream tooling.
+- **New dependencies** — unified, remark-parse, remark-gfm, remark-frontmatter, mdast-util-to-string, unist-util-visit for markdown AST processing.
 - **`link` command** (`anchored-spec link <from> <to> --type <relation-type>`) — Creates a relation between two artifacts by updating the source artifact file. Options: `--type` (default: `"uses"`), `--description`, `--dry-run`, `--root-dir`. Supports YAML and JSON artifacts. Detects duplicate relations.
 - **`search` command** (`anchored-spec search <query>`) — Full-text search across artifacts by ID, name, kind, summary, and tags. Filters: `--kind`, `--domain`, `--status`, `--tag`, `--confidence`. Outputs formatted table by default or `--json` for machine-readable output.
 - **SchemaStore catalog** (`schemastore-catalog.json`) — Catalog file with 3 entries (config, workflow-policy, EA artifacts) ready to submit as a PR to [SchemaStore](https://github.com/SchemaStore/schemastore). Schemas reference raw GitHub URLs for JSON schema files, enabling automatic validation in any editor that supports SchemaStore.

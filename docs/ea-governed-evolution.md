@@ -198,7 +198,7 @@ The reconcile command runs three steps in sequence:
 
 1. **Generate** — Runs all configured generators in check mode (detects generation drift without writing files)
 2. **Validate** — Runs schema validation and quality rules against all artifacts
-3. **Drift** — Runs all 42 drift detection rules, applies exception suppression
+3. **Drift** — Runs all 51 drift detection rules, applies exception suppression
 
 Each step reports pass/fail independently. The overall result requires all steps to pass.
 
@@ -212,7 +212,7 @@ Each step reports pass/fail independently. The overall result requires all steps
     → APP-gateway: missing owner (ea:quality:active-needs-owner)
     → API-payments: broken relation target (ea:quality:relation-target)
     → CE-order: duplicate ID (ea:quality:duplicate-id)
-  ✓ Drift: 42 rules, 0 errors, 4 warnings (2 suppressed)
+  ✓ Drift: 51 rules, 0 errors, 4 warnings (2 suppressed)
 
 ✗ Reconcile FAILED (3 errors, 6 warnings)
 ```

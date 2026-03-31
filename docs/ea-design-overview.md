@@ -188,6 +188,8 @@ For implementation purposes, model the architecture in five layers plus a transi
 | Business Architecture | `business` | Mission, capabilities, processes, ownership, policy intent | Phase D |
 | (Cross-cutting) | `transitions` | Baseline/target states, transition plans, migration waves | Phase E |
 
+> **Note:** `docs` is a virtual drift domain (not a new artifact domain). It enables drift detection between Markdown documentation facts and declared EA artifacts via the Markdown resolver and fact extraction engine. It does not introduce new artifact kinds or appear as a row in this table.
+
 Implementation order is bottom-up: systems → delivery → data → information → business → transitions. This matches the adoption model (DD-2).
 
 Each layer supports:
@@ -239,7 +241,7 @@ Detailed implementation instructions are in [ea-implementation-guide.md](./ea-im
 
 ### Phase F: Drift Engine + Resolver Packs
 
-- EA drift engine extension with all 5 domain categories
+- EA drift engine extension with all 6 domain categories (+ `docs` virtual domain)
 - Discovery workflow (`ea discover`)
 - OpenAPI, Kubernetes, Terraform resolver packs
 - Resolver caching and staleness

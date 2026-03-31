@@ -176,7 +176,7 @@ npx anchored-spec drift --severity error      # Only errors
 npx anchored-spec drift --from-snapshot snap1 # Compare against snapshot
 ```
 
-42 drift rules across 6 categories. Representative examples:
+51 drift rules across 7 categories. Representative examples:
 
 | Category | Rule | What it catches |
 |---|---|---|
@@ -189,6 +189,29 @@ npx anchored-spec drift --from-snapshot snap1 # Compare against snapshot
 | business | `ea:business/control-missing-evidence` | Governance control has no evidence attached |
 | transitions | `ea:transition/baseline-stale` | Baseline snapshot is outdated |
 | exception | `ea:exception/expired` | Exception past its expiry date |
+| docs | `ea:docs/cross-doc-contradiction` | Contradictory facts across documents |
+
+### Doc Consistency
+
+The `docs` virtual drift domain extracts structured facts from markdown
+and checks for cross-document contradictions:
+
+```bash
+anchored-spec drift --domain docs              # Check doc consistency
+anchored-spec drift --domain docs --kind events # Filter by fact kind
+anchored-spec drift --domain docs --include-artifacts  # Compare with artifacts
+anchored-spec reconcile --include-docs          # Add to reconcile pipeline
+```
+
+Facts are extracted from:
+- Markdown tables (events, statuses, endpoints, entities)
+- TypeScript/JSON fenced code blocks
+- Mermaid state diagrams
+- Heading + bullet list patterns
+- YAML frontmatter
+
+Use `@ea:events`, `@ea:states`, etc. annotation hints for precise classification.
+Use `@ea:suppress` to mark intentional contradictions.
 
 ---
 
@@ -203,6 +226,8 @@ npx anchored-spec discover --resolver terraform --source ./infrastructure/
 npx anchored-spec discover --resolver sql-ddl --source ./migrations/
 npx anchored-spec discover --resolver dbt --source ./dbt/models/
 npx anchored-spec discover --resolver tree-sitter                 # Semantic code analysis
+# Discover facts from markdown documentation
+npx anchored-spec discover --resolver markdown --source docs/
 ```
 
 ### Config-Driven Resolvers
@@ -213,6 +238,7 @@ Instead of specifying `--resolver` each time, configure resolvers in `.anchored-
 {
   "resolvers": [
     { "name": "openapi" },
+    { "name": "markdown" },
     { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
     { "path": "./ea/resolvers/custom.js" }
   ]
@@ -224,7 +250,7 @@ Then run `npx anchored-spec discover` with no flags — only configured resolver
 2. `config.resolvers[]` non-empty → configured resolvers in order
 3. No config → all built-in resolvers run
 
-Built-in resolver names: `openapi`, `kubernetes`, `terraform`, `sql-ddl`, `dbt`, `tree-sitter`.
+Built-in resolver names: `openapi`, `kubernetes`, `terraform`, `sql-ddl`, `dbt`, `tree-sitter`, `markdown`.
 
 Discovery rules:
 - Always creates artifacts with `confidence: "inferred"` or `"observed"`
@@ -883,7 +909,7 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
 | `drift` | Run drift detection (supports `--from-snapshot`, `--domain`, `--severity`) |
-| `discover` | Discover artifacts from resolvers (openapi, kubernetes, terraform, sql-ddl, dbt, tree-sitter) |
+| `discover` | Discover artifacts from resolvers (openapi, kubernetes, terraform, sql-ddl, dbt, tree-sitter, markdown) |
 | `generate` | Generate derived files from EA artifacts (OpenAPI, JSON Schema) |
 | `graph` | Export the relation graph (Mermaid, DOT, JSON; supports `--kind`, `--focus`, `--domain`) |
 | `impact` | Analyze transitive impact of changes to an artifact |

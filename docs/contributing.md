@@ -34,7 +34,7 @@ src/
 │   ├── types.ts              # 44 EA kinds, domain types, artifact interfaces
 │   ├── loader.ts             # EaRoot: loads/validates YAML/JSON artifacts
 │   ├── graph.ts              # RelationGraph: traversal, impact, cycle detection
-│   ├── drift.ts              # 42 drift rules across 7 domains
+│   ├── drift.ts              # 51 drift rules across 7 domains
 │   ├── impact.ts             # Transitive impact analysis
 │   ├── validate.ts           # Schema + quality validation (51 schemas)
 │   ├── evidence.ts           # Evidence collection and management
@@ -46,7 +46,7 @@ src/
 │   ├── plugins.ts            # EA plugin system
 │   ├── verify.ts             # EA verification engine
 │   ├── relation-registry.ts  # 27 relation types with virtual inverses
-│   ├── resolvers/            # 6 resolvers (openapi, kubernetes, terraform, sql-ddl, dbt, anchors)
+│   ├── resolvers/            # 7 resolvers (openapi, kubernetes, terraform, sql-ddl, dbt, anchors, markdown)
 │   ├── generators/           # Generator framework + openapi, jsonschema generators
 │   ├── evidence-adapters/    # Evidence adapter framework (vitest, etc.)
 │   └── schemas/              # 51 JSON Schema files

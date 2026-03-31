@@ -4,8 +4,8 @@
 - **Framework**: anchored-spec (npm package)
 - **Artifact format**: YAML and JSON with JSON Schema validation
 - **CLI**: `npx anchored-spec <command>`
-- **6 resolvers**: OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter
-- **42 drift rules** across 7 domains
+- **8 resolvers**: OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter, Markdown, Anchors
+- **51 drift rules** across 7 domains
 
 ## Conventions
 - Artifact IDs: `{PREFIX}-{slug}` (e.g., APP-todo-web)

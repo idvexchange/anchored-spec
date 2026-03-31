@@ -291,7 +291,7 @@ For topology-level drift:
 
 ### Drift Categories
 
-EA drift is organized into five domain-specific categories, each with its own set of rules.
+EA drift is organized into six domain-specific categories, each with its own set of rules.
 
 #### 1. Systems Drift
 
@@ -346,6 +346,20 @@ Detect mismatches between declared delivery architecture and deployed reality.
 | `ea:business/process-missing-owner` | warning | Process with no owning org unit |
 | `ea:business/control-missing-evidence` | warning | Control with no supporting policy or evidence |
 | `ea:business/retired-system-dependency` | error | Active capability depends on retired system |
+
+#### 6. Docs Drift
+
+Cross-document consistency and fact-to-artifact reconciliation rules.
+
+| Rule ID | Severity | Description |
+|---|---|---|
+| `ea:docs/value-mismatch` | error | Same fact key has different field values across documents |
+| `ea:docs/naming-inconsistency` | error | Similar fact keys across documents may be the same concept (e.g., `dossier.failed` vs `dossier.cancelled`) |
+| `ea:docs/state-machine-conflict` | error | State transition diagrams disagree across documents |
+| `ea:docs/missing-entry` | warning | Annotated fact block in one doc is missing entries present in another |
+| `ea:docs/artifact-mismatch` | error | Document fact contradicts artifact anchor declaration |
+| `ea:docs/artifact-missing-fact` | warning | Artifact declares anchor not found in any document |
+| `ea:docs/fact-missing-artifact` | warning | Annotated document fact has no corresponding artifact |
 
 ### Drift Finding Shape
 
@@ -440,7 +454,7 @@ The drift engine checks loaded `exception` artifacts before emitting findings:
 
 ### Drift Engine Extension
 
-The EA drift engine in `src/ea/drift.ts` provides domain-specific drift detection with 42 rules.
+The EA drift engine in `src/ea/drift.ts` provides domain-specific drift detection with 51 rules.
 
 ```typescript
 // In src/ea/drift.ts
@@ -879,6 +893,47 @@ Query packs are language-specific collections of Tree-sitter S-expression patter
 
 All discovered artifacts are created with `status: "draft"` and `confidence: "observed"` or `"inferred"`. Human review and promotion is required.
 
+### Markdown Resolver
+
+Extracts structured facts from markdown documentation for discovery and consistency checking.
+
+**Input:** `.md` files (tables, TypeScript/JSON code blocks, Mermaid state diagrams, heading+list patterns, YAML frontmatter)
+
+**Discovery:** Produces `EaArtifactDraft` objects for events (→ `event-contract`), endpoints (→ `api-contract`), and entities (→ `canonical-entity`).
+
+**Fact Extraction Pipeline:**
+1. Parse markdown to AST using `unified` + `remark-parse` + `remark-gfm`
+2. Scan for `@ea:*` annotation hints in HTML comments
+3. Run 5 extractors (table, code-block, mermaid, heading-list, frontmatter)
+4. Produce `FactManifest` per document with typed `ExtractedFact` entries
+
+**Annotation Hints:**
+```markdown
+<!-- @ea:events terminal-webhook-events -->
+| Event | Trigger |
+| :--- | :--- |
+| `dossier.success` | Verification succeeded |
+| `dossier.cancelled` | Cancelled by tenant |
+<!-- @ea:end -->
+```
+
+Supported annotation kinds: `events`, `states`, `endpoints`, `entities`, `enums`, `schema`, `transitions`
+
+**Heuristic Classification (without annotations):**
+- Tables with columns named Event/Trigger/Webhook → `event-table`
+- Tables with Status/State/Value → `status-enum`
+- Tables with Endpoint/Method/Path → `endpoint-table`
+- TypeScript code blocks with `type X = 'a' | 'b'` → `type-enum`
+- Mermaid `stateDiagram-v2` blocks → `state-transition`
+
+**CLI Usage:**
+```bash
+anchored-spec discover --resolver markdown --source docs/
+anchored-spec drift --domain docs
+anchored-spec drift --domain docs --include-artifacts
+anchored-spec reconcile --include-docs
+```
+
 ## Config-Driven Resolver Loading
 
 The `resolvers` array in `.anchored-spec/config.json` controls which resolvers run and how they are configured. When this array is populated, only the listed resolvers are used. When omitted or empty, all built-in resolvers run by default.
@@ -895,6 +950,7 @@ Reference any built-in resolver by `name`:
 | `sql-ddl` | SQL DDL Resolver | `physical-schema`, `data-store` |
 | `dbt` | dbt Resolver | `lineage`, `data-product` |
 | `tree-sitter` | Tree-sitter Resolver | `api-contract`, `physical-schema`, `event-contract`, `service` |
+| `markdown` | Markdown Resolver | `event-contract`, `api-contract`, `canonical-entity` |
 
 ### Custom Resolvers by Path
 

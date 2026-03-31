@@ -1,6 +1,9 @@
 {
   "schemaVersion": "1.0",
   "rootDir": ".",
+  "resolvers": [
+    { "name": "markdown" }
+  ],
   "domains": {
     "systems": "systems",
     "delivery": "delivery",

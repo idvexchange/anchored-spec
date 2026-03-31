@@ -6,7 +6,7 @@
 
 > Spec-as-source enterprise architecture framework — architecture models as living code.
 
-**Anchored Spec** turns your repository into a living architecture model. Define services, APIs, deployments, data stores, and business capabilities as machine-validated JSON/YAML artifacts. The framework validates schemas, detects drift between specs and reality, discovers infrastructure via resolvers, and generates documentation — all from the spec files in your repo.
+**Anchored Spec** turns your repository into a living architecture model. Define services, APIs, deployments, data stores, and business capabilities as machine-validated JSON/YAML artifacts. The framework validates schemas, detects drift between specs and reality, discovers infrastructure and doc/prose facts via resolvers, and generates documentation — all from the spec files in your repo.
 
 ## Key Features
 
@@ -14,14 +14,15 @@
 |---|---|
 | **44 artifact kinds** | Services, APIs, deployments, data stores, business capabilities, and more across 7 domains |
 | **27 typed relations** | `dependsOn`, `implementedBy`, `consumesApi`, `deployedTo`, etc. with graph visualization |
-| **6 resolvers** | Auto-discover from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, and Tree-sitter (code analysis) |
-| **44 drift rules** | Domain-specific drift detection between declared specs and observed reality |
+| **8 resolvers** | Auto-discover from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter (code analysis), Markdown (prose facts), and Anchors (code symbols) |
+| **51 drift rules** | Domain-specific drift detection between declared specs and observed reality |
 | **Transition planning** | Baselines, targets, migration waves, and gap analysis |
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
 | **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
 | **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
 | **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config with reusable slash commands for Copilot and Claude, event-driven hooks for Kiro, and Spec-Kit extension via `init --ai` |
 | **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
+| **Doc consistency** | Extract facts from markdown tables, code blocks, and Mermaid diagrams — detect cross-document contradictions |
 | **SchemaStore integration** | Catalog entries for config, workflow-policy, and EA artifact schemas — automatic validation in any editor that supports [SchemaStore](https://www.schemastore.org/) |
 
 ## Quick Start
@@ -94,7 +95,7 @@ your-repo/
 | `graph` | Generate architecture dependency graph |
 | `report` | Generate architecture reports |
 | `drift` | Detect drift between specs and source |
-| `discover` | Auto-discover artifacts from resolvers |
+| `discover` | Auto-discover artifacts from resolvers (including markdown prose) |
 | `generate` | Run code generators from specs |
 | `evidence` | Manage test evidence and traceability |
 | `impact` | Analyze impact of changes across dependencies |

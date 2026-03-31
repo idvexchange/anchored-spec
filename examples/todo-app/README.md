@@ -174,7 +174,8 @@ The example includes config-driven resolver loading in `.anchored-spec/config.js
 {
   "resolvers": [
     { "name": "openapi" },
-    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } }
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
+    { "name": "markdown" }
   ]
 }
 ```
@@ -193,5 +194,9 @@ The tree-sitter resolver scans `app/`, `components/`, and `lib/` (per `sourceRoo
 - **API routes** (Next.js handlers in `app/api/`) → `api-contract` drafts
 - **Data access patterns** → `physical-schema` drafts
 - **Event patterns** → `event-contract` drafts
+
+The markdown resolver scans `.md` files for:
+- **Headings and structure** → `capability` and `decision-record` drafts
+- **Inline anchors** (`<!-- anchor: ... -->`) → linked artifact references
 
 Discovered artifacts are created as drafts with `confidence: "inferred"`. Review and promote to `"declared"` to make them authoritative.

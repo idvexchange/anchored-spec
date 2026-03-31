@@ -16,7 +16,7 @@ Also review the current EA implementation:
 
 - `src/ea/types.ts` — all EA TypeScript interfaces
 - `src/ea/loader.ts` — EaRoot class and config resolution
-- `src/ea/drift.ts` — EA drift detection (42 rules)
+- `src/ea/drift.ts` — EA drift detection (51 rules)
 - `src/ea/evidence.ts` — evidence pipeline
 - `src/ea/validate.ts` — schema validation (51 schemas)
 - `src/cli/commands/` — CLI commands
@@ -69,7 +69,16 @@ src/ea/
     openapi.ts
     kubernetes.ts
     terraform.ts
+    markdown.ts
     # ... more per phase
+  facts/                 # Markdown fact extraction & consistency engine
+    types.ts             # ExtractedFact, FactManifest, FactBlock types
+    markdown-parser.ts   # Markdown AST parsing (unified/remark)
+    consistency.ts       # Cross-document fact comparison
+    reconciler.ts        # Fact↔artifact reconciliation
+    suppression.ts       # @ea:suppress annotation handling
+    writer.ts            # Fact manifest persistence
+    extractors/          # Fact extractors (table, code-block, mermaid, heading-list, frontmatter)
   generators/            # Built-in generator implementations
     openapi.ts
     jsonschema.ts
@@ -685,6 +694,17 @@ Implement the first real resolver:
 
 ### PR F6: Terraform Resolver
 
+### PR F7: Markdown Resolver and Docs Drift Domain
+
+Implement `src/ea/resolvers/markdown.ts` and `src/ea/facts/`:
+- Markdown AST parsing via unified/remark
+- Fact extraction from tables, code blocks, mermaid diagrams, heading lists, frontmatter
+- Cross-document fact consistency checks
+- Fact↔artifact reconciliation (docs drift domain)
+- `@ea:suppress` annotation handling for known deviations
+- Fact manifest persistence
+- 9 new drift rules for the `docs` virtual domain
+
 ## Phase G: Generator Framework
 
 ### PR G1: Generator Interface and CLI
@@ -784,7 +804,7 @@ When an agent works on this extension in a fresh context window, it should recov
    - `src/ea/types.ts` — all EA type definitions
    - `src/ea/loader.ts` — how EaRoot works
    - `src/ea/validate.ts` — how validation works (51 schemas)
-   - `src/ea/drift.ts` — how drift detection works (42 rules)
+   - `src/ea/drift.ts` — how drift detection works (51 rules)
    - `src/ea/index.ts` — what's exported
    - `src/ea/__tests__/` — what's tested
 

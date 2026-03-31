@@ -39,6 +39,9 @@ npx anchored-spec discover --resolver terraform --from-snapshot terraform.tfstat
 
 # Discover from source code patterns (requires web-tree-sitter)
 npx anchored-spec discover --resolver tree-sitter --dry-run
+
+# Discover facts from documentation
+npx anchored-spec discover --resolver markdown --source docs/
 ```
 
 Or configure resolvers in `.anchored-spec/config.json` and run them all at once:
@@ -47,7 +50,8 @@ Or configure resolvers in `.anchored-spec/config.json` and run them all at once:
 {
   "resolvers": [
     { "name": "openapi" },
-    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } }
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
+    { "name": "markdown" }
   ]
 }
 ```
@@ -182,6 +186,12 @@ npx anchored-spec drift --domain systems
 
 # Check if declared deployments exist in K8s manifests
 npx anchored-spec drift --domain delivery
+
+# Check documentation consistency
+npx anchored-spec drift --domain docs
+
+# Include fact-to-artifact reconciliation
+npx anchored-spec drift --domain docs --include-artifacts
 ```
 
 Address the high-severity findings. Create `exception` artifacts for known gaps you can't fix immediately:

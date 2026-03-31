@@ -31,7 +31,8 @@
   "plugins": [],
   "resolvers": [
     { "name": "openapi" },
-    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } }
+    { "name": "tree-sitter", "options": { "queryPacks": ["javascript"] } },
+    { "name": "markdown" }
   ],
   "exclude": ["node_modules", ".next", "public"]
 }
