@@ -246,7 +246,7 @@ function runValidateStep(
   }
 
   // Quality rules
-  const qualityResult = validateEaArtifacts(artifacts, {
+  const qualityResult = validateEaArtifacts(artifacts.map(artifactToBackstage), {
     quality: options.strict ? { strictMode: true } : undefined,
   });
 
@@ -292,7 +292,7 @@ function runDriftStep(
   options: ReconcileOptions,
 ): DriftStepOutput {
   const report = detectEaDrift({
-    artifacts,
+    artifacts: artifacts.map(artifactToBackstage),
     domains: options.domains,
   });
 
