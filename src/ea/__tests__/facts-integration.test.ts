@@ -32,11 +32,13 @@ import {
   collectSuppressions,
   reconcileFactsWithArtifacts,
   writeFactManifests,
+  suggestAnnotations,
 } from "../facts/index.js";
 import type {
   FactManifest,
   FactBlock,
   ExtractedFact,
+  AnnotationSuggestion,
 } from "../facts/index.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -770,5 +772,262 @@ describe("renderReconcileOutput docs step", () => {
     const output = renderReconcileOutput(report);
     expect(output).toContain("Docs");
     expect(output).toContain("drift --domain docs");
+  });
+});
+
+// ─── Canonical / Derived Markers ────────────────────────────────────
+
+describe("canonical/derived markers", () => {
+  it("parses @ea:canonical marker", () => {
+    const md = `<!-- @ea:canonical -->
+
+| Event | Trigger |
+|---|---|
+| e.1 | t |`;
+
+    const doc = parseMarkdown(md, "canonical.md");
+    expect(doc.markers).toHaveLength(1);
+    expect(doc.markers[0]!.type).toBe("canonical");
+  });
+
+  it("parses @ea:derived marker with source", () => {
+    const md = `<!-- @ea:derived source="spec.md" -->
+
+| Event | Trigger |
+|---|---|
+| e.1 | t |`;
+
+    const doc = parseMarkdown(md, "derived.md");
+    expect(doc.markers).toHaveLength(1);
+    expect(doc.markers[0]!.type).toBe("derived");
+    expect(doc.markers[0]!.derivedFrom).toBe("spec.md");
+  });
+
+  it("carries markers through FactManifest", () => {
+    const md = `<!-- @ea:canonical -->
+
+| Event | Trigger |
+|---|---|
+| e.1 | t |`;
+
+    const doc = parseMarkdown(md, "canonical.md");
+    const manifest = buildFactManifest(doc);
+    expect(manifest.markers).toBeDefined();
+    expect(manifest.markers).toHaveLength(1);
+  });
+
+  it("enhances value-mismatch message for canonical vs derived conflict", () => {
+    const canonicalMd = `<!-- @ea:canonical -->
+
+| Event | Trigger |
+|---|---|
+| dossier.success | Verification passed |`;
+
+    const derivedMd = `<!-- @ea:derived source="canonical.md" -->
+
+| Event | Trigger |
+|---|---|
+| dossier.success | Identity verified |`;
+
+    const mA = buildFactManifest(parseMarkdown(canonicalMd, "canonical.md"));
+    const mB = buildFactManifest(parseMarkdown(derivedMd, "derived.md"));
+    const report = checkConsistency([mA, mB]);
+
+    const mismatch = report.findings.find(f => f.rule === "ea:docs/value-mismatch");
+    expect(mismatch).toBeDefined();
+    expect(mismatch!.suggestion).toContain("Canonical");
+    expect(mismatch!.suggestion).toContain("derived");
+  });
+
+  it("works normally when no markers present", () => {
+    const mdA = `| Event | Trigger |
+|---|---|
+| e.1 | t1 |`;
+    const mdB = `| Event | Trigger |
+|---|---|
+| e.1 | t2 |`;
+
+    const mA = buildFactManifest(parseMarkdown(mdA, "a.md"));
+    const mB = buildFactManifest(parseMarkdown(mdB, "b.md"));
+    const report = checkConsistency([mA, mB]);
+    expect(report.findings.some(f => f.rule === "ea:docs/value-mismatch")).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 10. Extra-entry contradiction (symmetric difference)
+// ═══════════════════════════════════════════════════════════════════════
+
+describe("extra-entry contradiction", () => {
+  it("reports extra-entry error when both docs have unique entries", () => {
+    const annotation = { kind: "events", id: "webhook-events", raw: "<!-- @ea:events webhook-events -->", line: 1 };
+    const mA = makeManifest("events-a.md", [
+      makeBlock("event-table", [
+        makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events-a.md", line: 5 } }),
+        makeFact({ key: "dossier.cancelled", kind: "event-table", source: { file: "events-a.md", line: 6 } }),
+      ], { id: "webhook-events", annotation, source: { file: "events-a.md", line: 1 } }),
+    ]);
+    const mB = makeManifest("events-b.md", [
+      makeBlock("event-table", [
+        makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events-b.md", line: 5 } }),
+        makeFact({ key: "dossier.expired", kind: "event-table", source: { file: "events-b.md", line: 6 } }),
+      ], { id: "webhook-events", annotation, source: { file: "events-b.md", line: 1 } }),
+    ]);
+
+    const report = checkConsistency([mA, mB]);
+    const extraEntry = report.findings.find(f => f.rule === "ea:docs/extra-entry");
+    expect(extraEntry).toBeDefined();
+    expect(extraEntry!.severity).toBe("error");
+    expect(extraEntry!.message).toContain("dossier.cancelled");
+    expect(extraEntry!.message).toContain("dossier.expired");
+  });
+
+  it("does NOT report extra-entry when difference is one-directional", () => {
+    const annotation = { kind: "events", id: "events", raw: "<!-- @ea:events events -->", line: 1 };
+    const mA = makeManifest("events-a.md", [
+      makeBlock("event-table", [
+        makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events-a.md", line: 5 } }),
+        makeFact({ key: "dossier.cancelled", kind: "event-table", source: { file: "events-a.md", line: 6 } }),
+      ], { id: "events", annotation, source: { file: "events-a.md", line: 1 } }),
+    ]);
+    const mB = makeManifest("events-b.md", [
+      makeBlock("event-table", [
+        makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events-b.md", line: 5 } }),
+      ], { id: "events", annotation, source: { file: "events-b.md", line: 1 } }),
+    ]);
+
+    const report = checkConsistency([mA, mB]);
+    const extraEntry = report.findings.find(f => f.rule === "ea:docs/extra-entry");
+    expect(extraEntry).toBeUndefined();
+    // But missing-entry warning should still exist
+    const missing = report.findings.find(f => f.rule === "ea:docs/missing-entry");
+    expect(missing).toBeDefined();
+  });
+});
+
+describe("suggestAnnotations", () => {
+  it("suggests annotations for unannotated heuristic blocks", () => {
+    const md = `| Event | Trigger |
+|---|---|
+| dossier.success | Verification passed |
+| dossier.cancelled | User cancelled |
+| dossier.expired | Timeout |`;
+
+    const manifest = buildFactManifest(parseMarkdown(md, "events.md"));
+    const suggestions = suggestAnnotations([manifest]);
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]!.kind).toBe("event-table");
+    expect(suggestions[0]!.annotation).toContain("@ea:events");
+    expect(suggestions[0]!.confidence).toBe("high"); // 3+ facts
+    expect(suggestions[0]!.file).toBe("events.md");
+  });
+
+  it("skips blocks that already have annotations", () => {
+    const md = `<!-- @ea:events -->
+| Event | Trigger |
+|---|---|
+| e.1 | t |
+<!-- @ea:end -->`;
+
+    const manifest = buildFactManifest(parseMarkdown(md, "annotated.md"));
+    const suggestions = suggestAnnotations([manifest]);
+    expect(suggestions).toHaveLength(0);
+  });
+
+  it("returns medium confidence for blocks with few facts", () => {
+    const md = `| Event | Trigger |
+|---|---|
+| e.1 | t |`;
+
+    const manifest = buildFactManifest(parseMarkdown(md, "small.md"));
+    const suggestions = suggestAnnotations([manifest]);
+
+    if (suggestions.length > 0) {
+      expect(suggestions[0]!.confidence).toBe("medium"); // < 3 facts
+    }
+  });
+
+  it("includes reason with fact key preview", () => {
+    const md = `| Event | Trigger |
+|---|---|
+| dossier.success | passed |
+| dossier.failed | failed |`;
+
+    const manifest = buildFactManifest(parseMarkdown(md, "events.md"));
+    const suggestions = suggestAnnotations([manifest]);
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]!.reason).toContain("dossier.success");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// 11. Mapping table detection
+// ═══════════════════════════════════════════════════════════════════════
+
+describe("mapping table detection", () => {
+  it("classifies table with Internal/External columns as mapping-table", () => {
+    const md = `| Internal Name | External Name |
+|---|---|
+| dossier.success | verification.completed |
+| dossier.cancelled | verification.failed |`;
+
+    const doc = parseMarkdown(md, "mapping.md");
+    const blocks = tableExtractor.extract(doc);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.kind).toBe("mapping-table");
+    expect(blocks[0]!.facts).toHaveLength(2);
+  });
+
+  it("classifies table with Source/Target columns as mapping-table", () => {
+    const md = `| Source Event | Target Event | Notes |
+|---|---|---|
+| order.placed | purchase.created | Legacy mapping |`;
+
+    const doc = parseMarkdown(md, "mapping.md");
+    const blocks = tableExtractor.extract(doc);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.kind).toBe("mapping-table");
+  });
+
+  it("downgrades naming-inconsistency to warning when mapping table exists", () => {
+    const mdMapping = `| Internal Name | External Name |
+|---|---|
+| dossier.completed | dossier.complete |`;
+
+    const mdA = `| Event | Trigger |
+|---|---|
+| dossier.completed | Done |`;
+    const mdB = `| Event | Trigger |
+|---|---|
+| dossier.complete | Done |`;
+
+    const mMap = buildFactManifest(parseMarkdown(mdMapping, "mapping.md"));
+    const mA = buildFactManifest(parseMarkdown(mdA, "doc-a.md"));
+    const mB = buildFactManifest(parseMarkdown(mdB, "doc-b.md"));
+    const report = checkConsistency([mMap, mA, mB]);
+
+    const naming = report.findings.find(f => f.rule === "ea:docs/naming-inconsistency");
+    expect(naming).toBeDefined();
+    expect(naming!.severity).toBe("warning"); // Downgraded from error
+    expect(naming!.message).toContain("intentional mapping");
+  });
+
+  it("keeps naming-inconsistency as error when no mapping table matches", () => {
+    const mdA = `| Event | Trigger |
+|---|---|
+| dossier.completed | Done |`;
+    const mdB = `| Event | Trigger |
+|---|---|
+| dossier.complete | Done |`;
+
+    const mA = buildFactManifest(parseMarkdown(mdA, "doc-a.md"));
+    const mB = buildFactManifest(parseMarkdown(mdB, "doc-b.md"));
+    const report = checkConsistency([mA, mB]);
+
+    const naming = report.findings.find(f => f.rule === "ea:docs/naming-inconsistency");
+    expect(naming).toBeDefined();
+    expect(naming!.severity).toBe("error");
   });
 });

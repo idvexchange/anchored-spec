@@ -21,6 +21,9 @@ import type { EaTraceRef } from "../../ea/types.js";
 import { scanDocs } from "../../ea/docs/scanner.js";
 import { parseFrontmatter, serializeFrontmatter } from "../../ea/docs/frontmatter.js";
 import { CliError } from "../errors.js";
+import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
+import { suggestAnnotations } from "../../ea/facts/annotator.js";
+import type { AnnotationSuggestion } from "../../ea/facts/annotator.js";
 
 /** A traceRef that was added to an artifact file. */
 interface AddedTraceRef {
@@ -53,6 +56,7 @@ export function eaLinkDocsCommand(): Command {
     )
     .option("--role <role>", "Role for new traceRefs", "context")
     .option("--json", "Output structured JSON")
+    .option("--annotate", "Suggest or insert @ea:* annotation hints for classifiable blocks")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
@@ -70,6 +74,45 @@ export function eaLinkDocsCommand(): Command {
       }
 
       const loadResult = await root.loadArtifacts();
+
+      // ── Annotation suggestions (--annotate) ─────────────────────────
+      if (options.annotate) {
+        const manifests = await extractFactsFromDocs(cwd, undefined);
+        const suggestions = suggestAnnotations(manifests);
+
+        if (options.json) {
+          process.stdout.write(JSON.stringify({ suggestions, summary: { total: suggestions.length } }, null, 2) + "\n");
+        } else {
+          if (suggestions.length === 0) {
+            console.log(chalk.green("\n✓ All classifiable blocks already have @ea:* annotations."));
+          } else {
+            console.log(chalk.blue("Annotation Suggestions\n"));
+            if (options.dryRun) {
+              console.log(chalk.yellow("  DRY RUN — no files modified\n"));
+            }
+
+            for (const s of suggestions) {
+              const icon = s.confidence === "high" ? chalk.green("●") : chalk.yellow("○");
+              console.log(`  ${icon} ${chalk.bold(s.file)}:${s.line}`);
+              console.log(chalk.dim(`    ${s.annotation}`));
+              console.log(chalk.dim(`    ... (${s.kind})`));
+              console.log(chalk.dim(`    ${s.endAnnotation}`));
+              console.log(chalk.dim(`    Reason: ${s.reason}`));
+              console.log("");
+            }
+
+            console.log(chalk.dim(`  ${suggestions.length} suggestion(s) found.`));
+
+            if (!options.dryRun) {
+              const written = writeAnnotations(cwd, suggestions);
+              console.log(chalk.green(`\n✓ Inserted annotations in ${written} file(s).`));
+            }
+          }
+        }
+
+        return; // --annotate is a standalone mode
+      }
+
       const docDirs = (options.docDirs as string)
         .split(",")
         .map((d) => d.trim());
@@ -331,4 +374,54 @@ function printHumanOutput(
         `${summary.frontmatterRefsAdded} frontmatter refs added`
     )
   );
+}
+
+/**
+ * Insert annotation comments into source files.
+ * Modifies files in-place, inserting annotations at the correct line positions.
+ * Returns number of files modified.
+ */
+function writeAnnotations(cwd: string, suggestions: AnnotationSuggestion[]): number {
+  // Group by file
+  const byFile = new Map<string, AnnotationSuggestion[]>();
+  for (const s of suggestions) {
+    let list = byFile.get(s.file);
+    if (!list) {
+      list = [];
+      byFile.set(s.file, list);
+    }
+    list.push(s);
+  }
+
+  let filesModified = 0;
+
+  for (const [file, fileSuggestions] of byFile) {
+    const absPath = resolve(cwd, file);
+    let content: string;
+    try {
+      content = readFileSync(absPath, "utf-8");
+    } catch {
+      continue;
+    }
+
+    const lines = content.split("\n");
+
+    // Sort suggestions by line number descending (insert from bottom to avoid offset shifts)
+    const sorted = [...fileSuggestions].sort((a, b) => b.line - a.line);
+
+    for (const s of sorted) {
+      // Insert @ea:end after the end line
+      const endIdx = Math.min(s.endLine, lines.length);
+      lines.splice(endIdx, 0, "", s.endAnnotation);
+
+      // Insert annotation before the start line (0-indexed: line-1)
+      const startIdx = Math.max(s.line - 1, 0);
+      lines.splice(startIdx, 0, s.annotation, "");
+    }
+
+    writeFileSync(absPath, lines.join("\n"), "utf-8");
+    filesModified++;
+  }
+
+  return filesModified;
 }

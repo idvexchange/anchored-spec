@@ -18,7 +18,7 @@ import type {
   MarkdownDocument,
   AnnotatedRegion,
 } from "../types.js";
-import { TABLE_HEURISTIC_COLUMNS, ANNOTATION_KIND_MAP } from "../types.js";
+import { TABLE_HEURISTIC_COLUMNS, ANNOTATION_KIND_MAP, MAPPING_TABLE_COLUMN_PAIRS } from "../types.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -40,6 +40,24 @@ function hashFact(key: string, fields: Record<string, string>): string {
     .slice(0, 12);
 }
 
+/**
+ * Detect if a table is a mapping/translation table based on column patterns.
+ * Returns the indices of the "from" and "to" columns if detected.
+ */
+function detectMappingTable(columns: string[]): { fromCol: number; toCol: number } | undefined {
+  const lower = columns.map((c) => c.toLowerCase().trim());
+
+  for (const [fromPatterns, toPatterns] of MAPPING_TABLE_COLUMN_PAIRS) {
+    const fromIdx = lower.findIndex((c) => fromPatterns.some((p) => c.includes(p)));
+    const toIdx = lower.findIndex((c) => toPatterns.some((p) => c.includes(p)));
+    if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+      return { fromCol: fromIdx, toCol: toIdx };
+    }
+  }
+
+  return undefined;
+}
+
 function classifyByColumns(columns: string[]): FactKind | undefined {
   const lower = columns.map((c) => c.toLowerCase().trim());
 
@@ -52,14 +70,29 @@ function classifyByColumns(columns: string[]): FactKind | undefined {
     return "entity-fields";
   }
 
+  // Score each kind by number of matching columns
+  let bestKind: FactKind | undefined;
+  let bestScore = 0;
+  let bestSpecificity = Infinity;
+
   for (const [kind, tokens] of Object.entries(TABLE_HEURISTIC_COLUMNS)) {
-    if (kind === "entity-fields") continue; // already handled above
-    if (lower.some((c) => tokens.some((t) => c.includes(t)))) {
-      return kind as FactKind;
+    if (kind === "entity-fields") continue;
+
+    const score = lower.filter((c) => tokens.some((t) => c.includes(t))).length;
+    if (score === 0) continue;
+
+    // Prefer higher score; on tie prefer more specific kind (fewer tokens = more specific)
+    if (
+      score > bestScore ||
+      (score === bestScore && tokens.length < bestSpecificity)
+    ) {
+      bestKind = kind as FactKind;
+      bestScore = score;
+      bestSpecificity = tokens.length;
     }
   }
 
-  return undefined;
+  return bestKind;
 }
 
 function extractCellText(row: TableRow, index: number): string {
@@ -120,8 +153,6 @@ export const tableExtractor: FactExtractor = {
       const line = node.position?.start.line;
       if (line == null) return;
 
-      const source: FactSource = { file: doc.filePath, line };
-
       // Determine kind: annotation takes priority, then heuristic
       const annotation = findAnnotation(line, doc.annotations);
       let kind: FactKind | undefined;
@@ -132,13 +163,30 @@ export const tableExtractor: FactExtractor = {
         const headerRow = node.children[0];
         if (!headerRow) return;
         const columns = headerRow.children.map((cell) => toString(cell));
-        kind = classifyByColumns(columns);
+
+        // Check for mapping table first
+        const mapping = detectMappingTable(columns);
+        if (mapping) {
+          kind = "mapping-table";
+        } else {
+          kind = classifyByColumns(columns);
+        }
       }
 
       if (!kind) return;
 
+      const source: FactSource = {
+        file: doc.filePath,
+        line,
+        blockId: annotation?.annotation.id,
+        annotationKind: annotation?.annotation.kind,
+      };
+
       const block = extractFromTable(node, kind, source);
-      if (block) blocks.push(block);
+      if (block) {
+        if (annotation) block.annotation = annotation.annotation;
+        blocks.push(block);
+      }
     });
 
     return blocks;

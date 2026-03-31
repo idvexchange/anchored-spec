@@ -11,6 +11,7 @@ export type {
   ExtractedFact,
   FactAnnotation,
   SuppressionAnnotation,
+  DocumentMarker,
   FactBlock,
   FactManifest,
   FactExtractor,
@@ -44,6 +45,10 @@ export type {
 export { checkConsistency, groupFactsByKey } from "./consistency.js";
 
 export { applySuppressions, collectSuppressions } from "./suppression.js";
+
+// Annotator
+export type { AnnotationSuggestion } from "./annotator.js";
+export { suggestAnnotations } from "./annotator.js";
 
 export type { ReconciliationReport } from "./reconciler.js";
 export { reconcileFactsWithArtifacts } from "./reconciler.js";
