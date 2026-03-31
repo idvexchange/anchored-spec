@@ -19,6 +19,9 @@ export function eaReconcileCommand(): Command {
     .option("--fail-on <level>", "Exit threshold: error (default), warning", "error")
     .option("--skip-generate", "Skip generation step")
     .option("--skip-drift", "Skip drift step")
+    .option("--include-trace", "Include trace integrity check as a step")
+    .option("--skip-trace", "Skip trace step (if --include-trace is set)")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories for trace checking", "docs,specs,.")
     .option("--fail-fast", "Stop at first failing step")
     .option("--domain <domain>", "Filter to a specific EA domain")
     .option("--json", "Output full report as JSON")
@@ -36,6 +39,11 @@ export function eaReconcileCommand(): Command {
         failOn: options.failOn,
         skipGenerate: options.skipGenerate,
         skipDrift: options.skipDrift,
+        includeTrace: options.includeTrace,
+        skipTrace: options.skipTrace,
+        docDirs: options.docDirs
+          ? (options.docDirs as string).split(",").map((d: string) => d.trim())
+          : undefined,
         failFast: options.failFast,
         domains: options.domain ? [options.domain] : undefined,
       });
