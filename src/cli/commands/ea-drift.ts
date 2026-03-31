@@ -15,6 +15,12 @@ import {
   EA_DOMAINS,
   createResolverCache,
 } from "../../ea/index.js";
+import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
+import { checkConsistency } from "../../ea/facts/consistency.js";
+import type { ConsistencyReport } from "../../ea/facts/consistency.js";
+import { reconcileFactsWithArtifacts } from "../../ea/facts/reconciler.js";
+import type { ReconciliationReport } from "../../ea/facts/reconciler.js";
+import { applySuppressions, collectSuppressions } from "../../ea/facts/suppression.js";
 import type { ExceptionArtifact, EaDomain } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
@@ -25,6 +31,9 @@ export function eaDriftCommand(): Command {
     .option("--severity <level>", "Filter findings by minimum severity: error, warning, info")
     .option("--json", "Output as JSON")
     .option("--fail-on-warning", "Exit with code 1 on warnings (not just errors)")
+    .option("--kind <kind>", "Filter by fact kind (for docs domain): events, states, endpoints, etc.")
+    .option("--include-artifacts", "Include fact-to-artifact reconciliation (for docs domain)")
+    .option("--source <path>", "Source path to scan for docs domain")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
     .option("--no-cache", "Disable resolver cache")
     .option("--from-snapshot <path>", "Use a snapshot file instead of live resolvers")
@@ -45,11 +54,101 @@ export function eaDriftCommand(): Command {
 
       // Validate domain filter
       const domainFilter = options.domain as string | undefined;
-      if (domainFilter && !EA_DOMAINS.includes(domainFilter as EaDomain)) {
+      const DRIFT_DOMAINS = [...EA_DOMAINS, "docs"] as const;
+      if (domainFilter && !DRIFT_DOMAINS.includes(domainFilter as (typeof DRIFT_DOMAINS)[number])) {
         throw new CliError(
-          `Unknown domain "${domainFilter}". Available: ${EA_DOMAINS.join(", ")}`,
+          `Unknown domain "${domainFilter}". Available: ${DRIFT_DOMAINS.join(", ")}`,
           2,
         );
+      }
+
+      // ── docs domain: consistency engine path ────────────────────────
+      if (domainFilter === "docs") {
+        // Extract facts from all docs
+        const manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
+
+        // Map from fact kind CLI name to FactKind
+        const kindFilter = options.kind as string | undefined;
+
+        // Run consistency checks
+        const consistencyReport: ConsistencyReport = checkConsistency(manifests, { kindFilter });
+
+        // Optionally run artifact reconciliation
+        let reconciliationReport: ReconciliationReport | undefined;
+        if (options.includeArtifacts) {
+          reconciliationReport = reconcileFactsWithArtifacts(manifests, result.artifacts);
+        }
+
+        // Apply suppressions from parsed documents
+        const { parseMarkdownFile } = await import("../../ea/facts/markdown-parser.js");
+        const docsWithSuppressions: { source: string; suppressions: import("../../ea/facts/types.js").SuppressionAnnotation[] }[] = [];
+        for (const m of manifests) {
+          try {
+            const doc = await parseMarkdownFile(resolve(cwd, m.source), m.source);
+            if (doc.suppressions.length > 0) {
+              docsWithSuppressions.push({ source: m.source, suppressions: doc.suppressions });
+            }
+          } catch { /* skip files that can't be re-parsed */ }
+        }
+        const suppressions = collectSuppressions(docsWithSuppressions);
+        applySuppressions(consistencyReport.findings, suppressions);
+        if (reconciliationReport) {
+          applySuppressions(reconciliationReport.findings, suppressions);
+        }
+
+        // Output (JSON or text)
+        if (options.json) {
+          process.stdout.write(JSON.stringify({
+            consistency: consistencyReport,
+            reconciliation: reconciliationReport,
+          }, null, 2) + "\n");
+        } else {
+          // Text output following existing drift report pattern
+          const passed = consistencyReport.passed && (reconciliationReport?.passed ?? true);
+          const status = passed ? chalk.green("✅ PASSED") : chalk.red("❌ FAILED");
+          console.log(`Doc Consistency Check — ${status}\n`);
+          console.log(`  Errors: ${consistencyReport.errors}`);
+          console.log(`  Warnings: ${consistencyReport.warnings}`);
+          console.log(`  Facts analyzed: ${consistencyReport.factsAnalyzed}`);
+          console.log(`  Documents analyzed: ${consistencyReport.documentsAnalyzed}`);
+          console.log("");
+
+          const allFindings = [
+            ...consistencyReport.findings,
+            ...(reconciliationReport?.findings ?? []),
+          ].filter(f => !f.suppressed);
+
+          if (allFindings.length > 0) {
+            console.log("  Findings:");
+            for (const f of allFindings) {
+              const icon = f.severity === "error" ? chalk.red("✗") : chalk.yellow("⚠");
+              console.log(`    ${icon} [${f.severity}] ${f.message}`);
+              for (const loc of f.locations) {
+                console.log(chalk.dim(`        ${loc.file}:${loc.line} → "${loc.value}"`));
+              }
+              if (f.suggestion) {
+                console.log(chalk.dim(`      Suggestion: ${f.suggestion}`));
+              }
+            }
+            console.log("");
+          }
+
+          if (reconciliationReport) {
+            console.log(`  Artifact reconciliation: ${reconciliationReport.passed ? "✅" : "❌"}`);
+            console.log(`    Facts checked: ${reconciliationReport.factsChecked}`);
+            console.log(`    Artifacts checked: ${reconciliationReport.artifactsChecked}`);
+            console.log("");
+          }
+        }
+
+        if (!consistencyReport.passed || (reconciliationReport && !reconciliationReport.passed)) {
+          throw new CliError("", 1);
+        }
+        if (options.failOnWarning && consistencyReport.warnings > 0) {
+          throw new CliError("", 1);
+        }
+
+        return;
       }
 
       // Collect exceptions

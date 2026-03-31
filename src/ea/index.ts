@@ -192,3 +192,20 @@ export { extractAnnotations, scanSourceAnnotations } from "./source-scanner.js";
 
 export type { TraceLink, TraceCheckReport } from "./trace-analysis.js";
 export { buildTraceLinks, buildTraceCheckReport, isUrl } from "./trace-analysis.js";
+
+// Facts — Markdown prose extraction & consistency
+export type {
+  FactKind, FactSource, ExtractedFact, FactAnnotation, SuppressionAnnotation,
+  FactBlock, FactManifest, FactExtractor, MarkdownDocument, AnnotatedRegion,
+  ConsistencyFinding, ConsistencyReport, FactLocation,
+  ReconciliationReport,
+} from "./facts/index.js";
+export {
+  ANNOTATION_KIND_MAP, TABLE_HEURISTIC_COLUMNS,
+  extractFacts, buildFactManifest,
+  parseMarkdown, parseMarkdownFile,
+  writeFactManifests,
+  checkConsistency, groupFactsByKey,
+  applySuppressions, collectSuppressions,
+  reconcileFactsWithArtifacts,
+} from "./facts/index.js";

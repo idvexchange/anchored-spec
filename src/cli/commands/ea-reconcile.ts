@@ -20,6 +20,7 @@ export function eaReconcileCommand(): Command {
     .option("--skip-generate", "Skip generation step")
     .option("--skip-drift", "Skip drift step")
     .option("--include-trace", "Include trace integrity check as a step")
+    .option("--include-docs", "Include doc consistency check as a step")
     .option("--skip-trace", "Skip trace step (if --include-trace is set)")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories for trace checking", "docs,specs,.")
     .option("--fail-fast", "Stop at first failing step")
@@ -40,6 +41,7 @@ export function eaReconcileCommand(): Command {
         skipGenerate: options.skipGenerate,
         skipDrift: options.skipDrift,
         includeTrace: options.includeTrace,
+        includeDocs: options.includeDocs,
         skipTrace: options.skipTrace,
         docDirs: options.docDirs
           ? (options.docDirs as string).split(",").map((d: string) => d.trim())

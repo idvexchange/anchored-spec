@@ -52,6 +52,8 @@ export interface ReconcileOptions {
   skipTrace?: boolean;
   /** Doc directories to scan for trace checking. */
   docDirs?: string[];
+  /** Include doc consistency check as a step. */
+  includeDocs?: boolean;
   /** Stop at first failing step. */
   failFast?: boolean;
   /** Filter to specific domains. */
@@ -59,7 +61,7 @@ export interface ReconcileOptions {
 }
 
 export interface ReconcileStepResult {
-  step: "generate" | "validate" | "drift" | "trace";
+  step: "generate" | "validate" | "drift" | "trace" | "docs";
   passed: boolean;
   errors: number;
   warnings: number;
@@ -78,6 +80,7 @@ export interface ReconcileReport {
     validationErrors: number;
     driftFindings: number;
     traceIssues: number;
+    docConsistencyFindings: number;
   };
   generationReport?: GenerationReport;
   validationResult?: EaValidationResult;
@@ -154,6 +157,12 @@ export async function reconcileEaProject(
     const traceResult = runTraceStep(artifacts, projectRoot, options);
     steps.push(traceResult.step);
     traceReport = traceResult.report;
+  }
+
+  // ── Step 5: Doc Consistency (opt-in) ─────────────────────────────────
+  if (options.includeDocs) {
+    const docResult = await runDocConsistencyStep(artifacts, projectRoot);
+    steps.push(docResult.step);
   }
 
   // ── VCS warnings ─────────────────────────────────────────────────────
@@ -367,6 +376,38 @@ function runTraceStep(
   };
 }
 
+// ─── Step 5: Doc Consistency ────────────────────────────────────────────────────
+
+interface DocConsistencyStepOutput {
+  step: ReconcileStepResult;
+}
+
+async function runDocConsistencyStep(
+  artifacts: EaArtifactBase[],
+  projectRoot: string,
+): Promise<DocConsistencyStepOutput> {
+  const { extractFactsFromDocs } = await import("./resolvers/markdown.js");
+  const { checkConsistency } = await import("./facts/consistency.js");
+  const { reconcileFactsWithArtifacts } = await import("./facts/reconciler.js");
+
+  const manifests = await extractFactsFromDocs(projectRoot);
+  const consistency = checkConsistency(manifests);
+  const reconciliation = reconcileFactsWithArtifacts(manifests, artifacts);
+
+  const errors = consistency.errors + reconciliation.findings.filter(f => f.severity === "error").length;
+  const warnings = consistency.warnings + reconciliation.findings.filter(f => f.severity === "warning").length;
+
+  return {
+    step: {
+      step: "docs",
+      passed: errors === 0,
+      errors,
+      warnings,
+      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.artifactsChecked} artifacts.`,
+    },
+  };
+}
+
 // ─── VCS Warning ────────────────────────────────────────────────────────────────
 
 /**
@@ -427,6 +468,9 @@ function buildReport(
           traceReport.oneWayArtifactToDoc.length +
           traceReport.oneWayDocToArtifact.length
         : 0,
+      docConsistencyFindings: steps
+        .filter(s => s.step === "docs")
+        .reduce((sum, s) => sum + s.errors + s.warnings, 0),
     },
     generationReport,
     validationResult,

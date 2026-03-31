@@ -72,6 +72,9 @@ export {
 export type { AnchorMatch, AnchorScanResult } from "./anchors.js";
 export { AnchorsResolver, scanAnchors } from "./anchors.js";
 
+// Markdown Resolver
+export { MarkdownResolver, extractFactsFromDocs } from "./markdown.js";
+
 // Config-driven resolver loader
 export type { LoadedResolver } from "./loader.js";
 export { loadResolver, loadResolversFromConfig } from "./loader.js";

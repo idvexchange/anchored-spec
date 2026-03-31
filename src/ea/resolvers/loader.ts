@@ -21,6 +21,7 @@ const BUILTIN_NAMES = new Set([
   "sql-ddl",
   "dbt",
   "tree-sitter",
+  "markdown",
 ]);
 
 /**

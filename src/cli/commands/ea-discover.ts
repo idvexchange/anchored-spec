@@ -7,6 +7,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
+import { join } from "node:path";
 import {
   EaRoot,
   resolveEaConfig,
@@ -25,6 +26,7 @@ import {
   scanDocs,
   discoverFromDocs,
 } from "../../ea/index.js";
+import { MarkdownResolver } from "../../ea/resolvers/markdown.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
 import type { EaArtifactDraft } from "../../ea/discovery.js";
 import { loadResolversFromConfig } from "../../ea/resolvers/loader.js";
@@ -37,6 +39,7 @@ const RESOLVER_MAP: Record<string, new () => EaResolver> = {
   terraform: TerraformResolver,
   "sql-ddl": SqlDdlResolver,
   dbt: DbtResolver,
+  markdown: MarkdownResolver,
 };
 
 const AVAILABLE_RESOLVERS = [...Object.keys(RESOLVER_MAP), "tree-sitter"].join(", ");
@@ -49,6 +52,7 @@ export function eaDiscoverCommand(): Command {
     .option("--dry-run", "Show what would be created without writing files")
     .option("--from-docs", "Discover artifacts from document frontmatter (prose-first workflow)")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories for --from-docs", "docs,specs,.")
+    .option("--write-facts", "Persist extracted fact manifests to .ea/facts/ directory")
     .option("--json", "Output discovery report as JSON")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
     .option("--no-cache", "Disable resolver cache")
@@ -262,6 +266,18 @@ export function eaDiscoverCommand(): Command {
         domainDirs: eaConfig.domains,
         dryRun: options.dryRun as boolean,
       });
+
+      // Write fact manifests if requested
+      if (options.writeFacts && resolverName === "markdown") {
+        const { extractFactsFromDocs } = await import("../../ea/resolvers/markdown.js");
+        const { writeFactManifests } = await import("../../ea/facts/writer.js");
+        const manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
+        const factsDir = join(cwd, eaConfig.rootDir ?? "ea", "facts");
+        const written = await writeFactManifests(manifests, factsDir);
+        if (!options.json) {
+          console.log(chalk.dim(`  Wrote ${written.length} fact manifest(s) to ${factsDir}`));
+        }
+      }
 
       if (options.json) {
         process.stdout.write(JSON.stringify(report, null, 2) + "\n");
