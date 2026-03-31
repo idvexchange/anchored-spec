@@ -22,24 +22,7 @@ import {
   validateEaSchema,
   evaluateEaDrift,
 } from "../index.js";
-import type { EaArtifactBase } from "../index.js";
-
-// ─── Helpers ────────────────────────────────────────────────────────────────────
-
-function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
-  return {
-    apiVersion: "anchored-spec/ea/v1",
-    title: overrides.title ?? overrides.id,
-    summary: "A well-described artifact for testing purposes.",
-    owners: ["team-test"],
-    tags: [],
-    confidence: "declared",
-    status: "active",
-    schemaVersion: "1.0.0",
-    relations: [],
-    ...overrides,
-  } as EaArtifactBase;
-}
+import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 
@@ -398,25 +381,25 @@ describe("Phase 2D: Schema Validation", () => {
 
 describe("Phase 2D: Quality Rules", () => {
   it("ea:quality:capability-missing-level — fires on missing level", () => {
-    const artifacts = [makeArtifact({ id: "CAP-no-level", kind: "capability" } as any)];
+    const artifacts = [makeEntity({ id: "CAP-no-level", kind: "capability" } as any)];
     const result = validateEaArtifacts(artifacts);
     expect(result.errors.find((e) => e.rule === "ea:quality:capability-missing-level")).toBeDefined();
   });
 
   it("ea:quality:process-missing-steps — fires on empty steps", () => {
-    const artifacts = [makeArtifact({ id: "PROC-no-steps", kind: "process", steps: [] } as any)];
+    const artifacts = [makeEntity({ id: "PROC-no-steps", kind: "process", steps: [] } as any)];
     const result = validateEaArtifacts(artifacts);
     expect(result.warnings.find((w) => w.rule === "ea:quality:process-missing-steps")).toBeDefined();
   });
 
   it("ea:quality:value-stream-missing-stages — fires on missing stages", () => {
-    const artifacts = [makeArtifact({ id: "VS-no-stages", kind: "value-stream", stages: [] } as any)];
+    const artifacts = [makeEntity({ id: "VS-no-stages", kind: "value-stream", stages: [] } as any)];
     const result = validateEaArtifacts(artifacts);
     expect(result.errors.find((e) => e.rule === "ea:quality:value-stream-missing-stages")).toBeDefined();
   });
 
   it("ea:quality:control-missing-assertion — fires on empty assertion", () => {
-    const artifacts = [makeArtifact({
+    const artifacts = [makeEntity({
       id: "CTRL-no-assert",
       kind: "control",
       controlType: "detective",
@@ -428,13 +411,13 @@ describe("Phase 2D: Quality Rules", () => {
   });
 
   it("ea:quality:org-unit-missing-type — fires on missing unitType", () => {
-    const artifacts = [makeArtifact({ id: "ORG-no-type", kind: "org-unit", unitType: "" } as any)];
+    const artifacts = [makeEntity({ id: "ORG-no-type", kind: "org-unit", unitType: "" } as any)];
     const result = validateEaArtifacts(artifacts);
     expect(result.errors.find((e) => e.rule === "ea:quality:org-unit-missing-type")).toBeDefined();
   });
 
   it("ea:quality:policy-missing-objective — fires on empty objective", () => {
-    const artifacts = [makeArtifact({
+    const artifacts = [makeEntity({
       id: "POL-no-obj",
       kind: "policy-objective",
       category: "sla",
@@ -445,7 +428,7 @@ describe("Phase 2D: Quality Rules", () => {
   });
 
   it("ea:quality:mission-missing-key-results — fires as info on missing KRs", () => {
-    const artifacts = [makeArtifact({ id: "MISSION-no-kr", kind: "mission" } as any)];
+    const artifacts = [makeEntity({ id: "MISSION-no-kr", kind: "mission" } as any)];
     const result = validateEaArtifacts(artifacts);
     // info severity maps to warnings
     expect(result.warnings.find((w) => w.rule === "ea:quality:mission-missing-key-results")).toBeDefined();
@@ -471,12 +454,12 @@ describe("Phase 2D: realizes Extension", () => {
 
   it("validates application → capability via realizes", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         relations: [{ type: "realizes", target: "CAP-fulfillment" }],
       }),
-      makeArtifact({ id: "CAP-fulfillment", kind: "capability" }),
+      makeEntity({ id: "CAP-fulfillment", kind: "capability" }),
     ];
     const result = validateEaRelations(artifacts, registry);
     expect(result.errors).toHaveLength(0);
@@ -502,12 +485,12 @@ describe("Phase 2D: New Relations", () => {
 
     it("validates app → capability via supports", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "APP-orders",
           kind: "application",
           relations: [{ type: "supports", target: "CAP-fulfillment" }],
         }),
-        makeArtifact({ id: "CAP-fulfillment", kind: "capability" }),
+        makeEntity({ id: "CAP-fulfillment", kind: "capability" }),
       ];
       const result = validateEaRelations(artifacts, registry);
       expect(result.errors).toHaveLength(0);
@@ -526,12 +509,12 @@ describe("Phase 2D: New Relations", () => {
 
     it("validates process → org-unit via performedBy", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "PROC-order-processing",
           kind: "process",
           relations: [{ type: "performedBy", target: "ORG-ops" }],
         }),
-        makeArtifact({ id: "ORG-ops", kind: "org-unit" }),
+        makeEntity({ id: "ORG-ops", kind: "org-unit" }),
       ];
       const result = validateEaRelations(artifacts, registry);
       expect(result.errors).toHaveLength(0);
@@ -547,12 +530,12 @@ describe("Phase 2D: New Relations", () => {
 
     it("validates app → policy-objective via governedBy", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "APP-orders",
           kind: "application",
           relations: [{ type: "governedBy", target: "POL-order-sla" }],
         }),
-        makeArtifact({ id: "POL-order-sla", kind: "policy-objective" }),
+        makeEntity({ id: "POL-order-sla", kind: "policy-objective" }),
       ];
       const result = validateEaRelations(artifacts, registry);
       expect(result.errors).toHaveLength(0);
@@ -569,12 +552,12 @@ describe("Phase 2D: New Relations", () => {
 
     it("validates org-unit → application via owns", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ORG-eng",
           kind: "org-unit",
           relations: [{ type: "owns", target: "APP-orders" }],
         }),
-        makeArtifact({ id: "APP-orders", kind: "application" }),
+        makeEntity({ id: "APP-orders", kind: "application" }),
       ];
       const result = validateEaRelations(artifacts, registry);
       expect(result.errors).toHaveLength(0);
@@ -582,12 +565,12 @@ describe("Phase 2D: New Relations", () => {
 
     it("rejects non-org-unit as source for owns", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "APP-orders",
           kind: "application",
           relations: [{ type: "owns", target: "APP-billing" }],
         }),
-        makeArtifact({ id: "APP-billing", kind: "application" }),
+        makeEntity({ id: "APP-billing", kind: "application" }),
       ];
       const result = validateEaRelations(artifacts, registry);
       expect(result.errors.find((e) => e.rule === "ea:relation:invalid-source")).toBeDefined();
@@ -602,7 +585,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/no-realizing-systems", () => {
     it("fires when active capability has no realizing systems", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-lonely", kind: "capability", status: "active" }),
+        makeEntity({ id: "CAP-lonely", kind: "capability", status: "active" }),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/no-realizing-systems")).toBeDefined();
@@ -610,8 +593,8 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when capability has a realizes relation", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-good", kind: "capability", status: "active" }),
-        makeArtifact({
+        makeEntity({ id: "CAP-good", kind: "capability", status: "active" }),
+        makeEntity({
           id: "APP-orders",
           kind: "application",
           relations: [{ type: "realizes", target: "CAP-good" }],
@@ -625,8 +608,8 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/retired-system-dependency", () => {
     it("fires when active capability is realized by retired system", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-fulfillment", kind: "capability", status: "active" }),
-        makeArtifact({
+        makeEntity({ id: "CAP-fulfillment", kind: "capability", status: "active" }),
+        makeEntity({
           id: "APP-legacy",
           kind: "application",
           status: "retired",
@@ -639,8 +622,8 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when realizing system is active", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-fulfillment", kind: "capability", status: "active" }),
-        makeArtifact({
+        makeEntity({ id: "CAP-fulfillment", kind: "capability", status: "active" }),
+        makeEntity({
           id: "APP-orders",
           kind: "application",
           status: "active",
@@ -655,7 +638,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/process-missing-owner", () => {
     it("fires when process has no owner", () => {
       const artifacts = [
-        makeArtifact({ id: "PROC-orphan", kind: "process" }),
+        makeEntity({ id: "PROC-orphan", kind: "process" }),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/process-missing-owner")).toBeDefined();
@@ -663,7 +646,7 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when process has processOwner field", () => {
       const artifacts = [
-        makeArtifact({ id: "PROC-owned", kind: "process", processOwner: "ops-lead" } as any),
+        makeEntity({ id: "PROC-owned", kind: "process", processOwner: "ops-lead" } as any),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/process-missing-owner")).toBeUndefined();
@@ -673,7 +656,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/control-missing-evidence", () => {
     it("fires when automated control has no evidence", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CTRL-no-evidence",
           kind: "control",
           controlType: "detective",
@@ -687,7 +670,7 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when manual control has no evidence", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CTRL-manual",
           kind: "control",
           controlType: "detective",
@@ -703,7 +686,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/orphan-capability", () => {
     it("fires when capability has no parent, children, or systems", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-island", kind: "capability", level: 1 } as any),
+        makeEntity({ id: "CAP-island", kind: "capability", level: 1 } as any),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/orphan-capability")).toBeDefined();
@@ -711,8 +694,8 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when capability has a child", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-parent", kind: "capability", level: 1 } as any),
-        makeArtifact({ id: "CAP-child", kind: "capability", level: 2, parentCapability: "CAP-parent" } as any),
+        makeEntity({ id: "CAP-parent", kind: "capability", level: 1 } as any),
+        makeEntity({ id: "CAP-child", kind: "capability", level: 2, parentCapability: "CAP-parent" } as any),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/orphan-capability" && w.path === "CAP-parent")).toBeUndefined();
@@ -722,7 +705,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/mission-no-capabilities", () => {
     it("fires when mission has no supporting capabilities", () => {
       const artifacts = [
-        makeArtifact({ id: "MISSION-lonely", kind: "mission" }),
+        makeEntity({ id: "MISSION-lonely", kind: "mission" }),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/mission-no-capabilities")).toBeDefined();
@@ -730,8 +713,8 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when mission has supports relation", () => {
       const artifacts = [
-        makeArtifact({ id: "MISSION-good", kind: "mission" }),
-        makeArtifact({
+        makeEntity({ id: "MISSION-good", kind: "mission" }),
+        makeEntity({
           id: "CAP-commerce",
           kind: "capability",
           relations: [{ type: "supports", target: "MISSION-good" }],
@@ -745,7 +728,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/policy-no-controls", () => {
     it("fires when policy has no enforcing controls", () => {
       const artifacts = [
-        makeArtifact({ id: "POL-lonely", kind: "policy-objective", category: "sla", objective: "test" } as any),
+        makeEntity({ id: "POL-lonely", kind: "policy-objective", category: "sla", objective: "test" } as any),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:business/policy-no-controls")).toBeDefined();
@@ -753,7 +736,7 @@ describe("Phase 2D: Business Drift Rules", () => {
 
     it("does not fire when policy has enforcedBy", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "POL-enforced",
           kind: "policy-objective",
           category: "sla",
@@ -769,7 +752,7 @@ describe("Phase 2D: Business Drift Rules", () => {
   describe("ea:business/value-stream-bottleneck", () => {
     it("fires when value stream has bottleneck stage", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "VS-onboarding",
           kind: "value-stream",
           stages: [
@@ -806,9 +789,9 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("builds hierarchy from parentCapability", () => {
     const artifacts = [
-      makeArtifact({ id: "CAP-commerce", kind: "capability", level: 1 } as any),
-      makeArtifact({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
-      makeArtifact({ id: "CAP-payments", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+      makeEntity({ id: "CAP-commerce", kind: "capability", level: 1 } as any),
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+      makeEntity({ id: "CAP-payments", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.summary.capabilityCount).toBe(3);
@@ -820,14 +803,14 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("maps capabilities to missions via supports", () => {
     const artifacts = [
-      makeArtifact({ id: "MISSION-digital", kind: "mission" }),
-      makeArtifact({
+      makeEntity({ id: "MISSION-digital", kind: "mission" }),
+      makeEntity({
         id: "CAP-commerce",
         kind: "capability",
         level: 1,
         relations: [{ type: "supports", target: "MISSION-digital" }],
       } as any),
-      makeArtifact({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.missions).toHaveLength(1);
@@ -840,8 +823,8 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("enriches capabilities with realizing systems", () => {
     const artifacts = [
-      makeArtifact({ id: "CAP-orders", kind: "capability", level: 1 } as any),
-      makeArtifact({
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 1 } as any),
+      makeEntity({
         id: "APP-orders",
         kind: "application",
         relations: [{ type: "realizes", target: "CAP-orders" }],
@@ -855,8 +838,8 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("enriches capabilities with processes", () => {
     const artifacts = [
-      makeArtifact({ id: "CAP-orders", kind: "capability", level: 1 } as any),
-      makeArtifact({
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 1 } as any),
+      makeEntity({
         id: "PROC-order-processing",
         kind: "process",
         relations: [{ type: "realizes", target: "CAP-orders" }],
@@ -868,13 +851,13 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("enriches capabilities with controls via governedBy", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CAP-orders",
         kind: "capability",
         level: 1,
         relations: [{ type: "governedBy", target: "CTRL-latency" }],
       } as any),
-      makeArtifact({
+      makeEntity({
         id: "CTRL-latency",
         kind: "control",
         controlType: "detective",
@@ -888,8 +871,8 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("enriches capabilities with owning org via owns", () => {
     const artifacts = [
-      makeArtifact({ id: "CAP-orders", kind: "capability", level: 1 } as any),
-      makeArtifact({
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 1 } as any),
+      makeEntity({
         id: "ORG-eng",
         kind: "org-unit",
         relations: [{ type: "owns", target: "CAP-orders" }],
@@ -901,7 +884,7 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("includes heatMap and maturity metadata", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CAP-orders",
         kind: "capability",
         level: 1,
@@ -922,7 +905,7 @@ describe("Phase 2D: Capability Map Report", () => {
   it("includes drift summary per capability", () => {
     // Active capability with no realizing systems → should produce a drift warning
     const artifacts = [
-      makeArtifact({ id: "CAP-lonely", kind: "capability", level: 1, status: "active" } as any),
+      makeEntity({ id: "CAP-lonely", kind: "capability", level: 1, status: "active" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     const cap = report.unmappedCapabilities[0];
@@ -932,9 +915,9 @@ describe("Phase 2D: Capability Map Report", () => {
 
   it("computes maxDepth correctly", () => {
     const artifacts = [
-      makeArtifact({ id: "CAP-l1", kind: "capability", level: 1 } as any),
-      makeArtifact({ id: "CAP-l2", kind: "capability", level: 2, parentCapability: "CAP-l1" } as any),
-      makeArtifact({ id: "CAP-l3", kind: "capability", level: 3, parentCapability: "CAP-l2" } as any),
+      makeEntity({ id: "CAP-l1", kind: "capability", level: 1 } as any),
+      makeEntity({ id: "CAP-l2", kind: "capability", level: 2, parentCapability: "CAP-l1" } as any),
+      makeEntity({ id: "CAP-l3", kind: "capability", level: 3, parentCapability: "CAP-l2" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.summary.maxDepth).toBe(3);
@@ -950,8 +933,8 @@ describe("Phase 2D: Capability Map Report", () => {
 
     it("renders missions with capability trees", () => {
       const artifacts = [
-        makeArtifact({ id: "MISSION-digital", kind: "mission" }),
-        makeArtifact({
+        makeEntity({ id: "MISSION-digital", kind: "mission" }),
+        makeEntity({
           id: "CAP-commerce",
           kind: "capability",
           level: 1,
@@ -960,13 +943,13 @@ describe("Phase 2D: Capability Map Report", () => {
           maturity: "managed",
           relations: [{ type: "supports", target: "MISSION-digital" }],
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "CAP-orders",
           kind: "capability",
           level: 2,
           parentCapability: "CAP-commerce",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "APP-orders",
           kind: "application",
           status: "active",
@@ -985,7 +968,7 @@ describe("Phase 2D: Capability Map Report", () => {
 
     it("renders unmapped capabilities section", () => {
       const artifacts = [
-        makeArtifact({ id: "CAP-orphan", kind: "capability", level: 1 } as any),
+        makeEntity({ id: "CAP-orphan", kind: "capability", level: 1 } as any),
       ];
       const report = buildCapabilityMap(artifacts);
       const md = renderCapabilityMapMarkdown(report);

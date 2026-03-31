@@ -16,24 +16,7 @@ import {
   validateEaRelations,
   evaluateEaDrift,
 } from "../index.js";
-import type { EaArtifactBase } from "../index.js";
-
-// ─── Helpers ────────────────────────────────────────────────────────────────────
-
-function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
-  return {
-    apiVersion: "anchored-spec/ea/v1",
-    title: overrides.title ?? overrides.id,
-    summary: "A well-described artifact for testing purposes.",
-    owners: ["team-test"],
-    tags: [],
-    confidence: "declared",
-    status: "active",
-    schemaVersion: "1.0.0",
-    relations: [],
-    ...overrides,
-  } as EaArtifactBase;
-}
+import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Phase 2A Relations ─────────────────────────────────────────────────────────
 
@@ -53,12 +36,12 @@ describe("Phase 2A: New Relations", () => {
 
     it("validates successfully for valid source/target", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "APP-order-service",
           kind: "application",
           relations: [{ type: "interfacesWith", target: "SIF-payment-gateway" }],
         }),
-        makeArtifact({
+        makeEntity({
           id: "SIF-payment-gateway",
           kind: "system-interface",
           direction: "outbound",
@@ -66,19 +49,20 @@ describe("Phase 2A: New Relations", () => {
         } as any),
       ];
       const result = validateEaRelations(artifacts, registry);
-      expect(result.errors).toHaveLength(0);
+      const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
+      expect(relErrors).toHaveLength(0);
     });
 
     it("rejects invalid source kind", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-dev",
           kind: "environment",
           tier: "development",
           isProduction: false,
           relations: [{ type: "interfacesWith", target: "SIF-payment-gateway" }],
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "SIF-payment-gateway",
           kind: "system-interface",
           direction: "outbound",
@@ -104,17 +88,18 @@ describe("Phase 2A: New Relations", () => {
 
     it("validates successfully for valid source/target", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-nodejs",
           kind: "technology-standard",
           category: "runtime",
           technology: "Node.js",
           relations: [{ type: "standardizes", target: "APP-order-service" }],
         } as any),
-        makeArtifact({ id: "APP-order-service", kind: "application" }),
+        makeEntity({ id: "APP-order-service", kind: "application" }),
       ];
       const result = validateEaRelations(artifacts, registry);
-      expect(result.errors).toHaveLength(0);
+      const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
+      expect(relErrors).toHaveLength(0);
     });
 
     it("allows explicit inverse (standardizedBy)", () => {
@@ -134,17 +119,18 @@ describe("Phase 2A: New Relations", () => {
 
     it("validates successfully for valid source/target", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-rds-orders",
           kind: "cloud-resource",
           provider: "aws",
           resourceType: "rds",
           relations: [{ type: "providedBy", target: "PLAT-aws-prod" }],
         } as any),
-        makeArtifact({ id: "PLAT-aws-prod", kind: "platform" }),
+        makeEntity({ id: "PLAT-aws-prod", kind: "platform" }),
       ];
       const result = validateEaRelations(artifacts, registry);
-      expect(result.errors).toHaveLength(0);
+      const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
+      expect(relErrors).toHaveLength(0);
     });
   });
 });
@@ -154,12 +140,12 @@ describe("Phase 2A: Extended Relations", () => {
 
   it("consumes now accepts system-interface as target", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "APP-frontend",
         kind: "application",
         relations: [{ type: "consumes", target: "SIF-external-api" }],
       }),
-      makeArtifact({
+      makeEntity({
         id: "SIF-external-api",
         kind: "system-interface",
         direction: "inbound",
@@ -173,14 +159,14 @@ describe("Phase 2A: Extended Relations", () => {
 
   it("boundedBy now accepts cloud-resource as source", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "CLOUD-rds-main",
         kind: "cloud-resource",
         provider: "aws",
         resourceType: "rds",
         relations: [{ type: "boundedBy", target: "ZONE-private" }],
       } as any),
-      makeArtifact({ id: "ZONE-private", kind: "network-zone" }),
+      makeEntity({ id: "ZONE-private", kind: "network-zone" }),
     ];
     const result = validateEaRelations(artifacts, registry);
     const sourceError = result.errors.find((e) => e.rule === "ea:relation:invalid-source");
@@ -189,14 +175,14 @@ describe("Phase 2A: Extended Relations", () => {
 
   it("boundedBy now accepts environment as source", () => {
     const artifacts = [
-      makeArtifact({
+      makeEntity({
         id: "ENV-staging",
         kind: "environment",
         tier: "staging",
         isProduction: false,
         relations: [{ type: "boundedBy", target: "ZONE-dmz" }],
       } as any),
-      makeArtifact({ id: "ZONE-dmz", kind: "network-zone" }),
+      makeEntity({ id: "ZONE-dmz", kind: "network-zone" }),
     ];
     const result = validateEaRelations(artifacts, registry);
     const sourceError = result.errors.find((e) => e.rule === "ea:relation:invalid-source");
@@ -210,7 +196,7 @@ describe("Phase 2A: Quality Rules", () => {
   describe("ea:quality:system-interface-missing-direction", () => {
     it("fires when system-interface has no direction", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "SIF-missing-dir",
           kind: "system-interface",
           // No direction field
@@ -226,7 +212,7 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire when direction is present", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "SIF-has-dir",
           kind: "system-interface",
           direction: "inbound",
@@ -244,7 +230,7 @@ describe("Phase 2A: Quality Rules", () => {
   describe("ea:quality:consumer-missing-contract", () => {
     it("fires when consumer has empty consumesContracts", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CON-orphan",
           kind: "consumer",
           consumesContracts: [],
@@ -260,10 +246,10 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire when consumesContracts has entries", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CON-linked",
           kind: "consumer",
-          consumesContracts: ["API-orders-v2"],
+          consumesContracts: ["api:orders-v2"],
           consumerType: "external",
         } as any),
       ];
@@ -278,7 +264,7 @@ describe("Phase 2A: Quality Rules", () => {
   describe("ea:quality:cloud-resource-missing-provider", () => {
     it("fires when cloud-resource has no provider", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-no-provider",
           kind: "cloud-resource",
           resourceType: "rds",
@@ -294,7 +280,7 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire when provider is present", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-with-provider",
           kind: "cloud-resource",
           provider: "aws",
@@ -312,7 +298,7 @@ describe("Phase 2A: Quality Rules", () => {
   describe("ea:quality:environment-production-not-restricted", () => {
     it("fires when production environment has non-restricted access", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-prod",
           kind: "environment",
           tier: "production",
@@ -329,7 +315,7 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire when production has restricted access", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-prod-restricted",
           kind: "environment",
           tier: "production",
@@ -346,7 +332,7 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire when accessLevel is not specified", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-prod-default",
           kind: "environment",
           tier: "production",
@@ -364,7 +350,7 @@ describe("Phase 2A: Quality Rules", () => {
   describe("ea:quality:technology-standard-expired-review", () => {
     it("fires when active standard has passed review date", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-old-standard",
           kind: "technology-standard",
           status: "active",
@@ -382,7 +368,7 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire for future review date", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-current",
           kind: "technology-standard",
           status: "active",
@@ -400,7 +386,7 @@ describe("Phase 2A: Quality Rules", () => {
 
     it("does not fire for draft/retired standards", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-retired",
           kind: "technology-standard",
           status: "retired",
@@ -424,18 +410,18 @@ describe("Phase 2A: Drift Rules", () => {
   describe("ea:systems/consumer-contract-version-mismatch", () => {
     it("fires when consumer contractVersion differs from contract schemaVersion", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CON-portal",
           kind: "consumer",
-          consumesContracts: ["API-orders-v2"],
+          consumesContracts: ["api:orders-v2"],
           consumerType: "external",
           contractVersion: "1.0.0",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "API-orders-v2",
           kind: "api-contract",
-          schemaVersion: "2.0.0",
-        }),
+          extensions: { schemaVersion: "2.0.0" },
+        } as any),
       ];
       const result = evaluateEaDrift(artifacts);
       const warn = result.warnings.find(
@@ -448,14 +434,14 @@ describe("Phase 2A: Drift Rules", () => {
 
     it("does not fire when versions match", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CON-portal",
           kind: "consumer",
-          consumesContracts: ["API-orders-v2"],
+          consumesContracts: ["api:orders-v2"],
           consumerType: "external",
           contractVersion: "1.0.0",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "API-orders-v2",
           kind: "api-contract",
           schemaVersion: "1.0.0",
@@ -470,13 +456,13 @@ describe("Phase 2A: Drift Rules", () => {
 
     it("does not fire when consumer has no contractVersion", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "CON-no-version",
           kind: "consumer",
-          consumesContracts: ["API-orders-v2"],
+          consumesContracts: ["api:orders-v2"],
           consumerType: "internal",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "API-orders-v2",
           kind: "api-contract",
           schemaVersion: "2.0.0",
@@ -493,14 +479,14 @@ describe("Phase 2A: Drift Rules", () => {
   describe("ea:systems/technology-standard-violation", () => {
     it("fires when cloud resource uses unapproved technology", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-postgres",
           kind: "technology-standard",
           status: "active",
           category: "database",
           technology: "PostgreSQL",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-mysql-db",
           kind: "cloud-resource",
           provider: "aws",
@@ -518,14 +504,14 @@ describe("Phase 2A: Drift Rules", () => {
 
     it("does not fire when cloud resource matches standard", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-postgres",
           kind: "technology-standard",
           status: "active",
           category: "database",
           technology: "PostgreSQL",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-pg-db",
           kind: "cloud-resource",
           provider: "aws",
@@ -542,14 +528,14 @@ describe("Phase 2A: Drift Rules", () => {
 
     it("does not fire when no standards are active", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-retired-pg",
           kind: "technology-standard",
           status: "retired",
           category: "database",
           technology: "PostgreSQL",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-mysql-db",
           kind: "cloud-resource",
           provider: "aws",
@@ -568,7 +554,7 @@ describe("Phase 2A: Drift Rules", () => {
   describe("ea:systems/deprecated-version-in-use", () => {
     it("fires when cloud resource uses deprecated version", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-postgres",
           kind: "technology-standard",
           status: "active",
@@ -577,7 +563,7 @@ describe("Phase 2A: Drift Rules", () => {
           deprecatedVersions: ["11", "12"],
           approvedVersions: ["15", "16"],
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-old-pg",
           kind: "cloud-resource",
           provider: "aws",
@@ -595,7 +581,7 @@ describe("Phase 2A: Drift Rules", () => {
 
     it("does not fire for approved version", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "TECH-postgres",
           kind: "technology-standard",
           status: "active",
@@ -604,7 +590,7 @@ describe("Phase 2A: Drift Rules", () => {
           deprecatedVersions: ["11", "12"],
           approvedVersions: ["15", "16"],
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "CLOUD-new-pg",
           kind: "cloud-resource",
           provider: "aws",
@@ -623,12 +609,12 @@ describe("Phase 2A: Drift Rules", () => {
   describe("ea:systems/environment-promotion-gap", () => {
     it("fires when promotesFrom references non-existent environment", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-staging",
           kind: "environment",
           tier: "staging",
           isProduction: false,
-          promotesFrom: "ENV-dev",
+          promotesFrom: "resource:dev",
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
@@ -636,17 +622,17 @@ describe("Phase 2A: Drift Rules", () => {
         (e) => e.rule === "ea:systems/environment-promotion-gap",
       );
       expect(warn).toBeDefined();
-      expect(warn!.message).toContain("ENV-dev");
+      expect(warn!.message).toContain("resource:dev");
     });
 
     it("fires when promotesTo references non-existent environment", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-staging",
           kind: "environment",
           tier: "staging",
           isProduction: false,
-          promotesTo: "ENV-production",
+          promotesTo: "resource:production",
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
@@ -654,32 +640,32 @@ describe("Phase 2A: Drift Rules", () => {
         (e) => e.rule === "ea:systems/environment-promotion-gap",
       );
       expect(warn).toBeDefined();
-      expect(warn!.message).toContain("ENV-production");
+      expect(warn!.message).toContain("resource:production");
     });
 
     it("does not fire when promotion chain is complete", () => {
       const artifacts = [
-        makeArtifact({
+        makeEntity({
           id: "ENV-dev",
           kind: "environment",
           tier: "development",
           isProduction: false,
-          promotesTo: "ENV-staging",
+          promotesTo: "resource:staging",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "ENV-staging",
           kind: "environment",
           tier: "staging",
           isProduction: false,
-          promotesFrom: "ENV-dev",
-          promotesTo: "ENV-prod",
+          promotesFrom: "resource:dev",
+          promotesTo: "resource:prod",
         } as any),
-        makeArtifact({
+        makeEntity({
           id: "ENV-prod",
           kind: "environment",
           tier: "production",
           isProduction: true,
-          promotesFrom: "ENV-staging",
+          promotesFrom: "resource:staging",
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);

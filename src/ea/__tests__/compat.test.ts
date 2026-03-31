@@ -10,24 +10,41 @@ import {
   renderCompatMarkdown,
 } from "../compat.js";
 import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { makeEntity as _bridgeMakeEntity } from "./helpers/make-entity.js";
+import { getEntityId, getEntityStatus } from "../backstage/accessors.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
+/**
+ * Create a BackstageEntity for compat testing. Wraps the bridge-based helper
+ * and injects spec.status / spec.confidence so the diff engine produces field
+ * names the compat rules can detect.
+ */
+function makeEntity(
+  overrides: Parameters<typeof _bridgeMakeEntity>[0],
+): BackstageEntity {
+  const entity = _bridgeMakeEntity(overrides);
+  const spec = entity.spec as Record<string, unknown>;
+  spec.status = overrides.status ?? "active";
+  spec.confidence = overrides.confidence ?? "declared";
+  return entity;
+}
+
+/** Thin shim so assessCompatibility can look up artifacts by entity-ref ID. */
+function toShim(entity: BackstageEntity): EaArtifactBase {
   return {
-    schemaVersion: "1.0",
-    title: overrides.id,
-    status: "active",
-    summary: "Test artifact",
-    owners: ["team-a"],
-    confidence: "declared",
-    ...overrides,
+    id: getEntityId(entity),
+    status: getEntityStatus(entity),
   } as EaArtifactBase;
 }
 
-function assess(base: EaArtifactBase[], head: EaArtifactBase[]) {
+function assess(base: BackstageEntity[], head: BackstageEntity[]) {
   const diff = diffEaArtifacts(base, head);
-  return assessCompatibility(diff, { base, head });
+  return assessCompatibility(diff, {
+    base: base.map(toShim),
+    head: head.map(toShim),
+  });
 }
 
 // ─── assessCompatibility ────────────────────────────────────────────────────────
@@ -40,13 +57,13 @@ describe("assessCompatibility", () => {
   });
 
   it("returns 'none' for identical artifacts", () => {
-    const artifacts = [makeArtifact({ id: "APP-a", kind: "application" })];
+    const artifacts = [makeEntity({ id: "APP-a", kind: "application" })];
     const report = assess(artifacts, [...artifacts]);
     expect(report.overallLevel).toBe("none");
   });
 
   it("classifies new artifacts as additive", () => {
-    const head = [makeArtifact({ id: "APP-new", kind: "application" })];
+    const head = [makeEntity({ id: "APP-new", kind: "application" })];
     const report = assess([], head);
     expect(report.overallLevel).toBe("additive");
     expect(report.summary.additive).toBe(1);
@@ -54,21 +71,21 @@ describe("assessCompatibility", () => {
   });
 
   it("classifies removal of active artifact as breaking", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "active" })];
     const report = assess(base, []);
     expect(report.overallLevel).toBe("breaking");
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:artifact-removed")).toBe(true);
   });
 
   it("classifies removal of deprecated artifact as compatible", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "deprecated" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "deprecated" })];
     const report = assess(base, []);
     expect(report.overallLevel).toBe("compatible");
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:artifact-removed-deprecated")).toBe(true);
   });
 
   it("classifies removal of retired artifact as no breaking impact", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "retired" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "retired" })];
     const report = assess(base, []);
     // retired → not in LIVE_STATUSES, not deprecated → no specific rule fires
     const assessment = report.assessments[0];
@@ -76,35 +93,35 @@ describe("assessCompatibility", () => {
   });
 
   it("detects status regression as breaking", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", status: "draft" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "active" })];
+    const head = [makeEntity({ id: "APP-a", kind: "application", status: "draft" })];
     const report = assess(base, head);
     expect(report.overallLevel).toBe("breaking");
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:status-regression")).toBe(true);
   });
 
   it("detects status deprecation as compatible", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", status: "deprecated" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "active" })];
+    const head = [makeEntity({ id: "APP-a", kind: "application", status: "deprecated" })];
     const report = assess(base, head);
     const reasons = report.assessments[0].reasons;
     expect(reasons.some((r) => r.rule === "compat:status-deprecation")).toBe(true);
   });
 
   it("detects relation removal as breaking", () => {
-    const base = [makeArtifact({
+    const base = [makeEntity({
       id: "APP-a",
       kind: "application",
       relations: [{ type: "uses", target: "SVC-b" }],
     })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", relations: [] })];
+    const head = [makeEntity({ id: "APP-a", kind: "application", relations: [] })];
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:relation-removed")).toBe(true);
   });
 
   it("detects relation addition as additive", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", relations: [] })];
-    const head = [makeArtifact({
+    const base = [makeEntity({ id: "APP-a", kind: "application", relations: [] })];
+    const head = [makeEntity({
       id: "APP-a",
       kind: "application",
       relations: [{ type: "uses", target: "SVC-b" }],
@@ -114,19 +131,19 @@ describe("assessCompatibility", () => {
   });
 
   it("detects anchor removal as breaking", () => {
-    const base = [makeArtifact({
+    const base = [makeEntity({
       id: "APP-a",
       kind: "application",
       anchors: { apis: ["GET /health"] },
     })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", anchors: {} })];
+    const head = [makeEntity({ id: "APP-a", kind: "application", anchors: {} })];
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:anchor-removed")).toBe(true);
   });
 
   it("detects anchor addition as additive", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", anchors: {} })];
-    const head = [makeArtifact({
+    const base = [makeEntity({ id: "APP-a", kind: "application", anchors: {} })];
+    const head = [makeEntity({
       id: "APP-a",
       kind: "application",
       anchors: { apis: ["GET /health"] },
@@ -136,60 +153,62 @@ describe("assessCompatibility", () => {
   });
 
   it("detects kind change as breaking", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "service" })];
+    // In Backstage model, changing kind creates a different entity ref,
+    // so it manifests as removal of the old entity + addition of the new one
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "active" })];
+    const head = [makeEntity({ id: "API-a", kind: "api-contract" })];
     const report = assess(base, head);
-    expect(report.assessments[0].reasons.some((r) => r.rule === "compat:kind-changed")).toBe(true);
+    expect(report.assessments.some((a) => a.reasons.some((r) => r.rule === "compat:artifact-removed"))).toBe(true);
     expect(report.overallLevel).toBe("breaking");
   });
 
   it("classifies metadata-only changes as none", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", title: "Old Title" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", title: "New Title" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", title: "Old Title" })];
+    const head = [makeEntity({ id: "APP-a", kind: "application", title: "New Title" })];
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:metadata-only")).toBe(true);
     expect(report.assessments[0].level).toBe("none");
   });
 
   it("detects confidence downgrade as ambiguous", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", confidence: "declared" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", confidence: "inferred" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", confidence: "declared" })];
+    const head = [makeEntity({ id: "APP-a", kind: "application", confidence: "inferred" })];
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:confidence-downgrade")).toBe(true);
   });
 
   it("detects contractual field removal as breaking", () => {
-    const base = [makeArtifact({ id: "API-a", kind: "api-contract" })];
-    (base[0] as Record<string, unknown>).protocol = "rest";
-    const head = [makeArtifact({ id: "API-a", kind: "api-contract" })];
+    const base = [makeEntity({ id: "API-a", kind: "api-contract" })];
+    (base[0].spec as Record<string, unknown>).protocol = "rest";
+    const head = [makeEntity({ id: "API-a", kind: "api-contract" })];
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:contract-field-removed")).toBe(true);
   });
 
   it("detects contractual field addition as additive", () => {
-    const base = [makeArtifact({ id: "API-a", kind: "api-contract" })];
-    const head = [makeArtifact({ id: "API-a", kind: "api-contract" })];
-    (head[0] as Record<string, unknown>).protocol = "rest";
+    const base = [makeEntity({ id: "API-a", kind: "api-contract" })];
+    const head = [makeEntity({ id: "API-a", kind: "api-contract" })];
+    (head[0].spec as Record<string, unknown>).protocol = "rest";
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:contract-field-added")).toBe(true);
   });
 
   it("detects contractual field modification as ambiguous", () => {
-    const base = [makeArtifact({ id: "API-a", kind: "api-contract" })];
-    (base[0] as Record<string, unknown>).protocol = "rest";
-    const head = [makeArtifact({ id: "API-a", kind: "api-contract" })];
-    (head[0] as Record<string, unknown>).protocol = "grpc";
+    const base = [makeEntity({ id: "API-a", kind: "api-contract" })];
+    (base[0].spec as Record<string, unknown>).protocol = "rest";
+    const head = [makeEntity({ id: "API-a", kind: "api-contract" })];
+    (head[0].spec as Record<string, unknown>).protocol = "grpc";
     const report = assess(base, head);
     expect(report.assessments[0].reasons.some((r) => r.rule === "compat:contract-field-modified")).toBe(true);
   });
 
   it("overall level is worst across all assessments", () => {
     const base = [
-      makeArtifact({ id: "APP-a", kind: "application", title: "A" }),
-      makeArtifact({ id: "APP-b", kind: "application", status: "active" }),
+      makeEntity({ id: "APP-a", kind: "application", title: "A" }),
+      makeEntity({ id: "APP-b", kind: "application", status: "active" }),
     ];
     const head = [
-      makeArtifact({ id: "APP-a", kind: "application", title: "A Updated" }),
+      makeEntity({ id: "APP-a", kind: "application", title: "A Updated" }),
       // APP-b removed → breaking
     ];
     const report = assess(base, head);
@@ -213,9 +232,9 @@ describe("renderCompatSummary", () => {
   });
 
   it("includes level counts", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "active" })];
     const head = [
-      makeArtifact({ id: "APP-b", kind: "application" }),
+      makeEntity({ id: "APP-b", kind: "application" }),
     ];
     const report = assess(base, head);
     const summary = renderCompatSummary(report);
@@ -234,16 +253,16 @@ describe("renderCompatMarkdown", () => {
   });
 
   it("renders breaking changes section", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makeEntity({ id: "APP-a", kind: "application", status: "active" })];
     const md = renderCompatMarkdown(assess(base, []));
     expect(md).toContain("Breaking Changes");
-    expect(md).toContain("APP-a");
+    expect(md).toContain("component:a");
   });
 
   it("renders additive changes section", () => {
-    const head = [makeArtifact({ id: "APP-new", kind: "application" })];
+    const head = [makeEntity({ id: "APP-new", kind: "application" })];
     const md = renderCompatMarkdown(assess([], head));
     expect(md).toContain("Additive Changes");
-    expect(md).toContain("APP-new");
+    expect(md).toContain("component:new");
   });
 });
