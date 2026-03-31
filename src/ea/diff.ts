@@ -1,13 +1,19 @@
 /**
  * EA Spec Diff Engine
  *
- * Compares two sets of EA artifacts and produces a structured semantic diff
- * report — not YAML text diffs, but domain-aware change classifications.
+ * Compares two sets of BackstageEntity artifacts and produces a structured
+ * semantic diff report — not YAML text diffs, but domain-aware change
+ * classifications.
  *
  * Design reference: plan.md §S1-A
  */
 
-import type { EaArtifactBase, EaRelation, EaTraceRef } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import {
+  getEntityId,
+  getEntityLegacyKind,
+  getEntitySpecRelations,
+} from "./backstage/accessors.js";
 import { getDomainForKind } from "./types.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -84,56 +90,142 @@ export interface EaDiffReport {
 // ─── Field Semantic Mapping ─────────────────────────────────────────────────────
 
 const BASE_FIELD_SEMANTICS: Record<string, FieldSemantic> = {
+  // Identity
   id: "identity",
   kind: "identity",
   schemaVersion: "identity",
+  apiVersion: "identity",
+  name: "identity",
+  namespace: "identity",
+  type: "identity",
+
+  // Metadata
   title: "metadata",
   summary: "metadata",
+  description: "metadata",
   owners: "metadata",
+  owner: "metadata",
   tags: "metadata",
+  labels: "metadata",
+  links: "metadata",
+
+  // Behavioral
   status: "behavioral",
   confidence: "behavioral",
   risk: "behavioral",
+  lifecycle: "behavioral",
+
+  // Structural
   relations: "structural",
   anchors: "structural",
   traceRefs: "structural",
+  system: "structural",
+  dependsOn: "structural",
+  dependencyOf: "structural",
+  providesApis: "structural",
+  consumesApis: "structural",
+  uses: "structural",
+  realizes: "structural",
+  deploys: "structural",
+  runsOn: "structural",
+
+  // Governance
   compliance: "governance",
   extensions: "governance",
+  annotations: "governance",
 };
 
 /**
  * Get the semantic classification for a field.
- * Known base fields get their mapped semantic; unknown fields (kind-specific) are "contractual".
+ * Checks each path segment from most specific (deepest) to least specific.
+ * Unknown fields (kind-specific) are "contractual".
  */
 export function getFieldSemantic(field: string): FieldSemantic {
-  const topLevel = field.split(".")[0]?.replace(/\[.*\]/, "") ?? "";
-  return BASE_FIELD_SEMANTICS[topLevel] ?? "contractual";
+  const parts = field.split(".").map((p) => p.replace(/\[.*\]/, ""));
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const key = parts[i];
+    if (key === undefined) continue;
+    const semantic = BASE_FIELD_SEMANTICS[key];
+    if (semantic) return semantic;
+  }
+  return "contractual";
+}
+
+// ─── Entity Flattening ──────────────────────────────────────────────────────────
+
+/**
+ * Flatten a BackstageEntity into a shallow record suitable for generic field
+ * diffing.  Metadata fields are lifted to the top level (title, description,
+ * tags, …) and spec fields are spread (lifecycle, owner, anchors, …).
+ * This preserves the same flat key structure the diff engine relied on with
+ * EaArtifactBase, so existing sub-diff handlers (tags, anchors, traceRefs)
+ * continue to work unmodified.
+ */
+function entityToDiffRecord(entity: BackstageEntity): Record<string, unknown> {
+  const record: Record<string, unknown> = {};
+
+  // Identity
+  record.apiVersion = entity.apiVersion;
+  record.kind = entity.kind;
+  record.name = entity.metadata.name;
+  if (entity.metadata.namespace !== undefined) record.namespace = entity.metadata.namespace;
+
+  // Metadata
+  if (entity.metadata.title !== undefined) record.title = entity.metadata.title;
+  if (entity.metadata.description !== undefined) record.description = entity.metadata.description;
+  if (entity.metadata.tags !== undefined) record.tags = entity.metadata.tags;
+  if (entity.metadata.annotations !== undefined) record.annotations = entity.metadata.annotations;
+  if (entity.metadata.labels !== undefined) record.labels = entity.metadata.labels;
+  if (entity.metadata.links !== undefined) record.links = entity.metadata.links;
+
+  // Spec fields (spread to top level)
+  if (entity.spec) {
+    for (const [key, value] of Object.entries(entity.spec)) {
+      if (value !== undefined) record[key] = value;
+    }
+  }
+
+  return record;
+}
+
+// ─── Simplified Relation Type ───────────────────────────────────────────────────
+
+interface SimplifiedRelation {
+  type: string;
+  target: string;
+}
+
+function flattenSpecRelations(entity: BackstageEntity): SimplifiedRelation[] {
+  return getEntitySpecRelations(entity).flatMap((rel) =>
+    rel.targets.map((target) => ({ type: rel.legacyType, target })),
+  );
 }
 
 // ─── Core Diff Logic ────────────────────────────────────────────────────────────
 
 /**
- * Compare two sets of EA artifacts and produce a structured diff report.
+ * Compare two sets of BackstageEntity artifacts and produce a structured diff report.
  */
 export function diffEaArtifacts(
-  base: EaArtifactBase[],
-  head: EaArtifactBase[],
+  base: BackstageEntity[],
+  head: BackstageEntity[],
   options?: { baseRef?: string; headRef?: string },
 ): EaDiffReport {
   const baseRef = options?.baseRef ?? "base";
   const headRef = options?.headRef ?? "head";
-  const baseMap = new Map(base.map((a) => [a.id, a]));
-  const headMap = new Map(head.map((a) => [a.id, a]));
+  const baseMap = new Map(base.map((a) => [getEntityId(a), a]));
+  const headMap = new Map(head.map((a) => [getEntityId(a), a]));
 
   const diffs: ArtifactDiff[] = [];
 
   // Added: in head but not in base
   for (const [id, artifact] of headMap) {
     if (!baseMap.has(id)) {
+      const legacyKind = getEntityLegacyKind(artifact);
       diffs.push({
         artifactId: id,
-        kind: artifact.kind,
-        domain: getDomainForKind(artifact.kind) ?? "unknown",
+        kind: legacyKind,
+        domain: getDomainForKind(legacyKind) ?? "unknown",
         changeType: "added",
         fieldChanges: [],
         relationChanges: [],
@@ -144,10 +236,11 @@ export function diffEaArtifacts(
   // Removed: in base but not in head
   for (const [id, artifact] of baseMap) {
     if (!headMap.has(id)) {
+      const legacyKind = getEntityLegacyKind(artifact);
       diffs.push({
         artifactId: id,
-        kind: artifact.kind,
-        domain: getDomainForKind(artifact.kind) ?? "unknown",
+        kind: legacyKind,
+        domain: getDomainForKind(legacyKind) ?? "unknown",
         changeType: "removed",
         fieldChanges: [],
         relationChanges: [],
@@ -160,10 +253,10 @@ export function diffEaArtifacts(
     const headArtifact = headMap.get(id);
     if (!headArtifact) continue;
 
-    const fieldChanges = diffArtifactFields(baseArtifact, headArtifact);
+    const fieldChanges = diffEntityFields(baseArtifact, headArtifact);
     const relationChanges = diffRelations(
-      baseArtifact.relations ?? [],
-      headArtifact.relations ?? [],
+      flattenSpecRelations(baseArtifact),
+      flattenSpecRelations(headArtifact),
     );
 
     const changeType: ArtifactChangeType =
@@ -171,10 +264,11 @@ export function diffEaArtifacts(
         ? "modified"
         : "unchanged";
 
+    const legacyKind = getEntityLegacyKind(headArtifact);
     diffs.push({
       artifactId: id,
-      kind: headArtifact.kind,
-      domain: getDomainForKind(headArtifact.kind) ?? "unknown",
+      kind: legacyKind,
+      domain: getDomainForKind(legacyKind) ?? "unknown",
       changeType,
       fieldChanges,
       relationChanges,
@@ -199,11 +293,26 @@ export function diffEaArtifacts(
 const SKIP_FIELDS = new Set(["relations"]);
 
 /**
- * Produce field-level changes between two versions of the same artifact.
+ * Produce field-level changes between two versions of the same entity.
+ * Flattens the BackstageEntity envelope into a shallow record so that
+ * metadata and spec fields are compared individually.
  */
-function diffArtifactFields(
-  base: EaArtifactBase,
-  head: EaArtifactBase,
+function diffEntityFields(
+  base: BackstageEntity,
+  head: BackstageEntity,
+): FieldChange[] {
+  const baseRecord = entityToDiffRecord(base);
+  const headRecord = entityToDiffRecord(head);
+  return diffRecordFields(baseRecord, headRecord);
+}
+
+/**
+ * Generic record-level diff with optional dot-path prefix.
+ */
+function diffRecordFields(
+  base: Record<string, unknown>,
+  head: Record<string, unknown>,
+  prefix = "",
 ): FieldChange[] {
   const changes: FieldChange[] = [];
   const allKeys = new Set([
@@ -214,35 +323,36 @@ function diffArtifactFields(
   for (const key of allKeys) {
     if (SKIP_FIELDS.has(key)) continue;
 
-    const baseVal = (base as unknown as Record<string, unknown>)[key];
-    const headVal = (head as unknown as Record<string, unknown>)[key];
+    const field = prefix ? `${prefix}.${key}` : key;
+    const baseVal = base[key];
+    const headVal = head[key];
 
     if (baseVal === undefined && headVal !== undefined) {
       changes.push({
-        field: key,
+        field,
         changeType: "added",
         newValue: headVal,
-        semantic: getFieldSemantic(key),
+        semantic: getFieldSemantic(field),
       });
     } else if (baseVal !== undefined && headVal === undefined) {
       changes.push({
-        field: key,
+        field,
         changeType: "removed",
         oldValue: baseVal,
-        semantic: getFieldSemantic(key),
+        semantic: getFieldSemantic(field),
       });
     } else if (!deepEqual(baseVal, headVal)) {
       // For arrays and objects, produce sub-diffs where useful
-      const subChanges = diffValue(key, baseVal, headVal);
+      const subChanges = diffValue(field, baseVal, headVal);
       if (subChanges.length > 0) {
         changes.push(...subChanges);
       } else {
         changes.push({
-          field: key,
+          field,
           changeType: "modified",
           oldValue: baseVal,
           newValue: headVal,
-          semantic: getFieldSemantic(key),
+          semantic: getFieldSemantic(field),
         });
       }
     }
@@ -260,6 +370,7 @@ function diffValue(
   headVal: unknown,
 ): FieldChange[] {
   const semantic = getFieldSemantic(field);
+  const fieldName = field.split(".").pop()?.replace(/\[.*\]/, "") ?? "";
 
   // String arrays (tags, owners): use set diff
   if (isStringArray(baseVal) && isStringArray(headVal)) {
@@ -267,13 +378,18 @@ function diffValue(
   }
 
   // TraceRefs: use path as key
-  if (field === "traceRefs" && Array.isArray(baseVal) && Array.isArray(headVal)) {
-    return diffTraceRefs(baseVal as EaTraceRef[], headVal as EaTraceRef[]);
+  if (fieldName === "traceRefs" && Array.isArray(baseVal) && Array.isArray(headVal)) {
+    return diffTraceRefs(field, baseVal as Array<{ path: string }>, headVal as Array<{ path: string }>);
   }
 
   // Anchors: diff each sub-field
-  if (field === "anchors" && isRecord(baseVal) && isRecord(headVal)) {
-    return diffAnchors(baseVal, headVal);
+  if (fieldName === "anchors" && isRecord(baseVal) && isRecord(headVal)) {
+    return diffAnchors(field, baseVal, headVal);
+  }
+
+  // Generic nested object diff
+  if (isRecord(baseVal) && isRecord(headVal)) {
+    return diffRecordFields(baseVal, headVal, field);
   }
 
   return [];
@@ -314,7 +430,7 @@ function diffStringArrays(
   return changes;
 }
 
-function diffTraceRefs(base: EaTraceRef[], head: EaTraceRef[]): FieldChange[] {
+function diffTraceRefs(prefix: string, base: Array<{ path: string }>, head: Array<{ path: string }>): FieldChange[] {
   const changes: FieldChange[] = [];
   const baseByPath = new Map(base.map((r) => [r.path, r]));
   const headByPath = new Map(head.map((r) => [r.path, r]));
@@ -322,14 +438,14 @@ function diffTraceRefs(base: EaTraceRef[], head: EaTraceRef[]): FieldChange[] {
   for (const [path, ref] of headByPath) {
     if (!baseByPath.has(path)) {
       changes.push({
-        field: `traceRefs[+]`,
+        field: `${prefix}[+]`,
         changeType: "added",
         newValue: ref,
         semantic: "structural",
       });
     } else if (!deepEqual(baseByPath.get(path), ref)) {
       changes.push({
-        field: `traceRefs[${path}]`,
+        field: `${prefix}[${path}]`,
         changeType: "modified",
         oldValue: baseByPath.get(path),
         newValue: ref,
@@ -341,7 +457,7 @@ function diffTraceRefs(base: EaTraceRef[], head: EaTraceRef[]): FieldChange[] {
   for (const [path, ref] of baseByPath) {
     if (!headByPath.has(path)) {
       changes.push({
-        field: `traceRefs[-]`,
+        field: `${prefix}[-]`,
         changeType: "removed",
         oldValue: ref,
         semantic: "structural",
@@ -353,6 +469,7 @@ function diffTraceRefs(base: EaTraceRef[], head: EaTraceRef[]): FieldChange[] {
 }
 
 function diffAnchors(
+  prefix: string,
   base: Record<string, unknown>,
   head: Record<string, unknown>,
 ): FieldChange[] {
@@ -362,7 +479,7 @@ function diffAnchors(
   for (const key of allKeys) {
     const bVal = base[key];
     const hVal = head[key];
-    const field = `anchors.${key}`;
+    const field = `${prefix}.${key}`;
 
     if (bVal === undefined && hVal !== undefined) {
       changes.push({ field, changeType: "added", newValue: hVal, semantic: "structural" });
@@ -383,11 +500,11 @@ function diffAnchors(
 /**
  * Diff two sets of relations using (type, target) as composite key.
  */
-function diffRelations(base: EaRelation[], head: EaRelation[]): RelationDiff[] {
+function diffRelations(base: SimplifiedRelation[], head: SimplifiedRelation[]): RelationDiff[] {
   const diffs: RelationDiff[] = [];
-  const baseKey = (r: EaRelation) => `${r.type}::${r.target}`;
-  const baseSet = new Map(base.map((r) => [baseKey(r), r]));
-  const headSet = new Map(head.map((r) => [baseKey(r), r]));
+  const relKey = (r: SimplifiedRelation) => `${r.type}::${r.target}`;
+  const baseSet = new Map(base.map((r) => [relKey(r), r]));
+  const headSet = new Map(head.map((r) => [relKey(r), r]));
 
   for (const [key, rel] of headSet) {
     if (!baseSet.has(key)) {
@@ -395,7 +512,6 @@ function diffRelations(base: EaRelation[], head: EaRelation[]): RelationDiff[] {
         changeType: "added",
         relationType: rel.type,
         target: rel.target,
-        description: rel.description,
       });
     }
   }
@@ -406,7 +522,6 @@ function diffRelations(base: EaRelation[], head: EaRelation[]): RelationDiff[] {
         changeType: "removed",
         relationType: rel.type,
         target: rel.target,
-        description: rel.description,
       });
     }
   }

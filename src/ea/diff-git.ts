@@ -8,7 +8,7 @@ import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { EaArtifactBase } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
 import { diffEaArtifacts } from "./diff.js";
 import type { EaDiffReport } from "./diff.js";
 
@@ -60,11 +60,11 @@ function readFileAtRef(
 /**
  * Parse a YAML string into an artifact, returning null if invalid.
  */
-function parseArtifact(content: string): EaArtifactBase | null {
+function parseArtifact(content: string): BackstageEntity | null {
   try {
     const parsed = parseYaml(content);
-    if (parsed && typeof parsed === "object" && "id" in parsed && "kind" in parsed) {
-      return parsed as EaArtifactBase;
+    if (parsed && typeof parsed === "object" && "kind" in parsed && "metadata" in parsed) {
+      return parsed as BackstageEntity;
     }
     return null;
   } catch {
@@ -79,9 +79,9 @@ export function loadArtifactsFromGitRef(
   projectRoot: string,
   eaRoot: string,
   ref: string,
-): EaArtifactBase[] {
+): BackstageEntity[] {
   const files = listArtifactFiles(projectRoot, eaRoot, ref);
-  const artifacts: EaArtifactBase[] = [];
+  const artifacts: BackstageEntity[] = [];
 
   for (const file of files) {
     const content = readFileAtRef(projectRoot, ref, file);
@@ -102,8 +102,8 @@ export function loadArtifactsFromGitRef(
 export function loadArtifactsFromWorkingTree(
   projectRoot: string,
   eaRoot: string,
-): EaArtifactBase[] {
-  const artifacts: EaArtifactBase[] = [];
+): BackstageEntity[] {
+  const artifacts: BackstageEntity[] = [];
 
   function walk(dir: string): void {
     let entries: string[];
