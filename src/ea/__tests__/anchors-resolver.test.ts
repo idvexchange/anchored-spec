@@ -12,7 +12,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { scanAnchors, AnchorsResolver } from "../resolvers/anchors.js";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
 
 let tempDir: string;
 
@@ -182,20 +182,25 @@ describe("AnchorsResolver", () => {
   it("resolves artifacts with anchors", async () => {
     writeSource("src/service.ts", "export class UserService {}");
 
-    const artifact: EaArtifactBase = {
-      id: "svc-user-service",
-      kind: "service",
-      name: "User Service",
-      status: "active",
-      confidence: "high",
-      anchors: { symbols: ["UserService"] },
-      relations: [],
+    const entity: BackstageEntity = {
+      apiVersion: "backstage.io/v1alpha1",
+      kind: "Component",
+      metadata: {
+        name: "svc-user-service",
+        annotations: { "anchored-spec.dev/confidence": "declared" },
+      },
+      spec: {
+        type: "service",
+        owner: "team-a",
+        lifecycle: "production",
+        anchors: { symbols: ["UserService"] },
+      },
     };
 
     const resolver = new AnchorsResolver();
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [artifact],
+      artifacts: [entity],
     });
 
     expect(result.source).toBe("anchors");
@@ -208,20 +213,25 @@ describe("AnchorsResolver", () => {
   it("reports missing anchors as entities", async () => {
     writeSource("src/empty.ts", "// nothing");
 
-    const artifact: EaArtifactBase = {
-      id: "svc-ghost",
-      kind: "service",
-      name: "Ghost Service",
-      status: "active",
-      confidence: "high",
-      anchors: { symbols: ["NonExistent"] },
-      relations: [],
+    const entity: BackstageEntity = {
+      apiVersion: "backstage.io/v1alpha1",
+      kind: "Component",
+      metadata: {
+        name: "svc-ghost",
+        annotations: { "anchored-spec.dev/confidence": "declared" },
+      },
+      spec: {
+        type: "service",
+        owner: "team-a",
+        lifecycle: "production",
+        anchors: { symbols: ["NonExistent"] },
+      },
     };
 
     const resolver = new AnchorsResolver();
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [artifact],
+      artifacts: [entity],
     });
 
     expect(result.entities).toHaveLength(1);
@@ -229,19 +239,24 @@ describe("AnchorsResolver", () => {
   });
 
   it("skips artifacts without anchors", async () => {
-    const artifact: EaArtifactBase = {
-      id: "svc-no-anchors",
-      kind: "service",
-      name: "No Anchors",
-      status: "draft",
-      confidence: "low",
-      relations: [],
+    const entity: BackstageEntity = {
+      apiVersion: "backstage.io/v1alpha1",
+      kind: "Component",
+      metadata: {
+        name: "svc-no-anchors",
+        annotations: { "anchored-spec.dev/confidence": "declared" },
+      },
+      spec: {
+        type: "service",
+        owner: "team-a",
+        lifecycle: "production",
+      },
     };
 
     const resolver = new AnchorsResolver();
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [artifact],
+      artifacts: [entity],
     });
 
     expect(result.entities).toHaveLength(0);
@@ -251,20 +266,25 @@ describe("AnchorsResolver", () => {
     mkdirSync(join(tempDir, "lib"), { recursive: true });
     writeSource("lib/util.ts", "export function helper() {}");
 
-    const artifact: EaArtifactBase = {
-      id: "lib-helper",
-      kind: "library",
-      name: "Helper",
-      status: "active",
-      confidence: "high",
-      anchors: { symbols: ["helper"] },
-      relations: [],
+    const entity: BackstageEntity = {
+      apiVersion: "backstage.io/v1alpha1",
+      kind: "Component",
+      metadata: {
+        name: "lib-helper",
+        annotations: { "anchored-spec.dev/confidence": "declared" },
+      },
+      spec: {
+        type: "library",
+        owner: "team-a",
+        lifecycle: "production",
+        anchors: { symbols: ["helper"] },
+      },
     };
 
     const resolver = new AnchorsResolver({ sourceRoots: ["lib"] });
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [artifact],
+      artifacts: [entity],
     });
 
     expect(result.entities).toHaveLength(1);

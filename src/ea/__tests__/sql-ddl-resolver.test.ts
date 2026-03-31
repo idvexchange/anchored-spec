@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { join } from "node:path";
-import type { EaArtifactBase } from "../types.js";
-import type { EaResolverContext } from "../resolvers/types.js";
+import type { BackstageEntity } from "../backstage/types.js";import type { EaResolverContext } from "../resolvers/types.js";
 import { silentLogger } from "../resolvers/types.js";
 import {
   SqlDdlResolver,
@@ -25,16 +24,21 @@ function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   };
 }
 
-function makeArtifact(overrides: Partial<EaArtifactBase> = {}): EaArtifactBase {
+function makeEntity(specOverrides: Record<string, unknown> = {}): BackstageEntity {
   return {
-    id: "data/SCHEMA-users",
-    kind: "physical-schema",
-    title: "Users Table",
-    status: "active",
-    owners: ["team-data"],
-    anchors: {},
-    ...overrides,
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: "Component",
+    metadata: {
+      name: "schema-users",
+      annotations: { "anchored-spec.dev/confidence": "declared" },
+    },
+    spec: {
+      type: "physical-schema",
+      owner: "team-data",
+      lifecycle: "production",
+      ...specOverrides,
+    },
+  };
 }
 
 // ─── parseDdl ───────────────────────────────────────────────────────────────────
@@ -156,35 +160,35 @@ describe("SqlDdlResolver.resolveAnchors", () => {
   });
 
   it("should return null when no schema anchors", () => {
-    const artifact = makeArtifact({ anchors: {} });
-    expect(resolver.resolveAnchors(artifact, makeCtx())).toBeNull();
+    const entity = makeEntity({ anchors: {} });
+    expect(resolver.resolveAnchors(entity, makeCtx())).toBeNull();
   });
 
   it("should resolve found tables", () => {
-    const artifact = makeArtifact({ anchors: { schemas: ["public.users"] } });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const entity = makeEntity({ anchors: { schemas: ["public.users"] } });
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(1);
     expect(result[0]!.status).toBe("found");
     expect(result[0]!.metadata?.columns).toBe(6);
   });
 
   it("should resolve by table name only", () => {
-    const artifact = makeArtifact({ anchors: { schemas: ["users"] } });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const entity = makeEntity({ anchors: { schemas: ["users"] } });
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result[0]!.status).toBe("found");
   });
 
   it("should resolve missing tables", () => {
-    const artifact = makeArtifact({ anchors: { schemas: ["nonexistent"] } });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const entity = makeEntity({ anchors: { schemas: ["nonexistent"] } });
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result[0]!.status).toBe("missing");
   });
 
   it("should resolve mixed found and missing", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { schemas: ["public.users", "nonexistent"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(2);
     expect(result[0]!.status).toBe("found");
     expect(result[1]!.status).toBe("missing");

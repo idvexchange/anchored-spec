@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "node:path";
-import type { EaArtifactBase } from "../types.js";
-import type { EaResolverContext } from "../resolvers/types.js";
+import type { BackstageEntity } from "../backstage/types.js";import type { EaResolverContext } from "../resolvers/types.js";
 import { silentLogger } from "../resolvers/types.js";
 import {
   OpenApiResolver,
@@ -28,16 +27,21 @@ function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   };
 }
 
-function makeArtifact(overrides: Partial<EaArtifactBase> = {}): EaArtifactBase {
+function makeEntity(specOverrides: Record<string, unknown> = {}): BackstageEntity {
   return {
-    id: "systems/API-test",
-    kind: "api-contract",
-    title: "Test API",
-    status: "active",
-    owners: ["team-a"],
-    anchors: {},
-    ...overrides,
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: "Component",
+    metadata: {
+      name: "api-test",
+      annotations: { "anchored-spec.dev/confidence": "declared" },
+    },
+    spec: {
+      type: "api-contract",
+      owner: "team-a",
+      lifecycle: "production",
+      ...specOverrides,
+    },
+  };
 }
 
 // ─── parseSimpleYaml ────────────────────────────────────────────────────────────
@@ -227,22 +231,22 @@ describe("OpenApiResolver.resolveAnchors", () => {
   });
 
   it("should return null when artifact has no api anchors", () => {
-    const artifact = makeArtifact({ anchors: {} });
-    const result = resolver.resolveAnchors(artifact, makeCtx());
+    const entity = makeEntity({ anchors: {} });
+    const result = resolver.resolveAnchors(entity, makeCtx());
     expect(result).toBeNull();
   });
 
   it("should return null when artifact has empty api anchors", () => {
-    const artifact = makeArtifact({ anchors: { apis: [] } });
-    const result = resolver.resolveAnchors(artifact, makeCtx());
+    const entity = makeEntity({ anchors: { apis: [] } });
+    const result = resolver.resolveAnchors(entity, makeCtx());
     expect(result).toBeNull();
   });
 
   it("should resolve found anchors", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { apis: ["GET /pets", "POST /pets"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result).not.toBeNull();
     expect(result.length).toBe(2);
     expect(result[0]!.status).toBe("found");
@@ -253,20 +257,20 @@ describe("OpenApiResolver.resolveAnchors", () => {
   });
 
   it("should resolve missing anchors", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { apis: ["GET /nonexistent"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(1);
     expect(result[0]!.status).toBe("missing");
     expect(result[0]!.message).toContain("not found");
   });
 
   it("should resolve mixed found and missing anchors", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { apis: ["GET /pets", "GET /nonexistent", "POST /pets"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(3);
     expect(result[0]!.status).toBe("found");
     expect(result[1]!.status).toBe("missing");
@@ -274,10 +278,10 @@ describe("OpenApiResolver.resolveAnchors", () => {
   });
 
   it("should handle invalid anchor format", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { apis: ["invalid-format"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(1);
     expect(result[0]!.status).toBe("unknown");
     expect(result[0]!.message).toContain("Invalid anchor format");
@@ -285,10 +289,10 @@ describe("OpenApiResolver.resolveAnchors", () => {
 
   it("should resolve anchors across multiple spec files", () => {
     // GET /users is in user-service.yaml, GET /pets is in petstore.json
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { apis: ["GET /users", "GET /pets"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(2);
     expect(result[0]!.status).toBe("found");
     expect(result[1]!.status).toBe("found");

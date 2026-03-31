@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { join } from "node:path";
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import type { EaArtifactBase } from "../types.js";
-import type { EaResolverContext } from "../resolvers/types.js";
+import type { BackstageEntity } from "../backstage/types.js";import type { EaResolverContext } from "../resolvers/types.js";
 import { silentLogger } from "../resolvers/types.js";
 import {
   KubernetesResolver,
@@ -29,16 +28,21 @@ function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   };
 }
 
-function makeArtifact(overrides: Partial<EaArtifactBase> = {}): EaArtifactBase {
+function makeEntity(specOverrides: Record<string, unknown> = {}): BackstageEntity {
   return {
-    id: "delivery/DEPLOY-order-service",
-    kind: "deployment",
-    title: "Order Service",
-    status: "active",
-    owners: ["team-commerce"],
-    anchors: {},
-    ...overrides,
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: "Component",
+    metadata: {
+      name: "deploy-order-service",
+      annotations: { "anchored-spec.dev/confidence": "declared" },
+    },
+    spec: {
+      type: "deployment",
+      owner: "team-commerce",
+      lifecycle: "production",
+      ...specOverrides,
+    },
+  };
 }
 
 // ─── findK8sFiles ───────────────────────────────────────────────────────────────
@@ -194,20 +198,20 @@ describe("KubernetesResolver.resolveAnchors", () => {
   });
 
   it("should return null when artifact has no infra anchors", () => {
-    const artifact = makeArtifact({ anchors: {} });
-    expect(resolver.resolveAnchors(artifact, makeCtx())).toBeNull();
+    const entity = makeEntity({ anchors: {} });
+    expect(resolver.resolveAnchors(entity, makeCtx())).toBeNull();
   });
 
   it("should return null when no kubernetes: prefixed anchors", () => {
-    const artifact = makeArtifact({ anchors: { infra: ["terraform:aws_rds.main"] } });
-    expect(resolver.resolveAnchors(artifact, makeCtx())).toBeNull();
+    const entity = makeEntity({ anchors: { infra: ["terraform:aws_rds.main"] } });
+    expect(resolver.resolveAnchors(entity, makeCtx())).toBeNull();
   });
 
   it("should resolve found anchors", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { infra: ["kubernetes:Deployment/production/order-service"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result).not.toBeNull();
     expect(result.length).toBe(1);
     expect(result[0]!.status).toBe("found");
@@ -216,26 +220,26 @@ describe("KubernetesResolver.resolveAnchors", () => {
   });
 
   it("should resolve missing anchors", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { infra: ["kubernetes:Deployment/production/nonexistent"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(1);
     expect(result[0]!.status).toBe("missing");
     expect(result[0]!.message).toContain("not found");
   });
 
   it("should include metadata for found resources", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { infra: ["kubernetes:Deployment/production/order-service"] },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result[0]!.metadata?.images).toBeDefined();
     expect(result[0]!.metadata?.replicas).toBe(3);
   });
 
   it("should resolve mixed found and missing", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: {
         infra: [
           "kubernetes:Deployment/production/order-service",
@@ -243,7 +247,7 @@ describe("KubernetesResolver.resolveAnchors", () => {
         ],
       },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(2);
     expect(result[0]!.status).toBe("found");
     expect(result[1]!.status).toBe("missing");

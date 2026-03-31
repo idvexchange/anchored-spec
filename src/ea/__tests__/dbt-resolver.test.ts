@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { join } from "node:path";
-import type { EaArtifactBase } from "../types.js";
-import type { EaResolverContext } from "../resolvers/types.js";
+import type { BackstageEntity } from "../backstage/types.js";import type { EaResolverContext } from "../resolvers/types.js";
 import { silentLogger } from "../resolvers/types.js";
 import {
   DbtResolver,
@@ -26,16 +25,21 @@ function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   };
 }
 
-function makeArtifact(overrides: Partial<EaArtifactBase> = {}): EaArtifactBase {
+function makeEntity(specOverrides: Record<string, unknown> = {}): BackstageEntity {
   return {
-    id: "data/DPROD-dim-users",
-    kind: "data-product",
-    title: "dim_users",
-    status: "active",
-    owners: ["team-data"],
-    anchors: {},
-    ...overrides,
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: "Component",
+    metadata: {
+      name: "dprod-dim-users",
+      annotations: { "anchored-spec.dev/confidence": "declared" },
+    },
+    spec: {
+      type: "data-product",
+      owner: "team-data",
+      lifecycle: "production",
+      ...specOverrides,
+    },
+  };
 }
 
 // ─── loadDbtManifest ────────────────────────────────────────────────────────────
@@ -106,53 +110,53 @@ describe("DbtResolver.resolveAnchors", () => {
   });
 
   it("should return null when no dbt anchors", () => {
-    const artifact = makeArtifact({ anchors: {} });
-    expect(resolver.resolveAnchors(artifact, makeCtx())).toBeNull();
+    const entity = makeEntity({ anchors: {} });
+    expect(resolver.resolveAnchors(entity, makeCtx())).toBeNull();
   });
 
   it("should return null when other.dbt is empty", () => {
-    const artifact = makeArtifact({ anchors: { other: { dbt: [] } } });
-    expect(resolver.resolveAnchors(artifact, makeCtx())).toBeNull();
+    const entity = makeEntity({ anchors: { other: { dbt: [] } } });
+    expect(resolver.resolveAnchors(entity, makeCtx())).toBeNull();
   });
 
   it("should resolve found model names", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { other: { dbt: ["dim_users"] } },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(1);
     expect(result[0]!.status).toBe("found");
   });
 
   it("should resolve found unique_ids", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { other: { dbt: ["model.analytics.dim_users"] } },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result[0]!.status).toBe("found");
   });
 
   it("should resolve found source names", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { other: { dbt: ["raw.users"] } },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result[0]!.status).toBe("found");
   });
 
   it("should resolve missing anchors", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { other: { dbt: ["nonexistent_model"] } },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result[0]!.status).toBe("missing");
   });
 
   it("should resolve mixed found and missing", () => {
-    const artifact = makeArtifact({
+    const entity = makeEntity({
       anchors: { other: { dbt: ["dim_users", "nonexistent"] } },
     });
-    const result = resolver.resolveAnchors(artifact, makeCtx())!;
+    const result = resolver.resolveAnchors(entity, makeCtx())!;
     expect(result.length).toBe(2);
     expect(result[0]!.status).toBe("found");
     expect(result[1]!.status).toBe("missing");
