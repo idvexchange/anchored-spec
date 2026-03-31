@@ -14,6 +14,7 @@
  */
 
 import type { EaArtifactBase } from "./types.js";
+import { artifactToBackstage } from "./backstage/bridge.js";
 import { getDomainForKind } from "./types.js";
 import { validateEaArtifacts, type EaValidationError, type EaValidationOptions } from "./validate.js";
 import type { EaRoot } from "./loader.js";
@@ -187,7 +188,7 @@ export async function runEaVerification(
 
   // 2. Quality rules
   totalChecks++;
-  const qualityResult = validateEaArtifacts(artifacts, options);
+  const qualityResult = validateEaArtifacts(artifacts.map(artifactToBackstage), options);
   if (qualityResult.errors.length === 0 && qualityResult.warnings.length === 0) {
     passedChecks++;
   }

@@ -20,7 +20,6 @@ import { RelationGraph, buildRelationGraph } from "../graph.js";
 import { validateEaRelations } from "../validate.js";
 import { EaRoot } from "../loader.js";
 import type { BackstageEntity } from "../backstage/types.js";
-import type { EaArtifactBase } from "../types.js";
 
 /** Minimal v0.x config shape for test backward-compat. */
 type LegacyConfig = { specRoot?: string; ea?: { enabled: boolean; rootDir: string } } & Record<string, unknown>;
@@ -50,20 +49,7 @@ function makeEntity(
   };
 }
 
-/** Legacy helper — still needed for validateEaRelations tests which haven't been migrated yet. */
-function makeArtifact(
-  overrides: Partial<EaArtifactBase> & { id: string; kind: string }
-): EaArtifactBase {
-  return {
-    schemaVersion: "1.0.0",
-    title: `Test ${overrides.kind}`,
-    status: "active",
-    summary: "A test artifact for graph/registry testing purposes.",
-    owners: ["test-team"],
-    confidence: "declared",
-    ...overrides,
-  } as EaArtifactBase;
-}
+
 
 // ─── RelationRegistry ───────────────────────────────────────────────────────────
 
@@ -568,81 +554,58 @@ describe("RelationGraph", () => {
   });
 });
 
-// ─── validateEaRelations ────────────────────────────────────────────────────────
+// ─── validateEaRelations ────────────────────────────────────────────────────────────────
 
 describe("validateEaRelations", () => {
   const registry = createDefaultRegistry();
 
   describe("ea:relation:self-reference", () => {
     it("errors on self-referencing relation", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-self",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-self" }],
-        }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-self", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:app-self"] } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const errs = result.errors.filter((e) => e.rule === "ea:relation:self-reference");
-      expect(errs).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:self-reference")).toHaveLength(1);
     });
   });
 
   describe("ea:relation:target-missing", () => {
     it("errors when target does not exist", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "SVC-nonexistent" }],
-        }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-nonexistent"] } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const errs = result.errors.filter((e) => e.rule === "ea:relation:target-missing");
-      expect(errs).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:target-missing")).toHaveLength(1);
     });
 
     it("passes when target exists", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-tgt"] } }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const errs = result.errors.filter((e) => e.rule === "ea:relation:target-missing");
-      expect(errs).toHaveLength(0);
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:target-missing")).toHaveLength(0);
     });
   });
 
   describe("ea:relation:unknown-type", () => {
     it("warns on unregistered relation type", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "unknownRelType", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined,  }, relations: [{ type: "unknownRelType", targetRef: "component:svc-tgt" }] }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
+      const result = validateEaRelations(entities, registry);
       const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
       expect(warns).toHaveLength(1);
       expect(warns[0].message).toContain("unregistered relation type");
     });
 
     it("suggests canonical type when virtual inverse is used directly", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "ownedBy", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined,  }, relations: [{ type: "ownedBy", targetRef: "component:svc-tgt" }] }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
+      const result = validateEaRelations(entities, registry);
       const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
       expect(warns).toHaveLength(1);
       expect(warns[0].message).toContain("virtual inverse");
@@ -650,15 +613,11 @@ describe("validateEaRelations", () => {
     });
 
     it("gives generic message for truly unknown types, not inverse hint", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "totallyFakeType", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined,  }, relations: [{ type: "totallyFakeType", targetRef: "component:svc-tgt" }] }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
+      const result = validateEaRelations(entities, registry);
       const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
       expect(warns).toHaveLength(1);
       expect(warns[0].message).toContain("unregistered relation type");
@@ -668,142 +627,92 @@ describe("validateEaRelations", () => {
 
   describe("ea:relation:invalid-source", () => {
     it("errors when source kind is not valid for the relation type", () => {
-      // "deploys" only valid from "deployment" kind
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "deploys", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, deploys: ["component:svc-tgt"] } }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const errs = result.errors.filter((e) => e.rule === "ea:relation:invalid-source");
-      expect(errs).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:invalid-source")).toHaveLength(1);
     });
 
     it("passes for wildcard source kinds", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "PLAT-src",
-          kind: "platform",
-          relations: [{ type: "dependsOn", target: "PLAT-tgt" }],
-        }),
-        makeArtifact({ id: "PLAT-tgt", kind: "platform" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "plat-src", spec: { type: "service", lifecycle: "production", owner: undefined, dependsOn: ["component:plat-tgt"] } }),
+        makeEntity({ kind: "Component", name: "plat-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const errs = result.errors.filter((e) => e.rule === "ea:relation:invalid-source");
-      expect(errs).toHaveLength(0);
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:invalid-source")).toHaveLength(0);
     });
   });
 
   describe("ea:relation:invalid-target", () => {
     it("errors when target kind is not valid for the relation type", () => {
-      // "exposes" target must be api-contract or event-contract
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "exposes", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, providesApis: ["component:svc-tgt"] } }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const errs = result.errors.filter((e) => e.rule === "ea:relation:invalid-target");
-      expect(errs).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:invalid-target")).toHaveLength(1);
     });
   });
 
   describe("ea:relation:retired-target", () => {
     it("warns when targeting a retired artifact", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "SVC-retired" }],
-        }),
-        makeArtifact({ id: "SVC-retired", kind: "service", status: "retired" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-retired"] } }),
+        makeEntity({ kind: "Component", name: "svc-retired", spec: { type: "service", lifecycle: "retired", owner: undefined,  } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const warns = result.warnings.filter((e) => e.rule === "ea:relation:retired-target");
-      expect(warns).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.warnings.filter((e) => e.rule === "ea:relation:retired-target")).toHaveLength(1);
     });
   });
 
   describe("ea:relation:draft-target", () => {
     it("warns when active artifact references draft target", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-active",
-          kind: "application",
-          status: "active",
-          relations: [{ type: "dependsOn", target: "SVC-draft" }],
-        }),
-        makeArtifact({ id: "SVC-draft", kind: "service", status: "draft" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-active", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-draft"] } }),
+        makeEntity({ kind: "Component", name: "svc-draft", spec: { type: "service", lifecycle: "experimental", owner: undefined,  } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const warns = result.warnings.filter((e) => e.rule === "ea:relation:draft-target");
-      expect(warns).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.warnings.filter((e) => e.rule === "ea:relation:draft-target")).toHaveLength(1);
     });
 
     it("does not warn for draft-to-draft", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-draft",
-          kind: "application",
-          status: "draft",
-          relations: [{ type: "dependsOn", target: "SVC-draft" }],
-        }),
-        makeArtifact({ id: "SVC-draft", kind: "service", status: "draft" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-draft", spec: { type: "website", lifecycle: "experimental", owner: undefined, dependsOn: ["component:svc-draft"] } }),
+        makeEntity({ kind: "Component", name: "svc-draft", spec: { type: "service", lifecycle: "experimental", owner: undefined,  } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const warns = result.warnings.filter((e) => e.rule === "ea:relation:draft-target");
-      expect(warns).toHaveLength(0);
+      const result = validateEaRelations(entities, registry);
+      expect(result.warnings.filter((e) => e.rule === "ea:relation:draft-target")).toHaveLength(0);
     });
   });
 
   describe("ea:relation:duplicate", () => {
     it("warns on duplicate relations", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [
-            { type: "dependsOn", target: "SVC-tgt" },
-            { type: "dependsOn", target: "SVC-tgt" },
-          ],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-tgt", "component:svc-tgt"] } }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
-      const warns = result.warnings.filter((e) => e.rule === "ea:relation:duplicate");
-      expect(warns).toHaveLength(1);
+      const result = validateEaRelations(entities, registry);
+      expect(result.warnings.filter((e) => e.rule === "ea:relation:duplicate")).toHaveLength(1);
     });
   });
 
   describe("combined result", () => {
     it("valid is false when errors exist", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "dependsOn", target: "APP-src" }],
-        }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:app-src"] } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
+      const result = validateEaRelations(entities, registry);
       expect(result.valid).toBe(false);
     });
 
     it("valid is true with only warnings", () => {
-      const artifacts = [
-        makeArtifact({
-          id: "APP-src",
-          kind: "application",
-          relations: [{ type: "foobar", target: "SVC-tgt" }],
-        }),
-        makeArtifact({ id: "SVC-tgt", kind: "service" }),
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined,  }, relations: [{ type: "foobar", targetRef: "component:svc-tgt" }] }),
+        makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
-      const result = validateEaRelations(artifacts, registry);
+      const result = validateEaRelations(entities, registry);
       expect(result.valid).toBe(true);
       expect(result.warnings.length).toBeGreaterThan(0);
     });

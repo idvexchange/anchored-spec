@@ -5,6 +5,7 @@
  * and print findings.
  */
 
+import { artifactToBackstage } from "../../ea/backstage/bridge.js";
 import { Command } from "commander";
 import chalk from "chalk";
 import {
@@ -66,7 +67,7 @@ export function eaValidateCommand(): Command {
       const allWarnings: EaValidationError[] = [];
 
       // Quality rules
-      const qualityResult = validateEaArtifacts(result.artifacts, {
+      const qualityResult = validateEaArtifacts(result.artifacts.map(artifactToBackstage), {
         quality: { strictMode: options.strict },
       });
       allErrors.push(...qualityResult.errors);
@@ -74,7 +75,7 @@ export function eaValidateCommand(): Command {
 
       // Relation validation
       const registry = createDefaultRegistry();
-      const relationResult = validateEaRelations(result.artifacts, registry, {
+      const relationResult = validateEaRelations(result.artifacts.map(artifactToBackstage), registry, {
         quality: { strictMode: options.strict },
       });
       allErrors.push(...relationResult.errors);

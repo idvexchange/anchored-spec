@@ -10,38 +10,15 @@ import addFormats from "ajv-formats";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { EaArtifactBase } from "./types.js";
-import type {
-  SystemInterfaceArtifact,
-  ConsumerArtifact,
-  CloudResourceArtifact,
-  EnvironmentArtifact,
-  TechnologyStandardArtifact,
-  LogicalDataModelArtifact,
-  PhysicalSchemaArtifact,
-  DataStoreArtifact,
-  LineageArtifact,
-  DataQualityRuleArtifact,
-  DataProductArtifact,
-  CanonicalEntityArtifact,
-  InformationExchangeArtifact,
-  ClassificationArtifact,
-  RetentionPolicyArtifact,
-  GlossaryTermArtifact,
-  CapabilityArtifact,
-  ValueStreamArtifact,
-  ProcessArtifact,
-  OrgUnitArtifact,
-  PolicyObjectiveArtifact,
-  ControlArtifact,
-  MissionArtifact,
-  BaselineArtifact,
-  TargetArtifact,
-  TransitionPlanArtifact,
-  MigrationWaveArtifact,
-  ExceptionArtifact,
-} from "./types.js";
-import { isValidEaId } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import {
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityStatus,
+  getEntityDescription,
+  getEntityOwners,
+  getEntitySpecRelations,
+} from "./backstage/accessors.js";
 import type { EaQualityConfig } from "./config.js";
 import type { RelationRegistry } from "./relation-registry.js";
 
@@ -326,18 +303,18 @@ function ruleSeverity(
   return defaultSev;
 }
 
+
 /**
- * Run quality rules across a set of loaded EA artifacts.
+ * Run quality rules across a set of loaded EA entities.
  *
  * Rules:
  *   - `ea:quality:active-needs-owner`  (error)   — Active artifacts must have owners
  *   - `ea:quality:active-needs-summary`(warning)  — Active artifacts should have a summary
  *   - `ea:quality:duplicate-id`        (error)   — No duplicate artifact IDs
- *   - `ea:quality:id-format`           (error)   — ID must match kind prefix pattern
  *   - `ea:quality:orphan-artifact`     (warning)  — Artifacts with zero relations
  */
 export function validateEaArtifacts(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options?: EaValidationOptions
 ): EaValidationResult {
   const q = options?.quality;
@@ -362,516 +339,241 @@ export function validateEaArtifacts(
   // ── ea:quality:duplicate-id ─────────────────────────────────────────────────
   const dupSev = ruleSeverity("ea:quality:duplicate-id", "error", q);
   const seenIds = new Map<string, number>();
-  for (let i = 0; i < artifacts.length; i++) {
-    const a = artifacts[i]!;
-    const prev = seenIds.get(a.id);
+  for (let i = 0; i < entities.length; i++) {
+    const a = entities[i]!;
+    const entityId = getEntityId(a);
+    const prev = seenIds.get(entityId);
     if (prev !== undefined) {
-      push(
-        dupSev,
-        "ea:quality:duplicate-id",
-        a.id,
-        `Duplicate artifact ID "${a.id}" (first seen at index ${prev})`
-      );
+      push(dupSev, "ea:quality:duplicate-id", entityId, `Duplicate artifact ID "${entityId}" (first seen at index ${prev})`);
     } else {
-      seenIds.set(a.id, i);
-    }
-  }
-
-  // ── ea:quality:id-format ────────────────────────────────────────────────────
-  const idSev = ruleSeverity("ea:quality:id-format", "error", q);
-  for (const a of artifacts) {
-    if (!isValidEaId(a.id, a.kind)) {
-      push(
-        idSev,
-        "ea:quality:id-format",
-        a.id,
-        `Invalid artifact ID "${a.id}" — must match {domain}/{PREFIX}-{slug} or {PREFIX}-{slug} with correct kind prefix`
-      );
+      seenIds.set(entityId, i);
     }
   }
 
   // Build relation target set for orphan check
   const allTargets = new Set<string>();
-  for (const a of artifacts) {
-    if (a.relations) {
-      for (const r of a.relations) {
-        allTargets.add(r.target);
-      }
+  for (const a of entities) {
+    for (const { targets } of getEntitySpecRelations(a)) {
+      for (const t of targets) { allTargets.add(t); }
     }
+    for (const rel of a.relations ?? []) { allTargets.add(rel.targetRef); }
   }
 
-  for (const a of artifacts) {
-    const isActive = a.status === "active" || a.status === "shipped";
+  for (const a of entities) {
+    const entityId = getEntityId(a);
+    const kind = getEntityLegacyKind(a);
+    const status = getEntityStatus(a);
+    const isActive = status === "active" || status === "shipped";
 
-    // ── ea:quality:active-needs-owner ───────────────────────────────────────
     if (q?.requireOwners !== false) {
       const ownerSev = ruleSeverity("ea:quality:active-needs-owner", "error", q);
-      if (isActive && (!a.owners || a.owners.length === 0)) {
-        push(
-          ownerSev,
-          "ea:quality:active-needs-owner",
-          a.id,
-          `Active artifact "${a.id}" must have at least one owner`
-        );
+      const owners = getEntityOwners(a);
+      if (isActive && (owners.length === 0 || (owners.length === 1 && owners[0] === "unassigned"))) {
+        push(ownerSev, "ea:quality:active-needs-owner", entityId, `Active artifact "${entityId}" must have at least one owner`);
       }
     }
 
-    // ── ea:quality:active-needs-summary ─────────────────────────────────────
     if (q?.requireSummary !== false) {
       const sumSev = ruleSeverity("ea:quality:active-needs-summary", "warning", q);
-      if (isActive && (!a.summary || a.summary.trim().length < 10)) {
-        push(
-          sumSev,
-          "ea:quality:active-needs-summary",
-          a.id,
-          `Active artifact "${a.id}" should have a meaningful summary (≥10 chars)`
-        );
+      const summary = getEntityDescription(a);
+      if (isActive && (!summary || summary.trim().length < 10)) {
+        push(sumSev, "ea:quality:active-needs-summary", entityId, `Active artifact "${entityId}" should have a meaningful summary (≥10 chars)`);
       }
     }
 
-    // ── ea:quality:system-interface-missing-direction ──────────────────────
-    if (a.kind === "system-interface") {
-      const sif = a as unknown as SystemInterfaceArtifact;
+    if (kind === "system-interface") {
       const sifSev = ruleSeverity("ea:quality:system-interface-missing-direction", "error", q);
-      if (!sif.direction) {
-        push(
-          sifSev,
-          "ea:quality:system-interface-missing-direction",
-          a.id,
-          `System interface "${a.id}" must have a direction (inbound, outbound, or bidirectional)`
-        );
-      }
+      if (!a.spec?.direction) { push(sifSev, "ea:quality:system-interface-missing-direction", entityId, `System interface "${entityId}" must have a direction (inbound, outbound, or bidirectional)`); }
     }
-
-    // ── ea:quality:consumer-missing-contract ─────────────────────────────────
-    if (a.kind === "consumer") {
-      const con = a as unknown as ConsumerArtifact;
+    if (kind === "consumer") {
       const conSev = ruleSeverity("ea:quality:consumer-missing-contract", "warning", q);
-      if (!con.consumesContracts || con.consumesContracts.length === 0) {
-        push(
-          conSev,
-          "ea:quality:consumer-missing-contract",
-          a.id,
-          `Consumer "${a.id}" has no consumesContracts — link it to at least one API or event contract`
-        );
+      const cc = a.spec?.consumesContracts as unknown[] | undefined;
+      if (!cc || cc.length === 0) { push(conSev, "ea:quality:consumer-missing-contract", entityId, `Consumer "${entityId}" has no consumesContracts — link it to at least one API or event contract`); }
+    }
+    if (kind === "cloud-resource") {
+      const cSev = ruleSeverity("ea:quality:cloud-resource-missing-provider", "error", q);
+      if (!a.spec?.provider) { push(cSev, "ea:quality:cloud-resource-missing-provider", entityId, `Cloud resource "${entityId}" must specify a provider (aws, gcp, azure, or other)`); }
+    }
+    if (kind === "environment") {
+      const eSev = ruleSeverity("ea:quality:environment-production-not-restricted", "warning", q);
+      if (a.spec?.isProduction && a.spec?.accessLevel && a.spec.accessLevel !== "restricted") {
+        push(eSev, "ea:quality:environment-production-not-restricted", entityId, `Production environment "${entityId}" should have accessLevel "restricted" (currently "${a.spec.accessLevel as string}")`);
       }
     }
-
-    // ── ea:quality:cloud-resource-missing-provider ───────────────────────────
-    if (a.kind === "cloud-resource") {
-      const cloud = a as unknown as CloudResourceArtifact;
-      const cloudSev = ruleSeverity("ea:quality:cloud-resource-missing-provider", "error", q);
-      if (!cloud.provider) {
-        push(
-          cloudSev,
-          "ea:quality:cloud-resource-missing-provider",
-          a.id,
-          `Cloud resource "${a.id}" must specify a provider (aws, gcp, azure, or other)`
-        );
+    if (kind === "technology-standard") {
+      const tSev = ruleSeverity("ea:quality:technology-standard-expired-review", "warning", q);
+      const reviewBy = a.spec?.reviewBy;
+      if (typeof reviewBy === "string" && isActive) {
+        const rd = new Date(reviewBy);
+        if (!isNaN(rd.getTime()) && rd < new Date()) { push(tSev, "ea:quality:technology-standard-expired-review", entityId, `Technology standard "${entityId}" has passed its review date (${reviewBy})`); }
       }
     }
-
-    // ── ea:quality:environment-production-not-restricted ─────────────────────
-    if (a.kind === "environment") {
-      const env = a as unknown as EnvironmentArtifact;
-      const envSev = ruleSeverity("ea:quality:environment-production-not-restricted", "warning", q);
-      if (env.isProduction && env.accessLevel && env.accessLevel !== "restricted") {
-        push(
-          envSev,
-          "ea:quality:environment-production-not-restricted",
-          a.id,
-          `Production environment "${a.id}" should have accessLevel "restricted" (currently "${env.accessLevel}")`
-        );
-      }
+    if (kind === "logical-data-model") {
+      const lSev = ruleSeverity("ea:quality:ldm-missing-attributes", "warning", q);
+      const attrs = a.spec?.attributes as unknown[] | undefined;
+      if (!attrs || attrs.length === 0) { push(lSev, "ea:quality:ldm-missing-attributes", entityId, `Logical data model "${entityId}" has no attributes defined`); }
     }
-
-    // ── ea:quality:technology-standard-expired-review ────────────────────────
-    if (a.kind === "technology-standard") {
-      const tech = a as unknown as TechnologyStandardArtifact;
-      const techSev = ruleSeverity("ea:quality:technology-standard-expired-review", "warning", q);
-      if (tech.reviewBy && isActive) {
-        const reviewDate = new Date(tech.reviewBy);
-        if (!isNaN(reviewDate.getTime()) && reviewDate < new Date()) {
-          push(
-            techSev,
-            "ea:quality:technology-standard-expired-review",
-            a.id,
-            `Technology standard "${a.id}" has passed its review date (${tech.reviewBy})`
-          );
-        }
-      }
+    if (kind === "physical-schema") {
+      const pSev = ruleSeverity("ea:quality:physical-schema-missing-tables", "warning", q);
+      const tables = a.spec?.tables as unknown[] | undefined;
+      if (!tables || tables.length === 0) { push(pSev, "ea:quality:physical-schema-missing-tables", entityId, `Physical schema "${entityId}" has no tables defined`); }
     }
-
-    // ── ea:quality:ldm-missing-attributes ──────────────────────────────────
-    if (a.kind === "logical-data-model") {
-      const ldm = a as unknown as LogicalDataModelArtifact;
-      const ldmSev = ruleSeverity("ea:quality:ldm-missing-attributes", "warning", q);
-      if (!ldm.attributes || ldm.attributes.length === 0) {
-        push(
-          ldmSev,
-          "ea:quality:ldm-missing-attributes",
-          a.id,
-          `Logical data model "${a.id}" has no attributes defined`
-        );
-      }
+    if (kind === "data-store") {
+      const dSev = ruleSeverity("ea:quality:data-store-missing-technology", "error", q);
+      if (!a.spec?.technology) { push(dSev, "ea:quality:data-store-missing-technology", entityId, `Data store "${entityId}" must specify a technology (engine + category)`); }
     }
-
-    // ── ea:quality:physical-schema-missing-tables ────────────────────────────
-    if (a.kind === "physical-schema") {
-      const ps = a as unknown as PhysicalSchemaArtifact;
-      const psSev = ruleSeverity("ea:quality:physical-schema-missing-tables", "warning", q);
-      if (!ps.tables || ps.tables.length === 0) {
-        push(
-          psSev,
-          "ea:quality:physical-schema-missing-tables",
-          a.id,
-          `Physical schema "${a.id}" has no tables defined`
-        );
-      }
+    if (kind === "lineage") {
+      const lnSev = ruleSeverity("ea:quality:lineage-missing-source-destination", "error", q);
+      if (!a.spec?.source || !a.spec?.destination) { push(lnSev, "ea:quality:lineage-missing-source-destination", entityId, `Lineage "${entityId}" must specify both source and destination`); }
     }
-
-    // ── ea:quality:data-store-missing-technology ─────────────────────────────
-    if (a.kind === "data-store") {
-      const ds = a as unknown as DataStoreArtifact;
-      const dsSev = ruleSeverity("ea:quality:data-store-missing-technology", "error", q);
-      if (!ds.technology) {
-        push(
-          dsSev,
-          "ea:quality:data-store-missing-technology",
-          a.id,
-          `Data store "${a.id}" must specify a technology (engine + category)`
-        );
-      }
+    if (kind === "data-quality-rule") {
+      const dqSev = ruleSeverity("ea:quality:dqr-missing-assertion", "error", q);
+      const assertion = a.spec?.assertion;
+      if (!assertion || (typeof assertion === "string" && assertion.trim().length === 0)) { push(dqSev, "ea:quality:dqr-missing-assertion", entityId, `Data quality rule "${entityId}" must have an assertion`); }
     }
-
-    // ── ea:quality:lineage-missing-source-destination ────────────────────────
-    if (a.kind === "lineage") {
-      const lin = a as unknown as LineageArtifact;
-      const linSev = ruleSeverity("ea:quality:lineage-missing-source-destination", "error", q);
-      if (!lin.source || !lin.destination) {
-        push(
-          linSev,
-          "ea:quality:lineage-missing-source-destination",
-          a.id,
-          `Lineage "${a.id}" must specify both source and destination`
-        );
-      }
-    }
-
-    // ── ea:quality:dqr-missing-assertion ─────────────────────────────────────
-    if (a.kind === "data-quality-rule") {
-      const dqr = a as unknown as DataQualityRuleArtifact;
-      const dqrSev = ruleSeverity("ea:quality:dqr-missing-assertion", "error", q);
-      if (!dqr.assertion || dqr.assertion.trim().length === 0) {
-        push(
-          dqrSev,
-          "ea:quality:dqr-missing-assertion",
-          a.id,
-          `Data quality rule "${a.id}" must have an assertion`
-        );
-      }
-    }
-
-    // ── ea:quality:data-product-missing-output-ports ─────────────────────────
-    if (a.kind === "data-product") {
-      const dp = a as unknown as DataProductArtifact;
+    if (kind === "data-product") {
       const dpSev = ruleSeverity("ea:quality:data-product-missing-output-ports", "warning", q);
-      if (!dp.outputPorts || dp.outputPorts.length === 0) {
-        push(
-          dpSev,
-          "ea:quality:data-product-missing-output-ports",
-          a.id,
-          `Data product "${a.id}" has no output ports defined`
-        );
-      }
+      const op = a.spec?.outputPorts as unknown[] | undefined;
+      if (!op || op.length === 0) { push(dpSev, "ea:quality:data-product-missing-output-ports", entityId, `Data product "${entityId}" has no output ports defined`); }
     }
-
-    // ── Phase 2C: Information Layer Quality Rules ────────────────────────────
-
-    // ── ea:quality:ce-missing-attributes ─────────────────────────────────────
-    if (a.kind === "canonical-entity") {
-      const ce = a as unknown as CanonicalEntityArtifact;
+    if (kind === "canonical-entity") {
+      const attributes = a.spec?.attributes as Array<Record<string, unknown>> | undefined;
       const ceSev = ruleSeverity("ea:quality:ce-missing-attributes", "error", q);
-      if (!ce.attributes || ce.attributes.length === 0) {
-        push(
-          ceSev,
-          "ea:quality:ce-missing-attributes",
-          a.id,
-          `Canonical entity "${a.id}" has no attributes defined`
-        );
-      }
-      // ── ea:quality:ce-attribute-missing-type ─────────────────────────────
-      if (ce.attributes) {
-        const attrSev = ruleSeverity("ea:quality:ce-attribute-missing-type", "error", q);
-        for (const attr of ce.attributes) {
-          if (!attr.type || attr.type.trim().length === 0) {
-            push(
-              attrSev,
-              "ea:quality:ce-attribute-missing-type",
-              a.id,
-              `Canonical entity "${a.id}" has attribute "${attr.name}" without a type`
-            );
-          }
+      if (!attributes || attributes.length === 0) { push(ceSev, "ea:quality:ce-missing-attributes", entityId, `Canonical entity "${entityId}" has no attributes defined`); }
+      if (attributes) {
+        const atSev = ruleSeverity("ea:quality:ce-attribute-missing-type", "error", q);
+        for (const attr of attributes) {
+          const at = typeof attr.type === "string" ? attr.type : "";
+          const an = typeof attr.name === "string" ? attr.name : "unknown";
+          if (!at || at.trim().length === 0) { push(atSev, "ea:quality:ce-attribute-missing-type", entityId, `Canonical entity "${entityId}" has attribute "${an}" without a type`); }
         }
       }
     }
-
-    // ── ea:quality:exchange-missing-source-destination ───────────────────────
-    if (a.kind === "information-exchange") {
-      const exch = a as unknown as InformationExchangeArtifact;
-      const exchSrcSev = ruleSeverity("ea:quality:exchange-missing-source-destination", "error", q);
-      if (!exch.source || !exch.destination) {
-        push(
-          exchSrcSev,
-          "ea:quality:exchange-missing-source-destination",
-          a.id,
-          `Information exchange "${a.id}" must specify both source and destination`
-        );
-      }
-      // ── ea:quality:exchange-missing-purpose ──────────────────────────────
-      const exchPurpSev = ruleSeverity("ea:quality:exchange-missing-purpose", "error", q);
-      if (!exch.purpose || exch.purpose.trim().length === 0) {
-        push(
-          exchPurpSev,
-          "ea:quality:exchange-missing-purpose",
-          a.id,
-          `Information exchange "${a.id}" must have a purpose`
-        );
-      }
+    if (kind === "information-exchange") {
+      const exSev = ruleSeverity("ea:quality:exchange-missing-source-destination", "error", q);
+      if (!a.spec?.source || !a.spec?.destination) { push(exSev, "ea:quality:exchange-missing-source-destination", entityId, `Information exchange "${entityId}" must specify both source and destination`); }
+      const epSev = ruleSeverity("ea:quality:exchange-missing-purpose", "error", q);
+      const purpose = a.spec?.purpose;
+      if (!purpose || (typeof purpose === "string" && purpose.trim().length === 0)) { push(epSev, "ea:quality:exchange-missing-purpose", entityId, `Information exchange "${entityId}" must have a purpose`); }
     }
-
-    // ── ea:quality:classification-missing-controls ───────────────────────────
-    if (a.kind === "classification") {
-      const cls = a as unknown as ClassificationArtifact;
-      const clsSev = ruleSeverity("ea:quality:classification-missing-controls", "error", q);
-      if (!cls.requiredControls || cls.requiredControls.length === 0) {
-        push(
-          clsSev,
-          "ea:quality:classification-missing-controls",
-          a.id,
-          `Classification "${a.id}" has no required controls defined`
-        );
-      }
+    if (kind === "classification") {
+      const clSev = ruleSeverity("ea:quality:classification-missing-controls", "error", q);
+      const rc = a.spec?.requiredControls as unknown[] | undefined;
+      if (!rc || rc.length === 0) { push(clSev, "ea:quality:classification-missing-controls", entityId, `Classification "${entityId}" has no required controls defined`); }
     }
-
-    // ── ea:quality:retention-missing-duration ────────────────────────────────
-    if (a.kind === "retention-policy") {
-      const ret = a as unknown as RetentionPolicyArtifact;
-      const retSev = ruleSeverity("ea:quality:retention-missing-duration", "error", q);
-      if (!ret.retention || !ret.retention.duration || ret.retention.duration.trim().length === 0) {
-        push(
-          retSev,
-          "ea:quality:retention-missing-duration",
-          a.id,
-          `Retention policy "${a.id}" must specify a retention duration`
-        );
-      }
+    if (kind === "retention-policy") {
+      const rtSev = ruleSeverity("ea:quality:retention-missing-duration", "error", q);
+      const ret = a.spec?.retention as Record<string, unknown> | undefined;
+      const dur = typeof ret?.duration === "string" ? ret.duration : "";
+      if (!ret || !dur || dur.trim().length === 0) { push(rtSev, "ea:quality:retention-missing-duration", entityId, `Retention policy "${entityId}" must specify a retention duration`); }
     }
-
-    // ── ea:quality:glossary-missing-definition ───────────────────────────────
-    if (a.kind === "glossary-term") {
-      const gt = a as unknown as GlossaryTermArtifact;
+    if (kind === "glossary-term") {
       const gtSev = ruleSeverity("ea:quality:glossary-missing-definition", "error", q);
-      if (!gt.definition || gt.definition.trim().length === 0) {
-        push(
-          gtSev,
-          "ea:quality:glossary-missing-definition",
-          a.id,
-          `Glossary term "${a.id}" must have a definition`
-        );
-      }
+      const def_ = a.spec?.definition;
+      if (!def_ || (typeof def_ === "string" && def_.trim().length === 0)) { push(gtSev, "ea:quality:glossary-missing-definition", entityId, `Glossary term "${entityId}" must have a definition`); }
     }
-
-    // ── Phase 2D: Business Layer Quality Rules ──────────────────────────────
-
-    // ── ea:quality:capability-missing-level ──────────────────────────────────
-    if (a.kind === "capability") {
-      const cap = a as unknown as CapabilityArtifact;
-      const capSev = ruleSeverity("ea:quality:capability-missing-level", "error", q);
-      if (cap.level === undefined || cap.level === null) {
-        push(
-          capSev,
-          "ea:quality:capability-missing-level",
-          a.id,
-          `Capability "${a.id}" must specify a level`
-        );
-      }
+    if (kind === "capability") {
+      const cpSev = ruleSeverity("ea:quality:capability-missing-level", "error", q);
+      if (a.spec?.level === undefined || a.spec?.level === null) { push(cpSev, "ea:quality:capability-missing-level", entityId, `Capability "${entityId}" must specify a level`); }
     }
-
-    // ── ea:quality:process-missing-steps ─────────────────────────────────────
-    if (a.kind === "process") {
-      const proc = a as unknown as ProcessArtifact;
-      const procSev = ruleSeverity("ea:quality:process-missing-steps", "warning", q);
-      if (!proc.steps || proc.steps.length === 0) {
-        push(
-          procSev,
-          "ea:quality:process-missing-steps",
-          a.id,
-          `Process "${a.id}" has no steps defined`
-        );
-      }
+    if (kind === "process") {
+      const prSev = ruleSeverity("ea:quality:process-missing-steps", "warning", q);
+      const steps = a.spec?.steps as unknown[] | undefined;
+      if (!steps || steps.length === 0) { push(prSev, "ea:quality:process-missing-steps", entityId, `Process "${entityId}" has no steps defined`); }
     }
-
-    // ── ea:quality:value-stream-missing-stages ──────────────────────────────
-    if (a.kind === "value-stream") {
-      const vs = a as unknown as ValueStreamArtifact;
+    if (kind === "value-stream") {
       const vsSev = ruleSeverity("ea:quality:value-stream-missing-stages", "error", q);
-      if (!vs.stages || vs.stages.length === 0) {
-        push(
-          vsSev,
-          "ea:quality:value-stream-missing-stages",
-          a.id,
-          `Value stream "${a.id}" has no stages defined`
-        );
-      }
+      const stages = a.spec?.stages as unknown[] | undefined;
+      if (!stages || stages.length === 0) { push(vsSev, "ea:quality:value-stream-missing-stages", entityId, `Value stream "${entityId}" has no stages defined`); }
     }
-
-    // ── ea:quality:control-missing-assertion ─────────────────────────────────
-    if (a.kind === "control") {
-      const ctrl = a as unknown as ControlArtifact;
-      const ctrlSev = ruleSeverity("ea:quality:control-missing-assertion", "error", q);
-      if (!ctrl.assertion || ctrl.assertion.trim().length === 0) {
-        push(
-          ctrlSev,
-          "ea:quality:control-missing-assertion",
-          a.id,
-          `Control "${a.id}" must have an assertion`
-        );
-      }
+    if (kind === "control") {
+      const ctSev = ruleSeverity("ea:quality:control-missing-assertion", "error", q);
+      const asrt = a.spec?.assertion;
+      if (!asrt || (typeof asrt === "string" && asrt.trim().length === 0)) { push(ctSev, "ea:quality:control-missing-assertion", entityId, `Control "${entityId}" must have an assertion`); }
     }
-
-    // ── ea:quality:org-unit-missing-type ─────────────────────────────────────
-    if (a.kind === "org-unit") {
-      const org = a as unknown as OrgUnitArtifact;
-      const orgSev = ruleSeverity("ea:quality:org-unit-missing-type", "error", q);
-      if (!org.unitType || org.unitType.trim().length === 0) {
-        push(
-          orgSev,
-          "ea:quality:org-unit-missing-type",
-          a.id,
-          `Organization unit "${a.id}" must specify a unitType`
-        );
-      }
+    if (kind === "org-unit") {
+      const ouSev = ruleSeverity("ea:quality:org-unit-missing-type", "error", q);
+      const ut = a.spec?.unitType;
+      if (!ut || (typeof ut === "string" && ut.trim().length === 0)) { push(ouSev, "ea:quality:org-unit-missing-type", entityId, `Organization unit "${entityId}" must specify a unitType`); }
     }
-
-    // ── ea:quality:policy-missing-objective ──────────────────────────────────
-    if (a.kind === "policy-objective") {
-      const pol = a as unknown as PolicyObjectiveArtifact;
-      const polSev = ruleSeverity("ea:quality:policy-missing-objective", "error", q);
-      if (!pol.objective || pol.objective.trim().length === 0) {
-        push(
-          polSev,
-          "ea:quality:policy-missing-objective",
-          a.id,
-          `Policy objective "${a.id}" must have an objective`
-        );
-      }
+    if (kind === "policy-objective") {
+      const poSev = ruleSeverity("ea:quality:policy-missing-objective", "error", q);
+      const obj = a.spec?.objective;
+      if (!obj || (typeof obj === "string" && obj.trim().length === 0)) { push(poSev, "ea:quality:policy-missing-objective", entityId, `Policy objective "${entityId}" must have an objective`); }
     }
-
-    // ── ea:quality:mission-missing-key-results ──────────────────────────────
-    if (a.kind === "mission") {
-      const mis = a as unknown as MissionArtifact;
-      const misSev = ruleSeverity("ea:quality:mission-missing-key-results", "info", q);
-      if (!mis.keyResults || mis.keyResults.length === 0) {
-        push(
-          misSev,
-          "ea:quality:mission-missing-key-results",
-          a.id,
-          `Mission "${a.id}" has no key results defined`
-        );
-      }
+    if (kind === "mission") {
+      const miSev = ruleSeverity("ea:quality:mission-missing-key-results", "info", q);
+      const kr = a.spec?.keyResults as unknown[] | undefined;
+      if (!kr || kr.length === 0) { push(miSev, "ea:quality:mission-missing-key-results", entityId, `Mission "${entityId}" has no key results defined`); }
     }
-
-    // ── ea:quality:orphan-artifact ──────────────────────────────────────────
     {
       const orphanSev = ruleSeverity("ea:quality:orphan-artifact", "warning", q);
-      const hasOwnRelations = (a.relations?.length ?? 0) > 0;
-      const isTargeted = allTargets.has(a.id);
-      if (!hasOwnRelations && !isTargeted) {
-        push(
-          orphanSev,
-          "ea:quality:orphan-artifact",
-          a.id,
-          `Artifact "${a.id}" has no relations and is not referenced by any other artifact`
-        );
-      }
+      const specRels = getEntitySpecRelations(a);
+      const compRels = a.relations ?? [];
+      const hasOwn = specRels.some(r => r.targets.length > 0) || compRels.length > 0;
+      const isTargeted = allTargets.has(entityId);
+      if (!hasOwn && !isTargeted) { push(orphanSev, "ea:quality:orphan-artifact", entityId, `Artifact "${entityId}" has no relations and is not referenced by any other artifact`); }
     }
-
-    // ── ea:quality:baseline-empty-refs ──────────────────────────────────────
-    if (a.kind === "baseline") {
-      const bl = a as unknown as BaselineArtifact;
+    if (kind === "baseline") {
       const blSev = ruleSeverity("ea:quality:baseline-empty-refs", "warning", q);
-      if (!bl.artifactRefs || bl.artifactRefs.length === 0) {
-        push(blSev, "ea:quality:baseline-empty-refs", a.id, `Baseline "${a.id}" has no artifact references`);
-      }
+      const ar = a.spec?.artifactRefs as unknown[] | undefined;
+      if (!ar || ar.length === 0) { push(blSev, "ea:quality:baseline-empty-refs", entityId, `Baseline "${entityId}" has no artifact references`); }
     }
-
-    // ── ea:quality:target-missing-metrics ───────────────────────────────────
-    if (a.kind === "target") {
-      const tgt = a as unknown as TargetArtifact;
-      const tgtSev = ruleSeverity("ea:quality:target-missing-metrics", "warning", q);
-      if (!tgt.successMetrics || tgt.successMetrics.length === 0) {
-        push(tgtSev, "ea:quality:target-missing-metrics", a.id, `Target "${a.id}" has no success metrics defined`);
-      }
+    if (kind === "target") {
+      const tgSev = ruleSeverity("ea:quality:target-missing-metrics", "warning", q);
+      const sm = a.spec?.successMetrics as unknown[] | undefined;
+      if (!sm || sm.length === 0) { push(tgSev, "ea:quality:target-missing-metrics", entityId, `Target "${entityId}" has no success metrics defined`); }
     }
-
-    // ── ea:quality:plan-empty-milestones ────────────────────────────────────
-    if (a.kind === "transition-plan") {
-      const plan = a as unknown as TransitionPlanArtifact;
-      const planSev = ruleSeverity("ea:quality:plan-empty-milestones", "warning", q);
-      if (!plan.milestones || plan.milestones.length === 0) {
-        push(planSev, "ea:quality:plan-empty-milestones", a.id, `Transition plan "${a.id}" has no milestones`);
-      }
+    if (kind === "transition-plan") {
+      const plSev = ruleSeverity("ea:quality:plan-empty-milestones", "warning", q);
+      const ms = a.spec?.milestones as unknown[] | undefined;
+      if (!ms || ms.length === 0) { push(plSev, "ea:quality:plan-empty-milestones", entityId, `Transition plan "${entityId}" has no milestones`); }
     }
-
-    // ── ea:quality:exception-empty-scope ────────────────────────────────────
-    if (a.kind === "exception") {
-      const exc = a as unknown as ExceptionArtifact;
+    if (kind === "exception") {
       const excSev = ruleSeverity("ea:quality:exception-empty-scope", "error", q);
-      const hasScope = (exc.scope?.artifactIds?.length ?? 0) > 0 ||
-        (exc.scope?.rules?.length ?? 0) > 0 ||
-        (exc.scope?.domains?.length ?? 0) > 0;
-      if (!hasScope) {
-        push(excSev, "ea:quality:exception-empty-scope", a.id, `Exception "${a.id}" has empty scope (would suppress everything)`);
-      }
+      const scope = a.spec?.scope as Record<string, unknown> | undefined;
+      const hs = ((scope?.artifactIds as unknown[] | undefined)?.length ?? 0) > 0 ||
+        ((scope?.rules as unknown[] | undefined)?.length ?? 0) > 0 ||
+        ((scope?.domains as unknown[] | undefined)?.length ?? 0) > 0;
+      if (!hs) { push(excSev, "ea:quality:exception-empty-scope", entityId, `Exception "${entityId}" has empty scope (would suppress everything)`); }
     }
-
-    // ── ea:quality:wave-empty-scope ─────────────────────────────────────────
-    if (a.kind === "migration-wave") {
-      const wave = a as unknown as MigrationWaveArtifact;
-      const waveSev = ruleSeverity("ea:quality:wave-empty-scope", "warning", q);
-      const hasScope = (wave.scope?.create?.length ?? 0) > 0 ||
-        (wave.scope?.modify?.length ?? 0) > 0 ||
-        (wave.scope?.retire?.length ?? 0) > 0;
-      if (!hasScope) {
-        push(waveSev, "ea:quality:wave-empty-scope", a.id, `Migration wave "${a.id}" has empty scope (no create/modify/retire)`);
-      }
+    if (kind === "migration-wave") {
+      const wvSev = ruleSeverity("ea:quality:wave-empty-scope", "warning", q);
+      const scope = a.spec?.scope as Record<string, unknown> | undefined;
+      const hs = ((scope?.create as unknown[] | undefined)?.length ?? 0) > 0 ||
+        ((scope?.modify as unknown[] | undefined)?.length ?? 0) > 0 ||
+        ((scope?.retire as unknown[] | undefined)?.length ?? 0) > 0;
+      if (!hs) { push(wvSev, "ea:quality:wave-empty-scope", entityId, `Migration wave "${entityId}" has empty scope (no create/modify/retire)`); }
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-  };
+  return { valid: errors.length === 0, errors, warnings };
 }
 
-// ─── Relation Validation ────────────────────────────────────────────────────────
+// ─── Relation Validation ──────────────────────────────────────────────────────────────────
 
 /**
- * Validate relations across a set of loaded EA artifacts against registry rules.
- *
- * Rules (from docs/ea-relationship-model.md §Relation Validation Rules):
- *   1. Target exists
- *   2. Self-reference disallowed
- *   3. Relation type registered
- *   4. Source kind valid
- *   5. Target kind valid
- *   6. Target status compatibility
- *   7. Duplicate detection
+ * Extract a flat list of relations from a BackstageEntity.
+ * Combines spec-field relations (mapped to legacy types) and computed relations.
+ */
+function extractFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
+  const result: Array<{ type: string; target: string }> = [];
+  for (const { legacyType, targets } of getEntitySpecRelations(entity)) {
+    for (const target of targets) {
+      result.push({ type: legacyType, target });
+    }
+  }
+  for (const rel of entity.relations ?? []) {
+    result.push({ type: rel.type, target: rel.targetRef });
+  }
+  return result;
+}
+
+/**
+ * Validate relations across a set of loaded EA entities against registry rules.
  */
 export function validateEaRelations(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   registry: RelationRegistry,
   options?: EaValidationOptions
 ): EaValidationResult {
@@ -879,139 +581,72 @@ export function validateEaRelations(
   const errors: EaValidationError[] = [];
   const warnings: EaValidationError[] = [];
 
-  const push = (
-    sev: RuleSeverity,
-    rule: string,
-    path: string,
-    message: string
-  ): void => {
+  const push = (sev: RuleSeverity, rule: string, path: string, message: string): void => {
     if (sev === "off") return;
     const entry: EaValidationError = { path, message, severity: sev === "info" ? "warning" : sev, rule };
-    if (sev === "error") {
-      errors.push(entry);
-    } else {
-      warnings.push(entry);
-    }
+    if (sev === "error") { errors.push(entry); } else { warnings.push(entry); }
   };
 
-  // Build artifact lookup by ID
-  const artifactById = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) {
-    artifactById.set(a.id, a);
-  }
+  const entityById = new Map<string, BackstageEntity>();
+  for (const a of entities) { entityById.set(getEntityId(a), a); }
 
-  for (const a of artifacts) {
-    if (!a.relations) continue;
+  for (const a of entities) {
+    const aId = getEntityId(a);
+    const aKind = getEntityLegacyKind(a);
+    const aStatus = getEntityStatus(a);
+    const flatRelations = extractFlatRelations(a);
+    if (flatRelations.length === 0) continue;
 
     const seen = new Set<string>();
 
-    for (const rel of a.relations) {
+    for (const rel of flatRelations) {
       const relKey = `${rel.type}→${rel.target}`;
 
-      // 1. Self-reference
-      if (rel.target === a.id) {
-        push(
-          ruleSeverity("ea:relation:self-reference", "error", q),
-          "ea:relation:self-reference",
-          a.id,
-          `Artifact "${a.id}" has a self-referencing relation of type "${rel.type}"`
-        );
+      if (rel.target === aId) {
+        push(ruleSeverity("ea:relation:self-reference", "error", q), "ea:relation:self-reference", aId, `Artifact "${aId}" has a self-referencing relation of type "${rel.type}"`);
         continue;
       }
 
-      // 2. Target exists
-      const target = artifactById.get(rel.target);
+      const target = entityById.get(rel.target);
       if (!target) {
-        push(
-          ruleSeverity("ea:relation:target-missing", "error", q),
-          "ea:relation:target-missing",
-          a.id,
-          `Artifact "${a.id}" references unknown target "${rel.target}" via "${rel.type}"`
-        );
+        push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Artifact "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
         continue;
       }
 
-      // 3. Relation type registered
-      const entry = registry.get(rel.type);
-      if (!entry) {
-        // Check if the type is a known virtual inverse
+      const regEntry = registry.get(rel.type);
+      if (!regEntry) {
         const canonicalEntry = registry.getCanonicalEntry(rel.type);
         if (canonicalEntry) {
-          push(
-            ruleSeverity("ea:relation:unknown-type", "warning", q),
-            "ea:relation:unknown-type",
-            a.id,
-            `Artifact "${a.id}" relation type "${rel.type}" is a virtual inverse — use "${canonicalEntry.type}" as the canonical direction instead`
-          );
+          push(ruleSeverity("ea:relation:unknown-type", "warning", q), "ea:relation:unknown-type", aId, `Artifact "${aId}" relation type "${rel.type}" is a virtual inverse — use "${canonicalEntry.type}" as the canonical direction instead`);
         } else {
-          push(
-            ruleSeverity("ea:relation:unknown-type", "warning", q),
-            "ea:relation:unknown-type",
-            a.id,
-            `Artifact "${a.id}" uses unregistered relation type "${rel.type}"`
-          );
+          push(ruleSeverity("ea:relation:unknown-type", "warning", q), "ea:relation:unknown-type", aId, `Artifact "${aId}" uses unregistered relation type "${rel.type}"`);
         }
-        // Skip further checks for unregistered types
         continue;
       }
 
-      // 4. Source kind valid
-      if (!registry.isValidSource(rel.type, a.kind)) {
-        push(
-          ruleSeverity("ea:relation:invalid-source", "error", q),
-          "ea:relation:invalid-source",
-          a.id,
-          `Kind "${a.kind}" is not a valid source for relation type "${rel.type}"`
-        );
+      if (!registry.isValidSource(rel.type, aKind)) {
+        push(ruleSeverity("ea:relation:invalid-source", "error", q), "ea:relation:invalid-source", aId, `Kind "${aKind}" is not a valid source for relation type "${rel.type}"`);
       }
 
-      // 5. Target kind valid
-      if (!registry.isValidTarget(rel.type, target.kind)) {
-        push(
-          ruleSeverity("ea:relation:invalid-target", "error", q),
-          "ea:relation:invalid-target",
-          a.id,
-          `Kind "${target.kind}" is not a valid target for relation type "${rel.type}" (target: "${target.id}")`
-        );
+      const targetKind = getEntityLegacyKind(target);
+      if (!registry.isValidTarget(rel.type, targetKind)) {
+        push(ruleSeverity("ea:relation:invalid-target", "error", q), "ea:relation:invalid-target", aId, `Kind "${targetKind}" is not a valid target for relation type "${rel.type}" (target: "${getEntityId(target)}")`);
       }
 
-      // 6. Target status compatibility
-      if (target.status === "retired") {
+      const targetStatus = getEntityStatus(target);
+      if (targetStatus === "retired") {
         const sev = q?.strictMode ? "error" : "warning";
-        push(
-          ruleSeverity("ea:relation:retired-target", sev as RuleSeverity, q),
-          "ea:relation:retired-target",
-          a.id,
-          `Artifact "${a.id}" references retired artifact "${target.id}" via "${rel.type}"`
-        );
-      } else if (
-        target.status === "draft" &&
-        (a.status === "active" || a.status === "shipped")
-      ) {
-        push(
-          ruleSeverity("ea:relation:draft-target", "warning", q),
-          "ea:relation:draft-target",
-          a.id,
-          `Active artifact "${a.id}" references draft artifact "${target.id}" via "${rel.type}"`
-        );
+        push(ruleSeverity("ea:relation:retired-target", sev as RuleSeverity, q), "ea:relation:retired-target", aId, `Artifact "${aId}" references retired artifact "${getEntityId(target)}" via "${rel.type}"`);
+      } else if (targetStatus === "draft" && (aStatus === "active" || aStatus === "shipped")) {
+        push(ruleSeverity("ea:relation:draft-target", "warning", q), "ea:relation:draft-target", aId, `Active artifact "${aId}" references draft artifact "${getEntityId(target)}" via "${rel.type}"`);
       }
 
-      // 7. Duplicate detection
       if (seen.has(relKey)) {
-        push(
-          ruleSeverity("ea:relation:duplicate", "warning", q),
-          "ea:relation:duplicate",
-          a.id,
-          `Artifact "${a.id}" has duplicate relation "${rel.type}" → "${rel.target}"`
-        );
+        push(ruleSeverity("ea:relation:duplicate", "warning", q), "ea:relation:duplicate", aId, `Artifact "${aId}" has duplicate relation "${rel.type}" → "${rel.target}"`);
       }
       seen.add(relKey);
     }
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
-  };
+  return { valid: errors.length === 0, errors, warnings };
 }
