@@ -168,6 +168,11 @@ export interface EaComplianceMetadata {
  * Every kind extends this with additional kind-specific fields.
  *
  * Design reference: docs/ea-unified-artifact-model.md §Unified Base Shape
+ *
+ * @deprecated Use `BackstageEntity` from `./backstage/types.js` instead.
+ * This type is retained for backward compatibility during migration.
+ * Use the accessor functions from `./backstage/accessors.js` to read fields
+ * from BackstageEntity in a way that parallels EaArtifactBase field access.
  */
 export interface EaArtifactBase {
   /** Artifact identifier: `{domain}/{KIND_PREFIX}-{slug}` */
@@ -959,7 +964,11 @@ export interface DecisionArtifact extends EaArtifactBase {
 
 // ─── Union Type ─────────────────────────────────────────────────────────────────
 
-/** Discriminated union of all artifact types. */
+/**
+ * Discriminated union of all artifact types.
+ * @deprecated Use `BackstageEntity` instead. Individual kind types are
+ * now represented via `BackstageEntity.spec` typed interfaces.
+ */
 export type EaArtifact =
   | ApplicationArtifact
   | ServiceArtifact
@@ -1012,7 +1021,10 @@ export type EaArtifact =
 
 // ─── Kind Taxonomy ──────────────────────────────────────────────────────────────
 
-/** Metadata for a registered EA kind. */
+/**
+ * Metadata for a registered EA kind.
+ * @deprecated Use `KindMappingEntry` from `./backstage/kind-mapping.js` instead.
+ */
 export interface EaKindEntry {
   kind: string;
   prefix: string;
@@ -1020,7 +1032,10 @@ export interface EaKindEntry {
   description: string;
 }
 
-/** All registered kinds and their metadata. */
+/**
+ * All registered kinds and their metadata.
+ * @deprecated Use `BACKSTAGE_KIND_REGISTRY` from `./backstage/kind-mapping.js` instead.
+ */
 export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   // Systems domain
   { kind: "application", prefix: "APP", domain: "systems", description: "A deployable software system" },
@@ -1080,19 +1095,25 @@ export const EA_KIND_REGISTRY: readonly EaKindEntry[] = [
   { kind: "decision", prefix: "ADR", domain: "transitions", description: "An architecture decision record documenting a key design choice" },
 ] as const;
 
-/** Lookup helpers. */
+/**
+ * Lookup helpers.
+ * @deprecated Use kind-mapping functions from `./backstage/kind-mapping.js` instead.
+ */
 export function getKindEntry(kind: string): EaKindEntry | undefined {
   return EA_KIND_REGISTRY.find((e) => e.kind === kind);
 }
 
+/** @deprecated Use BACKSTAGE_KIND_REGISTRY instead. */
 export function getKindsByDomain(domain: EaDomain): EaKindEntry[] {
   return EA_KIND_REGISTRY.filter((e) => e.domain === domain);
 }
 
+/** @deprecated Use mapLegacyKind() from backstage/kind-mapping.js instead. */
 export function getKindPrefix(kind: string): string | undefined {
   return getKindEntry(kind)?.prefix;
 }
 
+/** @deprecated Use getEntityDomain() from backstage/accessors.js instead. */
 export function getDomainForKind(kind: string): EaDomain | undefined {
   return getKindEntry(kind)?.domain;
 }
@@ -1102,6 +1123,8 @@ export function getDomainForKind(kind: string): EaDomain | undefined {
 /**
  * Validates an EA artifact ID against the format: `{domain}/{PREFIX}-{slug}`
  * or the short form `{PREFIX}-{slug}`.
+ *
+ * @deprecated Legacy ID format. Backstage entities use entity references instead.
  */
 export function isValidEaId(id: string, kind?: string): boolean {
   // Allow domain-qualified or short IDs

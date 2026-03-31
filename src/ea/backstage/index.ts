@@ -135,3 +135,41 @@ export {
   writeEntity,
   deleteEntity,
 } from "./entity-writer.js";
+
+// Accessors — convenience functions for reading BackstageEntity fields
+export type { EntityStatus } from "./accessors.js";
+
+export {
+  getEntityId,
+  getEntityName,
+  getEntityNamespace,
+  getEntityTitle,
+  getEntityDescription,
+  getEntityLegacyKind,
+  getEntityKindMapping,
+  getEntitySpecType,
+  getEntityStatus,
+  getEntityLifecycle,
+  getEntityOwners,
+  getEntityOwnerRef,
+  getEntityTags,
+  getAnnotation,
+  getAnnotations,
+  getEntityConfidence,
+  getEntityRisk,
+  getEntityCompliance,
+  getEntitySource,
+  getEntityExpectAnchors,
+  getEntitySuppressions,
+  getEntityLegacyId,
+  getLabel,
+  getLabels,
+  getEntitySpecRelations,
+  getEntityRelations,
+  getSpecFieldTargets,
+  getSpecField,
+  getSpec,
+  getEntitySystem,
+  getEntityDomain,
+  getEntityLinks,
+} from "./accessors.js";

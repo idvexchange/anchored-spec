@@ -209,3 +209,172 @@ export {
   applySuppressions, collectSuppressions,
   reconcileFactsWithArtifacts,
 } from "./facts/index.js";
+
+// ─── Backstage Entity Model (primary) ───────────────────────────────────────────
+
+// Core types
+export type {
+  ApiVersion,
+  BackstageBuiltinKind,
+  AnchoredSpecKind,
+  EntityKind,
+  EntityLink,
+  EntityMetadata,
+  EntityConfidence,
+  EntityRisk,
+  EntitySpecBase,
+  ComponentSpec,
+  ApiSpec,
+  ResourceSpec,
+  SystemSpec,
+  DomainSpec,
+  GroupSpec,
+  BehaviorStatement,
+  RequirementSpec,
+  DecisionSpec,
+  CanonicalEntitySpec,
+  ExchangeSpec,
+  CapabilitySpec,
+  ValueStreamSpec,
+  MissionSpec,
+  TechnologySpec,
+  SystemInterfaceSpec,
+  ControlSpec,
+  TransitionPlanSpec,
+  ExceptionSpec,
+  BackstageEntity,
+  EntityRelation,
+  EntityRef,
+  EntitySourceLocation,
+  LoadedEntity,
+} from "./backstage/types.js";
+
+export {
+  BACKSTAGE_API_VERSION,
+  ANCHORED_SPEC_API_VERSION,
+  ANNOTATION_PREFIX,
+  ANNOTATION_KEYS,
+  parseEntityRef,
+  formatEntityRef,
+  formatFullEntityRef,
+} from "./backstage/types.js";
+
+// Kind mapping
+export type { KindMappingEntry } from "./backstage/kind-mapping.js";
+
+export {
+  BACKSTAGE_KIND_REGISTRY,
+  mapLegacyKind,
+  mapLegacyPrefix,
+  mapBackstageKind,
+  getLegacyKindsForBackstageKind,
+  isLegacyKindRegistered,
+  isBackstageKindRegistered,
+  getAllBackstageKinds,
+  getBuiltinKinds,
+  getCustomKinds,
+  legacyIdToEntityName,
+  entityNameToLegacyId,
+} from "./backstage/kind-mapping.js";
+
+// Relation mapping
+export type { RelationMappingEntry } from "./backstage/relation-mapping.js";
+
+export {
+  RELATION_MAPPING_REGISTRY,
+  mapLegacyRelation,
+  mapBackstageRelation,
+  mapSpecField,
+  getWellKnownRelations,
+  getCustomRelations,
+  isWellKnownRelation,
+  legacyRelationToSpecEntry,
+  extractRelationsFromSpec,
+} from "./backstage/relation-mapping.js";
+
+// Bridge (retained for backward compatibility)
+export { backstageToArtifact, artifactToBackstage } from "./backstage/bridge.js";
+
+// Accessors
+export type { EntityStatus } from "./backstage/accessors.js";
+
+export {
+  getEntityId,
+  getEntityName,
+  getEntityNamespace,
+  getEntityTitle,
+  getEntityDescription,
+  getEntityLegacyKind,
+  getEntityKindMapping,
+  getEntitySpecType,
+  getEntityStatus,
+  getEntityLifecycle,
+  getEntityOwners,
+  getEntityOwnerRef,
+  getEntityTags,
+  getAnnotation,
+  getAnnotations,
+  getEntityConfidence,
+  getEntityRisk,
+  getEntityCompliance,
+  getEntitySource,
+  getEntityExpectAnchors,
+  getEntitySuppressions,
+  getEntityLegacyId,
+  getLabel,
+  getLabels,
+  getEntitySpecRelations,
+  getEntityRelations,
+  getSpecFieldTargets,
+  getSpecField,
+  getSpec,
+  getEntitySystem,
+  getEntityDomain,
+  getEntityLinks,
+} from "./backstage/accessors.js";
+
+// Backstage I/O
+export type {
+  EntitySourceInfo,
+  ParsedBackstageEntity,
+  BackstageParseError,
+  BackstageParseResult,
+} from "./backstage/parser.js";
+
+export {
+  parseBackstageYaml,
+  parseFrontmatterEntity,
+  extractMarkdownBody,
+} from "./backstage/parser.js";
+
+export type { WriteOptions } from "./backstage/writer.js";
+
+export {
+  writeBackstageYaml,
+  writeBackstageManifest,
+  writeBackstageFrontmatter,
+} from "./backstage/writer.js";
+
+export type {
+  BackstageLoadedEntity,
+  BackstageLoadResult,
+} from "./backstage/loader.js";
+
+export {
+  loadManifestFile,
+  loadCatalogDirectory,
+  loadInlineEntities,
+  loadBackstageEntities,
+} from "./backstage/loader.js";
+
+export type { EntityWriteResult, EntityDeleteResult } from "./backstage/entity-writer.js";
+
+export {
+  writeToManifest,
+  removeFromManifest,
+  writeToCatalogDir,
+  removeFromCatalogDir,
+  writeToFrontmatter,
+  writeEntity,
+  deleteEntity,
+} from "./backstage/entity-writer.js";
