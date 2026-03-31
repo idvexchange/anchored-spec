@@ -23,6 +23,7 @@ import { resolveEaConfig } from "./config.js";
 import { buildTraceLinks, buildTraceCheckReport } from "./trace-analysis.js";
 import type { TraceCheckReport } from "./trace-analysis.js";
 import { scanDocs } from "./docs/scanner.js";
+import { scanSourceAnnotations } from "./source-scanner.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -318,8 +319,26 @@ function runTraceStep(
 ): TraceStepOutput {
   const docDirs = options.docDirs ?? ["docs", "specs", "."];
   const scanResult = scanDocs(projectRoot, { dirs: docDirs });
+  const { docs } = scanResult;
 
-  const links = buildTraceLinks(artifacts, scanResult.docs, projectRoot);
+  // Include source annotations if config enables them
+  try {
+    const configPath = join(projectRoot, ".anchored-spec", "config.json");
+    if (existsSync(configPath)) {
+      const raw = JSON.parse(readFileSync(configPath, "utf-8"));
+      if (raw.schemaVersion === "1.0" && raw.sourceAnnotations?.enabled) {
+        const srcResult = scanSourceAnnotations(
+          projectRoot,
+          raw.sourceAnnotations,
+          raw.sourceRoots,
+          raw.sourceGlobs,
+        );
+        docs.push(...srcResult.sources);
+      }
+    }
+  } catch { /* ignore config read errors */ }
+
+  const links = buildTraceLinks(artifacts, docs, projectRoot);
   const report = buildTraceCheckReport(links);
 
   const brokenFiles = report.brokenTraceRefs.filter(

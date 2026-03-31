@@ -186,3 +186,9 @@ export { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, rend
 // Document Traceability
 export type { DocFrontmatter, ParsedDoc, ScannedDoc, ScanResult, ScanOptions, DocDiscoveryResult } from "./docs/index.js";
 export { parseFrontmatter, extractArtifactIds, hasEaFrontmatter, serializeFrontmatter, DEFAULT_DOC_DIRS, scanDocs, buildDocIndex, discoverFromDocs } from "./docs/index.js";
+
+export type { SourceAnnotationConfig, SourceScanResult } from "./source-scanner.js";
+export { extractAnnotations, scanSourceAnnotations } from "./source-scanner.js";
+
+export type { TraceLink, TraceCheckReport } from "./trace-analysis.js";
+export { buildTraceLinks, buildTraceCheckReport, isUrl } from "./trace-analysis.js";

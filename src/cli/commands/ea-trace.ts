@@ -19,6 +19,8 @@ import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { buildTraceLinks, buildTraceCheckReport, isUrl } from "../../ea/trace-analysis.js";
 import type { TraceLink, TraceCheckReport } from "../../ea/trace-analysis.js";
+import { scanSourceAnnotations } from "../../ea/source-scanner.js";
+import type { AnchoredSpecConfigV1 } from "../../ea/config.js";
 import { CliError } from "../errors.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -333,6 +335,7 @@ export function eaTraceCommand(): Command {
     .option("--fix-broken", "Remove traceRefs pointing to non-existent files")
     .option("--dry-run", "Show what would change without writing files")
     .option("--summary", "Show summary counts")
+    .option("--source-annotations", "Include source file @anchored-spec annotations in trace analysis")
     .option("--json", "Output as JSON")
     .action(async (target: string | undefined, options) => {
       const cwd = process.cwd();
@@ -343,12 +346,37 @@ export function eaTraceCommand(): Command {
         throw new CliError("EA not initialized. Run 'anchored-spec ea init' first.", 2);
       }
 
+      // Load v1 config for sourceAnnotations settings
+      let v1Config: AnchoredSpecConfigV1 | null = null;
+      try {
+        const configPath = resolve(cwd, ".anchored-spec", "config.json");
+        if (existsSync(configPath)) {
+          const raw = JSON.parse(readFileSync(configPath, "utf-8"));
+          if (raw.schemaVersion === "1.0") v1Config = raw as AnchoredSpecConfigV1;
+        }
+      } catch { /* ignore config read errors */ }
+
       const loadResult = await root.loadArtifacts();
       const { artifacts } = loadResult;
 
       const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
       const scanResult = scanDocs(cwd, { dirs: docDirs });
       const { docs, totalScanned } = scanResult;
+
+      // Scan source annotations if enabled via flag or config
+      const sourceAnnotationsEnabled =
+        options.sourceAnnotations ||
+        v1Config?.sourceAnnotations?.enabled;
+
+      if (sourceAnnotationsEnabled) {
+        const srcResult = scanSourceAnnotations(
+          cwd,
+          v1Config?.sourceAnnotations,
+          v1Config?.sourceRoots,
+          v1Config?.sourceGlobs,
+        );
+        docs.push(...srcResult.sources);
+      }
 
       const artifactMap = new Map<string, EaArtifactBase>();
       for (const a of artifacts) artifactMap.set(a.id, a);
