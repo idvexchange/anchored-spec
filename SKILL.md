@@ -2,7 +2,7 @@
 
 > **Purpose:** Enforce spec-as-source enterprise architecture workflows when working in any codebase managed by [anchored-spec](https://github.com/idvexchange/anchored-spec).
 >
-> **Activation:** This skill activates when the project contains `.anchored-spec/config.json` with `"schemaVersion": "1.0"` or an `ea/` directory with YAML/JSON artifact files.
+> **Activation:** This skill activates when the project contains `.anchored-spec/config.json` with `"schemaVersion": "1.0"`, an `ea/` directory with YAML/JSON artifact files, or a `catalog-info.yaml` file (Backstage entity format).
 >
 > **Agent compatibility:** Works with any AI coding agent (GitHub Copilot, Cursor, Cline, Windsurf, Aider, Continue, etc.). Drop this file into your project root or reference it from your agent's configuration.
 

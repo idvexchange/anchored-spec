@@ -84,7 +84,7 @@ export function writeBackstageFrontmatter(
  */
 function prepareEntity(entity: BackstageEntity): Record<string, unknown> {
   const { apiVersion, kind, metadata, spec, relations, ...rest } =
-    entity as Record<string, unknown>;
+    entity as unknown as Record<string, unknown>;
 
   const result: Record<string, unknown> = { apiVersion, kind };
 

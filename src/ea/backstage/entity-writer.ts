@@ -224,7 +224,7 @@ export async function writeEntity(
 
     case "inline": {
       const docDirs = config.inlineDocDirs ?? ["docs"];
-      const docDir = join(projectRoot, docDirs[0]);
+      const docDir = join(projectRoot, docDirs[0] ?? "docs");
       const filePath = join(docDir, `${entity.metadata.name}.md`);
       const defaultBody = `\n# ${entity.metadata.title ?? entity.metadata.name}\n\nTODO: Add documentation.\n`;
       return writeToFrontmatter(entity, filePath, defaultBody);
@@ -262,7 +262,7 @@ export async function deleteEntity(
     case "inline": {
       // In inline mode, each entity is a separate file
       const docDirs = config.inlineDocDirs ?? ["docs"];
-      const filePath = join(projectRoot, docDirs[0], `${name}.md`);
+      const filePath = join(projectRoot, docDirs[0] ?? "docs", `${name}.md`);
       if (!existsSync(filePath)) {
         throw new Error(`Entity file not found: ${filePath}`);
       }

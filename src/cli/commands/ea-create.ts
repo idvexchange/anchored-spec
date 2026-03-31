@@ -2,12 +2,13 @@
  * anchored-spec ea create <kind>
  *
  * Generate a new EA artifact YAML file with the correct base shape
- * and kind-specific defaults.
+ * and kind-specific defaults. Supports Backstage entity format when
+ * the project is configured for it.
  */
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import {
@@ -18,6 +19,11 @@ import {
   EA_DOMAINS,
   resolveEaConfig,
 } from "../../ea/index.js";
+import { resolveConfigV1, detectConfigVersion } from "../../ea/config.js";
+import type { AnchoredSpecConfigV1 } from "../../ea/config.js";
+import { mapLegacyKind, legacyIdToEntityName } from "../../ea/backstage/kind-mapping.js";
+import { writeEntity } from "../../ea/backstage/entity-writer.js";
+import type { BackstageEntity } from "../../ea/backstage/types.js";
 import { CliError } from "../errors.js";
 
 export function eaCreateCommand(): Command {
@@ -60,6 +66,15 @@ interface CreateOptions {
 function createArtifact(kind: string, title: string, options: CreateOptions): void {
   const cwd = process.cwd();
   const rootDir = (options.rootDir as string) ?? "ea";
+
+  // Detect if the project is in Backstage mode
+  const v1Config = loadProjectConfig(cwd, rootDir);
+  if (v1Config && (v1Config.entityMode === "manifest" || v1Config.entityMode === "inline")) {
+    createBackstageEntity(kind, title, options, v1Config, cwd);
+    return;
+  }
+
+  // Legacy artifacts mode
   const eaConfig = resolveEaConfig({ rootDir });
 
   const entry = getKindEntry(kind);
@@ -381,4 +396,105 @@ function getKindSpecificJson(kind: string): Record<string, unknown> {
     default:
       return {};
   }
+}
+
+// ─── Backstage Mode ─────────────────────────────────────────────────────────────
+
+function loadProjectConfig(
+  cwd: string,
+  rootDir: string,
+): AnchoredSpecConfigV1 | null {
+  const configPath = join(cwd, ".anchored-spec", "config.json");
+  if (!existsSync(configPath)) return null;
+
+  try {
+    const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    const version = detectConfigVersion(raw);
+    if (version === "1.0") {
+      return resolveConfigV1(raw as Partial<AnchoredSpecConfigV1>);
+    }
+  } catch {
+    // Fall through to null — config is malformed
+  }
+  return null;
+}
+
+function createBackstageEntity(
+  kind: string,
+  title: string,
+  options: CreateOptions,
+  config: AnchoredSpecConfigV1,
+  cwd: string,
+): void {
+  const entry = getKindEntry(kind);
+  if (!entry) {
+    const validKinds = EA_KIND_REGISTRY.map((e) => e.kind).join(", ");
+    throw new CliError(`Unknown kind "${kind}". Valid kinds: ${validKinds}`, 2);
+  }
+
+  const mapping = mapLegacyKind(kind);
+  if (!mapping) {
+    throw new CliError(
+      `No Backstage mapping found for kind "${kind}".`,
+      2,
+    );
+  }
+
+  const prefix = getKindPrefix(kind)!;
+  let slug = (options.id as string) ?? slugify(title);
+  if (options.id) {
+    const prefixWithDash = `${prefix}-`.toLowerCase();
+    if (slug.toLowerCase().startsWith(prefixWithDash)) {
+      slug = slug.slice(prefixWithDash.length);
+    }
+  }
+  const legacyId = `${prefix}-${slug}`;
+  const entityName = legacyIdToEntityName(legacyId);
+  const owner = (options.owner as string) ?? "your-team";
+
+  const entity: BackstageEntity = {
+    apiVersion: mapping.apiVersion,
+    kind: mapping.backstageKind,
+    metadata: {
+      name: entityName,
+      title,
+      description: "TODO: Add description.",
+      annotations: {
+        "anchored-spec.dev/legacy-id": legacyId,
+        "anchored-spec.dev/legacy-kind": kind,
+        "anchored-spec.dev/confidence": "0.5",
+      },
+      tags: [],
+    },
+    spec: {
+      ...(mapping.specType ? { type: mapping.specType } : {}),
+      lifecycle: "experimental",
+      owner,
+      ...(options.relations && options.relations.length > 0
+        ? {
+            dependsOn: options.relations
+              .filter((r) => r.type === "depends-on")
+              .map((r) => r.target),
+          }
+        : {}),
+    },
+  };
+
+  // Synchronous wrapper for the async writeEntity
+  writeEntity(entity, config, cwd)
+    .then((result) => {
+      console.log(chalk.green(`✓ Created ${result.filePath}`));
+      console.log(chalk.dim(`  Kind:   ${mapping.backstageKind} (${kind})`));
+      console.log(chalk.dim(`  Name:   ${entityName}`));
+      console.log(chalk.dim(`  Mode:   ${config.entityMode}`));
+    })
+    .catch((err) => {
+      throw new CliError(
+        `Failed to write entity: ${(err as Error).message}`,
+        1,
+      );
+    });
 }

@@ -23,6 +23,7 @@
 | **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config with reusable slash commands for Copilot and Claude, event-driven hooks for Kiro, and Spec-Kit extension via `init --ai` |
 | **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
 | **Doc consistency** | Extract facts from markdown tables, code blocks, and Mermaid diagrams — detect cross-document contradictions |
+| **Backstage alignment** | Optional Backstage Software Catalog entity format with manifest and inline frontmatter storage modes |
 | **SchemaStore integration** | Catalog entries for config, workflow-policy, and EA artifact schemas — automatic validation in any editor that supports [SchemaStore](https://www.schemastore.org/) |
 
 ## Quick Start
@@ -48,6 +49,9 @@ npx anchored-spec create --kind service --id SVC-auth-api
 
 # Or use the interactive wizard
 npx anchored-spec create --interactive
+
+# Initialize with Backstage entity format (optional)
+npx anchored-spec init --format backstage --mode manifest --with-examples
 
 # Validate all artifacts
 npx anchored-spec validate

@@ -535,7 +535,7 @@ spec:
     if (!dryRun) writeFileSync(manifestPath, content);
     console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create example entities in ${config.manifestPath ?? "catalog-info.yaml"}`));
   } else if (mode === "inline") {
-    const docDir = join(cwd, (config.inlineDocDirs ?? ["docs"])[0]);
+    const docDir = join(cwd, (config.inlineDocDirs ?? ["docs"])[0] ?? "docs");
     if (!existsSync(docDir) && !dryRun) mkdirSync(docDir, { recursive: true });
 
     const svcPath = join(docDir, "example-service.md");

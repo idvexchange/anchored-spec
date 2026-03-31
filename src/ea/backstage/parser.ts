@@ -71,7 +71,7 @@ export function parseBackstageYaml(
   }
 
   for (let i = 0; i < docs.length; i++) {
-    const doc = docs[i];
+    const doc = docs[i]!;
 
     // Collect YAML-level syntax errors
     if (doc.errors.length > 0) {
@@ -187,12 +187,12 @@ function findFrontmatterClose(text: string): number {
   const lines = text.split("\n");
   // Start at line 1 — line 0 is the opening ---
   for (let i = 1; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+    const trimmed = lines[i]!.trim();
     if (trimmed === "---" || trimmed === "...") {
       // Calculate the character offset of this line
       let offset = 0;
       for (let j = 0; j < i; j++) {
-        offset += lines[j].length + 1; // +1 for the \n
+        offset += lines[j]!.length + 1; // +1 for the \n
       }
       return offset;
     }

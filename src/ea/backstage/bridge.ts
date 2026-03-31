@@ -153,7 +153,9 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
   // Source annotation from traceRefs
   if (artifact.traceRefs?.length) {
     const specRef = artifact.traceRefs.find((r) => r.role === "specification") ?? artifact.traceRefs[0];
-    annotations[ANNOTATION_KEYS.SOURCE] = specRef.path;
+    if (specRef) {
+      annotations[ANNOTATION_KEYS.SOURCE] = specRef.path;
+    }
   }
 
   // Confidence
