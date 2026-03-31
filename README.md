@@ -22,6 +22,7 @@
 | **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
 | **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config with reusable slash commands for Copilot and Claude, event-driven hooks for Kiro, and Spec-Kit extension via `init --ai` |
 | **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
+| **SchemaStore integration** | Catalog entries for config, workflow-policy, and EA artifact schemas — automatic validation in any editor that supports [SchemaStore](https://www.schemastore.org/) |
 
 ## Quick Start
 
@@ -104,6 +105,8 @@ your-repo/
 | `trace` | Show traceability web between artifacts and docs |
 | `link-docs` | Auto-sync trace links between docs and artifacts |
 | `context` | Assemble AI context package from trace graph |
+| `link` | Create a relation between two artifacts (`--type`, `--dry-run`) |
+| `search` | Search artifacts by ID, name, kind, summary, tags (`--kind`, `--domain`, `--json`) |
 | `create-doc` | Create markdown doc pre-linked to artifacts |
 
 ## Documentation

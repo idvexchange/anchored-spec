@@ -899,6 +899,8 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `create-doc` | Create markdown doc pre-linked to artifacts (`--type`, `--artifacts`, `--link-back`) |
 | `move` | Move/reclassify an artifact to a different kind with reference rewrites |
 | `enrich` | Merge fields from a JSON file into an existing artifact |
+| `link` | Create a relation between two artifacts (`link <from> <to> --type <relation-type>`, `--description`, `--dry-run`, `--root-dir`). Supports YAML and JSON; detects duplicates |
+| `search` | Full-text search across artifacts (`search <query>`, `--kind`, `--domain`, `--status`, `--tag`, `--confidence`, `--json`). Searches ID, name, kind, summary, and tags |
 | `create-batch` | Bulk-create artifacts from a JSON manifest |
 
 ---
@@ -1058,6 +1060,10 @@ Generate with `npx anchored-spec init --ci`. This creates:
 | `.anchored-spec/hooks/pre-commit` | Shell script that validates EA artifacts and checks trace integrity before commits |
 
 Use `--force` to overwrite existing files. Pair with `init --ai` to get both CI enforcement and developer-facing slash commands.
+
+### SchemaStore (Any Editor)
+
+The repository includes `schemastore-catalog.json` with 3 catalog entries (config, workflow-policy, EA artifacts) referencing raw GitHub URLs for the JSON schema files. Once merged into [SchemaStore](https://github.com/SchemaStore/schemastore), any editor that supports SchemaStore (VS Code, IntelliJ, Sublime Text, Vim/Neovim with coc.nvim, etc.) will automatically validate anchored-spec files — no `init --ide` needed.
 
 ### Generic / Other Agents
 
