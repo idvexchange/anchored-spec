@@ -20,6 +20,7 @@ import type {
   ExceptionArtifact,
 } from "./types.js";
 import { evaluateEaDrift } from "./drift.js";
+import { artifactToBackstage } from "./backstage/bridge.js";
 
 // ─── System-Data Matrix ─────────────────────────────────────────────────────────
 
@@ -573,7 +574,7 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
   }
 
   // Run drift to get per-artifact summaries
-  const driftResult = evaluateEaDrift(artifacts);
+  const driftResult = evaluateEaDrift(artifacts.map(artifactToBackstage));
   const driftByCap = new Map<string, { errors: number; warnings: number }>();
   for (const e of driftResult.errors) {
     if (!e.path) continue;
@@ -1456,8 +1457,8 @@ export function buildDriftHeatmap(
   );
 
   const report = detectEaDrift({
-    artifacts,
-    exceptions,
+    artifacts: artifacts.map(artifactToBackstage),
+    exceptions: exceptions.map((e) => artifactToBackstage(e)),
     ruleOverrides: options?.ruleOverrides,
   });
 
