@@ -86,3 +86,26 @@ export {
 
 // Bridge
 export { backstageToArtifact, artifactToBackstage } from "./bridge.js";
+
+// Parser
+export type {
+  EntitySourceInfo,
+  ParsedBackstageEntity,
+  BackstageParseError,
+  BackstageParseResult,
+} from "./parser.js";
+
+export {
+  parseBackstageYaml,
+  parseFrontmatterEntity,
+  extractMarkdownBody,
+} from "./parser.js";
+
+// Writer
+export type { WriteOptions } from "./writer.js";
+
+export {
+  writeBackstageYaml,
+  writeBackstageManifest,
+  writeBackstageFrontmatter,
+} from "./writer.js";
