@@ -166,6 +166,20 @@ export interface AnchoredSpecConfigV1 {
   /** Source code glob patterns for anchor resolution. */
   sourceGlobs?: string[];
 
+  /** Source file annotation scanning configuration. */
+  sourceAnnotations?: {
+    enabled?: boolean;
+    sourceRoots?: string[];
+    sourceGlobs?: string[];
+  };
+
+  /** Version compatibility policy enforcement configuration. */
+  versionPolicy?: {
+    defaultCompatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen";
+    perKind?: Record<string, { compatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen"; deprecationWindow?: string }>;
+    perDomain?: Record<string, { compatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen"; deprecationWindow?: string }>;
+  };
+
   /** Plugin module paths. */
   plugins?: string[];
 
@@ -309,6 +323,8 @@ export function resolveConfigV1(
     quality: { ...defaults.quality, ...partial.quality },
     sourceRoots: partial.sourceRoots,
     sourceGlobs: partial.sourceGlobs,
+    sourceAnnotations: partial.sourceAnnotations,
+    versionPolicy: partial.versionPolicy,
     plugins: partial.plugins,
     exclude: partial.exclude,
     driftResolvers: partial.driftResolvers,

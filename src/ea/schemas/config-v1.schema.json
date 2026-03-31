@@ -111,6 +111,28 @@
       "items": { "type": "string" },
       "description": "Source code glob patterns for anchor resolution."
     },
+    "sourceAnnotations": {
+      "type": "object",
+      "description": "Source file annotation scanning configuration for trace integrity.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable scanning source files for @anchored-spec annotations."
+        },
+        "sourceRoots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Source directories to scan (overrides top-level sourceRoots for annotations)."
+        },
+        "sourceGlobs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for source files (overrides top-level sourceGlobs for annotations)."
+        }
+      },
+      "additionalProperties": false
+    },
     "plugins": {
       "type": "array",
       "items": { "type": "string" },

@@ -1098,3 +1098,137 @@ describe("CLI: enrich --merge-strategy", () => {
     expect(result.stdout).toContain("Invalid merge strategy");
   });
 });
+
+// ─── trace --source-annotations tests ────────────────────────────────────────
+
+describe("CLI: trace --source-annotations", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+    mkdirSync(join(tempDir, "docs"), { recursive: true });
+    mkdirSync(join(tempDir, "src"), { recursive: true });
+
+    // Create a service artifact with traceRefs to both a doc and a source file
+    writeFileSync(
+      join(tempDir, "ea", "systems", "SVC-traced.yaml"),
+      `apiVersion: anchored-spec/ea/v1
+kind: service
+id: SVC-traced
+
+metadata:
+  name: Traced Service
+  summary: Service with source and doc traceRefs
+  owners: [team-core]
+  tags: [core]
+  confidence: declared
+  status: active
+  schemaVersion: "1.0.0"
+
+relations: []
+
+traceRefs:
+  - path: docs/design.md
+    role: specification
+  - path: src/handler.ts
+    role: implementation
+`,
+    );
+
+    // Doc with proper frontmatter (bidirectional)
+    writeFileSync(
+      join(tempDir, "docs", "design.md"),
+      "---\nea-artifacts: [SVC-traced]\n---\n# Design\n",
+    );
+
+    // Source file with @anchored-spec annotation
+    writeFileSync(
+      join(tempDir, "src", "handler.ts"),
+      `// @anchored-spec: SVC-traced
+export function handle() {}
+`,
+    );
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("without --source-annotations, source traceRef is one-way info", () => {
+    const result = runCLI("trace --check --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    const sourceOneWay = json.oneWayArtifactToDoc.find(
+      (o: { path: string }) => o.path === "src/handler.ts",
+    );
+    expect(sourceOneWay).toBeDefined();
+    expect(sourceOneWay.severity).toBe("info");
+    expect(sourceOneWay.reason).toBe("non-markdown file");
+  });
+
+  it("with --source-annotations, annotated source becomes bidirectional", () => {
+    const result = runCLI("trace --check --source-annotations --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    // Should NOT appear in one-way list anymore
+    const sourceOneWay = json.oneWayArtifactToDoc.find(
+      (o: { path: string }) => o.path === "src/handler.ts",
+    );
+    expect(sourceOneWay).toBeUndefined();
+    // Bidirectional count should include the source file
+    expect(json.bidirectionalCount).toBe(2);
+  });
+
+  it("source annotation also works via config sourceAnnotations.enabled", () => {
+    // Enable via config instead of CLI flag
+    const configPath = join(tempDir, ".anchored-spec", "config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    config.sourceAnnotations = { enabled: true };
+    writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+
+    const result = runCLI("trace --check --json", tempDir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.bidirectionalCount).toBe(2);
+  });
+});
+
+// ─── init --version-policy-defaults tests ────────────────────────────────────
+
+describe("CLI: init --version-policy-defaults", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("bootstraps versionPolicy in config.json", () => {
+    const result = runCLI("ea init --version-policy-defaults", tempDir);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("version policy defaults");
+
+    const configPath = join(tempDir, ".anchored-spec", "config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    expect(config.versionPolicy).toBeDefined();
+    expect(config.versionPolicy.defaultCompatibility).toBe("breaking-allowed");
+    expect(config.versionPolicy.perKind["api-contract"].compatibility).toBe("backward-only");
+    expect(config.versionPolicy.perKind["event-contract"].compatibility).toBe("backward-only");
+    expect(config.versionPolicy.perKind["canonical-entity"].compatibility).toBe("full");
+  });
+
+  it("init without --version-policy-defaults has no versionPolicy", () => {
+    runCLI("ea init", tempDir);
+
+    const configPath = join(tempDir, ".anchored-spec", "config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    expect(config.versionPolicy).toBeUndefined();
+  });
+});

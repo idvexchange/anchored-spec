@@ -31,6 +31,7 @@ export function eaInitCommand(): Command {
     .option("--no-ide", "Skip VS Code integration files")
     .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, speckit, all)")
     .option("--ci", "Generate CI integration recipes (GitHub Actions workflow + pre-commit hook)")
+    .option("--version-policy-defaults", "Bootstrap sensible version policy defaults per artifact kind")
     .action((options) => {
       const cwd = process.cwd();
       const rootDir = options.rootDir as string;
@@ -69,6 +70,22 @@ export function eaInitCommand(): Command {
         }
       } else {
         v1Config = resolveConfigV1({ rootDir });
+      }
+
+      // 1b. Apply version policy defaults if requested
+      if (options.versionPolicyDefaults) {
+        v1Config.versionPolicy = {
+          defaultCompatibility: "breaking-allowed",
+          perKind: {
+            "api-contract": { compatibility: "backward-only", deprecationWindow: "90d" },
+            "event-contract": { compatibility: "backward-only", deprecationWindow: "90d" },
+            "canonical-entity": { compatibility: "full", deprecationWindow: "30d" },
+          },
+          perDomain: {
+            business: { compatibility: "breaking-allowed" },
+          },
+        };
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Apply version policy defaults`));
       }
 
       // 2. Create .anchored-spec directory and write v1.0 config
