@@ -128,6 +128,8 @@ export interface FactManifest {
   blocks: FactBlock[];
   /** Total number of individual facts across all blocks */
   totalFacts: number;
+  /** Suppression annotations found in the document (carried through for downstream use) */
+  suppressions?: SuppressionAnnotation[];
 }
 
 // ─── Annotation → FactKind Mapping ─────────────────────────────────

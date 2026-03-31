@@ -147,6 +147,7 @@ export function eaDiscoverCommand(): Command {
       // Instantiate resolver(s) and run discovery
       const drafts: EaArtifactDraft[] = [];
       const resolverNames: string[] = [];
+      let markdownResolver: InstanceType<typeof MarkdownResolver> | undefined;
 
       if (resolverName) {
         if (resolverName === "tree-sitter") {
@@ -178,6 +179,7 @@ export function eaDiscoverCommand(): Command {
 
           const resolver = new ResolverClass();
           resolverNames.push(resolver.name);
+          if (resolver instanceof MarkdownResolver) markdownResolver = resolver;
 
           const discovered = resolver.discoverArtifacts?.({
             projectRoot: cwd,
@@ -222,6 +224,7 @@ export function eaDiscoverCommand(): Command {
         for (const [, ResolverClass] of Object.entries(RESOLVER_MAP)) {
           const resolver = new ResolverClass();
           resolverNames.push(resolver.name);
+          if (resolver instanceof MarkdownResolver) markdownResolver = resolver;
 
           const discovered = resolver.discoverArtifacts?.({
             projectRoot: cwd,
@@ -267,11 +270,14 @@ export function eaDiscoverCommand(): Command {
         dryRun: options.dryRun as boolean,
       });
 
-      // Write fact manifests if requested
-      if (options.writeFacts && resolverName === "markdown") {
-        const { extractFactsFromDocs } = await import("../../ea/resolvers/markdown.js");
+      // Write fact manifests if requested (reuse manifests from resolver to avoid double-parsing)
+      if (options.writeFacts) {
         const { writeFactManifests } = await import("../../ea/facts/writer.js");
-        const manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
+        let manifests = markdownResolver?.lastManifests;
+        if (!manifests || manifests.length === 0) {
+          const { extractFactsFromDocs } = await import("../../ea/resolvers/markdown.js");
+          manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
+        }
         const factsDir = join(cwd, eaConfig.rootDir ?? "ea", "facts");
         const written = await writeFactManifests(manifests, factsDir);
         if (!options.json) {

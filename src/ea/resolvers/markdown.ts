@@ -257,6 +257,9 @@ export class MarkdownResolver implements EaResolver {
   readonly domains: EaResolver["domains"] = ["systems", "information"];
   readonly kinds = ["event-contract", "api-contract", "canonical-entity"];
 
+  /** Manifests from the last `discoverArtifacts` call (reusable for --write-facts). */
+  lastManifests: FactManifest[] = [];
+
   /**
    * Discover artifacts by parsing markdown files and extracting facts.
    *
@@ -305,6 +308,8 @@ export class MarkdownResolver implements EaResolver {
     ctx.logger.info(
       `Extracted facts from ${manifests.length} document(s), ${totalFacts} total fact(s)`,
     );
+
+    this.lastManifests = manifests;
 
     if (totalFacts === 0) return null;
 

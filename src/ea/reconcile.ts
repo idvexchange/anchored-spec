@@ -389,13 +389,21 @@ async function runDocConsistencyStep(
   const { extractFactsFromDocs } = await import("./resolvers/markdown.js");
   const { checkConsistency } = await import("./facts/consistency.js");
   const { reconcileFactsWithArtifacts } = await import("./facts/reconciler.js");
+  const { applySuppressions, collectSuppressions } = await import("./facts/suppression.js");
 
   const manifests = await extractFactsFromDocs(projectRoot);
   const consistency = checkConsistency(manifests);
   const reconciliation = reconcileFactsWithArtifacts(manifests, artifacts);
 
-  const errors = consistency.errors + reconciliation.findings.filter(f => f.severity === "error").length;
-  const warnings = consistency.warnings + reconciliation.findings.filter(f => f.severity === "warning").length;
+  // Apply suppressions from manifests
+  const suppressions = collectSuppressions(manifests);
+  applySuppressions(consistency.findings, suppressions);
+  applySuppressions(reconciliation.findings, suppressions);
+
+  const errors = consistency.findings.filter(f => f.severity === "error" && !f.suppressed).length +
+    reconciliation.findings.filter(f => f.severity === "error" && !f.suppressed).length;
+  const warnings = consistency.findings.filter(f => f.severity === "warning" && !f.suppressed).length +
+    reconciliation.findings.filter(f => f.severity === "warning" && !f.suppressed).length;
 
   return {
     step: {
@@ -511,6 +519,9 @@ export function renderReconcileOutput(report: ReconcileReport): string {
         for (const broken of report.traceReport.brokenTraceRefs.filter((b) => b.reason === "file not found").slice(0, 5)) {
           lines.push(`    → ${broken.artifactId}: traceRef "${broken.path}" — file not found`);
         }
+      }
+      if (step.step === "docs") {
+        lines.push(`    → Run "anchored-spec ea drift --domain docs" for detailed findings.`);
       }
     }
   }

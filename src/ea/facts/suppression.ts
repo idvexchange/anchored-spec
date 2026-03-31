@@ -64,11 +64,11 @@ export function applySuppressions(
  * Returns a map keyed by file path.
  */
 export function collectSuppressions(
-  manifests: { source: string; suppressions: SuppressionAnnotation[] }[],
+  manifests: { source: string; suppressions?: SuppressionAnnotation[] }[],
 ): Map<string, SuppressionAnnotation[]> {
   const map = new Map<string, SuppressionAnnotation[]>();
   for (const m of manifests) {
-    if (m.suppressions.length > 0) {
+    if (m.suppressions && m.suppressions.length > 0) {
       map.set(m.source, m.suppressions);
     }
   }

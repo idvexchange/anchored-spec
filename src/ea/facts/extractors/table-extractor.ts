@@ -7,6 +7,7 @@
 
 import type { Table, TableRow } from "mdast";
 import { toString } from "mdast-util-to-string";
+import { visit } from "unist-util-visit";
 import { createHash } from "node:crypto";
 import type {
   FactExtractor,
@@ -115,11 +116,8 @@ export const tableExtractor: FactExtractor = {
   extract(doc: MarkdownDocument): FactBlock[] {
     const blocks: FactBlock[] = [];
 
-    visit(doc.tree, (node) => {
-      if (node.type !== "table") return;
-      const table = node as Table;
-
-      const line = table.position?.start.line;
+    visit(doc.tree, "table", (node: Table) => {
+      const line = node.position?.start.line;
       if (line == null) return;
 
       const source: FactSource = { file: doc.filePath, line };
@@ -131,7 +129,7 @@ export const tableExtractor: FactExtractor = {
       if (annotation) {
         kind = ANNOTATION_KIND_MAP[annotation.annotation.kind];
       } else {
-        const headerRow = table.children[0];
+        const headerRow = node.children[0];
         if (!headerRow) return;
         const columns = headerRow.children.map((cell) => toString(cell));
         kind = classifyByColumns(columns);
@@ -139,25 +137,10 @@ export const tableExtractor: FactExtractor = {
 
       if (!kind) return;
 
-      const block = extractFromTable(table, kind, source);
+      const block = extractFromTable(node, kind, source);
       if (block) blocks.push(block);
     });
 
     return blocks;
   },
 };
-
-// ─── Minimal Tree Walker ──────────────────────────────────────────────
-
-function visit(node: unknown, fn: (node: { type: string; children?: unknown[]; position?: { start: { line: number } } }) => void): void {
-  if (!node || typeof node !== "object") return;
-  const n = node as { type?: string; children?: unknown[] };
-  if (typeof n.type === "string") {
-    fn(n as { type: string; children?: unknown[]; position?: { start: { line: number } } });
-  }
-  if (Array.isArray(n.children)) {
-    for (const child of n.children) {
-      visit(child, fn);
-    }
-  }
-}

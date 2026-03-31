@@ -48,6 +48,7 @@ export function buildFactManifest(
     extractedAt: new Date().toISOString(),
     blocks,
     totalFacts,
+    suppressions: doc.suppressions.length > 0 ? doc.suppressions : undefined,
   };
 }
 

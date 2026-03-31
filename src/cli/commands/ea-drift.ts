@@ -67,6 +67,13 @@ export function eaDriftCommand(): Command {
         // Extract facts from all docs
         const manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
 
+        if (manifests.length === 0) {
+          if (!options.json) {
+            console.log(chalk.yellow("⚠ No markdown files found — skipping consistency check."));
+          }
+          return;
+        }
+
         // Map from fact kind CLI name to FactKind
         const kindFilter = options.kind as string | undefined;
 
@@ -79,18 +86,8 @@ export function eaDriftCommand(): Command {
           reconciliationReport = reconcileFactsWithArtifacts(manifests, result.artifacts);
         }
 
-        // Apply suppressions from parsed documents
-        const { parseMarkdownFile } = await import("../../ea/facts/markdown-parser.js");
-        const docsWithSuppressions: { source: string; suppressions: import("../../ea/facts/types.js").SuppressionAnnotation[] }[] = [];
-        for (const m of manifests) {
-          try {
-            const doc = await parseMarkdownFile(resolve(cwd, m.source), m.source);
-            if (doc.suppressions.length > 0) {
-              docsWithSuppressions.push({ source: m.source, suppressions: doc.suppressions });
-            }
-          } catch { /* skip files that can't be re-parsed */ }
-        }
-        const suppressions = collectSuppressions(docsWithSuppressions);
+        // Apply suppressions from manifests (carried through from parsing)
+        const suppressions = collectSuppressions(manifests);
         applySuppressions(consistencyReport.findings, suppressions);
         if (reconciliationReport) {
           applySuppressions(reconciliationReport.findings, suppressions);
@@ -144,7 +141,9 @@ export function eaDriftCommand(): Command {
         if (!consistencyReport.passed || (reconciliationReport && !reconciliationReport.passed)) {
           throw new CliError("", 1);
         }
-        if (options.failOnWarning && consistencyReport.warnings > 0) {
+        const totalWarnings = consistencyReport.warnings +
+          (reconciliationReport?.findings.filter(f => f.severity === "warning" && !f.suppressed).length ?? 0);
+        if (options.failOnWarning && totalWarnings > 0) {
           throw new CliError("", 1);
         }
 
