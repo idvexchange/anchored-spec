@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { extname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { Command } from "commander";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
@@ -17,48 +17,15 @@ import { resolveEaConfig } from "../../ea/config.js";
 import type { EaArtifactBase } from "../../ea/types.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
+import { buildTraceLinks, buildTraceCheckReport, isUrl } from "../../ea/trace-analysis.js";
+import type { TraceLink, TraceCheckReport } from "../../ea/trace-analysis.js";
 import { CliError } from "../errors.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-/** Returns `true` when `ref` is an HTTP(S) URL. */
-function isUrl(ref: string): boolean {
-  return ref.startsWith("http://") || ref.startsWith("https://");
-}
-
 /** Heuristic: artifact IDs contain uppercase + hyphens and no `/` or `\`. */
 function looksLikeArtifactId(value: string): boolean {
   return /[A-Z]/.test(value) && value.includes("-") && !/[/\\]/.test(value);
-}
-
-/** Returns `true` for Markdown file extensions. */
-function isMarkdownFile(filePath: string): boolean {
-  const ext = extname(filePath).toLowerCase();
-  return ext === ".md" || ext === ".markdown";
-}
-
-// ─── Types (internal) ─────────────────────────────────────────────────
-
-interface TraceLink {
-  artifactId: string;
-  docPath: string;
-  role?: string;
-  artifactToDoc: boolean;
-  docToArtifact: boolean;
-  fileExists: boolean;
-  isUrl: boolean;
-}
-
-interface CheckReport {
-  brokenTraceRefs: { artifactId: string; path: string; reason: string }[];
-  oneWayArtifactToDoc: {
-    artifactId: string;
-    path: string;
-    severity: "warning" | "info";
-    reason: string;
-  }[];
-  oneWayDocToArtifact: { docPath: string; artifactId: string }[];
-  bidirectionalCount: number;
 }
 
 interface SummaryReport {
@@ -72,122 +39,13 @@ interface SummaryReport {
   oneWayPairs: number;
 }
 
-// ─── Core analysis helpers ────────────────────────────────────────────
-
-/**
- * Build the full set of {@link TraceLink}s from artifacts and scanned docs.
- */
-function buildTraceLinks(
-  artifacts: EaArtifactBase[],
-  docs: ScannedDoc[],
-  cwd: string,
-): TraceLink[] {
-  const artifactMap = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) artifactMap.set(a.id, a);
-
-  const linkKey = (aid: string, dpath: string) => `${aid}::${dpath}`;
-  const seen = new Map<string, TraceLink>();
-
-  // artifact → doc (traceRefs)
-  for (const a of artifacts) {
-    for (const ref of a.traceRefs ?? []) {
-      const url = isUrl(ref.path);
-      const key = linkKey(a.id, ref.path);
-      const existing = seen.get(key);
-      if (existing) {
-        existing.artifactToDoc = true;
-        existing.isUrl = url;
-      } else {
-        seen.set(key, {
-          artifactId: a.id,
-          docPath: ref.path,
-          role: ref.role,
-          artifactToDoc: true,
-          docToArtifact: false,
-          fileExists: url ? false : existsSync(resolve(cwd, ref.path)),
-          isUrl: url,
-        });
-      }
-    }
-  }
-
-  // doc → artifact (frontmatter ea-artifacts)
-  for (const doc of docs) {
-    for (const aid of doc.artifactIds) {
-      const key = linkKey(aid, doc.relativePath);
-      const existing = seen.get(key);
-      if (existing) {
-        existing.docToArtifact = true;
-      } else {
-        seen.set(key, {
-          artifactId: aid,
-          docPath: doc.relativePath,
-          role: undefined,
-          artifactToDoc: false,
-          docToArtifact: true,
-          fileExists: true, // doc was scanned, so it exists
-          isUrl: false,
-        });
-      }
-    }
-  }
-
-  return [...seen.values()];
-}
-
-function buildCheckReport(links: TraceLink[]): CheckReport {
-  const broken: CheckReport["brokenTraceRefs"] = [];
-  const oneWayA2D: CheckReport["oneWayArtifactToDoc"] = [];
-  const oneWayD2A: CheckReport["oneWayDocToArtifact"] = [];
-  let bidir = 0;
-
-  for (const l of links) {
-    if (l.artifactToDoc && l.isUrl) {
-      broken.push({ artifactId: l.artifactId, path: l.docPath, reason: "URL, skipped" });
-      continue;
-    }
-    if (l.artifactToDoc && !l.fileExists) {
-      broken.push({ artifactId: l.artifactId, path: l.docPath, reason: "file not found" });
-      continue;
-    }
-    if (l.artifactToDoc && l.docToArtifact) {
-      bidir++;
-    } else if (l.artifactToDoc && !l.docToArtifact) {
-      if (isMarkdownFile(l.docPath)) {
-        oneWayA2D.push({
-          artifactId: l.artifactId,
-          path: l.docPath,
-          severity: "warning",
-          reason: "missing frontmatter",
-        });
-      } else {
-        oneWayA2D.push({
-          artifactId: l.artifactId,
-          path: l.docPath,
-          severity: "info",
-          reason: "non-markdown file",
-        });
-      }
-    } else if (!l.artifactToDoc && l.docToArtifact) {
-      oneWayD2A.push({ docPath: l.docPath, artifactId: l.artifactId });
-    }
-  }
-
-  return {
-    brokenTraceRefs: broken,
-    oneWayArtifactToDoc: oneWayA2D,
-    oneWayDocToArtifact: oneWayD2A,
-    bidirectionalCount: bidir,
-  };
-}
-
 function buildSummaryReport(
   artifacts: EaArtifactBase[],
   docs: ScannedDoc[],
   totalScanned: number,
   links: TraceLink[],
 ): SummaryReport {
-  const check = buildCheckReport(links);
+  const check = buildTraceCheckReport(links);
   const artifactsWithRefs = new Set(
     artifacts.filter((a) => (a.traceRefs?.length ?? 0) > 0).map((a) => a.id),
   ).size;
@@ -373,7 +231,7 @@ function renderOrphans(
   return header + "\n" + lines.join("\n") + footer;
 }
 
-function renderCheck(report: CheckReport): string {
+function renderCheck(report: TraceCheckReport): string {
   const lines: string[] = [];
   lines.push(chalk.bold("Bidirectional Trace Integrity Check\n"));
 
@@ -499,7 +357,7 @@ export function eaTraceCommand(): Command {
 
       // ── --fix-broken ──────────────────────────────────────────────
       if (options.fixBroken) {
-        const report = buildCheckReport(links);
+        const report = buildTraceCheckReport(links);
         const toRemove = report.brokenTraceRefs.filter(
           (b) => b.reason === "file not found",
         );
@@ -578,7 +436,7 @@ export function eaTraceCommand(): Command {
 
       // ── --check ───────────────────────────────────────────────────
       if (options.check) {
-        const report = buildCheckReport(links);
+        const report = buildTraceCheckReport(links);
         if (options.json) {
           process.stdout.write(JSON.stringify(report, null, 2) + "\n");
         } else {

@@ -7,6 +7,9 @@
  * Design reference: plan.md §S3-A
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { EaArtifactBase } from "./types.js";
 import type { EaValidationResult } from "./validate.js";
 import { validateEaSchema, validateEaArtifacts } from "./validate.js";
@@ -17,6 +20,9 @@ import { runGenerators, listGenerators, getGenerator } from "./generators/index.
 import { silentLogger } from "./resolvers/index.js";
 import { EaRoot } from "./loader.js";
 import { resolveEaConfig } from "./config.js";
+import { buildTraceLinks, buildTraceCheckReport } from "./trace-analysis.js";
+import type { TraceCheckReport } from "./trace-analysis.js";
+import { scanDocs } from "./docs/scanner.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -39,6 +45,12 @@ export interface ReconcileOptions {
   skipGenerate?: boolean;
   /** Skip drift step. */
   skipDrift?: boolean;
+  /** Include trace integrity check as a step. */
+  includeTrace?: boolean;
+  /** Skip trace step (only relevant if includeTrace is true). */
+  skipTrace?: boolean;
+  /** Doc directories to scan for trace checking. */
+  docDirs?: string[];
   /** Stop at first failing step. */
   failFast?: boolean;
   /** Filter to specific domains. */
@@ -46,7 +58,7 @@ export interface ReconcileOptions {
 }
 
 export interface ReconcileStepResult {
-  step: "generate" | "validate" | "drift";
+  step: "generate" | "validate" | "drift" | "trace";
   passed: boolean;
   errors: number;
   warnings: number;
@@ -57,16 +69,19 @@ export interface ReconcileReport {
   passed: boolean;
   generatedAt: string;
   steps: ReconcileStepResult[];
+  vcsWarnings: string[];
   summary: {
     totalErrors: number;
     totalWarnings: number;
     generationDrifts: number;
     validationErrors: number;
     driftFindings: number;
+    traceIssues: number;
   };
   generationReport?: GenerationReport;
   validationResult?: EaValidationResult;
   driftReport?: EaDriftReport;
+  traceReport?: TraceCheckReport;
 }
 
 // ─── Pipeline ───────────────────────────────────────────────────────────────────
@@ -88,6 +103,7 @@ export async function reconcileEaProject(
   const steps: ReconcileStepResult[] = [];
   let generationReport: GenerationReport | undefined;
   let driftReport: EaDriftReport | undefined;
+  let traceReport: TraceCheckReport | undefined;
 
   // Load artifacts
   const loadResult = await root.loadArtifacts();
@@ -108,7 +124,7 @@ export async function reconcileEaProject(
     generationReport = genResult.report;
 
     if (options.failFast && !genResult.step.passed) {
-      return buildReport(steps, generationReport, undefined, driftReport);
+      return buildReport(steps, generationReport, undefined, driftReport, traceReport);
     }
   }
 
@@ -118,7 +134,7 @@ export async function reconcileEaProject(
   const validationResult = valResult.result;
 
   if (options.failFast && !valResult.step.passed) {
-    return buildReport(steps, generationReport, validationResult, driftReport);
+    return buildReport(steps, generationReport, validationResult, driftReport, traceReport);
   }
 
   // ── Step 3: Drift ─────────────────────────────────────────────────────
@@ -126,9 +142,28 @@ export async function reconcileEaProject(
     const driftResult = runDriftStep(artifacts, options);
     steps.push(driftResult.step);
     driftReport = driftResult.report;
+
+    if (options.failFast && !driftResult.step.passed) {
+      return buildReport(steps, generationReport, validationResult, driftReport, traceReport);
+    }
   }
 
-  return buildReport(steps, generationReport, validationResult, driftReport);
+  // ── Step 4: Trace (opt-in) ────────────────────────────────────────────
+  if (options.includeTrace && !options.skipTrace) {
+    const traceResult = runTraceStep(artifacts, projectRoot, options);
+    steps.push(traceResult.step);
+    traceReport = traceResult.report;
+  }
+
+  // ── VCS warnings ─────────────────────────────────────────────────────
+  const vcsWarnings: string[] = [];
+  if (!options.checkOnly) {
+    const generatedDir = options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated";
+    const warning = checkGeneratedDirInGitignore(projectRoot, generatedDir);
+    if (warning) vcsWarnings.push(warning);
+  }
+
+  return buildReport(steps, generationReport, validationResult, driftReport, traceReport, vcsWarnings);
 }
 
 // ─── Step Implementations ───────────────────────────────────────────────────────
@@ -269,6 +304,81 @@ function runDriftStep(
   };
 }
 
+// ─── Step 4: Trace ──────────────────────────────────────────────────────────────
+
+interface TraceStepOutput {
+  step: ReconcileStepResult;
+  report: TraceCheckReport;
+}
+
+function runTraceStep(
+  artifacts: EaArtifactBase[],
+  projectRoot: string,
+  options: ReconcileOptions,
+): TraceStepOutput {
+  const docDirs = options.docDirs ?? ["docs", "specs", "."];
+  const scanResult = scanDocs(projectRoot, { dirs: docDirs });
+
+  const links = buildTraceLinks(artifacts, scanResult.docs, projectRoot);
+  const report = buildTraceCheckReport(links);
+
+  const brokenFiles = report.brokenTraceRefs.filter(
+    (b) => b.reason === "file not found",
+  );
+  const actionableOneWay = report.oneWayArtifactToDoc.filter(
+    (o) => o.severity === "warning",
+  );
+
+  const errors = brokenFiles.length;
+  const warnings = actionableOneWay.length + report.oneWayDocToArtifact.length;
+  const failOnWarning = options.failOn === "warning";
+  const passed = errors === 0 && (!failOnWarning || warnings === 0);
+
+  return {
+    step: {
+      step: "trace",
+      passed,
+      errors,
+      warnings,
+      details: passed
+        ? `${report.bidirectionalCount} bidirectional, ${warnings} one-way warnings — ${errors} broken`
+        : `${errors} broken traceRefs, ${warnings} one-way warnings`,
+    },
+    report,
+  };
+}
+
+// ─── VCS Warning ────────────────────────────────────────────────────────────────
+
+/**
+ * Check whether the generated directory is covered by `.gitignore`.
+ * Returns a warning message if not covered, or `undefined` if OK.
+ */
+function checkGeneratedDirInGitignore(
+  projectRoot: string,
+  generatedDir: string,
+): string | undefined {
+  const gitDir = join(projectRoot, ".git");
+  if (!existsSync(gitDir)) return undefined; // not a git repo
+
+  const gitignorePath = join(projectRoot, ".gitignore");
+  if (!existsSync(gitignorePath)) {
+    return `Generated files in "${generatedDir}/" are not in .gitignore. Run "anchored-spec init" or add manually.`;
+  }
+
+  const content = readFileSync(gitignorePath, "utf-8");
+  // Check if the generated dir (with or without trailing slash) is listed
+  if (
+    content.includes(`${generatedDir}/`) ||
+    content.includes(`${generatedDir}\n`) ||
+    content.includes(`/${generatedDir}`)
+  ) {
+    return undefined;
+  }
+
+  return `Generated files in "${generatedDir}/" are not in .gitignore. Run "anchored-spec init" or add manually.`;
+}
+
 // ─── Report Builder ─────────────────────────────────────────────────────────────
 
 function buildReport(
@@ -276,6 +386,8 @@ function buildReport(
   generationReport?: GenerationReport,
   validationResult?: EaValidationResult,
   driftReport?: EaDriftReport,
+  traceReport?: TraceCheckReport,
+  vcsWarnings: string[] = [],
 ): ReconcileReport {
   const totalErrors = steps.reduce((sum, s) => sum + s.errors, 0);
   const totalWarnings = steps.reduce((sum, s) => sum + s.warnings, 0);
@@ -284,16 +396,23 @@ function buildReport(
     passed: steps.every((s) => s.passed),
     generatedAt: new Date().toISOString(),
     steps,
+    vcsWarnings,
     summary: {
       totalErrors,
       totalWarnings,
       generationDrifts: generationReport?.drifts.length ?? 0,
       validationErrors: validationResult?.errors.length ?? 0,
       driftFindings: driftReport?.findings.length ?? 0,
+      traceIssues: traceReport
+        ? traceReport.brokenTraceRefs.length +
+          traceReport.oneWayArtifactToDoc.length +
+          traceReport.oneWayDocToArtifact.length
+        : 0,
     },
     generationReport,
     validationResult,
     driftReport,
+    traceReport,
   };
 }
 
@@ -325,10 +444,24 @@ export function renderReconcileOutput(report: ReconcileReport): string {
           lines.push(`    → ${finding.artifactId}: ${finding.message} (${finding.rule})`);
         }
       }
+      if (step.step === "trace" && report.traceReport) {
+        for (const broken of report.traceReport.brokenTraceRefs.filter((b) => b.reason === "file not found").slice(0, 5)) {
+          lines.push(`    → ${broken.artifactId}: traceRef "${broken.path}" — file not found`);
+        }
+      }
     }
   }
 
   lines.push("");
+
+  // VCS warnings
+  if (report.vcsWarnings.length > 0) {
+    for (const w of report.vcsWarnings) {
+      lines.push(`  ⚠ ${w}`);
+    }
+    lines.push("");
+  }
+
   const icon = report.passed ? "✓" : "✗";
   const status = report.passed ? "PASSED" : "FAILED";
   lines.push(`${icon} Reconcile ${status} (${report.summary.totalErrors} errors, ${report.summary.totalWarnings} warnings)`);
