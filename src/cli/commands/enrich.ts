@@ -17,6 +17,9 @@ import type { EaDomain } from "../../ea/index.js";
 import { EA_DOMAINS } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
+type MergeStrategy = "append" | "replace" | "upsert";
+const VALID_STRATEGIES = new Set<MergeStrategy>(["append", "replace", "upsert"]);
+
 export function enrichCommand(): Command {
   return new Command("enrich")
     .description("Merge fields from a JSON file into an existing EA artifact")
@@ -24,9 +27,21 @@ export function enrichCommand(): Command {
     .requiredOption("--from <path>", "Path to JSON file with fields to merge")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--dry-run", "Show merged result without writing")
+    .option(
+      "--merge-strategy <strategy>",
+      "Merge strategy for arrays: append (default), replace, upsert",
+      "append",
+    )
     .action(async (artifactId: string, options) => {
       const cwd = process.cwd();
       const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
+      const strategy = options.mergeStrategy as MergeStrategy;
+      if (!VALID_STRATEGIES.has(strategy)) {
+        throw new CliError(
+          `Invalid merge strategy "${strategy}". Valid: ${[...VALID_STRATEGIES].join(", ")}`,
+          2,
+        );
+      }
 
       // Find the artifact file
       const found = findArtifactFile(cwd, eaConfig.domains, artifactId);
@@ -79,12 +94,14 @@ export function enrichCommand(): Command {
           if (key === "relations") {
             raw.relations = mergeRelations(
               (raw.relations as unknown[]) ?? [],
-              value as unknown[]
+              value as unknown[],
+              strategy,
             );
           } else if (key === "anchors") {
             raw.anchors = deepMerge(
               (raw.anchors as Record<string, unknown>) ?? {},
-              value as Record<string, unknown>
+              value as Record<string, unknown>,
+              strategy,
             );
           } else if (metadataFields.has(key)) {
             // Map 'title' to 'name' in metadata envelope
@@ -106,12 +123,14 @@ export function enrichCommand(): Command {
           if (key === "relations") {
             raw.relations = mergeRelations(
               (raw.relations as unknown[]) ?? [],
-              value as unknown[]
+              value as unknown[],
+              strategy,
             );
           } else if (key === "anchors") {
             raw.anchors = deepMerge(
               (raw.anchors as Record<string, unknown>) ?? {},
-              value as Record<string, unknown>
+              value as Record<string, unknown>,
+              strategy,
             );
           } else {
             raw[key] = value;
@@ -164,8 +183,43 @@ function findArtifactFile(
   return null;
 }
 
-function mergeRelations(existing: unknown[], incoming: unknown[]): unknown[] {
+function mergeRelations(
+  existing: unknown[],
+  incoming: unknown[],
+  strategy: MergeStrategy = "append",
+): unknown[] {
   if (!Array.isArray(incoming)) return existing;
+
+  if (strategy === "replace") {
+    return [...incoming];
+  }
+
+  if (strategy === "upsert") {
+    const result = [...existing];
+    const indexMap = new Map<string, number>();
+    for (let i = 0; i < result.length; i++) {
+      const r = result[i] as Record<string, unknown>;
+      if (r && typeof r.type === "string" && typeof r.target === "string") {
+        indexMap.set(`${r.type}:${r.target}`, i);
+      }
+    }
+    for (const r of incoming) {
+      const rel = r as Record<string, unknown>;
+      if (rel && typeof rel.type === "string" && typeof rel.target === "string") {
+        const key = `${rel.type}:${rel.target}`;
+        const idx = indexMap.get(key);
+        if (idx !== undefined) {
+          result[idx] = r; // update in place
+        } else {
+          indexMap.set(key, result.length);
+          result.push(r);
+        }
+      }
+    }
+    return result;
+  }
+
+  // Default: append (deduplicate by type:target)
   const seen = new Set(
     existing
       .filter((r): r is Record<string, unknown> => !!r && typeof (r as Record<string, unknown>).type === "string" && typeof (r as Record<string, unknown>).target === "string")
@@ -187,27 +241,51 @@ function mergeRelations(existing: unknown[], incoming: unknown[]): unknown[] {
 
 function deepMerge(
   target: Record<string, unknown>,
-  source: Record<string, unknown>
+  source: Record<string, unknown>,
+  strategy: MergeStrategy = "append",
 ): Record<string, unknown> {
+  if (strategy === "replace") {
+    return { ...source };
+  }
+
   const result = { ...target };
   for (const [key, value] of Object.entries(source)) {
     if (
       Array.isArray(value) &&
       Array.isArray(result[key])
     ) {
-      // Merge arrays — deduplicate strings
-      const existing = new Set((result[key] as unknown[]).map(String));
-      result[key] = [
-        ...(result[key] as unknown[]),
-        ...value.filter((v) => !existing.has(String(v))),
-      ];
+      if (strategy === "upsert") {
+        // For upsert on generic arrays, deduplicate by string coercion but allow updates
+        const existing = new Map<string, number>();
+        const arr = [...(result[key] as unknown[])];
+        for (let i = 0; i < arr.length; i++) existing.set(String(arr[i]), i);
+        for (const v of value) {
+          const k = String(v);
+          const idx = existing.get(k);
+          if (idx !== undefined) {
+            arr[idx] = v;
+          } else {
+            existing.set(k, arr.length);
+            arr.push(v);
+          }
+        }
+        result[key] = arr;
+      } else {
+        // append: merge arrays — deduplicate strings
+        const existing = new Set((result[key] as unknown[]).map(String));
+        result[key] = [
+          ...(result[key] as unknown[]),
+          ...value.filter((v) => !existing.has(String(v))),
+        ];
+      }
     } else if (
       value && typeof value === "object" && !Array.isArray(value) &&
       result[key] && typeof result[key] === "object" && !Array.isArray(result[key])
     ) {
       result[key] = deepMerge(
         result[key] as Record<string, unknown>,
-        value as Record<string, unknown>
+        value as Record<string, unknown>,
+        strategy,
       );
     } else {
       result[key] = value;

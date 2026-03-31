@@ -862,3 +862,239 @@ traceRefs:
     expect(json.artifactsModified).toBe(0);
   });
 });
+
+// ─── batch-update tests ──────────────────────────────────────────────────────
+
+describe("CLI: batch-update", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+
+    // Create two services with observed confidence
+    runCLI(
+      'ea create service --title "Auth Service"',
+      tempDir,
+    );
+    runCLI(
+      'ea create service --title "Billing Service"',
+      tempDir,
+    );
+    // Create one application (different kind)
+    runCLI(
+      'ea create application --title "Main App"',
+      tempDir,
+    );
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("dry-run reports changes without modifying files", () => {
+    const result = runCLI(
+      "batch-update --filter confidence=declared --set confidence=approved --dry-run --json",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.dryRun).toBe(true);
+    expect(json.totalUpdated).toBeGreaterThanOrEqual(2);
+
+    // Files should still say declared
+    const content = readFileSync(
+      join(tempDir, "ea", "systems", "SVC-auth-service.yaml"),
+      "utf-8",
+    );
+    expect(content).toContain("declared");
+  });
+
+  it("updates confidence on matching artifacts", () => {
+    const result = runCLI(
+      "batch-update --filter confidence=declared,kind=service --set confidence=approved --json",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.totalUpdated).toBe(2);
+    expect(json.updated.every((u: { changes: { newValue: string }[] }) =>
+      u.changes.some((c) => c.newValue === "approved"),
+    )).toBe(true);
+
+    // Verify file was actually changed
+    const content = readFileSync(
+      join(tempDir, "ea", "systems", "SVC-auth-service.yaml"),
+      "utf-8",
+    );
+    expect(content).toContain("approved");
+    expect(content).not.toMatch(/confidence:\s+declared/);
+  });
+
+  it("domain filter limits scope", () => {
+    const result = runCLI(
+      "batch-update --filter confidence=declared --set confidence=approved --domain systems --json",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    // Services and applications both go to systems domain, so all 3 matched
+    expect(json.totalUpdated).toBe(3);
+  });
+
+  it("rejects invalid filter field", () => {
+    const result = runCLI(
+      "batch-update --filter foo=bar --set confidence=declared",
+      tempDir,
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout).toContain("Cannot filter");
+  });
+
+  it("rejects protected field in --set", () => {
+    const result = runCLI(
+      "batch-update --filter confidence=declared --set id=new-id",
+      tempDir,
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout).toContain("Cannot set protected field");
+  });
+
+  it("no-op when no artifacts need changes", () => {
+    // First promote
+    runCLI(
+      "batch-update --filter confidence=declared --set confidence=approved",
+      tempDir,
+    );
+    // Second run - nothing to change
+    const result = runCLI(
+      "batch-update --filter confidence=approved --set confidence=approved --json",
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+    const json = JSON.parse(result.stdout);
+    expect(json.totalUpdated).toBe(0);
+  });
+});
+
+// ─── enrich --merge-strategy tests ───────────────────────────────────────────
+
+describe("CLI: enrich --merge-strategy", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = createTempDir();
+    runCLI("ea init", tempDir);
+    runCLI(
+      'ea create service --title "Merge Service"',
+      tempDir,
+    );
+
+    // Add initial relations via enrich
+    const patchPath = join(tempDir, "initial-patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({
+        relations: [
+          { type: "consumes", target: "SVC-other" },
+          { type: "owns", target: "SVC-child" },
+        ],
+      }),
+    );
+    runCLI(`enrich SVC-merge-service --from ${patchPath}`, tempDir);
+  });
+
+  afterEach(() => {
+    cleanDir(tempDir);
+  });
+
+  it("append (default) adds new, skips duplicates", () => {
+    const patchPath = join(tempDir, "append-patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({
+        relations: [
+          { type: "consumes", target: "SVC-other" }, // duplicate
+          { type: "produces", target: "SVC-new" }, // new
+        ],
+      }),
+    );
+
+    const result = runCLI(
+      `enrich SVC-merge-service --from ${patchPath} --merge-strategy append --dry-run`,
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    // Should have 3 relations (2 original + 1 new, duplicate skipped)
+    expect(result.stdout).toContain("consumes");
+    expect(result.stdout).toContain("produces");
+    // Count relations entries in dry-run output
+    const matches = result.stdout.match(/type:/g);
+    expect(matches).toHaveLength(3);
+  });
+
+  it("replace overwrites entire relations array", () => {
+    const patchPath = join(tempDir, "replace-patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({
+        relations: [
+          { type: "produces", target: "SVC-replaced" },
+        ],
+      }),
+    );
+
+    const result = runCLI(
+      `enrich SVC-merge-service --from ${patchPath} --merge-strategy replace --dry-run`,
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    // Should only have the replacement relation
+    const matches = result.stdout.match(/type:/g);
+    expect(matches).toHaveLength(1);
+    expect(result.stdout).toContain("SVC-replaced");
+    expect(result.stdout).not.toContain("SVC-child");
+  });
+
+  it("upsert updates matched entries and adds new ones", () => {
+    const patchPath = join(tempDir, "upsert-patch.json");
+    writeFileSync(
+      patchPath,
+      JSON.stringify({
+        relations: [
+          { type: "consumes", target: "SVC-other", description: "updated" },
+          { type: "produces", target: "SVC-brand-new" },
+        ],
+      }),
+    );
+
+    const result = runCLI(
+      `enrich SVC-merge-service --from ${patchPath} --merge-strategy upsert --dry-run`,
+      tempDir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    // Should have 3 relations: owns (kept), consumes (updated), produces (new)
+    const matches = result.stdout.match(/type:/g);
+    expect(matches).toHaveLength(3);
+    expect(result.stdout).toContain("SVC-brand-new");
+    expect(result.stdout).toContain("updated");
+  });
+
+  it("rejects invalid strategy", () => {
+    const patchPath = join(tempDir, "bad-patch.json");
+    writeFileSync(patchPath, JSON.stringify({ relations: [] }));
+
+    const result = runCLI(
+      `enrich SVC-merge-service --from ${patchPath} --merge-strategy invalid`,
+      tempDir,
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stdout).toContain("Invalid merge strategy");
+  });
+});
