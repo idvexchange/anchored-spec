@@ -83,3 +83,6 @@ export {
   legacyRelationToSpecEntry,
   extractRelationsFromSpec,
 } from "./relation-mapping.js";
+
+// Bridge
+export { backstageToArtifact, artifactToBackstage } from "./bridge.js";
