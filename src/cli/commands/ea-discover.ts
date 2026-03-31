@@ -25,6 +25,7 @@ import {
   getQueryPacks,
   scanDocs,
   discoverFromDocs,
+  artifactToBackstage,
 } from "../../ea/index.js";
 import { MarkdownResolver } from "../../ea/resolvers/markdown.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
@@ -144,6 +145,9 @@ export function eaDiscoverCommand(): Command {
       const logger = process.env.DEBUG ? consoleLogger : silentLogger;
       const resolverName = (options.resolver as string | undefined);
 
+      // Convert legacy artifacts to BackstageEntity for resolver context
+      const entities = result.artifacts.map(artifactToBackstage);
+
       // Instantiate resolver(s) and run discovery
       const drafts: EaArtifactDraft[] = [];
       const resolverNames: string[] = [];
@@ -158,7 +162,7 @@ export function eaDiscoverCommand(): Command {
 
           const discovered = await resolver.discoverArtifacts({
             projectRoot: cwd,
-            artifacts: result.artifacts,
+            artifacts: entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -183,7 +187,7 @@ export function eaDiscoverCommand(): Command {
 
           const discovered = resolver.discoverArtifacts?.({
             projectRoot: cwd,
-            artifacts: result.artifacts,
+            artifacts: entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -205,7 +209,7 @@ export function eaDiscoverCommand(): Command {
           resolverNames.push(lr.name);
           const ctx = {
             projectRoot: cwd,
-            artifacts: result.artifacts,
+            artifacts: entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -228,7 +232,7 @@ export function eaDiscoverCommand(): Command {
 
           const discovered = resolver.discoverArtifacts?.({
             projectRoot: cwd,
-            artifacts: result.artifacts,
+            artifacts: entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -247,7 +251,7 @@ export function eaDiscoverCommand(): Command {
             resolverNames.push(tsResolver.name);
             const discovered = await tsResolver.discoverArtifacts({
               projectRoot: cwd,
-              artifacts: result.artifacts,
+              artifacts: entities,
               cache,
               logger,
               source: options.source as string | undefined,

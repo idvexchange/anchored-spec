@@ -161,6 +161,7 @@ export {
   getEntitySource,
   getEntityTraceRefs,
   getEntityExpectAnchors,
+  getEntityAnchors,
   getEntitySuppressions,
   getEntityLegacyId,
   getLabel,

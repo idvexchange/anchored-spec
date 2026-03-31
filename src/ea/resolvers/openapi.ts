@@ -9,7 +9,8 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityAnchors } from "../backstage/accessors.js";
 import type { EaArtifactDraft } from "../discovery.js";
 import type {
   EaResolver,
@@ -431,10 +432,10 @@ export class OpenApiResolver implements EaResolver {
    * "METHOD /path" (e.g., "GET /users", "POST /orders").
    */
   resolveAnchors(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaResolverContext,
   ): EaAnchorResolution[] | null {
-    const apiAnchors = artifact.anchors?.apis;
+    const apiAnchors = getEntityAnchors(entity)?.apis;
     if (!apiAnchors || apiAnchors.length === 0) return null;
 
     const specs = this.loadSpecs(ctx);

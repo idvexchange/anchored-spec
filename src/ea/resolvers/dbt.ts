@@ -9,7 +9,8 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityAnchors } from "../backstage/accessors.js";
 import type { EaArtifactDraft } from "../discovery.js";
 import type {
   EaResolver,
@@ -194,10 +195,10 @@ export class DbtResolver implements EaResolver {
    * Anchors in `other.dbt` category are matched against model/test/source names.
    */
   resolveAnchors(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaResolverContext,
   ): EaAnchorResolution[] | null {
-    const dbtAnchors = artifact.anchors?.other?.dbt;
+    const dbtAnchors = getEntityAnchors(entity)?.other?.dbt;
     if (!dbtAnchors || dbtAnchors.length === 0) return null;
 
     const manifest = this.loadManifest(ctx);

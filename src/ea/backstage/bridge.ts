@@ -87,8 +87,11 @@ export function backstageToArtifact(entity: BackstageEntity): EaArtifactBase {
   // Build relations from spec fields
   const relations = buildRelationsFromSpec(spec, entity.kind);
 
-  // Build anchors from expect-anchors annotation
-  const anchors = buildAnchorsFromAnnotations(annotations);
+  // Build anchors: prefer spec.anchors (full fidelity), fall back to expect-anchors annotation
+  const specAnchors = spec?.anchors;
+  const anchors = (specAnchors && typeof specAnchors === "object" && !Array.isArray(specAnchors))
+    ? specAnchors as EaAnchors
+    : buildAnchorsFromAnnotations(annotations);
 
   // Build trace refs from spec.traceRefs (full fidelity) or source annotation (single ref)
   const traceRefs = buildTraceRefs(annotations, spec);
@@ -242,6 +245,11 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
       path: r.path,
       ...(r.role && { role: r.role }),
     }));
+  }
+
+  // Preserve structured anchors in spec.anchors (full fidelity)
+  if (artifact.anchors) {
+    spec.anchors = artifact.anchors;
   }
 
   return {
@@ -486,7 +494,7 @@ function extractExtensions(spec: Record<string, unknown>, entityKind: string): R
   const standardFields = new Set([
     "type", "lifecycle", "owner", "system",
     "subcomponentOf", "profile", "parent", "children", "members",
-    "domain", "traceRefs", "status",
+    "domain", "traceRefs", "status", "anchors",
   ]);
 
   // Also exclude all known relation spec fields

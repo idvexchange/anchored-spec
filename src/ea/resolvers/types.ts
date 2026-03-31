@@ -8,7 +8,8 @@
  * Design reference: docs/ea-drift-resolvers-generators.md
  */
 
-import type { EaArtifactBase, EaDomain } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import type { EaDomain } from "../types.js";
 import type { ResolverCache } from "../cache.js";
 
 // ─── Resolver Context ───────────────────────────────────────────────────────────
@@ -17,8 +18,8 @@ import type { ResolverCache } from "../cache.js";
 export interface EaResolverContext {
   /** Absolute path to project root. */
   projectRoot: string;
-  /** All loaded EA artifacts. */
-  artifacts: EaArtifactBase[];
+  /** All loaded EA entities. */
+  artifacts: BackstageEntity[];
   /** Resolver cache for storing observed state across runs. */
   cache: ResolverCache;
   /** Resolver logger. */
@@ -120,7 +121,7 @@ export interface EaResolver {
    * Returns null to defer to the next resolver in the chain.
    */
   resolveAnchors?(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaResolverContext,
   ): EaAnchorResolution[] | null;
 

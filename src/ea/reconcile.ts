@@ -11,6 +11,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { EaArtifactBase } from "./types.js";
+import { artifactToBackstage } from "./backstage/bridge.js";
 import type { EaValidationResult } from "./validate.js";
 import { validateEaSchema, validateEaArtifacts } from "./validate.js";
 import type { EaDriftReport } from "./drift.js";
@@ -347,7 +348,7 @@ function runTraceStep(
     }
   } catch { /* ignore config read errors */ }
 
-  const links = buildTraceLinks(artifacts, docs, projectRoot);
+  const links = buildTraceLinks(artifacts.map(artifactToBackstage), docs, projectRoot);
   const report = buildTraceCheckReport(links);
 
   const brokenFiles = report.brokenTraceRefs.filter(
@@ -393,7 +394,7 @@ async function runDocConsistencyStep(
 
   const manifests = await extractFactsFromDocs(projectRoot);
   const consistency = checkConsistency(manifests);
-  const reconciliation = reconcileFactsWithArtifacts(manifests, artifacts);
+  const reconciliation = reconcileFactsWithArtifacts(manifests, artifacts.map(artifactToBackstage));
 
   // Apply suppressions from manifests
   const suppressions = collectSuppressions(manifests);

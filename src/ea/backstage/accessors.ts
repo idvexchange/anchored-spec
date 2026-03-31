@@ -16,6 +16,7 @@ import { ANNOTATION_KEYS, formatEntityRef } from "./types.js";
 import { mapBackstageKind } from "./kind-mapping.js";
 import type { KindMappingEntry } from "./kind-mapping.js";
 import { extractRelationsFromSpec } from "./relation-mapping.js";
+import type { EaAnchors } from "../types.js";
 
 // ─── Identity ───────────────────────────────────────────────────────────────────
 
@@ -252,6 +253,18 @@ export function getEntityExpectAnchors(entity: BackstageEntity): string[] {
   const value = getAnnotation(entity, ANNOTATION_KEYS.EXPECT_ANCHORS);
   if (!value) return [];
   return value.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Get the structured anchors from spec.anchors.
+ * Returns the full EaAnchors object if present, or undefined.
+ */
+export function getEntityAnchors(entity: BackstageEntity): EaAnchors | undefined {
+  const anchors = entity.spec?.anchors;
+  if (anchors && typeof anchors === "object" && !Array.isArray(anchors)) {
+    return anchors as EaAnchors;
+  }
+  return undefined;
 }
 
 /**

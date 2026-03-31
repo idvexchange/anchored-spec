@@ -15,6 +15,7 @@ import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveEaConfig } from "../../ea/config.js";
 import type { EaArtifactBase } from "../../ea/types.js";
+import { artifactToBackstage } from "../../ea/backstage/bridge.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { buildTraceLinks, buildTraceCheckReport, isUrl } from "../../ea/trace-analysis.js";
@@ -381,7 +382,33 @@ export function eaTraceCommand(): Command {
       const artifactMap = new Map<string, EaArtifactBase>();
       for (const a of artifacts) artifactMap.set(a.id, a);
 
-      const links = buildTraceLinks(artifacts, docs, cwd);
+      const entities = artifacts.map(artifactToBackstage);
+
+      // Build legacy ID → entity ref map for normalizing doc artifact IDs
+      const { getEntityId: _getEntityId } = await import("../../ea/backstage/accessors.js");
+      const { ANNOTATION_KEYS: _KEYS } = await import("../../ea/backstage/types.js");
+      const legacyIdToEntityRef = new Map<string, string>();
+      const entityRefToLegacyId = new Map<string, string>();
+      for (const e of entities) {
+        const ref = _getEntityId(e);
+        const legacyId = e.metadata.annotations?.[_KEYS.LEGACY_ID] ?? ref;
+        legacyIdToEntityRef.set(legacyId, ref);
+        entityRefToLegacyId.set(ref, legacyId);
+      }
+
+      // Normalize doc artifactIds from legacy IDs to entity refs so trace links match
+      const normalizedDocs = docs.map((d) => ({
+        ...d,
+        artifactIds: d.artifactIds.map((aid) => legacyIdToEntityRef.get(aid) ?? aid),
+      }));
+
+      const rawLinks = buildTraceLinks(entities, normalizedDocs, cwd);
+
+      // Remap trace link artifact IDs back to legacy IDs for downstream CLI logic
+      const links = rawLinks.map((l) => ({
+        ...l,
+        artifactId: entityRefToLegacyId.get(l.artifactId) ?? l.artifactId,
+      }));
 
       // ── --fix-broken ──────────────────────────────────────────────
       if (options.fixBroken) {

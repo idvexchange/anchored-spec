@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
 import {
   parseMarkdown,
   buildFactManifest,
@@ -41,21 +41,26 @@ import type {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function makeArtifact(
-  overrides: Partial<EaArtifactBase> & { id: string; kind: string },
-): EaArtifactBase {
+function makeEntity(overrides: {
+  name: string;
+  kind?: string;
+  specType?: string;
+  anchors?: Record<string, unknown>;
+}): BackstageEntity {
   return {
-    apiVersion: "anchored-spec/ea/v1",
-    title: overrides.title ?? overrides.id,
-    summary: "Test artifact",
-    owners: ["team-test"],
-    tags: [],
-    confidence: "declared",
-    status: "active",
-    schemaVersion: "1.0.0",
-    relations: [],
-    ...overrides,
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: overrides.kind ?? "Component",
+    metadata: {
+      name: overrides.name,
+      annotations: { "anchored-spec.dev/confidence": "declared" },
+    },
+    spec: {
+      type: overrides.specType ?? "service",
+      owner: "team-test",
+      lifecycle: "production",
+      ...(overrides.anchors && { anchors: overrides.anchors }),
+    },
+  };
 }
 
 function makeManifest(
@@ -938,13 +943,12 @@ describe("reconcileFactsWithArtifacts", () => {
         { annotation, source: { file: "events.md", line: 1 } },
       ),
     ]);
-    const artifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-identity",
       anchors: { events: ["dossier.success"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     expect(report.findings).toHaveLength(0);
     expect(report.passed).toBe(true);
   });
@@ -959,13 +963,12 @@ describe("reconcileFactsWithArtifacts", () => {
         }),
       ]),
     ]);
-    const artifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-identity",
       anchors: { events: ["dossier.success", "dossier.unknown"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     const missing = report.findings.find(
       (f) => f.rule === "ea:docs/artifact-missing-fact",
     );
@@ -989,13 +992,12 @@ describe("reconcileFactsWithArtifacts", () => {
         { annotation, source: { file: "events.md", line: 1 } },
       ),
     ]);
-    const artifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-identity",
       anchors: { events: ["dossier.success"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     const orphan = report.findings.find(
       (f) => f.rule === "ea:docs/fact-missing-artifact",
     );
@@ -1019,13 +1021,12 @@ describe("reconcileFactsWithArtifacts", () => {
         { annotation, source: { file: "events.md", line: 1 } },
       ),
     ]);
-    const artifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-identity",
       anchors: { events: ["dossier.successful"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     const mismatch = report.findings.find(
       (f) => f.rule === "ea:docs/artifact-mismatch",
     );

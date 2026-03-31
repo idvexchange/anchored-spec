@@ -5,7 +5,8 @@
  * EA artifact drafts by grouping, deduplicating, and inferring relations.
  */
 
-import type { EaArtifactBase } from "../../types.js";
+import type { BackstageEntity } from "../../backstage/types.js";
+import { getEntityId, getEntityTitle } from "../../backstage/accessors.js";
 import type { EaArtifactDraft } from "../../discovery.js";
 import type { QueryMatch } from "./types.js";
 
@@ -245,11 +246,11 @@ function aggregateExternalCalls(matches: QueryMatch[]): EaArtifactDraft[] {
 
 function deduplicateAgainstExisting(
   drafts: EaArtifactDraft[],
-  existing: EaArtifactBase[],
+  existing: BackstageEntity[],
 ): EaArtifactDraft[] {
-  const existingIds = new Set(existing.map((a) => a.id));
+  const existingIds = new Set(existing.map((a) => getEntityId(a)));
   const existingTitles = new Set(
-    existing.map((a) => a.title.toLowerCase()),
+    existing.map((a) => getEntityTitle(a).toLowerCase()),
   );
 
   return drafts.filter((draft) => {
@@ -273,7 +274,7 @@ function deduplicateAgainstExisting(
  */
 export function aggregateMatches(
   matches: QueryMatch[],
-  existingArtifacts: EaArtifactBase[],
+  existingArtifacts: BackstageEntity[],
 ): EaArtifactDraft[] {
   // Categorize matches
   const routes: QueryMatch[] = [];

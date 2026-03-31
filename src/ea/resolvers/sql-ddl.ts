@@ -9,7 +9,8 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityAnchors } from "../backstage/accessors.js";
 import type { EaArtifactDraft } from "../discovery.js";
 import type {
   EaResolver,
@@ -275,10 +276,10 @@ export class SqlDdlResolver implements EaResolver {
    * Anchors in the `schemas` category matching "schema.table" or "table" format.
    */
   resolveAnchors(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaResolverContext,
   ): EaAnchorResolution[] | null {
-    const schemaAnchors = artifact.anchors?.schemas;
+    const schemaAnchors = getEntityAnchors(entity)?.schemas;
     if (!schemaAnchors || schemaAnchors.length === 0) return null;
 
     const tables = this.loadTables(ctx);

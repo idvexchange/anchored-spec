@@ -8,7 +8,8 @@
 
 import { existsSync } from "node:fs";
 import { extname, resolve } from "node:path";
-import type { EaArtifactBase } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import { getEntityId, getEntityTraceRefs } from "./backstage/accessors.js";
 import type { ScannedDoc } from "./docs/scanner.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -54,25 +55,26 @@ export interface TraceCheckReport {
  * Build the full set of {@link TraceLink}s from artifacts and scanned docs.
  */
 export function buildTraceLinks(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   docs: ScannedDoc[],
   cwd: string,
 ): TraceLink[] {
   const linkKey = (aid: string, dpath: string) => `${aid}::${dpath}`;
   const seen = new Map<string, TraceLink>();
 
-  // artifact → doc (traceRefs)
-  for (const a of artifacts) {
-    for (const ref of a.traceRefs ?? []) {
+  // entity → doc (traceRefs)
+  for (const entity of entities) {
+    const entityId = getEntityId(entity);
+    for (const ref of getEntityTraceRefs(entity)) {
       const url = isUrl(ref.path);
-      const key = linkKey(a.id, ref.path);
+      const key = linkKey(entityId, ref.path);
       const existing = seen.get(key);
       if (existing) {
         existing.artifactToDoc = true;
         existing.isUrl = url;
       } else {
         seen.set(key, {
-          artifactId: a.id,
+          artifactId: entityId,
           docPath: ref.path,
           role: ref.role,
           artifactToDoc: true,

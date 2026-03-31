@@ -12,7 +12,8 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityAnchors } from "../backstage/accessors.js";
 import type { EaArtifactDraft } from "../discovery.js";
 import { parseSimpleYaml } from "./openapi.js";
 import type {
@@ -252,10 +253,10 @@ export class KubernetesResolver implements EaResolver {
    * Format: `kubernetes:kind/name` or `kubernetes:kind/namespace/name`
    */
   resolveAnchors(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaResolverContext,
   ): EaAnchorResolution[] | null {
-    const infraAnchors = artifact.anchors?.infra;
+    const infraAnchors = getEntityAnchors(entity)?.infra;
     if (!infraAnchors || infraAnchors.length === 0) return null;
 
     // Only handle kubernetes: prefixed anchors

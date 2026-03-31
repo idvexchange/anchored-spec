@@ -11,6 +11,8 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { minimatch } from "minimatch";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityId, getEntityLegacyKind, getEntityAnchors } from "../backstage/accessors.js";
 import type { EaResolver, EaResolverContext, ObservedEaState, ObservedEntity } from "./types.js";
 
 // ─── Source File Scanning ───────────────────────────────────────────────────────
@@ -245,10 +247,11 @@ export class AnchorsResolver implements EaResolver {
     const artifacts = ctx.artifacts ?? [];
 
     for (const artifact of artifacts) {
-      if (!artifact.anchors) continue;
+      const entityAnchors = getEntityAnchors(artifact);
+      if (!entityAnchors) continue;
 
       const anchorsMap: Record<string, string[]> = {};
-      for (const [key, value] of Object.entries(artifact.anchors)) {
+      for (const [key, value] of Object.entries(entityAnchors)) {
         if (Array.isArray(value) && value.length > 0) {
           anchorsMap[key] = value as string[];
         }
@@ -264,11 +267,13 @@ export class AnchorsResolver implements EaResolver {
       );
 
       // Report each anchor as an observed entity
+      const entityId = getEntityId(artifact);
+      const legacyKind = getEntityLegacyKind(artifact);
       for (const match of result.matches) {
         entities.push({
-          externalId: `${artifact.id}:anchor:${match.anchorType}:${match.anchorValue}`,
-          inferredKind: artifact.kind,
-          matchedArtifactId: artifact.id,
+          externalId: `${entityId}:anchor:${match.anchorType}:${match.anchorValue}`,
+          inferredKind: legacyKind,
+          matchedArtifactId: entityId,
           metadata: {
             name: `${match.anchorType}/${match.anchorValue}`,
             anchorType: match.anchorType,
@@ -281,9 +286,9 @@ export class AnchorsResolver implements EaResolver {
 
       for (const miss of result.missing) {
         entities.push({
-          externalId: `${artifact.id}:anchor:${miss.anchorType}:${miss.anchorValue}`,
-          inferredKind: artifact.kind,
-          matchedArtifactId: artifact.id,
+          externalId: `${entityId}:anchor:${miss.anchorType}:${miss.anchorValue}`,
+          inferredKind: legacyKind,
+          matchedArtifactId: entityId,
           metadata: {
             name: `${miss.anchorType}/${miss.anchorValue}`,
             anchorType: miss.anchorType,

@@ -14,6 +14,7 @@ import {
   detectEaDrift,
   EA_DOMAINS,
   createResolverCache,
+  artifactToBackstage,
 } from "../../ea/index.js";
 import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
 import { checkConsistency } from "../../ea/facts/consistency.js";
@@ -83,7 +84,7 @@ export function eaDriftCommand(): Command {
         // Optionally run artifact reconciliation
         let reconciliationReport: ReconciliationReport | undefined;
         if (options.includeArtifacts) {
-          reconciliationReport = reconcileFactsWithArtifacts(manifests, result.artifacts);
+          reconciliationReport = reconcileFactsWithArtifacts(manifests, result.artifacts.map(artifactToBackstage));
         }
 
         // Apply suppressions from manifests (carried through from parsing)

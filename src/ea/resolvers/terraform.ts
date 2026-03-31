@@ -13,7 +13,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
 import type { EaArtifactDraft } from "../discovery.js";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityAnchors } from "../backstage/accessors.js";
 import type {
   EaResolver,
   EaResolverContext,
@@ -313,10 +314,10 @@ export class TerraformResolver implements EaResolver {
    * Format: `terraform:resource_address` (e.g., `terraform:aws_rds_instance.main`)
    */
   resolveAnchors(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaResolverContext,
   ): EaAnchorResolution[] | null {
-    const infraAnchors = artifact.anchors?.infra;
+    const infraAnchors = getEntityAnchors(entity)?.infra;
     if (!infraAnchors || infraAnchors.length === 0) return null;
 
     const tfAnchors = infraAnchors.filter((a) => a.startsWith("terraform:"));

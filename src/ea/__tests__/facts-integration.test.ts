@@ -19,7 +19,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
 import {
   parseMarkdown,
   parseMarkdownFile,
@@ -43,21 +43,26 @@ import type {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function makeArtifact(
-  overrides: Partial<EaArtifactBase> & { id: string; kind: string },
-): EaArtifactBase {
+function makeEntity(overrides: {
+  name: string;
+  kind?: string;
+  specType?: string;
+  anchors?: Record<string, unknown>;
+}): BackstageEntity {
   return {
-    apiVersion: "anchored-spec/ea/v1",
-    title: overrides.title ?? overrides.id,
-    summary: "Test artifact",
-    owners: ["team-test"],
-    tags: [],
-    confidence: "declared",
-    status: "active",
-    schemaVersion: "1.0.0",
-    relations: [],
-    ...overrides,
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: overrides.kind ?? "Component",
+    metadata: {
+      name: overrides.name,
+      annotations: { "anchored-spec.dev/confidence": "declared" },
+    },
+    spec: {
+      type: overrides.specType ?? "service",
+      owner: "team-test",
+      lifecycle: "production",
+      ...(overrides.anchors && { anchors: overrides.anchors }),
+    },
+  };
 }
 
 function makeManifest(
@@ -276,9 +281,8 @@ describe("real-world scenarios", () => {
       ], { annotation: apiAnnotation, source: { file: "api.md", line: 1 } }),
     ]);
 
-    const svcArtifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const svcEntity = makeEntity({
+      name: "svc-identity",
       anchors: {
         events: ["dossier.success", "dossier.cancelled", "dossier.expired"],
         apis: ["POST /api/v1/dossiers"],
@@ -287,7 +291,7 @@ describe("real-world scenarios", () => {
 
     const report = reconcileFactsWithArtifacts(
       [eventsManifest, apiManifest],
-      [svcArtifact],
+      [svcEntity],
     );
 
     // dossier.expired is in artifact but not in docs
@@ -672,12 +676,11 @@ describe("parseMarkdownFile", () => {
 
 describe("reconciler edge cases", () => {
   it("handles empty manifests array", () => {
-    const artifact = makeArtifact({
-      id: "SVC-x",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-x",
       anchors: { events: ["some.event"] },
     });
-    const report = reconcileFactsWithArtifacts([], [artifact]);
+    const report = reconcileFactsWithArtifacts([], [entity]);
     expect(report.findings.some(f => f.rule === "ea:docs/artifact-missing-fact")).toBe(true);
   });
 
@@ -694,13 +697,12 @@ describe("reconciler edge cases", () => {
         makeFact({ key: "dossier.orphan", kind: "event-table", source: { file: "events.md", line: 5 } }),
       ], { source: { file: "events.md", line: 1 } }), // No annotation
     ]);
-    const artifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-identity",
       anchors: { events: ["dossier.success"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // Should not report fact-missing-artifact for non-annotated blocks
     expect(report.findings.filter(f => f.rule === "ea:docs/fact-missing-artifact")).toHaveLength(0);
   });
@@ -717,16 +719,15 @@ describe("reconciler edge cases", () => {
       ], { annotation: apiAnnotation, source: { file: "api-spec.md", line: 10 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-identity",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-identity",
       anchors: {
         events: ["dossier.success", "dossier.cancelled"],
         apis: ["POST /api/v1/dossiers"],
       },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // dossier.cancelled in artifact but not in docs
     expect(report.findings.some(f =>
       f.rule === "ea:docs/artifact-missing-fact" &&
@@ -1047,13 +1048,12 @@ describe("status-enum and state-transition reconciliation", () => {
       ], { annotation, source: { file: "statuses.md", line: 1 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-orders",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-orders",
       anchors: { statuses: ["open", "processing", "closed"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // All statuses match — no mismatches
     expect(report.findings.filter(f => f.rule === "ea:docs/artifact-mismatch")).toHaveLength(0);
     expect(report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact")).toHaveLength(0);
@@ -1067,13 +1067,12 @@ describe("status-enum and state-transition reconciliation", () => {
       ], { annotation, source: { file: "statuses.md", line: 1 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-orders",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-orders",
       anchors: { statuses: ["open", "processing", "closed"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // "processing" and "closed" declared in artifact but missing from docs
     const missing = report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact");
     expect(missing.length).toBeGreaterThanOrEqual(2);
@@ -1090,13 +1089,12 @@ describe("status-enum and state-transition reconciliation", () => {
       ], { annotation, source: { file: "statuses.md", line: 1 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-orders",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-orders",
       anchors: { statuses: ["open"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     const factMissing = report.findings.filter(f => f.rule === "ea:docs/fact-missing-artifact");
     expect(factMissing.some(f => f.message.includes("archived"))).toBe(true);
   });
@@ -1110,13 +1108,12 @@ describe("status-enum and state-transition reconciliation", () => {
       ], { annotation, source: { file: "workflow.md", line: 1 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-orders",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-orders",
       anchors: { transitions: ["open→processing", "processing→closed"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     expect(report.findings.filter(f => f.rule === "ea:docs/artifact-mismatch")).toHaveLength(0);
     expect(report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact")).toHaveLength(0);
   });
@@ -1129,13 +1126,12 @@ describe("status-enum and state-transition reconciliation", () => {
       ], { annotation, source: { file: "workflow.md", line: 1 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-orders",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-orders",
       anchors: { transitions: ["open→processing", "processing→closed", "closed→archived"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     const missing = report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact");
     expect(missing.some(f => f.message.includes("processing→closed"))).toBe(true);
     expect(missing.some(f => f.message.includes("closed→archived"))).toBe(true);
@@ -1154,16 +1150,15 @@ describe("status-enum and state-transition reconciliation", () => {
       ], { annotation: transAnnotation, source: { file: "lifecycle.md", line: 10 } }),
     ]);
 
-    const artifact = makeArtifact({
-      id: "SVC-orders",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-orders",
       anchors: {
         statuses: ["open", "closed", "pending"],
         transitions: ["open→closed"],
       },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // "pending" in artifact but not in docs
     expect(report.findings.some(f =>
       f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("pending"),
@@ -1186,13 +1181,12 @@ describe("status-enum and state-transition reconciliation", () => {
     const manifest = buildFactManifest(parseMarkdown(md, "lifecycle.md"));
     expect(manifest.blocks.some(b => b.kind === "status-enum")).toBe(true);
 
-    const artifact = makeArtifact({
-      id: "SVC-lifecycle",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-lifecycle",
       anchors: { statuses: ["open", "processing", "closed", "archived"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // "archived" in artifact but not in docs
     expect(report.findings.some(f =>
       f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("archived"),
@@ -1211,13 +1205,12 @@ stateDiagram-v2
     const manifest = buildFactManifest(parseMarkdown(md, "flow.md"));
     expect(manifest.blocks.some(b => b.kind === "state-transition")).toBe(true);
 
-    const artifact = makeArtifact({
-      id: "SVC-flow",
-      kind: "service",
+    const entity = makeEntity({
+      name: "svc-flow",
       anchors: { transitions: ["open→processing", "processing→closed", "closed→archived"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [artifact]);
+    const report = reconcileFactsWithArtifacts([manifest], [entity]);
     // "closed→archived" in artifact but not in docs
     expect(report.findings.some(f =>
       f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("closed→archived"),

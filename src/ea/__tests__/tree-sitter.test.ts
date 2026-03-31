@@ -11,7 +11,7 @@ import { aggregateMatches } from "../resolvers/tree-sitter/aggregator.js";
 import { getQueryPacks, builtinPacks } from "../resolvers/tree-sitter/packs/index.js";
 import { javascriptPacks } from "../resolvers/tree-sitter/packs/javascript.js";
 import type { QueryMatch, QueryPattern } from "../resolvers/tree-sitter/types.js";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
 
 // ─── Test helpers ──────────────────────────────────────────────────────────────
 
@@ -37,18 +37,22 @@ function makeMatch(overrides: Partial<QueryMatch> = {}): QueryMatch {
   };
 }
 
-function makeArtifact(id: string, kind: string): EaArtifactBase {
+function makeArtifact(id: string, kind: string, title?: string): BackstageEntity {
   return {
-    apiVersion: "ea/v1",
-    kind,
-    id,
-    schemaVersion: "1.0.0",
-    title: id,
-    summary: "test",
-    owners: ["test"],
-    confidence: "declared",
-    status: "active",
-  } as EaArtifactBase;
+    apiVersion: "backstage.io/v1alpha1",
+    kind: "Component",
+    metadata: {
+      name: id,
+      namespace: "default",
+      title: title ?? id,
+      description: "test",
+    },
+    spec: {
+      type: kind,
+      owner: "test",
+      lifecycle: "production",
+    },
+  } as BackstageEntity;
 }
 
 // ─── Query Pack Registry ────────────────────────────────────────────────────────
@@ -251,9 +255,9 @@ describe("Aggregator: Deduplication", () => {
       }),
     ];
 
-    const existing = [makeArtifact("API-api", "api-contract")];
+    const existing = [makeArtifact("API-api", "api-contract", "api API")];
     const drafts = aggregateMatches(matches, existing);
-    expect(drafts).toHaveLength(0); // Deduplicated
+    expect(drafts).toHaveLength(0); // Deduplicated via title match
   });
 
   it("deduplicates within results by suggested ID", () => {

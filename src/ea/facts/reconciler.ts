@@ -7,7 +7,9 @@
  */
 
 import type { FactManifest, FactKind } from "./types.js";
-import type { EaArtifactBase, EaAnchors } from "../types.js";
+import type { EaAnchors } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityId, getEntityAnchors } from "../backstage/accessors.js";
 import type { ConsistencyFinding, FactLocation } from "./consistency.js";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -34,14 +36,16 @@ const KIND_TO_ANCHOR_FIELD: Partial<Record<FactKind, keyof EaAnchors>> = {
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-/** Extract all anchor values for a given fact kind from an artifact. */
-function getAnchorValues(
-  artifact: EaArtifactBase,
+/** Extract all anchor values for a given fact kind from an entity. */
+function getAnchorValuesForEntity(
+  entity: BackstageEntity,
   factKind: FactKind,
 ): string[] {
   const field = KIND_TO_ANCHOR_FIELD[factKind];
-  if (!field || !artifact.anchors) return [];
-  const values = artifact.anchors[field];
+  if (!field) return [];
+  const anchors = getEntityAnchors(entity);
+  if (!anchors) return [];
+  const values = anchors[field];
   if (Array.isArray(values)) return values;
   return [];
 }
@@ -82,15 +86,16 @@ function collectFactIndex(
  * Check for artifact anchors that don't appear in any document fact.
  */
 function checkArtifactMissingFact(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   factIndex: Map<FactKind, Map<string, { file: string; line: number }[]>>,
 ): ConsistencyFinding[] {
   const findings: ConsistencyFinding[] = [];
 
-  for (const artifact of artifacts) {
+  for (const entity of entities) {
+    const entityId = getEntityId(entity);
     for (const [kind, anchorField] of Object.entries(KIND_TO_ANCHOR_FIELD)) {
       const factKind = kind as FactKind;
-      const values = getAnchorValues(artifact, factKind);
+      const values = getAnchorValuesForEntity(entity, factKind);
       const kindFacts = factIndex.get(factKind);
 
       for (const anchorValue of values) {
@@ -99,15 +104,15 @@ function checkArtifactMissingFact(
         findings.push({
           rule: "ea:docs/artifact-missing-fact",
           severity: "warning",
-          message: `Artifact "${artifact.id}" declares ${anchorField} anchor "${anchorValue}" but no document contains a matching ${factKind} fact`,
+          message: `Artifact "${entityId}" declares ${anchorField} anchor "${anchorValue}" but no document contains a matching ${factKind} fact`,
           locations: [
             {
-              file: artifact.id,
+              file: entityId,
               line: 0,
               value: anchorValue,
             },
           ],
-          suggestion: `Add a ${factKind} entry for "${anchorValue}" in the relevant documentation, or remove the anchor from "${artifact.id}"`,
+          suggestion: `Add a ${factKind} entry for "${anchorValue}" in the relevant documentation, or remove the anchor from "${entityId}"`,
         });
       }
     }
@@ -164,20 +169,21 @@ function checkFactMissingArtifact(
  */
 function checkArtifactMismatches(
   manifests: FactManifest[],
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
 ): ConsistencyFinding[] {
   const findings: ConsistencyFinding[] = [];
 
-  // Build a map: for each kind, collect artifact anchor values with their artifact IDs
+  // Build a map: for each kind, collect anchor values with their entity IDs
   const anchorDetails = new Map<
     FactKind,
-    Map<string, string[]> // anchor value → artifact IDs
+    Map<string, string[]> // anchor value → entity IDs
   >();
 
-  for (const artifact of artifacts) {
+  for (const entity of entities) {
+    const entityId = getEntityId(entity);
     for (const [kind] of Object.entries(KIND_TO_ANCHOR_FIELD)) {
       const factKind = kind as FactKind;
-      const values = getAnchorValues(artifact, factKind);
+      const values = getAnchorValuesForEntity(entity, factKind);
       for (const v of values) {
         let kindMap = anchorDetails.get(factKind);
         if (!kindMap) {
@@ -189,7 +195,7 @@ function checkArtifactMismatches(
           ids = [];
           kindMap.set(v, ids);
         }
-        ids.push(artifact.id);
+        ids.push(entityId);
       }
     }
   }
@@ -258,16 +264,16 @@ function checkArtifactMismatches(
  */
 export function reconcileFactsWithArtifacts(
   manifests: FactManifest[],
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
 ): ReconciliationReport {
   const factIndex = collectFactIndex(manifests);
 
   // Build set of all anchor values per kind
   const artifactAnchorIndex = new Map<FactKind, Set<string>>();
-  for (const artifact of artifacts) {
+  for (const entity of entities) {
     for (const [kind] of Object.entries(KIND_TO_ANCHOR_FIELD)) {
       const factKind = kind as FactKind;
-      const values = getAnchorValues(artifact, factKind);
+      const values = getAnchorValuesForEntity(entity, factKind);
       if (values.length === 0) continue;
       let anchorSet = artifactAnchorIndex.get(factKind);
       if (!anchorSet) {
@@ -289,9 +295,9 @@ export function reconcileFactsWithArtifacts(
   );
 
   const findings: ConsistencyFinding[] = [
-    ...checkArtifactMissingFact(artifacts, factIndex),
+    ...checkArtifactMissingFact(entities, factIndex),
     ...checkFactMissingArtifact(manifests, artifactAnchorIndex),
-    ...checkArtifactMismatches(manifests, artifacts),
+    ...checkArtifactMismatches(manifests, entities),
   ];
 
   const errors = findings.filter((f) => f.severity === "error").length;
@@ -300,6 +306,6 @@ export function reconcileFactsWithArtifacts(
     passed: errors === 0,
     findings,
     factsChecked,
-    artifactsChecked: artifacts.length,
+    artifactsChecked: entities.length,
   };
 }
