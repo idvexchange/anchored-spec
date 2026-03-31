@@ -13,6 +13,8 @@ import {
 } from "../version-policy.js";
 import type { VersionPolicyConfig } from "../version-policy.js";
 import type { EaArtifactBase } from "../types.js";
+import { artifactToBackstage } from "../backstage/bridge.js";
+import { getEntityId } from "../backstage/accessors.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -28,14 +30,26 @@ function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: s
   } as EaArtifactBase;
 }
 
+/**
+ * Build a policy enforcement report from legacy artifact arrays.
+ * Converts to BackstageEntity for the diff (which now expects entities),
+ * then patches legacy artifact IDs to match entity refs so the compat
+ * and version-policy lookups find the right artifacts.
+ */
 function enforceWith(
   base: EaArtifactBase[],
   head: EaArtifactBase[],
   config?: VersionPolicyConfig,
 ) {
-  const diff = diffEaArtifacts(base, head);
-  const compat = assessCompatibility(diff, { base, head });
-  return enforceVersionPolicies(compat, { base, head }, config);
+  const baseEntities = base.map((a) => artifactToBackstage(a));
+  const headEntities = head.map((a) => artifactToBackstage(a));
+  const diff = diffEaArtifacts(baseEntities, headEntities);
+
+  const patchedBase = base.map((a, i) => ({ ...a, id: getEntityId(baseEntities[i]!) }));
+  const patchedHead = head.map((a, i) => ({ ...a, id: getEntityId(headEntities[i]!) }));
+
+  const compat = assessCompatibility(diff, { base: patchedBase, head: patchedHead });
+  return enforceVersionPolicies(compat, { base: patchedBase, head: patchedHead }, config);
 }
 
 // ─── resolveVersionPolicy ───────────────────────────────────────────────────────
@@ -142,8 +156,11 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("fails when full policy detects ambiguous change", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", confidence: "declared" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", confidence: "inferred" })];
+    // A contractual spec field modification is classified as "ambiguous" by the compat engine.
+    // With entity-based diffing, kind-specific properties are carried into spec and treated
+    // as contractual fields when they're not in the base field semantic map.
+    const base = [makeArtifact({ id: "APP-a", kind: "application", contractSpec: "v1" } as never)];
+    const head = [makeArtifact({ id: "APP-a", kind: "application", contractSpec: "v2" } as never)];
     const report = enforceWith(base, head, {
       defaultCompatibility: "full",
     });
@@ -176,7 +193,7 @@ describe("enforceVersionPolicies", () => {
       perKind: { "api-contract": { compatibility: "backward-only" } },
     });
     expect(report.passed).toBe(false);
-    expect(report.violations[0].artifactId).toBe("API-a");
+    expect(report.violations[0].artifactId).toBe("api:a");
   });
 
   it("uses artifact-level policy from extensions", () => {
@@ -245,7 +262,7 @@ describe("renderPolicyMarkdown", () => {
     const report = enforceWith(base, [], { defaultCompatibility: "backward-only" });
     const md = renderPolicyMarkdown(report);
     expect(md).toContain("Violations");
-    expect(md).toContain("APP-a");
+    expect(md).toContain("component:a");
     expect(md).toContain("backward-only");
   });
 });
