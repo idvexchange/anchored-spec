@@ -152,7 +152,7 @@ export function eaDriftCommand(): Command {
       }
 
       // Collect exceptions
-      const exceptions = result.artifacts.filter(
+      const exceptionsLegacy = result.artifacts.filter(
         (a): a is ExceptionArtifact => a.kind === "exception",
       );
 
@@ -176,9 +176,12 @@ export function eaDriftCommand(): Command {
         }
       }
 
+      const entities = result.artifacts.map(artifactToBackstage);
+      const exceptionEntities = exceptionsLegacy.map(artifactToBackstage);
+
       const report = detectEaDrift({
-        artifacts: result.artifacts,
-        exceptions,
+        artifacts: entities,
+        exceptions: exceptionEntities,
         domains: domainFilter ? [domainFilter] : undefined,
         includeResolverRules: !!options.fromSnapshot || options.cache !== false,
         cache,

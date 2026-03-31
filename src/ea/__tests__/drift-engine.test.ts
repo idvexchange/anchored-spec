@@ -29,9 +29,52 @@ import {
 import type {
   EaArtifactBase,
 } from "../index.js";
-import type { ExceptionArtifact } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a BackstageEntity for testing. Kind-specific fields go into spec.
+ * The `id` and `kind` are required; id becomes metadata.name (lowercased),
+ * kind becomes the BackstageEntity.kind (lowercased, used as-is for
+ * getEntityLegacyKind matching since we set apiVersion to anchored-spec).
+ */
+function makeEntity(overrides: Record<string, unknown> & { id: string; kind: string }): BackstageEntity {
+  const { id, kind, title, summary, status, owners, tags, relations, confidence, ...specFields } = overrides;
+  return {
+    apiVersion: "anchored-spec.dev/v1alpha1",
+    kind: kind,
+    metadata: {
+      name: id as string,
+      title: (title as string) ?? (id as string),
+      description: (summary as string) ?? "Test artifact",
+      tags: (tags as string[]) ?? [],
+    },
+    spec: {
+      type: kind,
+      lifecycle: "production",
+      status: (status as string) ?? "active",
+      owner: Array.isArray(owners) && owners.length > 0 ? owners[0] : "team-test",
+      relations: relations ?? [],
+      ...specFields,
+    },
+  } as BackstageEntity;
+}
+
+function makeException(overrides: Record<string, unknown> = {}): BackstageEntity {
+  const future = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000);
+  return makeEntity({
+    id: overrides.id as string ?? "EXCEPT-001",
+    kind: "exception",
+    scope: overrides.scope ?? { artifactIds: ["SYS-001"], rules: ["ea:systems/consumer-contract-version-mismatch"] },
+    approvedBy: "chief-architect",
+    approvedAt: "2025-01-15",
+    expiresAt: overrides.expiresAt as string ?? future.toISOString().split("T")[0],
+    reason: "Test exception",
+    reviewSchedule: "quarterly",
+    ...overrides,
+  });
+}
 
 function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
   return {
@@ -48,23 +91,28 @@ function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: s
   } as EaArtifactBase;
 }
 
-function makeException(overrides: Record<string, unknown> = {}): ExceptionArtifact {
-  const future = new Date(Date.now() + 120 * 24 * 60 * 60 * 1000);
-  return makeArtifact({
-    id: overrides.id as string ?? "EXCEPT-001",
-    kind: "exception",
-    scope: overrides.scope ?? { artifactIds: ["SYS-001"], rules: ["ea:systems/consumer-contract-version-mismatch"] },
-    approvedBy: "chief-architect",
-    approvedAt: "2025-01-15",
-    expiresAt: overrides.expiresAt as string ?? future.toISOString().split("T")[0],
-    reason: "Test exception",
-    reviewSchedule: "quarterly",
-    ...overrides,
-  } as any) as unknown as ExceptionArtifact;
+// Create a set of entities that will trigger specific drift rules
+function makeConsumerWithMismatch(): BackstageEntity[] {
+  return [
+    makeEntity({
+      id: "API-001",
+      kind: "api-contract",
+      schemaVersion: "2.0.0",
+      protocol: "rest",
+      specification: "openapi",
+      specVersion: "3.0",
+    }),
+    makeEntity({
+      id: "CON-001",
+      kind: "consumer",
+      consumesContracts: ["api-contract:API-001"],
+      contractVersion: "1.0.0",
+    }),
+  ];
 }
 
-// Create a set of artifacts that will trigger specific drift rules
-function makeConsumerWithMismatch(): EaArtifactBase[] {
+// Legacy-format fixtures for buildDriftHeatmap (which still takes EaArtifactBase[])
+function makeConsumerWithMismatchLegacy(): EaArtifactBase[] {
   return [
     makeArtifact({
       id: "API-001",
@@ -116,7 +164,7 @@ describe("detectEaDrift", () => {
     );
     expect(mismatch).toBeDefined();
     expect(mismatch!.severity).toBe("warning");
-    expect(mismatch!.artifactId).toBe("CON-001");
+    expect(mismatch!.artifactId).toBe("consumer:CON-001");
   });
 
   it("enriches findings with domain context", () => {
@@ -191,7 +239,7 @@ describe("detectEaDrift — exception suppression", () => {
     const exception = makeException({
       id: "EXCEPT-SUPPRESS",
       scope: {
-        artifactIds: ["CON-001"],
+        artifactIds: ["consumer:CON-001"],
         rules: ["ea:systems/consumer-contract-version-mismatch"],
       },
     });
@@ -206,7 +254,7 @@ describe("detectEaDrift — exception suppression", () => {
     );
     expect(mismatch).toBeDefined();
     expect(mismatch!.suppressed).toBe(true);
-    expect(mismatch!.suppressedBy).toBe("EXCEPT-SUPPRESS");
+    expect(mismatch!.suppressedBy).toBe("exception:EXCEPT-SUPPRESS");
     expect(report.summary.suppressed).toBeGreaterThan(0);
   });
 
@@ -360,8 +408,8 @@ describe("buildDriftHeatmap", () => {
   });
 
   it("aggregates findings into heatmap", () => {
-    const artifacts = makeConsumerWithMismatch();
-    const report = buildDriftHeatmap(artifacts);
+    const artifacts = makeConsumerWithMismatchLegacy();
+    const report = buildDriftHeatmap(artifacts as any);
 
     // consumer-contract-version-mismatch → systems domain → warning
     expect(report.heatmap.systems.warnings).toBeGreaterThanOrEqual(0);
@@ -531,20 +579,19 @@ describe("CLI: ea drift", () => {
 // ─── Resolver-Dependent Drift Rules ─────────────────────────────────────────────
 
 describe("resolver-dependent drift rules", () => {
-  const baseArtifact = (overrides: Partial<EaArtifactBase>): EaArtifactBase => ({
+  const baseEntity = (overrides: Record<string, unknown>): BackstageEntity => makeEntity({
     id: "test/SYS-001",
-    schemaVersion: "1.0.0",
     kind: "system",
     title: "Test System",
     status: "active",
     summary: "test",
     owners: ["team-a"],
     ...overrides,
-  });
+  } as any);
 
   it("detects unmodeled external endpoints", () => {
     const artifacts = [
-      baseArtifact({
+      baseEntity({
         id: "systems/IF-001",
         kind: "system-interface",
         title: "Known API",
@@ -570,7 +617,7 @@ describe("resolver-dependent drift rules", () => {
 
   it("detects unmodeled cloud resources", () => {
     const artifacts = [
-      baseArtifact({
+      baseEntity({
         id: "systems/CR-001",
         kind: "cloud-resource",
         title: "my-rds-instance",
@@ -598,7 +645,7 @@ describe("resolver-dependent drift rules", () => {
 
   it("detects logical-physical column mismatch", () => {
     const artifacts = [
-      baseArtifact({
+      baseEntity({
         id: "information/CE-001",
         kind: "canonical-entity",
         title: "Customer",
@@ -626,7 +673,7 @@ describe("resolver-dependent drift rules", () => {
 
   it("detects undeclared tables in physical schema", () => {
     const artifacts = [
-      baseArtifact({
+      baseEntity({
         id: "information/CE-001",
         kind: "canonical-entity",
         title: "Customer",
@@ -651,7 +698,7 @@ describe("resolver-dependent drift rules", () => {
   });
 
   it("returns no resolver findings when no resolver data provided", () => {
-    const artifacts = [baseArtifact({})];
+    const artifacts = [baseEntity({})];
 
     const result = evaluateEaDrift(artifacts, {
       includeResolverRules: true,
@@ -670,7 +717,7 @@ describe("resolver-dependent drift rules", () => {
 
   it("passes snapshot through detectEaDrift pipeline", () => {
     const artifacts = [
-      baseArtifact({
+      baseEntity({
         id: "systems/CR-001",
         kind: "cloud-resource",
         title: "my-instance",

@@ -6,31 +6,16 @@
  * rules that compare declared state against live infrastructure.
  */
 
-import type {
-  EaArtifactBase,
-  EaDomain,
-  ConsumerArtifact,
-  CloudResourceArtifact,
-  EnvironmentArtifact,
-  TechnologyStandardArtifact,
-  LineageArtifact,
-  DataStoreArtifact,
-  DataProductArtifact,
-  MasterDataDomainArtifact,
-  InformationExchangeArtifact,
-  CanonicalEntityArtifact,
-  RetentionPolicyArtifact,
-  CapabilityArtifact,
-  ValueStreamArtifact,
-  ProcessArtifact,
-  PolicyObjectiveArtifact,
-  ControlArtifact,
-  BaselineArtifact,
-  TargetArtifact,
-  TransitionPlanArtifact,
-  MigrationWaveArtifact,
-  ExceptionArtifact,
-} from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import {
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityStatus,
+  getEntityTitle,
+  getEntityDescription,
+  getEntityTraceRefs,
+} from "./backstage/accessors.js";
+import type { EaDomain } from "./types.js";
 import { getDomainForKind } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
@@ -53,10 +38,10 @@ export interface EaResolverObservedState {
 }
 
 export interface EaDriftContext {
-  /** All loaded artifacts indexed by ID. */
-  artifactMap: Map<string, EaArtifactBase>;
-  /** All loaded artifacts as an array. */
-  artifacts: EaArtifactBase[];
+  /** All loaded entities indexed by ID. */
+  artifactMap: Map<string, BackstageEntity>;
+  /** All loaded entities as an array. */
+  artifacts: BackstageEntity[];
   /** Observed state from resolvers (available for resolver-dependent rules). */
   resolverData?: EaResolverObservedState;
 }
@@ -97,24 +82,28 @@ const consumerContractVersionMismatch: EaDriftRule = {
   requiresResolver: false,
   evaluate(ctx) {
     const results: EaValidationError[] = [];
-    const _apiContracts = ctx.artifacts.filter((a) => a.kind === "api-contract");
+    const _apiContracts = ctx.artifacts.filter((a) => getEntityLegacyKind(a) === "api-contract");
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "consumer") continue;
-      const consumer = a as unknown as ConsumerArtifact;
-      if (!consumer.contractVersion) continue;
+      if (getEntityLegacyKind(a) !== "consumer") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const contractVersion = spec?.contractVersion as string | undefined;
+      if (!contractVersion) continue;
 
-      for (const contractId of consumer.consumesContracts) {
+      const consumesContracts = spec?.consumesContracts as string[] | undefined;
+      for (const contractId of consumesContracts ?? []) {
         const contract = ctx.artifactMap.get(contractId);
         if (!contract) continue; // target-missing is caught by relation validation
+        const contractSpec = contract.spec as Record<string, unknown> | undefined;
+        const contractSchemaVersion = contractSpec?.schemaVersion as string | undefined;
         if (
-          contract.kind === "api-contract" &&
-          contract.schemaVersion &&
-          contract.schemaVersion !== consumer.contractVersion
+          getEntityLegacyKind(contract) === "api-contract" &&
+          contractSchemaVersion &&
+          contractSchemaVersion !== contractVersion
         ) {
           results.push({
-            path: a.id,
-            message: `Consumer "${a.id}" declares contractVersion "${consumer.contractVersion}" but contract "${contractId}" has schemaVersion "${contract.schemaVersion}"`,
+            path: getEntityId(a),
+            message: `Consumer "${getEntityId(a)}" declares contractVersion "${contractVersion}" but contract "${contractId}" has schemaVersion "${contractSchemaVersion}"`,
             severity: "warning",
             rule: this.id,
           });
@@ -144,29 +133,30 @@ const technologyStandardViolation: EaDriftRule = {
     // Collect all active technology standards
     const standards = ctx.artifacts.filter(
       (a) =>
-        a.kind === "technology-standard" &&
-        (a.status === "active" || a.status === "shipped"),
-    ) as unknown as TechnologyStandardArtifact[];
+        getEntityLegacyKind(a) === "technology-standard" &&
+        (getEntityStatus(a) === "active" || getEntityStatus(a) === "shipped"),
+    );
 
     if (standards.length === 0) return results;
 
     // Build a set of approved technologies (lowercase for case-insensitive matching)
     const approvedTechs = new Set<string>();
     for (const std of standards) {
-      approvedTechs.add(std.technology.toLowerCase());
+      const tech = std.spec?.technology as string | undefined;
+      if (tech) approvedTechs.add(tech.toLowerCase());
     }
 
     // Check cloud resources with declared technology
     for (const a of ctx.artifacts) {
-      if (a.kind !== "cloud-resource") continue;
-      const cloud = a as unknown as CloudResourceArtifact;
-      if (!cloud.technology?.engine) continue;
+      if (getEntityLegacyKind(a) !== "cloud-resource") continue;
+      const tech = a.spec?.technology as { engine?: string; version?: string } | undefined;
+      if (!tech?.engine) continue;
 
-      const engine = cloud.technology.engine.toLowerCase();
+      const engine = tech.engine.toLowerCase();
       if (!approvedTechs.has(engine)) {
         results.push({
-          path: a.id,
-          message: `Cloud resource "${a.id}" uses technology "${cloud.technology.engine}" which is not covered by any active technology standard`,
+          path: getEntityId(a),
+          message: `Cloud resource "${getEntityId(a)}" uses technology "${tech.engine}" which is not covered by any active technology standard`,
           severity: "error",
           rule: this.id,
         });
@@ -193,16 +183,19 @@ const deprecatedVersionInUse: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     const standards = ctx.artifacts.filter(
-      (a) => a.kind === "technology-standard",
-    ) as unknown as TechnologyStandardArtifact[];
+      (a) => getEntityLegacyKind(a) === "technology-standard",
+    );
 
     // Build a map: technology name → deprecated versions
     const deprecatedMap = new Map<string, Set<string>>();
     for (const std of standards) {
-      if (std.deprecatedVersions && std.deprecatedVersions.length > 0) {
-        const key = std.technology.toLowerCase();
+      const spec = std.spec as Record<string, unknown> | undefined;
+      const tech = spec?.technology as string | undefined;
+      const deprecatedVersions = spec?.deprecatedVersions as string[] | undefined;
+      if (tech && deprecatedVersions && deprecatedVersions.length > 0) {
+        const key = tech.toLowerCase();
         const existing = deprecatedMap.get(key) ?? new Set();
-        for (const v of std.deprecatedVersions) {
+        for (const v of deprecatedVersions) {
           existing.add(v);
         }
         deprecatedMap.set(key, existing);
@@ -212,16 +205,16 @@ const deprecatedVersionInUse: EaDriftRule = {
     if (deprecatedMap.size === 0) return results;
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "cloud-resource") continue;
-      const cloud = a as unknown as CloudResourceArtifact;
-      if (!cloud.technology?.engine || !cloud.technology?.version) continue;
+      if (getEntityLegacyKind(a) !== "cloud-resource") continue;
+      const tech = a.spec?.technology as { engine?: string; version?: string } | undefined;
+      if (!tech?.engine || !tech?.version) continue;
 
-      const engine = cloud.technology.engine.toLowerCase();
+      const engine = tech.engine.toLowerCase();
       const deprecated = deprecatedMap.get(engine);
-      if (deprecated && deprecated.has(cloud.technology.version)) {
+      if (deprecated && deprecated.has(tech.version)) {
         results.push({
-          path: a.id,
-          message: `Cloud resource "${a.id}" uses deprecated version "${cloud.technology.version}" of "${cloud.technology.engine}"`,
+          path: getEntityId(a),
+          message: `Cloud resource "${getEntityId(a)}" uses deprecated version "${tech.version}" of "${tech.engine}"`,
           severity: "warning",
           rule: this.id,
         });
@@ -248,25 +241,27 @@ const environmentPromotionGap: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     const envIds = new Set(
-      ctx.artifacts.filter((a) => a.kind === "environment").map((a) => a.id),
+      ctx.artifacts.filter((a) => getEntityLegacyKind(a) === "environment").map((a) => getEntityId(a)),
     );
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "environment") continue;
-      const env = a as unknown as EnvironmentArtifact;
+      if (getEntityLegacyKind(a) !== "environment") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const promotesFrom = spec?.promotesFrom as string | undefined;
+      const promotesTo = spec?.promotesTo as string | undefined;
 
-      if (env.promotesFrom && !envIds.has(env.promotesFrom)) {
+      if (promotesFrom && !envIds.has(promotesFrom)) {
         results.push({
-          path: a.id,
-          message: `Environment "${a.id}" promotesFrom "${env.promotesFrom}" which does not exist`,
+          path: getEntityId(a),
+          message: `Environment "${getEntityId(a)}" promotesFrom "${promotesFrom}" which does not exist`,
           severity: "warning",
           rule: this.id,
         });
       }
-      if (env.promotesTo && !envIds.has(env.promotesTo)) {
+      if (promotesTo && !envIds.has(promotesTo)) {
         results.push({
-          path: a.id,
-          message: `Environment "${a.id}" promotesTo "${env.promotesTo}" which does not exist`,
+          path: getEntityId(a),
+          message: `Environment "${getEntityId(a)}" promotesTo "${promotesTo}" which does not exist`,
           severity: "warning",
           rule: this.id,
         });
@@ -295,26 +290,28 @@ const lineageStale: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "lineage") continue;
-      const lin = a as unknown as LineageArtifact;
+      if (getEntityLegacyKind(a) !== "lineage") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const source = spec?.source as { artifactId?: string } | undefined;
+      const destination = spec?.destination as { artifactId?: string } | undefined;
 
       for (const endpoint of [
-        { ref: lin.source?.artifactId, label: "source" },
-        { ref: lin.destination?.artifactId, label: "destination" },
+        { ref: source?.artifactId, label: "source" },
+        { ref: destination?.artifactId, label: "destination" },
       ]) {
         if (!endpoint.ref) continue;
         const target = ctx.artifactMap.get(endpoint.ref);
         if (!target) {
           results.push({
-            path: a.id,
-            message: `Lineage "${a.id}" ${endpoint.label} "${endpoint.ref}" does not exist`,
+            path: getEntityId(a),
+            message: `Lineage "${getEntityId(a)}" ${endpoint.label} "${endpoint.ref}" does not exist`,
             severity: "warning",
             rule: this.id,
           });
-        } else if (target.status === "retired") {
+        } else if (getEntityStatus(target) === "retired") {
           results.push({
-            path: a.id,
-            message: `Lineage "${a.id}" ${endpoint.label} "${endpoint.ref}" is retired`,
+            path: getEntityId(a),
+            message: `Lineage "${getEntityId(a)}" ${endpoint.label} "${endpoint.ref}" is retired`,
             severity: "warning",
             rule: this.id,
           });
@@ -343,29 +340,34 @@ const orphanStore: EaDriftRule = {
     // Build set of all artifacts that are relation targets
     const allTargets = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.relations) {
-        for (const r of a.relations) {
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      if (specRelations) {
+        for (const r of specRelations) {
           allTargets.add(r.target);
         }
       }
     }
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "data-store") continue;
-      const hasOwnRelations = (a.relations?.length ?? 0) > 0;
-      const isTargeted = allTargets.has(a.id);
+      if (getEntityLegacyKind(a) !== "data-store") continue;
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const hasOwnRelations = (specRelations?.length ?? 0) > 0;
+      const isTargeted = allTargets.has(getEntityId(a));
 
       // Also check if any lineage references this store
+      const entityId = getEntityId(a);
       const isLineageEndpoint = ctx.artifacts.some((other) => {
-        if (other.kind !== "lineage") return false;
-        const lin = other as unknown as LineageArtifact;
-        return lin.source?.artifactId === a.id || lin.destination?.artifactId === a.id;
+        if (getEntityLegacyKind(other) !== "lineage") return false;
+        const spec = other.spec as Record<string, unknown> | undefined;
+        const source = spec?.source as { artifactId?: string } | undefined;
+        const destination = spec?.destination as { artifactId?: string } | undefined;
+        return source?.artifactId === entityId || destination?.artifactId === entityId;
       });
 
       if (!hasOwnRelations && !isTargeted && !isLineageEndpoint) {
         results.push({
-          path: a.id,
-          message: `Data store "${a.id}" is disconnected — no relations, not referenced, not in any lineage`,
+          path: getEntityId(a),
+          message: `Data store "${getEntityId(a)}" is disconnected — no relations, not referenced, not in any lineage`,
           severity: "warning",
           rule: this.id,
         });
@@ -393,24 +395,26 @@ const sharedStoreNoSteward: EaDriftRule = {
     // Collect all entity references from master-data-domains
     const stewardedStores = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.kind !== "master-data-domain") continue;
-      const mdm = a as unknown as MasterDataDomainArtifact;
-      if (mdm.goldenSource) stewardedStores.add(mdm.goldenSource);
+      if (getEntityLegacyKind(a) !== "master-data-domain") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const goldenSource = spec?.goldenSource as string | undefined;
+      if (goldenSource) stewardedStores.add(goldenSource);
       // Also check relations targeting data stores
-      if (a.relations) {
-        for (const r of a.relations) {
+      const specRelations = spec?.relations as Array<{ type: string; target: string }> | undefined;
+      if (specRelations) {
+        for (const r of specRelations) {
           stewardedStores.add(r.target);
         }
       }
     }
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "data-store") continue;
-      const ds = a as unknown as DataStoreArtifact;
-      if (ds.isShared && !stewardedStores.has(a.id)) {
+      if (getEntityLegacyKind(a) !== "data-store") continue;
+      const isShared = a.spec?.isShared as boolean | undefined;
+      if (isShared && !stewardedStores.has(getEntityId(a))) {
         results.push({
-          path: a.id,
-          message: `Shared data store "${a.id}" has no master-data-domain steward`,
+          path: getEntityId(a),
+          message: `Shared data store "${getEntityId(a)}" has no master-data-domain steward`,
           severity: "warning",
           rule: this.id,
         });
@@ -435,13 +439,13 @@ const productMissingSla: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "data-product") continue;
-      if (a.status !== "active" && a.status !== "shipped") continue;
-      const dp = a as unknown as DataProductArtifact;
-      if (!dp.sla) {
+      if (getEntityLegacyKind(a) !== "data-product") continue;
+      if (getEntityStatus(a) !== "active" && getEntityStatus(a) !== "shipped") continue;
+      const sla = a.spec?.sla as Record<string, unknown> | undefined;
+      if (!sla) {
         results.push({
-          path: a.id,
-          message: `Active data product "${a.id}" has no SLA defined`,
+          path: getEntityId(a),
+          message: `Active data product "${getEntityId(a)}" has no SLA defined`,
           severity: "warning",
           rule: this.id,
         });
@@ -466,13 +470,13 @@ const productMissingQualityRules: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "data-product") continue;
-      if (a.status !== "active" && a.status !== "shipped") continue;
-      const dp = a as unknown as DataProductArtifact;
-      if (!dp.qualityRules || dp.qualityRules.length === 0) {
+      if (getEntityLegacyKind(a) !== "data-product") continue;
+      if (getEntityStatus(a) !== "active" && getEntityStatus(a) !== "shipped") continue;
+      const qualityRules = a.spec?.qualityRules as unknown[] | undefined;
+      if (!qualityRules || qualityRules.length === 0) {
         results.push({
-          path: a.id,
-          message: `Active data product "${a.id}" has no quality rules`,
+          path: getEntityId(a),
+          message: `Active data product "${getEntityId(a)}" has no quality rules`,
           severity: "warning",
           rule: this.id,
         });
@@ -499,16 +503,19 @@ const entityMissingImplementation: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "canonical-entity") continue;
-      const hasImpl = a.relations?.some((r) => r.type === "implementedBy") ?? false;
+      if (getEntityLegacyKind(a) !== "canonical-entity") continue;
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const hasImpl = specRelations?.some((r) => r.type === "implementedBy") ?? false;
       // Also check if any artifact has an implements relation targeting this entity
-      const isImplemented = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => r.type === "implementedBy" && r.target === a.id)
-      );
+      const entityId = getEntityId(a);
+      const isImplemented = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => r.type === "implementedBy" && r.target === entityId) ?? false;
+      });
       if (!hasImpl && !isImplemented) {
         results.push({
-          path: a.id,
-          message: `Canonical entity "${a.id}" has no implementedBy relation to any data artifact`,
+          path: getEntityId(a),
+          message: `Canonical entity "${getEntityId(a)}" has no implementedBy relation to any data artifact`,
           severity: "warning",
           rule: this.id,
         });
@@ -533,27 +540,31 @@ const exchangeMissingContract: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "information-exchange") continue;
-      const exch = a as unknown as InformationExchangeArtifact;
-      const hasContracts = (exch.implementingContracts?.length ?? 0) > 0;
+      if (getEntityLegacyKind(a) !== "information-exchange") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const implementingContracts = spec?.implementingContracts as string[] | undefined;
+      const hasContracts = (implementingContracts?.length ?? 0) > 0;
       // Check for implementedBy relations from the exchange to contracts
-      const hasImplementedBy = a.relations?.some(
+      const specRelations = spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const hasImplementedBy = specRelations?.some(
         (r) =>
           r.type === "implementedBy" &&
           ctx.artifacts.some(
             (t) =>
-              t.id === r.target &&
-              (t.kind === "api-contract" || t.kind === "event-contract")
+              getEntityId(t) === r.target &&
+              (getEntityLegacyKind(t) === "api-contract" || getEntityLegacyKind(t) === "event-contract")
           )
       );
       // Check for exchangedVia relations from entities pointing to this exchange
-      const hasExchangedVia = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => r.type === "exchangedVia" && r.target === a.id)
-      );
+      const entityId = getEntityId(a);
+      const hasExchangedVia = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => r.type === "exchangedVia" && r.target === entityId) ?? false;
+      });
       if (!hasContracts && !hasImplementedBy && !hasExchangedVia) {
         results.push({
-          path: a.id,
-          message: `Information exchange "${a.id}" has no implementing contracts — add implementedBy relations to api-contract/event-contract, or populate implementingContracts`,
+          path: getEntityId(a),
+          message: `Information exchange "${getEntityId(a)}" has no implementing contracts — add implementedBy relations to api-contract/event-contract, or populate implementingContracts`,
           severity: "error",
           rule: this.id,
         });
@@ -579,10 +590,11 @@ const classificationNotPropagated: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "canonical-entity") continue;
+      if (getEntityLegacyKind(a) !== "canonical-entity") continue;
 
       // Find all classifications this entity has
-      const entityClassifications = (a.relations ?? [])
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const entityClassifications = (specRelations ?? [])
         .filter((r) => r.type === "classifiedAs")
         .map((r) => r.target);
 
@@ -591,15 +603,17 @@ const classificationNotPropagated: EaDriftRule = {
       // Find all data artifacts that implement this entity (via implementedBy)
       const implementors: string[] = [];
       // Check entity's own implementedBy relations
-      for (const r of a.relations ?? []) {
+      for (const r of specRelations ?? []) {
         if (r.type === "implementedBy") implementors.push(r.target);
       }
       // Also check stores that reference this entity via stores relation
+      const entityId = getEntityId(a);
       for (const other of ctx.artifacts) {
-        if (other.relations) {
-          for (const r of other.relations) {
-            if (r.type === "stores" && r.target === a.id) {
-              implementors.push(other.id);
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        if (otherRels) {
+          for (const r of otherRels) {
+            if (r.type === "stores" && r.target === entityId) {
+              implementors.push(getEntityId(other));
             }
           }
         }
@@ -610,8 +624,9 @@ const classificationNotPropagated: EaDriftRule = {
         const implArtifact = ctx.artifactMap.get(implId);
         if (!implArtifact) continue;
 
+        const implRels = implArtifact.spec?.relations as Array<{ type: string; target: string }> | undefined;
         const implClassifications = new Set(
-          (implArtifact.relations ?? [])
+          (implRels ?? [])
             .filter((r) => r.type === "classifiedAs")
             .map((r) => r.target)
         );
@@ -620,7 +635,7 @@ const classificationNotPropagated: EaDriftRule = {
           if (!implClassifications.has(classId)) {
             results.push({
               path: implId,
-              message: `"${implId}" stores/implements "${a.id}" which is classifiedAs "${classId}" but does not carry the same classification`,
+              message: `"${implId}" stores/implements "${getEntityId(a)}" which is classifiedAs "${classId}" but does not carry the same classification`,
               severity: "warning",
               rule: this.id,
             });
@@ -647,25 +662,29 @@ const retentionNotEnforced: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "retention-policy") continue;
-      const ret = a as unknown as RetentionPolicyArtifact;
+      if (getEntityLegacyKind(a) !== "retention-policy") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const appliesTo = spec?.appliesTo as string[] | undefined;
+      const disposal = spec?.disposal as { automatedBy?: string } | undefined;
 
-      for (const targetId of ret.appliesTo ?? []) {
+      for (const targetId of appliesTo ?? []) {
         const target = ctx.artifactMap.get(targetId);
         if (!target) continue;
 
         // Check if target has a retainedUnder relation pointing back to this policy
-        const hasRetainedUnder = target.relations?.some(
-          (r) => r.type === "retainedUnder" && r.target === a.id
+        const entityId = getEntityId(a);
+        const targetRels = target.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        const hasRetainedUnder = targetRels?.some(
+          (r) => r.type === "retainedUnder" && r.target === entityId
         ) ?? false;
 
         // Check if the disposal has automation
-        const hasAutomation = !!ret.disposal?.automatedBy;
+        const hasAutomation = !!disposal?.automatedBy;
 
         if (!hasRetainedUnder && !hasAutomation) {
           results.push({
-            path: a.id,
-            message: `Retention policy "${a.id}" covers "${targetId}" but no enforcement evidence (no retainedUnder relation or automated disposal)`,
+            path: getEntityId(a),
+            message: `Retention policy "${getEntityId(a)}" covers "${targetId}" but no enforcement evidence (no retainedUnder relation or automated disposal)`,
             severity: "warning",
             rule: this.id,
           });
@@ -691,22 +710,25 @@ const conceptNotMaterialized: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "information-concept") continue;
+      if (getEntityLegacyKind(a) !== "information-concept") continue;
 
-      const hasImplementedBy = a.relations?.some((r) => r.type === "implementedBy") ?? false;
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const hasImplementedBy = specRelations?.some((r) => r.type === "implementedBy") ?? false;
       // Check if any CE or LDM references this concept
+      const entityId = getEntityId(a);
       const isReferenced = ctx.artifacts.some((other) => {
-        if (other.kind === "canonical-entity") {
-          const ce = other as unknown as CanonicalEntityArtifact;
-          return ce.conceptRef === a.id;
+        if (getEntityLegacyKind(other) === "canonical-entity") {
+          const conceptRef = other.spec?.conceptRef as string | undefined;
+          return conceptRef === entityId;
         }
-        return other.relations?.some((r) => r.type === "implementedBy" && r.target === a.id) ?? false;
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => r.type === "implementedBy" && r.target === entityId) ?? false;
       });
 
       if (!hasImplementedBy && !isReferenced) {
         results.push({
-          path: a.id,
-          message: `Information concept "${a.id}" has no canonical entity or logical data model`,
+          path: getEntityId(a),
+          message: `Information concept "${getEntityId(a)}" has no canonical entity or logical data model`,
           severity: "warning",
           rule: this.id,
         });
@@ -733,28 +755,29 @@ const orphanClassification: EaDriftRule = {
     // Build set of all classification targets
     const referencedClassifications = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.relations) {
-        for (const r of a.relations) {
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      if (specRelations) {
+        for (const r of specRelations) {
           if (r.type === "classifiedAs") {
             referencedClassifications.add(r.target);
           }
         }
       }
       // Also check classificationLevel on information-exchange
-      if (a.kind === "information-exchange") {
-        const exch = a as unknown as InformationExchangeArtifact;
-        if (exch.classificationLevel) {
-          referencedClassifications.add(exch.classificationLevel);
+      if (getEntityLegacyKind(a) === "information-exchange") {
+        const classificationLevel = a.spec?.classificationLevel as string | undefined;
+        if (classificationLevel) {
+          referencedClassifications.add(classificationLevel);
         }
       }
     }
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "classification") continue;
-      if (!referencedClassifications.has(a.id)) {
+      if (getEntityLegacyKind(a) !== "classification") continue;
+      if (!referencedClassifications.has(getEntityId(a))) {
         results.push({
-          path: a.id,
-          message: `Classification "${a.id}" is not referenced by any artifact`,
+          path: getEntityId(a),
+          message: `Classification "${getEntityId(a)}" is not referenced by any artifact`,
           severity: "warning",
           rule: this.id,
         });
@@ -780,30 +803,30 @@ const glossaryInconsistency: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     // Build map of CE titles (lowercase) to their IDs for matching
-    const entities = ctx.artifacts.filter((a) => a.kind === "canonical-entity");
+    const entities = ctx.artifacts.filter((a) => getEntityLegacyKind(a) === "canonical-entity");
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "glossary-term") continue;
+      if (getEntityLegacyKind(a) !== "glossary-term") continue;
       // Check if any CE references this term via relatedConcepts or glossaryTerms
       // Find canonical entities whose conceptRef links to the same information-concept
       // that this glossary term is related to
       for (const entity of entities) {
-        const _ce = entity as unknown as CanonicalEntityArtifact;
         // Check if entity title matches glossary term title (case-insensitive)
-        const termTitle = a.title.toLowerCase();
-        const entityTitle = entity.title.toLowerCase();
+        const termTitle = getEntityTitle(a).toLowerCase();
+        const entityTitle = getEntityTitle(entity).toLowerCase();
         if (entityTitle.includes(termTitle) || termTitle.includes(entityTitle)) {
           // They refer to the same concept — check if summary and definition share content
-          const gt = a as unknown as { definition: string };
-          if (gt.definition && entity.summary) {
+          const definition = a.spec?.definition as string | undefined;
+          const entitySummary = getEntityDescription(entity);
+          if (definition && entitySummary) {
             // Simple heuristic: if neither mentions the other's key words, flag it
-            const defWords = new Set(gt.definition.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
-            const summaryWords = new Set(entity.summary.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
+            const defWords = new Set(definition.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
+            const summaryWords = new Set(entitySummary.toLowerCase().split(/\s+/).filter((w) => w.length > 4));
             const overlap = [...defWords].filter((w) => summaryWords.has(w));
             if (overlap.length === 0 && defWords.size > 0 && summaryWords.size > 0) {
               results.push({
-                path: a.id,
-                message: `Glossary term "${a.id}" and canonical entity "${entity.id}" appear related but have no overlapping terminology in their descriptions`,
+                path: getEntityId(a),
+                message: `Glossary term "${getEntityId(a)}" and canonical entity "${getEntityId(entity)}" appear related but have no overlapping terminology in their descriptions`,
                 severity: "warning",
                 rule: this.id,
               });
@@ -831,24 +854,27 @@ const exchangeClassificationMismatch: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "information-exchange") continue;
-      const exch = a as unknown as InformationExchangeArtifact;
+      if (getEntityLegacyKind(a) !== "information-exchange") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const exchangedEntities = spec?.exchangedEntities as string[] | undefined;
+      const classificationLevel = spec?.classificationLevel as string | undefined;
 
-      if (!exch.exchangedEntities || exch.exchangedEntities.length === 0) continue;
+      if (!exchangedEntities || exchangedEntities.length === 0) continue;
 
       // Check if any exchanged entity has a classification
-      for (const entityId of exch.exchangedEntities) {
+      for (const entityId of exchangedEntities) {
         const entity = ctx.artifactMap.get(entityId);
         if (!entity) continue;
 
-        const entityClassifications = (entity.relations ?? [])
+        const entityRels = entity.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        const entityClassifications = (entityRels ?? [])
           .filter((r) => r.type === "classifiedAs")
           .map((r) => r.target);
 
-        if (entityClassifications.length > 0 && !exch.classificationLevel) {
+        if (entityClassifications.length > 0 && !classificationLevel) {
           results.push({
-            path: a.id,
-            message: `Information exchange "${a.id}" carries entity "${entityId}" classified as "${entityClassifications.join(", ")}" but does not declare a classificationLevel`,
+            path: getEntityId(a),
+            message: `Information exchange "${getEntityId(a)}" carries entity "${entityId}" classified as "${entityClassifications.join(", ")}" but does not declare a classificationLevel`,
             severity: "error",
             rule: this.id,
           });
@@ -877,20 +903,22 @@ const noRealizingSystems: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "capability") continue;
-      if (a.status !== "active" && a.status !== "shipped") continue;
+      if (getEntityLegacyKind(a) !== "capability") continue;
+      if (getEntityStatus(a) !== "active" && getEntityStatus(a) !== "shipped") continue;
 
       // Check if any artifact has realizes/supports → this capability
-      const isRealized = ctx.artifacts.some((other) =>
-        other.relations?.some(
-          (r) => (r.type === "realizes" || r.type === "supports") && r.target === a.id
-        )
-      );
+      const entityId = getEntityId(a);
+      const isRealized = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some(
+          (r) => (r.type === "realizes" || r.type === "supports") && r.target === entityId
+        ) ?? false;
+      });
 
       if (!isRealized) {
         results.push({
-          path: a.id,
-          message: `Active capability "${a.id}" has no realizing or supporting application/service`,
+          path: getEntityId(a),
+          message: `Active capability "${getEntityId(a)}" has no realizing or supporting application/service`,
           severity: "warning",
           rule: this.id,
         });
@@ -915,20 +943,23 @@ const processMissingOwner: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "process") continue;
+      if (getEntityLegacyKind(a) !== "process") continue;
 
-      const proc = a as unknown as ProcessArtifact;
-      const hasProcessOwner = !!proc.processOwner;
-      const hasPerformedBy = a.relations?.some((r) => r.type === "performedBy") ?? false;
+      const processOwner = a.spec?.processOwner as string | undefined;
+      const hasProcessOwner = !!processOwner;
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const hasPerformedBy = specRelations?.some((r) => r.type === "performedBy") ?? false;
       // Check if any org-unit owns this process
-      const isOwned = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => r.type === "owns" && r.target === a.id)
-      );
+      const entityId = getEntityId(a);
+      const isOwned = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => r.type === "owns" && r.target === entityId) ?? false;
+      });
 
       if (!hasProcessOwner && !hasPerformedBy && !isOwned) {
         results.push({
-          path: a.id,
-          message: `Process "${a.id}" has no owner (no processOwner, performedBy, or owns relation)`,
+          path: getEntityId(a),
+          message: `Process "${getEntityId(a)}" has no owner (no processOwner, performedBy, or owns relation)`,
           severity: "warning",
           rule: this.id,
         });
@@ -953,12 +984,14 @@ const controlMissingEvidence: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "control") continue;
-      const ctrl = a as unknown as ControlArtifact;
-      if (ctrl.implementation === "automated" && !ctrl.producesEvidence) {
+      if (getEntityLegacyKind(a) !== "control") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const implementation = spec?.implementation as string | undefined;
+      const producesEvidence = spec?.producesEvidence as string | undefined;
+      if (implementation === "automated" && !producesEvidence) {
         results.push({
-          path: a.id,
-          message: `Automated control "${a.id}" has no producesEvidence reference`,
+          path: getEntityId(a),
+          message: `Automated control "${getEntityId(a)}" has no producesEvidence reference`,
           severity: "warning",
           rule: this.id,
         });
@@ -983,18 +1016,20 @@ const retiredSystemDependency: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "capability") continue;
-      if (a.status !== "active" && a.status !== "shipped") continue;
+      if (getEntityLegacyKind(a) !== "capability") continue;
+      if (getEntityStatus(a) !== "active" && getEntityStatus(a) !== "shipped") continue;
 
       // Find all systems that realize this capability
+      const entityId = getEntityId(a);
       for (const other of ctx.artifacts) {
-        if (!other.relations) continue;
-        for (const r of other.relations) {
-          if ((r.type === "realizes" || r.type === "supports") && r.target === a.id) {
-            if (other.status === "retired") {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        if (!otherRels) continue;
+        for (const r of otherRels) {
+          if ((r.type === "realizes" || r.type === "supports") && r.target === entityId) {
+            if (getEntityStatus(other) === "retired") {
               results.push({
-                path: a.id,
-                message: `Active capability "${a.id}" is realized/supported by retired "${other.id}"`,
+                path: getEntityId(a),
+                message: `Active capability "${getEntityId(a)}" is realized/supported by retired "${getEntityId(other)}"`,
                 severity: "error",
                 rule: this.id,
               });
@@ -1021,24 +1056,26 @@ const orphanCapability: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
 
-    const capIds = new Set(ctx.artifacts.filter((a) => a.kind === "capability").map((a) => a.id));
+    const capIds = new Set(ctx.artifacts.filter((a) => getEntityLegacyKind(a) === "capability").map((a) => getEntityId(a)));
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "capability") continue;
-      const cap = a as unknown as CapabilityArtifact;
+      if (getEntityLegacyKind(a) !== "capability") continue;
+      const parentCapability = a.spec?.parentCapability as string | undefined;
 
-      const hasParent = !!cap.parentCapability && capIds.has(cap.parentCapability);
+      const hasParent = !!parentCapability && capIds.has(parentCapability);
+      const entityId = getEntityId(a);
       const hasChildren = ctx.artifacts.some(
-        (other) => other.kind === "capability" && (other as unknown as CapabilityArtifact).parentCapability === a.id
+        (other) => getEntityLegacyKind(other) === "capability" && (other.spec?.parentCapability as string | undefined) === entityId
       );
-      const isRealized = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => (r.type === "realizes" || r.type === "supports") && r.target === a.id)
-      );
+      const isRealized = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => (r.type === "realizes" || r.type === "supports") && r.target === entityId) ?? false;
+      });
 
       if (!hasParent && !hasChildren && !isRealized) {
         results.push({
-          path: a.id,
-          message: `Capability "${a.id}" is orphaned — no parent, no children, no realizing systems`,
+          path: getEntityId(a),
+          message: `Capability "${getEntityId(a)}" is orphaned — no parent, no children, no realizing systems`,
           severity: "warning",
           rule: this.id,
         });
@@ -1063,16 +1100,18 @@ const missionNoCapabilities: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "mission") continue;
+      if (getEntityLegacyKind(a) !== "mission") continue;
 
-      const hasSupport = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => (r.type === "supports" || r.type === "realizes") && r.target === a.id)
-      );
+      const entityId = getEntityId(a);
+      const hasSupport = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => (r.type === "supports" || r.type === "realizes") && r.target === entityId) ?? false;
+      });
 
       if (!hasSupport) {
         results.push({
-          path: a.id,
-          message: `Mission "${a.id}" has no supporting capabilities or systems`,
+          path: getEntityId(a),
+          message: `Mission "${getEntityId(a)}" has no supporting capabilities or systems`,
           severity: "warning",
           rule: this.id,
         });
@@ -1097,18 +1136,20 @@ const policyNoControls: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "policy-objective") continue;
-      const pol = a as unknown as PolicyObjectiveArtifact;
+      if (getEntityLegacyKind(a) !== "policy-objective") continue;
+      const enforcedBy = a.spec?.enforcedBy as string[] | undefined;
 
-      const hasEnforcedBy = (pol.enforcedBy?.length ?? 0) > 0;
-      const hasGovernedBy = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => r.type === "governedBy" && r.target === a.id)
-      );
+      const hasEnforcedBy = (enforcedBy?.length ?? 0) > 0;
+      const entityId = getEntityId(a);
+      const hasGovernedBy = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => r.type === "governedBy" && r.target === entityId) ?? false;
+      });
 
       if (!hasEnforcedBy && !hasGovernedBy) {
         results.push({
-          path: a.id,
-          message: `Policy objective "${a.id}" has no enforcing controls`,
+          path: getEntityId(a),
+          message: `Policy objective "${getEntityId(a)}" has no enforcing controls`,
           severity: "warning",
           rule: this.id,
         });
@@ -1143,20 +1184,22 @@ const controlOverdue: EaDriftRule = {
     const now = Date.now();
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "control") continue;
-      const ctrl = a as unknown as ControlArtifact;
-      if (!ctrl.lastExecutedAt || !ctrl.frequency) continue;
+      if (getEntityLegacyKind(a) !== "control") continue;
+      const spec = a.spec as Record<string, unknown> | undefined;
+      const lastExecutedAt = spec?.lastExecutedAt as string | undefined;
+      const frequency = spec?.frequency as string | undefined;
+      if (!lastExecutedAt || !frequency) continue;
 
-      const maxInterval = frequencyMs[ctrl.frequency];
+      const maxInterval = frequencyMs[frequency];
       if (!maxInterval) continue; // on-demand / event-triggered — skip
 
-      const lastExec = new Date(ctrl.lastExecutedAt).getTime();
+      const lastExec = new Date(lastExecutedAt).getTime();
       if (isNaN(lastExec)) continue;
 
       if (now - lastExec > maxInterval) {
         results.push({
-          path: a.id,
-          message: `Control "${a.id}" last executed at ${ctrl.lastExecutedAt} — overdue for "${ctrl.frequency}" frequency`,
+          path: getEntityId(a),
+          message: `Control "${getEntityId(a)}" last executed at ${lastExecutedAt} — overdue for "${frequency}" frequency`,
           severity: "warning",
           rule: this.id,
         });
@@ -1181,15 +1224,15 @@ const valueStreamBottleneck: EaDriftRule = {
     const results: EaValidationError[] = [];
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "value-stream") continue;
-      const vs = a as unknown as ValueStreamArtifact;
-      if (!vs.stages) continue;
+      if (getEntityLegacyKind(a) !== "value-stream") continue;
+      const stages = a.spec?.stages as Array<{ name?: string; bottleneck?: boolean }> | undefined;
+      if (!stages) continue;
 
-      const bottlenecks = vs.stages.filter((s) => s.bottleneck);
+      const bottlenecks = stages.filter((s) => s.bottleneck);
       for (const bn of bottlenecks) {
         results.push({
-          path: a.id,
-          message: `Value stream "${a.id}" stage "${bn.name}" is marked as a bottleneck`,
+          path: getEntityId(a),
+          message: `Value stream "${getEntityId(a)}" stage "${bn.name}" is marked as a bottleneck`,
           severity: "warning",
           rule: this.id,
         });
@@ -1216,28 +1259,33 @@ const unownedCriticalSystem: EaDriftRule = {
     // Build set of artifacts owned by org-units
     const ownedArtifacts = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.kind !== "org-unit") continue;
-      if (a.relations) {
-        for (const r of a.relations) {
+      if (getEntityLegacyKind(a) !== "org-unit") continue;
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      if (specRelations) {
+        for (const r of specRelations) {
           if (r.type === "owns") ownedArtifacts.add(r.target);
         }
       }
     }
 
     for (const a of ctx.artifacts) {
-      if (a.kind !== "application" && a.kind !== "service") continue;
-      if (a.status !== "active" && a.status !== "shipped") continue;
+      const kind = getEntityLegacyKind(a);
+      if (kind !== "application" && kind !== "service") continue;
+      if (getEntityStatus(a) !== "active" && getEntityStatus(a) !== "shipped") continue;
 
       // Check if this system has significant relations (>= 3) indicating criticality
-      const relationCount = (a.relations?.length ?? 0);
-      const isTargeted = ctx.artifacts.some((other) =>
-        other.relations?.some((r) => r.target === a.id)
-      );
+      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const relationCount = (specRelations?.length ?? 0);
+      const entityId = getEntityId(a);
+      const isTargeted = ctx.artifacts.some((other) => {
+        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        return otherRels?.some((r) => r.target === entityId) ?? false;
+      });
 
-      if ((relationCount >= 3 || isTargeted) && !ownedArtifacts.has(a.id)) {
+      if ((relationCount >= 3 || isTargeted) && !ownedArtifacts.has(entityId)) {
         results.push({
-          path: a.id,
-          message: `Active ${a.kind} "${a.id}" has significant relations but no org-unit ownership`,
+          path: getEntityId(a),
+          message: `Active ${kind} "${getEntityId(a)}" has significant relations but no org-unit ownership`,
           severity: "warning",
           rule: this.id,
         });
@@ -1270,10 +1318,12 @@ const unmodeledExternalDependency: EaDriftRule = {
     // Collect all modeled interface endpoints
     const modeledUrls = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.kind === "system-interface") {
-        const iface = a as unknown as { endpoint?: string; url?: string };
-        if (iface.endpoint) modeledUrls.add(iface.endpoint);
-        if (iface.url) modeledUrls.add(iface.url);
+      if (getEntityLegacyKind(a) === "system-interface") {
+        const spec = a.spec as Record<string, unknown> | undefined;
+        const endpoint = spec?.endpoint as string | undefined;
+        const url = spec?.url as string | undefined;
+        if (endpoint) modeledUrls.add(endpoint);
+        if (url) modeledUrls.add(url);
       }
     }
 
@@ -1311,11 +1361,11 @@ const unmodeledCloudResource: EaDriftRule = {
     // Collect all modeled cloud resource identifiers
     const modeledResources = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.kind === "cloud-resource") {
-        const cr = a as unknown as CloudResourceArtifact;
-        modeledResources.add(a.id);
-        modeledResources.add(a.title.toLowerCase());
-        if (cr.resourceId) modeledResources.add(cr.resourceId);
+      if (getEntityLegacyKind(a) === "cloud-resource") {
+        const resourceId = a.spec?.resourceId as string | undefined;
+        modeledResources.add(getEntityId(a));
+        modeledResources.add(getEntityTitle(a).toLowerCase());
+        if (resourceId) modeledResources.add(resourceId);
       }
     }
 
@@ -1354,13 +1404,13 @@ const logicalPhysicalMismatch: EaDriftRule = {
     // Build map of canonical entity titles → their attribute names
     const entityAttrs = new Map<string, Set<string>>();
     for (const a of ctx.artifacts) {
-      if (a.kind === "canonical-entity") {
-        const ce = a as unknown as CanonicalEntityArtifact;
+      if (getEntityLegacyKind(a) === "canonical-entity") {
+        const attributes = a.spec?.attributes as Array<{ name: string }> | undefined;
         const attrs = new Set<string>();
-        for (const attr of ce.attributes ?? []) {
+        for (const attr of attributes ?? []) {
           attrs.add(attr.name);
         }
-        entityAttrs.set(a.title.toLowerCase(), attrs);
+        entityAttrs.set(getEntityTitle(a).toLowerCase(), attrs);
       }
     }
 
@@ -1405,13 +1455,13 @@ const storeUndeclaredEntity: EaDriftRule = {
     // Collect all declared entity/table identifiers
     const declaredNames = new Set<string>();
     for (const a of ctx.artifacts) {
-      if (a.kind === "canonical-entity") {
-        declaredNames.add(a.title.toLowerCase());
-        declaredNames.add(a.id.toLowerCase());
+      if (getEntityLegacyKind(a) === "canonical-entity") {
+        declaredNames.add(getEntityTitle(a).toLowerCase());
+        declaredNames.add(getEntityId(a).toLowerCase());
       }
-      if (a.kind === "data-store") {
-        declaredNames.add(a.title.toLowerCase());
-        declaredNames.add(a.id.toLowerCase());
+      if (getEntityLegacyKind(a) === "data-store") {
+        declaredNames.add(getEntityTitle(a).toLowerCase());
+        declaredNames.add(getEntityId(a).toLowerCase());
       }
     }
 
@@ -1450,13 +1500,13 @@ const qualityRuleNotEnforced: EaDriftRule = {
 
     // Check all quality-attribute artifacts for enforcement
     for (const a of ctx.artifacts) {
-      if (a.kind !== "quality-attribute") continue;
-      const qa = a as unknown as { qualityRules?: Array<{ id: string }> };
-      for (const rule of qa.qualityRules ?? []) {
+      if (getEntityLegacyKind(a) !== "quality-attribute") continue;
+      const qualityRules = a.spec?.qualityRules as Array<{ id: string }> | undefined;
+      for (const rule of qualityRules ?? []) {
         if (!enforcedIds.has(rule.id)) {
           results.push({
-            path: a.id,
-            message: `Quality rule "${rule.id}" on "${a.id}" is declared but no enforcement evidence found`,
+            path: getEntityId(a),
+            message: `Quality rule "${rule.id}" on "${getEntityId(a)}" is declared but no enforcement evidence found`,
             severity: "warning",
             rule: "ea:data/quality-rule-not-enforced",
           });
@@ -1477,13 +1527,13 @@ const baselineMissingArtifacts: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      if (a.kind !== "baseline") continue;
-      const bl = a as unknown as BaselineArtifact;
-      for (const ref of bl.artifactRefs ?? []) {
+      if (getEntityLegacyKind(a) !== "baseline") continue;
+      const artifactRefs = a.spec?.artifactRefs as string[] | undefined;
+      for (const ref of artifactRefs ?? []) {
         if (!ctx.artifactMap.has(ref)) {
           results.push({
-            path: a.id,
-            message: `Baseline "${a.id}" references artifact "${ref}" which does not exist`,
+            path: getEntityId(a),
+            message: `Baseline "${getEntityId(a)}" references artifact "${ref}" which does not exist`,
             severity: "warning",
             rule: "ea:transition/baseline-missing-artifacts",
           });
@@ -1504,14 +1554,14 @@ const baselineStale: EaDriftRule = {
     const now = Date.now();
     const ninetyDays = 90 * 24 * 60 * 60 * 1000;
     for (const a of ctx.artifacts) {
-      if (a.kind !== "baseline") continue;
-      const bl = a as unknown as BaselineArtifact;
-      if (!bl.capturedAt) continue;
-      const capturedDate = new Date(bl.capturedAt).getTime();
+      if (getEntityLegacyKind(a) !== "baseline") continue;
+      const capturedAt = a.spec?.capturedAt as string | undefined;
+      if (!capturedAt) continue;
+      const capturedDate = new Date(capturedAt).getTime();
       if (!isNaN(capturedDate) && now - capturedDate > ninetyDays) {
         results.push({
-          path: a.id,
-          message: `Baseline "${a.id}" was captured more than 90 days ago (${bl.capturedAt})`,
+          path: getEntityId(a),
+          message: `Baseline "${getEntityId(a)}" was captured more than 90 days ago (${capturedAt})`,
           severity: "warning",
           rule: "ea:transition/baseline-stale",
         });
@@ -1529,14 +1579,14 @@ const invalidTargetReference: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      if (a.kind !== "target") continue;
-      const tgt = a as unknown as TargetArtifact;
-      for (const ref of tgt.artifactRefs ?? []) {
+      if (getEntityLegacyKind(a) !== "target") continue;
+      const artifactRefs = a.spec?.artifactRefs as string[] | undefined;
+      for (const ref of artifactRefs ?? []) {
         const target = ctx.artifactMap.get(ref);
         if (!target) {
           results.push({
-            path: a.id,
-            message: `Target "${a.id}" references artifact "${ref}" which does not exist`,
+            path: getEntityId(a),
+            message: `Target "${getEntityId(a)}" references artifact "${ref}" which does not exist`,
             severity: "error",
             rule: "ea:transition/invalid-target-reference",
           });
@@ -1556,14 +1606,14 @@ const expiredTarget: EaDriftRule = {
     const results: EaValidationError[] = [];
     const now = Date.now();
     for (const a of ctx.artifacts) {
-      if (a.kind !== "target" || a.status === "retired") continue;
-      const tgt = a as unknown as TargetArtifact;
-      if (!tgt.effectiveBy) continue;
-      const effectiveDate = new Date(tgt.effectiveBy).getTime();
+      if (getEntityLegacyKind(a) !== "target" || getEntityStatus(a) === "retired") continue;
+      const effectiveBy = a.spec?.effectiveBy as string | undefined;
+      if (!effectiveBy) continue;
+      const effectiveDate = new Date(effectiveBy).getTime();
       if (!isNaN(effectiveDate) && effectiveDate < now) {
         results.push({
-          path: a.id,
-          message: `Target "${a.id}" has expired (effectiveBy: ${tgt.effectiveBy})`,
+          path: getEntityId(a),
+          message: `Target "${getEntityId(a)}" has expired (effectiveBy: ${effectiveBy})`,
           severity: "warning",
           rule: "ea:transition/expired-target",
         });
@@ -1581,12 +1631,12 @@ const missingBaseline: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      if (a.kind !== "transition-plan") continue;
-      const plan = a as unknown as TransitionPlanArtifact;
-      if (plan.baseline && !ctx.artifactMap.has(plan.baseline)) {
+      if (getEntityLegacyKind(a) !== "transition-plan") continue;
+      const baseline = a.spec?.baseline as string | undefined;
+      if (baseline && !ctx.artifactMap.has(baseline)) {
         results.push({
-          path: a.id,
-          message: `Transition plan "${a.id}" references baseline "${plan.baseline}" which does not exist`,
+          path: getEntityId(a),
+          message: `Transition plan "${getEntityId(a)}" references baseline "${baseline}" which does not exist`,
           severity: "error",
           rule: "ea:transition/missing-baseline",
         });
@@ -1604,12 +1654,12 @@ const missingTarget: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      if (a.kind !== "transition-plan") continue;
-      const plan = a as unknown as TransitionPlanArtifact;
-      if (plan.target && !ctx.artifactMap.has(plan.target)) {
+      if (getEntityLegacyKind(a) !== "transition-plan") continue;
+      const target = a.spec?.target as string | undefined;
+      if (target && !ctx.artifactMap.has(target)) {
         results.push({
-          path: a.id,
-          message: `Transition plan "${a.id}" references target "${plan.target}" which does not exist`,
+          path: getEntityId(a),
+          message: `Transition plan "${getEntityId(a)}" references target "${target}" which does not exist`,
           severity: "error",
           rule: "ea:transition/missing-target",
         });
@@ -1627,15 +1677,15 @@ const milestoneOnRetiredArtifact: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      if (a.kind !== "transition-plan") continue;
-      const plan = a as unknown as TransitionPlanArtifact;
-      for (const ms of plan.milestones ?? []) {
+      if (getEntityLegacyKind(a) !== "transition-plan") continue;
+      const milestones = a.spec?.milestones as Array<{ id: string; deliverables?: string[] }> | undefined;
+      for (const ms of milestones ?? []) {
         for (const deliverable of ms.deliverables ?? []) {
           const target = ctx.artifactMap.get(deliverable);
-          if (target && target.status === "retired") {
+          if (target && getEntityStatus(target) === "retired") {
             results.push({
-              path: a.id,
-              message: `Milestone "${ms.id}" in plan "${a.id}" delivers retired artifact "${deliverable}"`,
+              path: getEntityId(a),
+              message: `Milestone "${ms.id}" in plan "${getEntityId(a)}" delivers retired artifact "${deliverable}"`,
               severity: "error",
               rule: "ea:transition/milestone-on-retired-artifact",
             });
@@ -1654,29 +1704,30 @@ const orphanWave: EaDriftRule = {
   requiresResolver: false,
   evaluate(ctx) {
     const results: EaValidationError[] = [];
-    const plans = ctx.artifacts.filter((a) => a.kind === "transition-plan") as unknown as TransitionPlanArtifact[];
+    const plans = ctx.artifacts.filter((a) => getEntityLegacyKind(a) === "transition-plan");
     const referencedWaves = new Set<string>();
     for (const plan of plans) {
-      if (plan.relations) {
-        for (const rel of plan.relations) {
+      const specRelations = plan.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      if (specRelations) {
+        for (const rel of specRelations) {
           if (rel.type === "generates") referencedWaves.add(rel.target);
         }
       }
     }
     // Also check waves that reference plans via transitionPlan field
     for (const a of ctx.artifacts) {
-      if (a.kind !== "migration-wave") continue;
-      const wave = a as unknown as MigrationWaveArtifact;
-      if (wave.transitionPlan && ctx.artifactMap.has(wave.transitionPlan)) {
-        referencedWaves.add(a.id);
+      if (getEntityLegacyKind(a) !== "migration-wave") continue;
+      const transitionPlan = a.spec?.transitionPlan as string | undefined;
+      if (transitionPlan && ctx.artifactMap.has(transitionPlan)) {
+        referencedWaves.add(getEntityId(a));
       }
     }
     for (const a of ctx.artifacts) {
-      if (a.kind !== "migration-wave") continue;
-      if (!referencedWaves.has(a.id)) {
+      if (getEntityLegacyKind(a) !== "migration-wave") continue;
+      if (!referencedWaves.has(getEntityId(a))) {
         results.push({
-          path: a.id,
-          message: `Migration wave "${a.id}" is not referenced by any transition plan`,
+          path: getEntityId(a),
+          message: `Migration wave "${getEntityId(a)}" is not referenced by any transition plan`,
           severity: "warning",
           rule: "ea:transition/orphan-wave",
         });
@@ -1695,14 +1746,14 @@ const exceptionExpired: EaDriftRule = {
     const results: EaValidationError[] = [];
     const now = Date.now();
     for (const a of ctx.artifacts) {
-      if (a.kind !== "exception" || a.status === "retired") continue;
-      const exc = a as unknown as ExceptionArtifact;
-      if (!exc.expiresAt) continue;
-      const expiryDate = new Date(exc.expiresAt).getTime();
+      if (getEntityLegacyKind(a) !== "exception" || getEntityStatus(a) === "retired") continue;
+      const expiresAt = a.spec?.expiresAt as string | undefined;
+      if (!expiresAt) continue;
+      const expiryDate = new Date(expiresAt).getTime();
       if (!isNaN(expiryDate) && expiryDate < now) {
         results.push({
-          path: a.id,
-          message: `Exception "${a.id}" has expired (expiresAt: ${exc.expiresAt})`,
+          path: getEntityId(a),
+          message: `Exception "${getEntityId(a)}" has expired (expiresAt: ${expiresAt})`,
           severity: "warning",
           rule: "ea:exception/expired",
         });
@@ -1720,15 +1771,15 @@ const exceptionMissingScope: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      if (a.kind !== "exception") continue;
-      const exc = a as unknown as ExceptionArtifact;
-      const hasScope = (exc.scope?.artifactIds?.length ?? 0) > 0 ||
-        (exc.scope?.rules?.length ?? 0) > 0 ||
-        (exc.scope?.domains?.length ?? 0) > 0;
+      if (getEntityLegacyKind(a) !== "exception") continue;
+      const scope = a.spec?.scope as { artifactIds?: string[]; rules?: string[]; domains?: string[] } | undefined;
+      const hasScope = (scope?.artifactIds?.length ?? 0) > 0 ||
+        (scope?.rules?.length ?? 0) > 0 ||
+        (scope?.domains?.length ?? 0) > 0;
       if (!hasScope) {
         results.push({
-          path: a.id,
-          message: `Exception "${a.id}" has empty scope (would suppress everything)`,
+          path: getEntityId(a),
+          message: `Exception "${getEntityId(a)}" has empty scope (would suppress everything)`,
           severity: "error",
           rule: "ea:exception/missing-scope",
         });
@@ -1752,7 +1803,7 @@ const traceRefTargetExists: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      for (const ref of a.traceRefs ?? []) {
+      for (const ref of getEntityTraceRefs(a)) {
         if (!ref.path || ref.path.startsWith("http://") || ref.path.startsWith("https://")) continue;
         // Check if path references another artifact
         if (ctx.artifactMap.has(ref.path)) continue;
@@ -1760,8 +1811,8 @@ const traceRefTargetExists: EaDriftRule = {
         // Instead, warn when the path has no extension (likely typo).
         if (!ref.path.includes(".") && !ref.path.includes("/")) {
           results.push({
-            path: a.id,
-            message: `Artifact "${a.id}" traceRef "${ref.path}" looks like neither a file path nor a valid artifact ID`,
+            path: getEntityId(a),
+            message: `Artifact "${getEntityId(a)}" traceRef "${ref.path}" looks like neither a file path nor a valid artifact ID`,
             severity: "warning",
             rule: this.id,
           });
@@ -1783,13 +1834,13 @@ const traceRefDuplicate: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
-      const refs = a.traceRefs ?? [];
+      const refs = getEntityTraceRefs(a);
       const seen = new Set<string>();
       for (const ref of refs) {
         if (seen.has(ref.path)) {
           results.push({
-            path: a.id,
-            message: `Artifact "${a.id}" has duplicate traceRef "${ref.path}"`,
+            path: getEntityId(a),
+            message: `Artifact "${getEntityId(a)}" has duplicate traceRef "${ref.path}"`,
             severity: "warning",
             rule: this.id,
           });
@@ -1864,15 +1915,15 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
  * (for future use when resolvers are available).
  */
 export function evaluateEaDrift(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options?: { includeResolverRules?: boolean; resolverData?: EaResolverObservedState },
 ): EaDriftResult {
-  const artifactMap = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) {
-    artifactMap.set(a.id, a);
+  const artifactMap = new Map<string, BackstageEntity>();
+  for (const entity of entities) {
+    artifactMap.set(getEntityId(entity), entity);
   }
 
-  const ctx: EaDriftContext = { artifactMap, artifacts, resolverData: options?.resolverData };
+  const ctx: EaDriftContext = { artifactMap, artifacts: entities, resolverData: options?.resolverData };
   const errors: EaValidationError[] = [];
   const warnings: EaValidationError[] = [];
   let rulesEvaluated = 0;
@@ -1953,10 +2004,10 @@ export interface EaDriftReport {
 
 /** Options for the full drift engine. */
 export interface EaDriftOptions {
-  /** All loaded artifacts. */
-  artifacts: EaArtifactBase[];
+  /** All loaded entities. */
+  artifacts: BackstageEntity[];
   /** Active exceptions for suppression. */
-  exceptions?: ExceptionArtifact[];
+  exceptions?: BackstageEntity[];
   /** Severity overrides: rule ID → severity or "off". */
   ruleOverrides?: Record<string, "error" | "warning" | "info" | "off">;
   /** Filter to specific domains. */
@@ -2000,7 +2051,7 @@ export function detectEaDrift(options: EaDriftOptions): EaDriftReport {
     findings = applySuppression(findings, exceptions);
   }
 
-  // Step 4b: Apply inline per-artifact drift suppression (extensions.driftSuppress)
+  // Step 4b: Apply inline per-artifact drift suppression (spec.driftSuppress)
   findings = applyInlineSuppression(findings, artifacts);
 
   // Step 5: Apply severity overrides
@@ -2019,7 +2070,7 @@ export function detectEaDrift(options: EaDriftOptions): EaDriftReport {
 function validationErrorToFinding(
   error: EaValidationError,
   severity: "error" | "warning",
-  artifacts: EaArtifactBase[],
+  artifacts: BackstageEntity[],
 ): EaDriftFinding {
   // Extract artifact ID from the error path (typically the first segment)
   const artifactId = error.path ?? "";
@@ -2040,10 +2091,10 @@ function validationErrorToFinding(
 /**
  * Infer domain from an artifact ID by looking up in the kind registry.
  */
-function inferDomainFromArtifact(artifactId: string, artifacts: EaArtifactBase[]): string {
-  const artifact = artifacts.find((a) => a.id === artifactId);
+function inferDomainFromArtifact(artifactId: string, artifacts: BackstageEntity[]): string {
+  const artifact = artifacts.find((a) => getEntityId(a) === artifactId);
   if (!artifact) return "unknown";
-  return getDomainForKind(artifact.kind) ?? "unknown";
+  return getDomainForKind(getEntityLegacyKind(artifact)) ?? "unknown";
 }
 
 /**
@@ -2056,27 +2107,30 @@ function inferDomainFromArtifact(artifactId: string, artifacts: EaArtifactBase[]
  */
 function applySuppression(
   findings: EaDriftFinding[],
-  exceptions: ExceptionArtifact[],
+  exceptions: BackstageEntity[],
 ): EaDriftFinding[] {
   const now = Date.now();
 
   // Filter to active, non-expired exceptions
   const activeExceptions = exceptions.filter((exc) => {
-    const expiresMs = new Date(exc.expiresAt).getTime();
+    const expiresAt = exc.spec?.expiresAt as string | undefined;
+    if (!expiresAt) return false;
+    const expiresMs = new Date(expiresAt).getTime();
     return !isNaN(expiresMs) && expiresMs > now;
   });
 
   return findings.map((f) => {
     for (const exc of activeExceptions) {
+      const scope = exc.spec?.scope as { artifactIds?: string[]; rules?: string[]; domains?: string[] } | undefined;
       const matchesArtifact =
-        !exc.scope.artifactIds || exc.scope.artifactIds.length === 0 || exc.scope.artifactIds.includes(f.artifactId);
+        !scope?.artifactIds || scope.artifactIds.length === 0 || scope.artifactIds.includes(f.artifactId);
       const matchesRule =
-        !exc.scope.rules || exc.scope.rules.length === 0 || exc.scope.rules.includes(f.rule);
+        !scope?.rules || scope.rules.length === 0 || scope.rules.includes(f.rule);
       const matchesDomain =
-        !exc.scope.domains || exc.scope.domains.length === 0 || exc.scope.domains.includes(f.domain as EaDomain);
+        !scope?.domains || scope.domains.length === 0 || scope.domains.includes(f.domain as EaDomain);
 
       if (matchesArtifact && matchesRule && matchesDomain) {
-        return { ...f, suppressed: true, suppressedBy: exc.id };
+        return { ...f, suppressed: true, suppressedBy: getEntityId(exc) };
       }
     }
     return f;
@@ -2096,14 +2150,14 @@ function applySuppression(
  */
 function applyInlineSuppression(
   findings: EaDriftFinding[],
-  artifacts: EaArtifactBase[],
+  artifacts: BackstageEntity[],
 ): EaDriftFinding[] {
   // Build a map: artifactId → Set<suppressed rule IDs>
   const suppressMap = new Map<string, Set<string>>();
   for (const a of artifacts) {
-    const suppress = (a.extensions as Record<string, unknown>)?.driftSuppress;
+    const suppress = a.spec?.driftSuppress as unknown;
     if (Array.isArray(suppress) && suppress.length > 0) {
-      suppressMap.set(a.id, new Set(suppress.map(String)));
+      suppressMap.set(getEntityId(a), new Set(suppress.map(String)));
     }
   }
 

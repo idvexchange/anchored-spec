@@ -246,7 +246,7 @@ function runValidateStep(
   }
 
   // Quality rules
-  const qualityResult = validateEaArtifacts(artifacts.map(artifactToBackstage), {
+  const qualityResult = validateEaArtifacts(artifacts, {
     quality: options.strict ? { strictMode: true } : undefined,
   });
 
