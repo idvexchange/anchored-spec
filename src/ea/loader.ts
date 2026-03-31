@@ -15,6 +15,7 @@ import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, extname, relative, resolve, dirname } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { EaArtifactBase, EaDomain, EaAnchors, EaRelation } from "./types.js";
+import { loadBackstageEntities, type BackstageLoadResult } from "./backstage/loader.js";
 
 /**
  * Minimal v0.x config shape — inlined after src/core removal.
@@ -363,6 +364,10 @@ export class EaRoot {
       if (existsSync(join(current, "ea", "systems"))) {
         return current;
       }
+      // Backstage: check for catalog-info.yaml
+      if (existsSync(join(current, "catalog-info.yaml"))) {
+        return current;
+      }
       // Legacy: check for specs/ dir
       if (
         existsSync(join(current, "specs", "requirements")) ||
@@ -423,8 +428,25 @@ export class EaRoot {
     return join(this.projectRoot, this.eaConfig.domains[domain]);
   }
 
-  /** Check if EA is initialized (root dir exists with at least one domain dir). */
+  /** Check if EA is initialized (root dir exists with at least one domain dir, or Backstage mode is configured). */
   isInitialized(): boolean {
+    // Backstage mode: check for manifest file or catalog dir
+    const mode = this.v1Config?.entityMode;
+    if (mode === "manifest") {
+      const manifestPath = join(
+        this.projectRoot,
+        this.v1Config?.manifestPath ?? "catalog-info.yaml",
+      );
+      if (existsSync(manifestPath)) return true;
+      const catalogDir = this.v1Config?.catalogDir;
+      if (catalogDir && existsSync(join(this.projectRoot, catalogDir))) return true;
+    }
+    if (mode === "inline") {
+      const dirs = this.v1Config?.inlineDocDirs ?? ["docs"];
+      if (dirs.some((d) => existsSync(join(this.projectRoot, d)))) return true;
+    }
+
+    // Legacy artifacts mode
     const rootDir = join(this.projectRoot, this.eaConfig.rootDir);
     if (!existsSync(rootDir)) return false;
 
@@ -442,6 +464,13 @@ export class EaRoot {
 
   /** Load all EA artifacts across all configured domains. */
   async loadArtifacts(): Promise<EaLoadResult> {
+    // Backstage entity mode: delegate to Backstage-aware loader
+    const mode = this.v1Config?.entityMode;
+    if (mode === "manifest" || mode === "inline") {
+      return this.loadBackstageMode();
+    }
+
+    // Legacy artifacts mode
     const allDetails: EaLoadedArtifact[] = [];
 
     for (const domain of EA_DOMAINS) {
@@ -456,6 +485,33 @@ export class EaRoot {
 
     this.loaded = { artifacts, details: allDetails, errors };
     return this.loaded;
+  }
+
+  /** Load artifacts via the Backstage bridge. */
+  private async loadBackstageMode(): Promise<EaLoadResult> {
+    const config = this.v1Config!;
+    const bsResult: BackstageLoadResult = await loadBackstageEntities(
+      config,
+      this.projectRoot,
+    );
+
+    // Convert BackstageLoadedEntity details to EaLoadedArtifact shape
+    const details: EaLoadedArtifact[] = bsResult.details.map((d) => ({
+      artifact: d.artifact,
+      filePath: d.filePath,
+      relativePath: d.relativePath,
+      domain: d.domain,
+      errors: d.errors,
+    }));
+
+    const result: EaLoadResult = {
+      artifacts: bsResult.artifacts,
+      details,
+      errors: bsResult.errors,
+    };
+
+    this.loaded = result;
+    return result;
   }
 
   /** Load artifacts from a specific domain. */
