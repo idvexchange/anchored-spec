@@ -23,6 +23,7 @@ export type FactKind =
   | "payload-schema"
   | "assurance-level"
   | "provider-table"
+  | "mapping-table"
   | "generic";
 
 // ─── Source Location ────────────────────────────────────────────────
@@ -95,6 +96,20 @@ export interface SuppressionAnnotation {
   endLine?: number;
 }
 
+/**
+ * Document-level marker indicating canonical/derived status.
+ */
+export interface DocumentMarker {
+  /** Marker type */
+  type: "canonical" | "derived";
+  /** For derived docs: the source document path */
+  derivedFrom?: string;
+  /** Raw annotation text */
+  raw: string;
+  /** Line number (1-based) */
+  line: number;
+}
+
 // ─── Fact Blocks & Manifests ────────────────────────────────────────
 
 /**
@@ -130,6 +145,8 @@ export interface FactManifest {
   totalFacts: number;
   /** Suppression annotations found in the document (carried through for downstream use) */
   suppressions?: SuppressionAnnotation[];
+  /** Canonical/derived markers for consistency prioritization */
+  markers?: DocumentMarker[];
 }
 
 // ─── Annotation → FactKind Mapping ─────────────────────────────────
@@ -145,6 +162,7 @@ export const ANNOTATION_KIND_MAP: Record<string, FactKind> = {
   enums: "type-enum",
   schema: "payload-schema",
   transitions: "state-transition",
+  mapping: "mapping-table",
 };
 
 // ─── Heuristic Classification ───────────────────────────────────────
@@ -161,6 +179,14 @@ export const TABLE_HEURISTIC_COLUMNS: Record<string, string[]> = {
   "assurance-level": ["assurance", "loa", "eidas", "level", "provider"],
   "provider-table": ["provider", "integration", "vendor", "service"],
 };
+
+/**
+ * Column name patterns used to detect mapping/translation tables.
+ * Each pair of column name patterns indicates a mapping table.
+ */
+export const MAPPING_TABLE_COLUMN_PAIRS: [string[], string[]][] = [
+  [["internal", "source", "old", "from", "original"], ["external", "target", "new", "to", "mapped"]],
+];
 
 // ─── Extractor Interface ────────────────────────────────────────────
 
@@ -188,6 +214,8 @@ export interface MarkdownDocument {
   annotations: AnnotatedRegion[];
   /** Parsed suppression annotations */
   suppressions: SuppressionAnnotation[];
+  /** Canonical/derived markers found in the document */
+  markers: DocumentMarker[];
 }
 
 /**

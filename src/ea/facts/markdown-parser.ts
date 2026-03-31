@@ -8,6 +8,7 @@ import { unified } from "unified";
 
 import type {
   AnnotatedRegion,
+  DocumentMarker,
   FactAnnotation,
   MarkdownDocument,
   SuppressionAnnotation,
@@ -26,6 +27,8 @@ const ANNOTATION_RE = /^<!--\s*@ea:(\S+)(?:\s+(\S+))?\s*-->$/;
 const END_RE = /^<!--\s*@ea:end\s*-->$/;
 const SUPPRESS_RE =
   /^<!--\s*@ea:suppress\s+(\S+)\s+reason="([^"]*)"\s*-->$/;
+const CANONICAL_RE = /^<!--\s*@ea:canonical\s*-->$/;
+const DERIVED_RE = /^<!--\s*@ea:derived\s+source="([^"]+)"\s*-->$/;
 
 // ─── Public API ─────────────────────────────────────────────────────
 
@@ -37,8 +40,8 @@ export function parseMarkdown(
   filePath: string,
 ): MarkdownDocument {
   const tree = processor.parse(content) as Root;
-  const { annotations, suppressions } = extractAnnotations(tree);
-  return { tree, filePath, annotations, suppressions };
+  const { annotations, suppressions, markers } = extractAnnotations(tree);
+  return { tree, filePath, annotations, suppressions, markers };
 }
 
 /**
@@ -67,9 +70,11 @@ interface OpenSuppression {
 function extractAnnotations(tree: Root): {
   annotations: AnnotatedRegion[];
   suppressions: SuppressionAnnotation[];
+  markers: DocumentMarker[];
 } {
   const annotations: AnnotatedRegion[] = [];
   const suppressions: SuppressionAnnotation[] = [];
+  const markers: DocumentMarker[] = [];
   const openRegions: OpenRegion[] = [];
   const openSuppressions: OpenSuppression[] = [];
 
@@ -79,6 +84,19 @@ function extractAnnotations(tree: Root): {
     const html = node as Html;
     const raw = html.value.trim();
     const line = html.position?.start.line ?? 0;
+
+    // Check for @ea:canonical
+    if (CANONICAL_RE.test(raw)) {
+      markers.push({ type: "canonical", raw, line });
+      continue;
+    }
+
+    // Check for @ea:derived
+    const derivedMatch = DERIVED_RE.exec(raw);
+    if (derivedMatch) {
+      markers.push({ type: "derived", derivedFrom: derivedMatch[1]!, raw, line });
+      continue;
+    }
 
     // Check for @ea:end — closes the most recent open region OR suppression
     if (END_RE.test(raw)) {
@@ -148,7 +166,7 @@ function extractAnnotations(tree: Root): {
     suppressions.push(open.suppression);
   }
 
-  return { annotations, suppressions };
+  return { annotations, suppressions, markers };
 }
 
 function lastTreeLine(tree: Root): number {

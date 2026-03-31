@@ -6,7 +6,7 @@
  * compares field values, and reports contradictions.
  */
 
-import type { ExtractedFact, FactManifest } from "./types.js";
+import type { ExtractedFact, FactManifest, DocumentMarker } from "./types.js";
 
 // ─── Finding Types ──────────────────────────────────────────────────
 
@@ -109,6 +109,7 @@ function uniqueFiles(
 
 function checkValueMismatches(
   groups: Map<string, { fact: ExtractedFact; file: string }[]>,
+  markerIndex?: Map<string, "canonical" | "derived">,
 ): ConsistencyFinding[] {
   const findings: ConsistencyFinding[] = [];
 
@@ -151,13 +152,27 @@ function checkValueMismatches(
       }));
 
       const [kind, key] = groupKey.split("::");
-      findings.push({
+      const finding: ConsistencyFinding = {
         rule: "ea:docs/value-mismatch",
         severity: "error",
         message: `Field "${fieldName}" for ${kind} fact "${key}" has conflicting values across documents`,
         locations,
         suggestion: `Align the "${fieldName}" value across all documents`,
-      });
+      };
+
+      // Enhance message if canonical/derived markers exist
+      if (markerIndex && markerIndex.size > 0) {
+        const canonicalLocs = locations.filter(l => markerIndex.get(l.file) === "canonical");
+        const derivedLocs = locations.filter(l => markerIndex.get(l.file) === "derived");
+
+        if (canonicalLocs.length > 0 && derivedLocs.length > 0) {
+          const canonFile = canonicalLocs[0]!.file;
+          const derivedFile = derivedLocs[0]!.file;
+          finding.suggestion = `Canonical doc "${canonFile}" says "${canonicalLocs[0]!.value}" — update derived doc "${derivedFile}" to match`;
+        }
+      }
+
+      findings.push(finding);
     }
   }
 
@@ -234,10 +249,71 @@ function checkMissingEntries(
   return findings;
 }
 
+// ─── Check: Extra Entry (Symmetric Difference) ─────────────────────
+
+function checkExtraEntries(
+  manifests: FactManifest[],
+): ConsistencyFinding[] {
+  const findings: ConsistencyFinding[] = [];
+
+  // Index blocks by blockId across files
+  const blockIndex = new Map<
+    string,
+    { file: string; factKeys: Set<string>; line: number }[]
+  >();
+
+  for (const manifest of manifests) {
+    for (const block of manifest.blocks) {
+      const blockId = block.id ?? block.annotation?.id;
+      if (!blockId) continue;
+
+      const factKeys = new Set(block.facts.map((f) => f.key));
+      let entries = blockIndex.get(blockId);
+      if (!entries) {
+        entries = [];
+        blockIndex.set(blockId, entries);
+      }
+      entries.push({ file: manifest.source, factKeys, line: block.source.line });
+    }
+  }
+
+  for (const [blockId, entries] of blockIndex) {
+    if (entries.length < 2) continue;
+
+    // Check all pairs for symmetric differences
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i]!;
+        const b = entries[j]!;
+
+        const onlyInA = [...a.factKeys].filter((k) => !b.factKeys.has(k));
+        const onlyInB = [...b.factKeys].filter((k) => !a.factKeys.has(k));
+
+        // Symmetric difference: BOTH have entries the other lacks
+        if (onlyInA.length > 0 && onlyInB.length > 0) {
+          findings.push({
+            rule: "ea:docs/extra-entry",
+            severity: "error",
+            message: `Block "${blockId}" has contradicting entries: "${a.file}" has [${onlyInA.join(", ")}] not in "${b.file}", and "${b.file}" has [${onlyInB.join(", ")}] not in "${a.file}"`,
+            locations: [
+              { file: a.file, line: a.line, value: `extra: ${onlyInA.join(", ")}` },
+              { file: b.file, line: b.line, value: `extra: ${onlyInB.join(", ")}` },
+            ],
+            suggestion: `Reconcile block "${blockId}" — decide which entries belong in both documents`,
+          });
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
 // ─── Check: Naming Inconsistency ────────────────────────────────────
 
 function checkNamingInconsistencies(
   groups: Map<string, { fact: ExtractedFact; file: string }[]>,
+  mappingPairs?: Set<string>,
 ): ConsistencyFinding[] {
   const findings: ConsistencyFinding[] = [];
 
@@ -302,15 +378,24 @@ function checkNamingInconsistencies(
               );
               if (!locA || !locB) continue;
 
+              // Check if this is an intentional mapping
+              const pairKey1 = `${a}|${b}`;
+              const pairKey2 = `${b}|${a}`;
+              const isMapped = mappingPairs?.has(pairKey1) || mappingPairs?.has(pairKey2);
+
               findings.push({
                 rule: "ea:docs/naming-inconsistency",
-                severity: "error",
-                message: `${kind} keys "${a}" and "${b}" are suspiciously similar — possible naming inconsistency`,
+                severity: isMapped ? "warning" : "error",
+                message: isMapped
+                  ? `${kind} keys "${a}" and "${b}" differ but are listed as an intentional mapping`
+                  : `${kind} keys "${a}" and "${b}" are suspiciously similar — possible naming inconsistency`,
                 locations: [
                   { file: locA.file, line: locA.line, value: a },
                   { file: locB.file, line: locB.line, value: b },
                 ],
-                suggestion: `Verify whether "${a}" and "${b}" refer to the same concept`,
+                suggestion: isMapped
+                  ? `Mapping table confirms "${a}" ↔ "${b}" is intentional — suppress with @ea:suppress if desired`
+                  : `Verify whether "${a}" and "${b}" refer to the same concept`,
               });
             }
           }
@@ -442,15 +527,44 @@ export function checkConsistency(
 
   const groups = groupFactsByKey(filtered);
 
+  // Build marker index: file → marker type
+  const markerIndex = new Map<string, "canonical" | "derived">();
+  for (const m of manifests) {
+    if (m.markers && m.markers.length > 0) {
+      const canonical = m.markers.find(mk => mk.type === "canonical");
+      const derived = m.markers.find(mk => mk.type === "derived");
+      if (canonical) markerIndex.set(m.source, "canonical");
+      else if (derived) markerIndex.set(m.source, "derived");
+    }
+  }
+
   const totalFacts = [...groups.values()].reduce(
     (sum, entries) => sum + entries.length,
     0,
   );
 
+  // Build mapping pairs from mapping-table facts
+  const mappingPairs = new Set<string>();
+  for (const manifest of filtered) {
+    for (const block of manifest.blocks) {
+      if (block.kind !== "mapping-table") continue;
+      for (const fact of block.facts) {
+        const values = Object.values(fact.fields);
+        if (values.length >= 2) {
+          const from = values[0]!;
+          for (let i = 1; i < values.length; i++) {
+            mappingPairs.add(`${from}|${values[i]!}`);
+          }
+        }
+      }
+    }
+  }
+
   const findings: ConsistencyFinding[] = [
-    ...checkValueMismatches(groups),
+    ...checkValueMismatches(groups, markerIndex),
     ...checkMissingEntries(filtered),
-    ...checkNamingInconsistencies(groups),
+    ...checkExtraEntries(filtered),
+    ...checkNamingInconsistencies(groups, mappingPairs),
     ...checkStateMachineConflicts(groups),
   ];
 

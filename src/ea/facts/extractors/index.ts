@@ -49,6 +49,7 @@ export function buildFactManifest(
     blocks,
     totalFacts,
     suppressions: doc.suppressions.length > 0 ? doc.suppressions : undefined,
+    markers: doc.markers.length > 0 ? doc.markers : undefined,
   };
 }
 
