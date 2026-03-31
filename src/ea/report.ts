@@ -5,22 +5,20 @@
  * from loaded EA artifacts.
  */
 
-import type { EaArtifactBase, DataStoreArtifact } from "./types.js";
-import { getDomainForKind } from "./types.js";
-import type {
-  LogicalDataModelArtifact,
-  ClassificationArtifact,
-  InformationExchangeArtifact,
-  CapabilityArtifact,
-  MissionArtifact,
-  BaselineArtifact,
-  TargetArtifact,
-  TransitionPlanArtifact,
-  MigrationWaveArtifact,
-  ExceptionArtifact,
-} from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import { getEntityId, getEntityLegacyKind, getEntityTitle, getEntityStatus, getEntitySpecRelations, getEntityTraceRefs, getSpecField } from "./backstage/accessors.js";
+import { getDomainForKind, EA_DOMAINS } from "./types.js";
+import type { ExceptionArtifact } from "./types.js";
 import { evaluateEaDrift } from "./drift.js";
-import { artifactToBackstage } from "./backstage/bridge.js";
+import type { DomainDriftSummary } from "./drift.js";
+import { detectEaDrift } from "./drift.js";
+import { backstageToArtifact } from "./backstage/bridge.js";
+
+function getFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
+  return getEntitySpecRelations(entity).flatMap((r) =>
+    r.targets.map((t) => ({ type: r.legacyType, target: t })),
+  );
+}
 
 // ─── System-Data Matrix ─────────────────────────────────────────────────────────
 
@@ -61,27 +59,26 @@ export interface SystemDataMatrixReport {
  *  3. Each data-store's `stores` relations targeting `logical-data-model` artifacts
  *  4. Each LDM's attributes' `classification` fields
  */
-export function buildSystemDataMatrix(artifacts: EaArtifactBase[]): SystemDataMatrixReport {
-  const byId = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) {
-    byId.set(a.id, a);
+export function buildSystemDataMatrix(entities: BackstageEntity[]): SystemDataMatrixReport {
+  const byId = new Map<string, BackstageEntity>();
+  for (const a of entities) {
+    byId.set(getEntityId(a), a);
   }
 
-  const apps = artifacts.filter((a) => a.kind === "application");
-  const stores = artifacts.filter((a) => a.kind === "data-store");
-  const ldms = artifacts.filter((a) => a.kind === "logical-data-model");
+  const apps = entities.filter((a) => getEntityLegacyKind(a) === "application");
+  const stores = entities.filter((a) => getEntityLegacyKind(a) === "data-store");
+  const ldms = entities.filter((a) => getEntityLegacyKind(a) === "logical-data-model");
 
   // Build store → LDMs index
-  const storeToLdms = new Map<string, EaArtifactBase[]>();
+  const storeToLdms = new Map<string, BackstageEntity[]>();
   for (const store of stores) {
-    if (!store.relations) continue;
-    for (const rel of store.relations) {
+    for (const rel of getFlatRelations(store)) {
       if (rel.type === "stores") {
         const target = byId.get(rel.target);
-        if (target && target.kind === "logical-data-model") {
-          const list = storeToLdms.get(store.id) ?? [];
+        if (target && getEntityLegacyKind(target) === "logical-data-model") {
+          const list = storeToLdms.get(getEntityId(store)) ?? [];
           list.push(target);
-          storeToLdms.set(store.id, list);
+          storeToLdms.set(getEntityId(store), list);
         }
       }
     }
@@ -89,15 +86,14 @@ export function buildSystemDataMatrix(artifacts: EaArtifactBase[]): SystemDataMa
 
   // Also check LDMs with implementedBy → data-store
   for (const ldm of ldms) {
-    if (!ldm.relations) continue;
-    for (const rel of ldm.relations) {
+    for (const rel of getFlatRelations(ldm)) {
       if (rel.type === "implementedBy") {
         const target = byId.get(rel.target);
-        if (target && target.kind === "data-store") {
-          const list = storeToLdms.get(target.id) ?? [];
-          if (!list.some((l) => l.id === ldm.id)) {
+        if (target && getEntityLegacyKind(target) === "data-store") {
+          const list = storeToLdms.get(getEntityId(target)) ?? [];
+          if (!list.some((l) => getEntityId(l) === getEntityId(ldm))) {
             list.push(ldm);
-            storeToLdms.set(target.id, list);
+            storeToLdms.set(getEntityId(target), list);
           }
         }
       }
@@ -108,31 +104,30 @@ export function buildSystemDataMatrix(artifacts: EaArtifactBase[]): SystemDataMa
   const matrix: SystemDataCell[] = [];
 
   for (const app of apps) {
-    if (!app.relations) continue;
-    for (const rel of app.relations) {
+    for (const rel of getFlatRelations(app)) {
       if (rel.type !== "uses") continue;
       const store = byId.get(rel.target);
-      if (!store || store.kind !== "data-store") continue;
+      if (!store || getEntityLegacyKind(store) !== "data-store") continue;
 
-      const linkedLdms = storeToLdms.get(store.id) ?? [];
+      const linkedLdms = storeToLdms.get(getEntityId(store)) ?? [];
       const logicalModels = linkedLdms.map((ldm) => {
-        const typedLdm = ldm as unknown as LogicalDataModelArtifact;
-        const classifications = (typedLdm.attributes ?? [])
+        const attributes = getSpecField<Array<{ classification?: string }>>(ldm, "attributes") ?? [];
+        const classifications = attributes
           .map((attr) => attr.classification)
           .filter((c): c is string => !!c);
         for (const c of classifications) allClassifications.add(c);
         return {
-          id: ldm.id,
-          title: ldm.title,
+          id: getEntityId(ldm),
+          title: getEntityTitle(ldm),
           classifications: [...new Set(classifications)],
         };
       });
 
       matrix.push({
-        applicationId: app.id,
-        applicationTitle: app.title,
-        dataStoreId: store.id,
-        dataStoreTitle: store.title,
+        applicationId: getEntityId(app),
+        applicationTitle: getEntityTitle(app),
+        dataStoreId: getEntityId(store),
+        dataStoreTitle: getEntityTitle(store),
         relationType: rel.type,
         logicalModels,
       });
@@ -140,14 +135,14 @@ export function buildSystemDataMatrix(artifacts: EaArtifactBase[]): SystemDataMa
   }
 
   return {
-    applications: apps.map((a) => ({ id: a.id, title: a.title, status: a.status })),
+    applications: apps.map((a) => ({ id: getEntityId(a), title: getEntityTitle(a), status: getEntityStatus(a) })),
     dataStores: stores.map((s) => {
-      const tech = (s as DataStoreArtifact).technology;
+      const tech = getSpecField<{ engine?: string }>(s, "technology");
       return {
-        id: s.id,
-        title: s.title,
+        id: getEntityId(s),
+        title: getEntityTitle(s),
         technology: tech?.engine,
-        status: s.status,
+        status: getEntityStatus(s),
       };
     }),
     matrix,
@@ -261,13 +256,13 @@ export interface ClassificationCoverageReport {
  *  4. Find exchanges that carry classified entities and check classificationLevel
  *  5. Report enforcement gaps
  */
-export function buildClassificationCoverage(artifacts: EaArtifactBase[]): ClassificationCoverageReport {
-  const byId = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) {
-    byId.set(a.id, a);
+export function buildClassificationCoverage(entities: BackstageEntity[]): ClassificationCoverageReport {
+  const byId = new Map<string, BackstageEntity>();
+  for (const a of entities) {
+    byId.set(getEntityId(a), a);
   }
 
-  const classifications = artifacts.filter((a) => a.kind === "classification");
+  const classifications = entities.filter((a) => getEntityLegacyKind(a) === "classification");
   const entries: ClassificationCoverageEntry[] = [];
 
   let totalCoveredEntities = 0;
@@ -278,20 +273,19 @@ export function buildClassificationCoverage(artifacts: EaArtifactBase[]): Classi
   let totalExchangeGaps = 0;
 
   for (const cls of classifications) {
-    const clsArt = cls as unknown as ClassificationArtifact;
+    const clsLevel = getSpecField<string>(cls, "level") ?? "";
 
     // Find all artifacts that classifiedAs this classification
     const coveredEntities: ClassifiedEntity[] = [];
-    for (const a of artifacts) {
-      if (!a.relations) continue;
-      const hasClassification = a.relations.some(
-        (r) => r.type === "classifiedAs" && r.target === cls.id
+    for (const a of entities) {
+      const hasClassification = getFlatRelations(a).some(
+        (r) => r.type === "classifiedAs" && r.target === getEntityId(cls)
       );
       if (hasClassification) {
         coveredEntities.push({
-          entityId: a.id,
-          entityTitle: a.title,
-          kind: a.kind,
+          entityId: getEntityId(a),
+          entityTitle: getEntityTitle(a),
+          kind: getEntityLegacyKind(a),
         });
       }
     }
@@ -303,16 +297,16 @@ export function buildClassificationCoverage(artifacts: EaArtifactBase[]): Classi
       if (!entityArt) continue;
 
       // Find stores via entity's implementedBy relations
-      for (const r of entityArt.relations ?? []) {
+      for (const r of getFlatRelations(entityArt)) {
         if (r.type === "implementedBy") {
           const target = byId.get(r.target);
-          if (target && (target.kind === "data-store" || target.kind === "physical-schema") && !storeMap.has(target.id)) {
-            const enforced = (target.relations ?? []).some(
-              (tr) => tr.type === "classifiedAs" && tr.target === cls.id
+          if (target && (getEntityLegacyKind(target) === "data-store" || getEntityLegacyKind(target) === "physical-schema") && !storeMap.has(getEntityId(target))) {
+            const enforced = getFlatRelations(target).some(
+              (tr) => tr.type === "classifiedAs" && tr.target === getEntityId(cls)
             );
-            storeMap.set(target.id, {
-              storeId: target.id,
-              storeTitle: target.title,
+            storeMap.set(getEntityId(target), {
+              storeId: getEntityId(target),
+              storeTitle: getEntityTitle(target),
               enforced,
             });
           }
@@ -320,18 +314,17 @@ export function buildClassificationCoverage(artifacts: EaArtifactBase[]): Classi
       }
 
       // Find stores that reference this entity via stores relation
-      for (const a of artifacts) {
-        if (!a.relations) continue;
-        const storesEntity = a.relations.some(
+      for (const a of entities) {
+        const storesEntity = getFlatRelations(a).some(
           (r) => r.type === "stores" && r.target === entity.entityId
         );
-        if (storesEntity && !storeMap.has(a.id)) {
-          const enforced = (a.relations ?? []).some(
-            (r) => r.type === "classifiedAs" && r.target === cls.id
+        if (storesEntity && !storeMap.has(getEntityId(a))) {
+          const enforced = getFlatRelations(a).some(
+            (r) => r.type === "classifiedAs" && r.target === getEntityId(cls)
           );
-          storeMap.set(a.id, {
-            storeId: a.id,
-            storeTitle: a.title,
+          storeMap.set(getEntityId(a), {
+            storeId: getEntityId(a),
+            storeTitle: getEntityTitle(a),
             enforced,
           });
         }
@@ -340,19 +333,20 @@ export function buildClassificationCoverage(artifacts: EaArtifactBase[]): Classi
 
     // Find exchanges carrying classified entities
     const exchanges: ClassificationCoverageEntry["exchanges"] = [];
-    for (const a of artifacts) {
-      if (a.kind !== "information-exchange") continue;
-      const exch = a as unknown as InformationExchangeArtifact;
-      if (!exch.exchangedEntities) continue;
+    for (const a of entities) {
+      if (getEntityLegacyKind(a) !== "information-exchange") continue;
+      const exchangedEntities = getSpecField<string[]>(a, "exchangedEntities");
+      if (!exchangedEntities) continue;
 
-      const carriesClassifiedEntity = exch.exchangedEntities.some((eid) =>
+      const carriesClassifiedEntity = exchangedEntities.some((eid) =>
         coveredEntities.some((ce) => ce.entityId === eid)
       );
       if (carriesClassifiedEntity) {
+        const classificationLevel = getSpecField<string>(a, "classificationLevel");
         exchanges.push({
-          exchangeId: a.id,
-          exchangeTitle: a.title,
-          declaresClassification: exch.classificationLevel === cls.id,
+          exchangeId: getEntityId(a),
+          exchangeTitle: getEntityTitle(a),
+          declaresClassification: classificationLevel === getEntityId(cls),
         });
       }
     }
@@ -370,9 +364,9 @@ export function buildClassificationCoverage(artifacts: EaArtifactBase[]): Classi
     totalExchangeGaps += exchanges.filter((e) => !e.declaresClassification).length;
 
     entries.push({
-      classificationId: cls.id,
-      classificationTitle: cls.title,
-      level: clsArt.level ?? "",
+      classificationId: getEntityId(cls),
+      classificationTitle: getEntityTitle(cls),
+      level: clsLevel,
       coveredEntities,
       stores,
       exchanges,
@@ -536,12 +530,12 @@ export interface CapabilityMapReport {
  * Build a capability map report showing mission → capability hierarchy
  * enriched with realizing systems, processes, controls, and drift.
  */
-export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapReport {
-  const byId = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) byId.set(a.id, a);
+export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapReport {
+  const byId = new Map<string, BackstageEntity>();
+  for (const a of entities) byId.set(getEntityId(a), a);
 
-  const capabilities = artifacts.filter((a) => a.kind === "capability") as unknown as CapabilityArtifact[];
-  const missionArtifacts = artifacts.filter((a) => a.kind === "mission") as unknown as MissionArtifact[];
+  const capabilities = entities.filter((a) => getEntityLegacyKind(a) === "capability");
+  const missionArtifacts = entities.filter((a) => getEntityLegacyKind(a) === "mission");
 
   // Build reverse indexes
   const realizesMap = new Map<string, string[]>();
@@ -549,32 +543,31 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
   const ownsReverseMap = new Map<string, string>(); // target → org-unit
   const governedByMap = new Map<string, string[]>();
 
-  for (const a of artifacts) {
-    if (!a.relations) continue;
-    for (const rel of a.relations) {
+  for (const a of entities) {
+    for (const rel of getFlatRelations(a)) {
       if (rel.type === "realizes") {
         const list = realizesMap.get(rel.target) ?? [];
-        list.push(a.id);
+        list.push(getEntityId(a));
         realizesMap.set(rel.target, list);
       }
       if (rel.type === "supports") {
-        const list = supportsMap.get(a.id) ?? [];
+        const list = supportsMap.get(getEntityId(a)) ?? [];
         list.push(rel.target);
-        supportsMap.set(a.id, list);
+        supportsMap.set(getEntityId(a), list);
       }
       if (rel.type === "owns") {
-        ownsReverseMap.set(rel.target, a.id);
+        ownsReverseMap.set(rel.target, getEntityId(a));
       }
       if (rel.type === "governedBy") {
-        const list = governedByMap.get(a.id) ?? [];
+        const list = governedByMap.get(getEntityId(a)) ?? [];
         list.push(rel.target);
-        governedByMap.set(a.id, list);
+        governedByMap.set(getEntityId(a), list);
       }
     }
   }
 
   // Run drift to get per-artifact summaries
-  const driftResult = evaluateEaDrift(artifacts.map(artifactToBackstage));
+  const driftResult = evaluateEaDrift(entities);
   const driftByCap = new Map<string, { errors: number; warnings: number }>();
   for (const e of driftResult.errors) {
     if (!e.path) continue;
@@ -591,15 +584,14 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
 
   // Find processes related to each capability (via realizes or supports)
   const capProcesses = new Map<string, string[]>();
-  const processArtifacts = artifacts.filter((a) => a.kind === "process");
+  const processArtifacts = entities.filter((a) => getEntityLegacyKind(a) === "process");
   for (const proc of processArtifacts) {
-    if (!proc.relations) continue;
-    for (const rel of proc.relations) {
+    for (const rel of getFlatRelations(proc)) {
       if (rel.type === "realizes" || rel.type === "supports") {
         const target = byId.get(rel.target);
-        if (target && target.kind === "capability") {
+        if (target && getEntityLegacyKind(target) === "capability") {
           const list = capProcesses.get(rel.target) ?? [];
-          if (!list.includes(proc.id)) list.push(proc.id);
+          if (!list.includes(getEntityId(proc))) list.push(getEntityId(proc));
           capProcesses.set(rel.target, list);
         }
       }
@@ -609,35 +601,37 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
   // Find controls related to each capability (via governedBy on the capability)
   const capControls = new Map<string, string[]>();
   for (const cap of capabilities) {
-    const governed = governedByMap.get(cap.id) ?? [];
+    const governed = governedByMap.get(getEntityId(cap)) ?? [];
     const controls: string[] = [];
     for (const gId of governed) {
       const target = byId.get(gId);
-      if (target && target.kind === "control") {
-        controls.push(target.id);
+      if (target && getEntityLegacyKind(target) === "control") {
+        controls.push(getEntityId(target));
       }
     }
     if (controls.length > 0) {
-      capControls.set(cap.id, controls);
+      capControls.set(getEntityId(cap), controls);
     }
   }
 
   // Build capability nodes
-  function buildNode(cap: CapabilityArtifact): CapabilityMapNode {
+  function buildNode(cap: BackstageEntity): CapabilityMapNode {
+    const capId = getEntityId(cap);
+    const heatMapRaw = cap.spec?.heatMap as Record<string, string> | undefined;
     return {
-      id: cap.id,
-      title: cap.title,
-      level: cap.level,
-      parent: cap.parentCapability,
-      maturity: cap.maturity,
-      strategicImportance: cap.strategicImportance,
-      investmentProfile: cap.investmentProfile,
-      heatMap: cap.heatMap ? { ...cap.heatMap } : undefined,
-      realizingSystems: realizesMap.get(cap.id) ?? [],
-      processes: capProcesses.get(cap.id) ?? [],
-      controls: capControls.get(cap.id) ?? [],
-      owningOrg: ownsReverseMap.get(cap.id),
-      driftSummary: driftByCap.get(cap.id) ?? { errors: 0, warnings: 0 },
+      id: capId,
+      title: getEntityTitle(cap),
+      level: (cap.spec?.level as number) ?? 1,
+      parent: cap.spec?.parentCapability as string | undefined,
+      maturity: cap.spec?.maturity as string | undefined,
+      strategicImportance: cap.spec?.strategicImportance as string | undefined,
+      investmentProfile: cap.spec?.investmentProfile as string | undefined,
+      heatMap: heatMapRaw ? { ...heatMapRaw } : undefined,
+      realizingSystems: realizesMap.get(capId) ?? [],
+      processes: capProcesses.get(capId) ?? [],
+      controls: capControls.get(capId) ?? [],
+      owningOrg: ownsReverseMap.get(capId),
+      driftSummary: driftByCap.get(capId) ?? { errors: 0, warnings: 0 },
       children: [],
     };
   }
@@ -645,7 +639,7 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
   // Build tree: group capabilities by parent
   const nodeMap = new Map<string, CapabilityMapNode>();
   for (const cap of capabilities) {
-    nodeMap.set(cap.id, buildNode(cap));
+    nodeMap.set(getEntityId(cap), buildNode(cap));
   }
 
   // Attach children to parents
@@ -668,12 +662,12 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
   // Map capabilities to missions via supports relation
   const missionCaps = new Map<string, Set<string>>();
   for (const cap of capabilities) {
-    const targets = supportsMap.get(cap.id) ?? [];
+    const targets = supportsMap.get(getEntityId(cap)) ?? [];
     for (const t of targets) {
       const target = byId.get(t);
-      if (target && target.kind === "mission") {
+      if (target && getEntityLegacyKind(target) === "mission") {
         const set = missionCaps.get(t) ?? new Set();
-        set.add(cap.id);
+        set.add(getEntityId(cap));
         missionCaps.set(t, set);
       }
     }
@@ -684,7 +678,7 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
   const missionEntries: CapabilityMapMission[] = [];
 
   for (const mission of missionArtifacts) {
-    const directCapIds = missionCaps.get(mission.id) ?? new Set();
+    const directCapIds = missionCaps.get(getEntityId(mission)) ?? new Set();
     const missionRoots: CapabilityMapNode[] = [];
 
     // Include root capabilities that support this mission
@@ -709,8 +703,8 @@ export function buildCapabilityMap(artifacts: EaArtifactBase[]): CapabilityMapRe
     if (missionRoots.length > 0) {
       sortTree(missionRoots);
       missionEntries.push({
-        id: mission.id,
-        title: mission.title,
+        id: getEntityId(mission),
+        title: getEntityTitle(mission),
         capabilities: missionRoots,
       });
     }
@@ -909,24 +903,24 @@ export interface GapAnalysisReport {
  * to include milestone/wave tracking.
  */
 export function buildGapAnalysis(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options: { baselineId: string; targetId: string; planId?: string },
 ): GapAnalysisReport {
-  const byId = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) byId.set(a.id, a);
+  const byId = new Map<string, BackstageEntity>();
+  for (const a of entities) byId.set(getEntityId(a), a);
 
-  const baselineArt = byId.get(options.baselineId) as unknown as BaselineArtifact | undefined;
-  const targetArt = byId.get(options.targetId) as unknown as TargetArtifact | undefined;
+  const baselineArt = byId.get(options.baselineId);
+  const targetArt = byId.get(options.targetId);
 
-  if (!baselineArt || baselineArt.kind !== "baseline") {
+  if (!baselineArt || getEntityLegacyKind(baselineArt) !== "baseline") {
     return emptyGapReport(options);
   }
-  if (!targetArt || targetArt.kind !== "target") {
+  if (!targetArt || getEntityLegacyKind(targetArt) !== "target") {
     return emptyGapReport(options);
   }
 
-  const baselineSet = new Set(baselineArt.artifactRefs ?? []);
-  const targetSet = new Set(targetArt.artifactRefs ?? []);
+  const baselineSet = new Set(getSpecField<string[]>(baselineArt, "artifactRefs") ?? []);
+  const targetSet = new Set(getSpecField<string[]>(targetArt, "artifactRefs") ?? []);
 
   // Classify artifacts
   const newWorkIds = [...targetSet].filter((id) => !baselineSet.has(id));
@@ -934,20 +928,20 @@ export function buildGapAnalysis(
   const continuingIds = [...baselineSet].filter((id) => targetSet.has(id));
 
   // Find transition plan and waves
-  const plan = options.planId
-    ? (byId.get(options.planId) as unknown as TransitionPlanArtifact | undefined)
+  const planEntity = options.planId
+    ? byId.get(options.planId)
     : undefined;
 
-  const waves = artifacts
-    .filter((a) => a.kind === "migration-wave")
-    .map((a) => a as unknown as MigrationWaveArtifact)
-    .filter((w) => !options.planId || w.transitionPlan === options.planId)
-    .sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+  const waves = entities
+    .filter((a) => getEntityLegacyKind(a) === "migration-wave")
+    .filter((w) => !options.planId || getSpecField<string>(w, "transitionPlan") === options.planId)
+    .sort((a, b) => (getSpecField<number>(a, "sequenceOrder") ?? 0) - (getSpecField<number>(b, "sequenceOrder") ?? 0));
 
   // Build milestone deliverable index
   const milestoneDeliverables = new Map<string, string>();
-  if (plan) {
-    for (const ms of plan.milestones ?? []) {
+  if (planEntity) {
+    const planMilestonesForIndex = getSpecField<Array<{ id: string; title: string; status?: string; deliverables?: string[] }>>(planEntity, "milestones") ?? [];
+    for (const ms of planMilestonesForIndex) {
       for (const d of ms.deliverables ?? []) {
         milestoneDeliverables.set(d, ms.id);
       }
@@ -958,18 +952,18 @@ export function buildGapAnalysis(
   const waveCreates = new Map<string, string>();
   const waveRetires = new Map<string, string>();
   for (const wave of waves) {
-    for (const id of wave.scope?.create ?? []) waveCreates.set(id, wave.id);
-    for (const id of wave.scope?.retire ?? []) waveRetires.set(id, wave.id);
+    const scope = getSpecField<{ create?: string[]; retire?: string[] }>(wave, "scope");
+    for (const id of scope?.create ?? []) waveCreates.set(id, getEntityId(wave));
+    for (const id of scope?.retire ?? []) waveRetires.set(id, getEntityId(wave));
   }
 
   // Build reverse dependency index: target → [sources that depend on it]
   const dependedOnByMap = new Map<string, string[]>();
-  for (const a of artifacts) {
-    if (!a.relations) continue;
-    for (const rel of a.relations) {
+  for (const a of entities) {
+    for (const rel of getFlatRelations(a)) {
       if (rel.type === "dependsOn" || rel.type === "uses" || rel.type === "realizes") {
         const list = dependedOnByMap.get(rel.target) ?? [];
-        list.push(a.id);
+        list.push(getEntityId(a));
         dependedOnByMap.set(rel.target, list);
       }
     }
@@ -980,7 +974,7 @@ export function buildGapAnalysis(
     const art = byId.get(id);
     return {
       artifactId: id,
-      status: art?.status ?? "unknown",
+      status: art ? getEntityStatus(art) : "unknown",
       milestone: milestoneDeliverables.get(id),
       wave: waveCreates.get(id),
     };
@@ -991,12 +985,12 @@ export function buildGapAnalysis(
     const art = byId.get(id);
     const deps = (dependedOnByMap.get(id) ?? []).filter((depId) => {
       const depArt = byId.get(depId);
-      return depArt && depArt.status !== "retired" && continuingIds.includes(depId);
+      return depArt && getEntityStatus(depArt) !== "retired" && continuingIds.includes(depId);
     });
     const blocked = deps.length > 0;
     return {
       artifactId: id,
-      currentStatus: art?.status ?? "unknown",
+      currentStatus: art ? getEntityStatus(art) : "unknown",
       dependedOnBy: deps,
       milestone: milestoneDeliverables.get(id),
       blocked,
@@ -1008,16 +1002,18 @@ export function buildGapAnalysis(
 
   // Milestone status
   const milestones: GapMilestoneStatus[] = [];
-  if (plan) {
-    for (const ms of plan.milestones ?? []) {
+  if (planEntity) {
+    const planMilestones = getSpecField<Array<{ id: string; title: string; status?: string; deliverables?: string[] }>>(planEntity, "milestones") ?? [];
+    for (const ms of planMilestones) {
       let complete = 0;
       let inProgress = 0;
       let pending = 0;
       for (const d of ms.deliverables ?? []) {
         const art = byId.get(d);
         if (!art) { pending++; continue; }
-        if (art.status === "active" || art.status === "retired") complete++;
-        else if (art.status === "draft") inProgress++;
+        const artStatus = getEntityStatus(art);
+        if (artStatus === "active" || artStatus === "retired") complete++;
+        else if (artStatus === "draft") inProgress++;
         else pending++;
       }
       const total = ms.deliverables?.length ?? 0;
@@ -1028,7 +1024,8 @@ export function buildGapAnalysis(
   }
 
   // Success metrics
-  const successMetrics: GapSuccessMetric[] = (targetArt.successMetrics ?? []).map((sm) => ({
+  const targetSuccessMetrics = getSpecField<Array<{ id: string; metric: string; target: string; currentValue?: string }>>(targetArt, "successMetrics") ?? [];
+  const successMetrics: GapSuccessMetric[] = targetSuccessMetrics.map((sm) => ({
     id: sm.id,
     metric: sm.metric,
     target: sm.target,
@@ -1041,8 +1038,8 @@ export function buildGapAnalysis(
 
   return {
     generatedAt: new Date().toISOString(),
-    baseline: { id: baselineArt.id, capturedAt: baselineArt.capturedAt ?? "" },
-    target: { id: targetArt.id, effectiveBy: targetArt.effectiveBy ?? "" },
+    baseline: { id: getEntityId(baselineArt), capturedAt: getSpecField<string>(baselineArt, "capturedAt") ?? "" },
+    target: { id: getEntityId(targetArt), effectiveBy: getSpecField<string>(targetArt, "effectiveBy") ?? "" },
     summary: {
       newWork: newWork.length,
       retirements: retirements.length,
@@ -1196,18 +1193,19 @@ export interface ExceptionReport {
  * - **active**: valid and not expiring soon
  */
 export function buildExceptionReport(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options?: { expiringThresholdDays?: number },
 ): ExceptionReport {
   const now = Date.now();
   const thresholdMs = (options?.expiringThresholdDays ?? 30) * 24 * 60 * 60 * 1000;
 
-  const exceptions = artifacts.filter(
-    (a): a is ExceptionArtifact => a.kind === "exception",
+  const exceptions = entities.filter(
+    (a) => getEntityLegacyKind(a) === "exception",
   );
 
   const entries: ExceptionReportEntry[] = exceptions.map((exc) => {
-    const expiresMs = new Date(exc.expiresAt).getTime();
+    const expiresAt = getSpecField<string>(exc, "expiresAt") ?? "";
+    const expiresMs = new Date(expiresAt).getTime();
     const daysRemaining = Math.ceil((expiresMs - now) / (24 * 60 * 60 * 1000));
 
     let status: ExceptionStatus;
@@ -1219,19 +1217,21 @@ export function buildExceptionReport(
       status = "active";
     }
 
+    const scope = getSpecField<{ artifactIds?: string[]; rules?: string[]; domains?: string[] }>(exc, "scope") ?? {};
+
     return {
-      id: exc.id,
-      name: exc.title,
+      id: getEntityId(exc),
+      name: getEntityTitle(exc),
       status,
-      reason: exc.reason,
-      approvedBy: exc.approvedBy,
-      approvedAt: exc.approvedAt,
-      expiresAt: exc.expiresAt,
+      reason: getSpecField<string>(exc, "reason") ?? "",
+      approvedBy: getSpecField<string>(exc, "approvedBy") ?? "",
+      approvedAt: getSpecField<string>(exc, "approvedAt") ?? "",
+      expiresAt,
       daysRemaining,
-      scopeArtifactCount: exc.scope.artifactIds?.length ?? 0,
-      scopeRuleCount: exc.scope.rules?.length ?? 0,
-      scopeDomainCount: exc.scope.domains?.length ?? 0,
-      reviewSchedule: exc.reviewSchedule ?? null,
+      scopeArtifactCount: scope.artifactIds?.length ?? 0,
+      scopeRuleCount: scope.rules?.length ?? 0,
+      scopeDomainCount: scope.domains?.length ?? 0,
+      reviewSchedule: getSpecField<string>(exc, "reviewSchedule") ?? null,
     };
   });
 
@@ -1344,17 +1344,17 @@ export type ReportView = (typeof REPORT_VIEWS)[number];
  * Gap analysis is skipped in --all mode since it requires specific
  * baseline/target IDs.
  */
-export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
+export function buildReportIndex(entities: BackstageEntity[]): ReportIndex {
   const byDomain: Record<string, number> = {};
-  for (const a of artifacts) {
-    const domain = getDomainForKind(a.kind) ?? "unknown";
+  for (const a of entities) {
+    const domain = getDomainForKind(getEntityLegacyKind(a)) ?? "unknown";
     byDomain[domain] = (byDomain[domain] ?? 0) + 1;
   }
 
   const reports: ReportIndexEntry[] = [];
 
   // System-data matrix
-  const sdm = buildSystemDataMatrix(artifacts);
+  const sdm = buildSystemDataMatrix(entities);
   reports.push({
     name: "system-data-matrix",
     description: "Applications → data stores → models → classifications",
@@ -1362,7 +1362,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
   });
 
   // Classification coverage
-  const cc = buildClassificationCoverage(artifacts);
+  const cc = buildClassificationCoverage(entities);
   reports.push({
     name: "classification-coverage",
     description: "Classifications → entities → enforcement gaps",
@@ -1370,7 +1370,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
   });
 
   // Capability map
-  const cm = buildCapabilityMap(artifacts);
+  const cm = buildCapabilityMap(entities);
   reports.push({
     name: "capability-map",
     description: "Mission → capability → system hierarchy",
@@ -1378,7 +1378,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
   });
 
   // Exception report
-  const er = buildExceptionReport(artifacts);
+  const er = buildExceptionReport(entities);
   reports.push({
     name: "exceptions",
     description: "Active/expired architecture exceptions",
@@ -1391,7 +1391,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
   });
 
   // Drift heatmap
-  const dh = buildDriftHeatmap(artifacts);
+  const dh = buildDriftHeatmap(entities);
   reports.push({
     name: "drift-heatmap",
     description: "Drift findings by domain and severity",
@@ -1403,7 +1403,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
   });
 
   // Traceability index
-  const ti = buildTraceabilityIndex(artifacts);
+  const ti = buildTraceabilityIndex(entities);
   reports.push({
     name: "traceability-index",
     description: "Inverted traceRef index — documents → referencing artifacts",
@@ -1418,7 +1418,7 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
     generatedAt: new Date().toISOString(),
     reports,
     summary: {
-      totalArtifacts: artifacts.length,
+      totalArtifacts: entities.length,
       byDomain,
     },
   };
@@ -1426,9 +1426,6 @@ export function buildReportIndex(artifacts: EaArtifactBase[]): ReportIndex {
 
 // ─── Drift Heatmap Report ───────────────────────────────────────────────────────
 
-import type { DomainDriftSummary } from "./drift.js";
-import { detectEaDrift } from "./drift.js";
-import { EA_DOMAINS } from "./types.js";
 
 /** Full drift heatmap report. */
 export interface DriftHeatmapReport {
@@ -1448,17 +1445,17 @@ export interface DriftHeatmapReport {
  * Build a drift heatmap report from loaded artifacts.
  */
 export function buildDriftHeatmap(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options?: { ruleOverrides?: Record<string, "error" | "warning" | "info" | "off"> },
 ): DriftHeatmapReport {
   // Collect exceptions
-  const exceptions = artifacts.filter(
-    (a): a is import("./types.js").ExceptionArtifact => a.kind === "exception",
+  const exceptions = entities.filter(
+    (a) => getEntityLegacyKind(a) === "exception",
   );
 
   const report = detectEaDrift({
-    artifacts: artifacts.map(artifactToBackstage),
-    exceptions: exceptions.map((e) => artifactToBackstage(e)),
+    artifacts: entities,
+    exceptions,
     ruleOverrides: options?.ruleOverrides,
   });
 
@@ -1567,25 +1564,26 @@ export interface TraceabilityIndexReport {
  * sorted by reference count (most-referenced first).
  */
 export function buildTraceabilityIndex(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
 ): TraceabilityIndexReport {
   const docMap = new Map<string, TraceabilityIndexEntry[]>();
   let totalTraceRefs = 0;
   const artifactsWithRefs = new Set<string>();
 
-  for (const a of artifacts) {
-    if (!a.traceRefs || a.traceRefs.length === 0) continue;
+  for (const a of entities) {
+    const traceRefs = getEntityTraceRefs(a);
+    if (traceRefs.length === 0) continue;
 
-    for (const ref of a.traceRefs) {
+    for (const ref of traceRefs) {
       totalTraceRefs++;
-      artifactsWithRefs.add(a.id);
+      artifactsWithRefs.add(getEntityId(a));
 
       const entry: TraceabilityIndexEntry = {
-        artifactId: a.id,
-        kind: a.kind,
-        domain: getDomainForKind(a.kind) ?? "unknown",
+        artifactId: getEntityId(a),
+        kind: getEntityLegacyKind(a),
+        domain: getDomainForKind(getEntityLegacyKind(a)) ?? "unknown",
         role: ref.role ?? "context",
-        label: ref.label ?? null,
+        label: (ref as Record<string, unknown>).label as string | null ?? null,
       };
 
       const existing = docMap.get(ref.path);
