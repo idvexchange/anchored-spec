@@ -1,0 +1,45 @@
+{
+  "$comment": "SchemaStore catalog entries for anchored-spec. Submit this as a PR to https://github.com/SchemaStore/schemastore",
+  "schemas": [
+    {
+      "name": "Anchored Spec Config",
+      "description": "Configuration file for the anchored-spec enterprise architecture framework",
+      "fileMatch": [
+        ".anchored-spec/config.json"
+      ],
+      "url": "https://raw.githubusercontent.com/idvexchange/anchored-spec/main/src/ea/schemas/config-v1.schema.json"
+    },
+    {
+      "name": "Anchored Spec Workflow Policy",
+      "description": "Workflow policy rules for anchored-spec version governance",
+      "fileMatch": [
+        "ea/workflow-policy.yaml",
+        "ea/workflow-policy.json",
+        "**/workflow-policy.yaml",
+        "**/workflow-policy.json"
+      ],
+      "url": "https://raw.githubusercontent.com/idvexchange/anchored-spec/main/src/ea/schemas/workflow-policy.schema.json"
+    },
+    {
+      "name": "Anchored Spec EA Artifact",
+      "description": "Enterprise architecture artifact for the anchored-spec framework (application, service, api-contract, etc.)",
+      "fileMatch": [
+        "ea/systems/*.json",
+        "ea/systems/*.yaml",
+        "ea/delivery/*.json",
+        "ea/delivery/*.yaml",
+        "ea/data/*.json",
+        "ea/data/*.yaml",
+        "ea/information/*.json",
+        "ea/information/*.yaml",
+        "ea/business/*.json",
+        "ea/business/*.yaml",
+        "ea/transitions/*.json",
+        "ea/transitions/*.yaml",
+        "ea/requirements/*.json",
+        "ea/requirements/*.yaml"
+      ],
+      "url": "https://raw.githubusercontent.com/idvexchange/anchored-spec/main/src/ea/schemas/artifact-base.schema.json"
+    }
+  ]
+}

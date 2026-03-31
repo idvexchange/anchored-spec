@@ -182,3 +182,7 @@ export { reconcileEaProject, renderReconcileOutput } from "./reconcile.js";
 // Version Policy Enforcement
 export type { CompatibilityMode, VersionPolicy, VersionPolicyConfig, PolicyViolation, PolicyEnforcementReport } from "./version-policy.js";
 export { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, renderPolicyMarkdown } from "./version-policy.js";
+
+// Document Traceability
+export type { DocFrontmatter, ParsedDoc, ScannedDoc, ScanResult, ScanOptions, DocDiscoveryResult } from "./docs/index.js";
+export { parseFrontmatter, extractArtifactIds, hasEaFrontmatter, serializeFrontmatter, DEFAULT_DOC_DIRS, scanDocs, buildDocIndex, discoverFromDocs } from "./docs/index.js";

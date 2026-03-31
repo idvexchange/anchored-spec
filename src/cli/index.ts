@@ -33,6 +33,12 @@ import { createBatchCommand } from "./commands/create-batch.js";
 import { migrateConfigCommand } from "./commands/migrate-config.js";
 import { eaDiffCommand } from "./commands/ea-diff.js";
 import { eaReconcileCommand } from "./commands/ea-reconcile.js";
+import { eaTraceCommand } from "./commands/ea-trace.js";
+import { eaLinkDocsCommand } from "./commands/ea-link-docs.js";
+import { eaContextCommand } from "./commands/ea-context.js";
+import { eaCreateDocCommand } from "./commands/ea-create-doc.js";
+import { eaLinkCommand } from "./commands/ea-link.js";
+import { eaSearchCommand } from "./commands/ea-search.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -75,6 +81,12 @@ program.addCommand(createBatchCommand());
 program.addCommand(migrateConfigCommand());
 program.addCommand(eaDiffCommand());
 program.addCommand(eaReconcileCommand());
+program.addCommand(eaTraceCommand());
+program.addCommand(eaLinkDocsCommand());
+program.addCommand(eaContextCommand());
+program.addCommand(eaCreateDocCommand());
+program.addCommand(eaLinkCommand());
+program.addCommand(eaSearchCommand());
 
 // ─── Deprecated "ea" alias group ────────────────────────────────────────────────
 // Keeps `anchored-spec ea <cmd>` working but emits a deprecation warning.

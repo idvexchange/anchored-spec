@@ -787,7 +787,7 @@ describe("Phase 2D: Business Drift Rules", () => {
 
   it("evaluates all 27 static drift rules", () => {
     const result = evaluateEaDrift([]);
-    expect(result.rulesEvaluated).toBe(37);
+    expect(result.rulesEvaluated).toBe(39);
     expect(result.rulesSkipped).toBe(5);
   });
 });

@@ -659,9 +659,9 @@ describe("Phase 2E: Transition Drift Rules", () => {
     });
   });
 
-  it("evaluates all 37 static drift rules", () => {
+  it("evaluates all 39 static drift rules", () => {
     const result = evaluateEaDrift([]);
-    expect(result.rulesEvaluated).toBe(37);
+    expect(result.rulesEvaluated).toBe(39);
     expect(result.rulesSkipped).toBe(5);
   });
 });

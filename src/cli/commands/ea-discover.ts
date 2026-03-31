@@ -22,6 +22,8 @@ import {
   consoleLogger,
   TreeSitterDiscoveryResolver,
   getQueryPacks,
+  scanDocs,
+  discoverFromDocs,
 } from "../../ea/index.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
 import type { EaArtifactDraft } from "../../ea/discovery.js";
@@ -45,6 +47,8 @@ export function eaDiscoverCommand(): Command {
     .option("--resolver <name>", `Resolver to run: ${AVAILABLE_RESOLVERS}`)
     .option("--source <path>", "Source path to scan")
     .option("--dry-run", "Show what would be created without writing files")
+    .option("--from-docs", "Discover artifacts from document frontmatter (prose-first workflow)")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories for --from-docs", "docs,specs,.")
     .option("--json", "Output discovery report as JSON")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
     .option("--no-cache", "Disable resolver cache")
@@ -62,6 +66,70 @@ export function eaDiscoverCommand(): Command {
       }
 
       const result = await root.loadArtifacts();
+
+      // ── --from-docs: prose-first discovery ──────────────────────────
+      if (options.fromDocs) {
+        const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+        const scanResult = scanDocs(cwd, { dirs: docDirs });
+        const docResult = discoverFromDocs(scanResult.docs, result.artifacts);
+
+        // Feed doc-discovered drafts into the standard pipeline
+        const report = discoverArtifacts({
+          existingArtifacts: result.artifacts,
+          drafts: docResult.drafts,
+          resolverNames: ["doc-frontmatter"],
+          projectRoot: cwd,
+          domainDirs: eaConfig.domains,
+          dryRun: options.dryRun as boolean,
+        });
+
+        if (options.json) {
+          process.stdout.write(JSON.stringify({
+            ...report,
+            docDiscovery: {
+              docsScanned: scanResult.totalScanned,
+              docsWithArtifacts: scanResult.docs.length,
+              alreadyExists: docResult.alreadyExists,
+              unknownPrefix: docResult.unknownPrefix,
+            },
+          }, null, 2) + "\n");
+        } else {
+          const md = renderDiscoveryReportMarkdown(report);
+          process.stdout.write(md);
+
+          if (docResult.unknownPrefix.length > 0) {
+            console.log(
+              chalk.yellow(
+                `\n⚠ Unknown prefix for: ${docResult.unknownPrefix.join(", ")}`,
+              ),
+            );
+          }
+          if (docResult.alreadyExists.length > 0) {
+            console.log(
+              chalk.dim(
+                `  (${docResult.alreadyExists.length} artifact(s) already exist — skipped)`,
+              ),
+            );
+          }
+        }
+
+        if (!options.dryRun && report.summary.newArtifacts > 0) {
+          console.log(
+            chalk.green(
+              `\n✓ Created ${report.summary.newArtifacts} draft artifact(s) from doc frontmatter`,
+            ),
+          );
+          console.log(
+            chalk.dim(
+              `  Next: refine the drafts, then run 'anchored-spec link-docs' to sync trace links`,
+            ),
+          );
+        }
+
+        return;
+      }
+
+      // ── Standard resolver-based discovery ───────────────────────────
 
       // Build resolver cache
       const cache = createResolverCache(cwd, {

@@ -1738,6 +1738,69 @@ const exceptionMissingScope: EaDriftRule = {
   },
 };
 
+// ─── Phase 2F — Traceability Rules ──────────────────────────────────────────────
+
+/**
+ * traceRef targets a path that looks like a local file but the referenced
+ * artifact has an empty or missing path.  URL traceRefs are ignored.
+ */
+const traceRefTargetExists: EaDriftRule = {
+  id: "ea:trace/ref-target-exists",
+  severity: "warning",
+  description: "Every traceRefs[].path that looks like a file path should reference a valid artifact ID or a plausible file path.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      for (const ref of a.traceRefs ?? []) {
+        if (!ref.path || ref.path.startsWith("http://") || ref.path.startsWith("https://")) continue;
+        // Check if path references another artifact
+        if (ctx.artifactMap.has(ref.path)) continue;
+        // File existence cannot be checked in pure drift (no fs access in rules).
+        // Instead, warn when the path has no extension (likely typo).
+        if (!ref.path.includes(".") && !ref.path.includes("/")) {
+          results.push({
+            path: a.id,
+            message: `Artifact "${a.id}" traceRef "${ref.path}" looks like neither a file path nor a valid artifact ID`,
+            severity: "warning",
+            rule: this.id,
+          });
+        }
+      }
+    }
+    return results;
+  },
+};
+
+/**
+ * Detect duplicate traceRef entries within a single artifact.
+ */
+const traceRefDuplicate: EaDriftRule = {
+  id: "ea:trace/duplicate-ref",
+  severity: "warning",
+  description: "An artifact should not have duplicate traceRef paths.",
+  requiresResolver: false,
+  evaluate(ctx) {
+    const results: EaValidationError[] = [];
+    for (const a of ctx.artifacts) {
+      const refs = a.traceRefs ?? [];
+      const seen = new Set<string>();
+      for (const ref of refs) {
+        if (seen.has(ref.path)) {
+          results.push({
+            path: a.id,
+            message: `Artifact "${a.id}" has duplicate traceRef "${ref.path}"`,
+            severity: "warning",
+            rule: this.id,
+          });
+        }
+        seen.add(ref.path);
+      }
+    }
+    return results;
+  },
+};
+
 // ─── Rule Registry & Runner ─────────────────────────────────────────────────────
 
 /** All registered EA drift rules. */
@@ -1790,6 +1853,9 @@ export const EA_DRIFT_RULES: EaDriftRule[] = [
   logicalPhysicalMismatch,
   storeUndeclaredEntity,
   qualityRuleNotEnforced,
+  // Phase 2F — Traceability
+  traceRefTargetExists,
+  traceRefDuplicate,
 ];
 
 /**

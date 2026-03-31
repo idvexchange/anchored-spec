@@ -9,11 +9,13 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { createInterface } from "node:readline";
 import {
   getKindEntry,
   getKindPrefix,
   getDomainForKind,
   EA_KIND_REGISTRY,
+  EA_DOMAINS,
   resolveEaConfig,
 } from "../../ea/index.js";
 import { CliError } from "../errors.js";
@@ -21,76 +23,161 @@ import { CliError } from "../errors.js";
 export function eaCreateCommand(): Command {
   return new Command("create")
     .description("Create a new EA artifact")
-    .argument("<kind>", "Artifact kind (e.g., application, service, environment)")
-    .requiredOption("--title <title>", "Human-readable title")
+    .argument("[kind]", "Artifact kind (e.g., application, service, environment)")
+    .option("--title <title>", "Human-readable title")
     .option("--id <id>", "Artifact slug (kind prefix auto-prepended, e.g. --id my-app → APP-my-app)")
     .option("--owner <owner>", "Owner team or person", "your-team")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--json", "Output as JSON instead of YAML")
-    .action((kind: string, options) => {
-      const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-
-      // Validate kind
-      const entry = getKindEntry(kind);
-      if (!entry) {
-        const validKinds = EA_KIND_REGISTRY.map((e) => e.kind).join(", ");
-        throw new CliError(
-          `Unknown kind "${kind}". Valid kinds: ${validKinds}`,
-          2
-        );
+    .option("-i, --interactive", "Interactive wizard — prompts for kind, title, owner, and relations")
+    .action(async (kind: string | undefined, options) => {
+      if (options.interactive) {
+        return runInteractiveCreate(options);
       }
 
-      // Resolve ID — strip prefix if user explicitly provided --id with the prefix
-      const prefix = getKindPrefix(kind)!;
-      let slug = (options.id as string) ?? slugify(options.title as string);
-      if (options.id) {
-        const prefixWithDash = `${prefix}-`.toLowerCase();
-        if (slug.toLowerCase().startsWith(prefixWithDash)) {
-          slug = slug.slice(prefixWithDash.length);
-        }
+      if (!kind) {
+        throw new CliError("Missing required argument: kind. Use --interactive for a wizard.", 2);
       }
-      const id = `${prefix}-${slug}`;
-
-      // Resolve domain and output path
-      // When --root-dir is explicitly provided, use it directly (no domain subdirectory)
-      const domain = getDomainForKind(kind)!;
-      const explicitRootDir = options.rootDir !== "ea";
-      const domainDir = explicitRootDir
-        ? join(cwd, options.rootDir as string)
-        : join(cwd, eaConfig.domains[domain]);
-      const ext = options.json ? "json" : "yaml";
-      const filePath = join(domainDir, `${id}.${ext}`);
-
-      if (existsSync(filePath) && !options.force) {
-        throw new CliError(`File already exists: ${filePath}`, 1);
+      if (!options.title) {
+        throw new CliError("Missing required option: --title. Use --interactive for a wizard.", 2);
       }
 
-      // Ensure domain directory exists
-      if (!existsSync(domainDir)) {
-        mkdirSync(domainDir, { recursive: true });
-      }
-
-      const title = options.title as string;
-      const owner = options.owner as string;
-
-      // Generate content
-      let content: string;
-      if (options.json) {
-        content = generateJson(id, kind, title, owner);
-      } else {
-        content = generateYaml(id, kind, title, owner);
-      }
-
-      writeFileSync(filePath, content);
-
-      const relDir = explicitRootDir ? options.rootDir as string : eaConfig.domains[domain];
-      const relPath = `${relDir}/${id}.${ext}`;
-      console.log(chalk.green(`✓ Created ${relPath}`));
-      console.log(chalk.dim(`  ID:     ${id}`));
-      console.log(chalk.dim(`  Kind:   ${kind}`));
-      console.log(chalk.dim(`  Domain: ${domain}`));
+      return createArtifact(kind, options.title, options);
     });
+}
+
+// ── Core creation logic ─────────────────────────────────────────────────────────
+
+interface CreateOptions {
+  id?: string;
+  owner?: string;
+  rootDir?: string;
+  json?: boolean;
+  force?: boolean;
+  relations?: Array<{ target: string; type: string }>;
+}
+
+function createArtifact(kind: string, title: string, options: CreateOptions): void {
+  const cwd = process.cwd();
+  const rootDir = (options.rootDir as string) ?? "ea";
+  const eaConfig = resolveEaConfig({ rootDir });
+
+  const entry = getKindEntry(kind);
+  if (!entry) {
+    const validKinds = EA_KIND_REGISTRY.map((e) => e.kind).join(", ");
+    throw new CliError(`Unknown kind "${kind}". Valid kinds: ${validKinds}`, 2);
+  }
+
+  const prefix = getKindPrefix(kind)!;
+  let slug = (options.id as string) ?? slugify(title);
+  if (options.id) {
+    const prefixWithDash = `${prefix}-`.toLowerCase();
+    if (slug.toLowerCase().startsWith(prefixWithDash)) {
+      slug = slug.slice(prefixWithDash.length);
+    }
+  }
+  const id = `${prefix}-${slug}`;
+
+  const domain = getDomainForKind(kind)!;
+  const explicitRootDir = rootDir !== "ea";
+  const domainDir = explicitRootDir
+    ? join(cwd, rootDir)
+    : join(cwd, eaConfig.domains[domain]);
+  const ext = options.json ? "json" : "yaml";
+  const filePath = join(domainDir, `${id}.${ext}`);
+
+  if (existsSync(filePath) && !options.force) {
+    throw new CliError(`File already exists: ${filePath}`, 1);
+  }
+
+  if (!existsSync(domainDir)) {
+    mkdirSync(domainDir, { recursive: true });
+  }
+
+  const owner = (options.owner as string) ?? "your-team";
+
+  let content: string;
+  if (options.json) {
+    content = generateJson(id, kind, title, owner, options.relations);
+  } else {
+    content = generateYaml(id, kind, title, owner, options.relations);
+  }
+
+  writeFileSync(filePath, content);
+
+  const relDir = explicitRootDir ? rootDir : eaConfig.domains[domain];
+  const relPath = `${relDir}/${id}.${ext}`;
+  console.log(chalk.green(`✓ Created ${relPath}`));
+  console.log(chalk.dim(`  ID:     ${id}`));
+  console.log(chalk.dim(`  Kind:   ${kind}`));
+  console.log(chalk.dim(`  Domain: ${domain}`));
+  if (options.relations && options.relations.length > 0) {
+    console.log(chalk.dim(`  Relations: ${options.relations.length}`));
+  }
+}
+
+// ── Interactive wizard ──────────────────────────────────────────────────────────
+
+function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => resolve(answer.trim()));
+  });
+}
+
+async function runInteractiveCreate(baseOptions: CreateOptions): Promise<void> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+  try {
+    console.log(chalk.blue("🏛  Anchored Spec — Interactive Artifact Wizard\n"));
+
+    // 1. Domain
+    const domainNames = Object.keys(EA_DOMAINS);
+    console.log(chalk.dim("Domains: " + domainNames.join(", ")));
+    const domainInput = await prompt(rl, chalk.cyan("Domain? ") + chalk.dim("(systems) "));
+    const domain = domainInput || "systems";
+
+    // 2. Kind (filtered by domain)
+    const kindsForDomain = EA_KIND_REGISTRY
+      .filter((e) => e.domain === domain)
+      .map((e) => e.kind);
+    if (kindsForDomain.length === 0) {
+      throw new CliError(`No artifact kinds in domain "${domain}". Valid domains: ${domainNames.join(", ")}`, 2);
+    }
+    const defaultKind = kindsForDomain[0]!;
+    console.log(chalk.dim("Kinds: " + kindsForDomain.join(", ")));
+    const kind = await prompt(rl, chalk.cyan("Kind? ") + chalk.dim(`(${defaultKind}) `));
+    const resolvedKind = kind || defaultKind;
+
+    // 3. Title
+    const title = await prompt(rl, chalk.cyan("Title? "));
+    if (!title) {
+      throw new CliError("Title is required.", 2);
+    }
+
+    // 4. Owner
+    const ownerInput = await prompt(rl, chalk.cyan("Owner? ") + chalk.dim("(your-team) "));
+    const owner = ownerInput || "your-team";
+
+    // 5. Relations (optional, repeating)
+    const relations: Array<{ target: string; type: string }> = [];
+    console.log(chalk.dim("\nAdd relations (leave target empty to skip/finish):"));
+    while (true) {
+      const target = await prompt(rl, chalk.cyan("  Related artifact ID? "));
+      if (!target) break;
+      const relType = await prompt(rl, chalk.cyan("  Relation type? ") + chalk.dim("(uses) "));
+      relations.push({ target, type: relType || "uses" });
+    }
+
+    console.log("");
+
+    createArtifact(resolvedKind, title, {
+      ...baseOptions,
+      owner,
+      relations: relations.length > 0 ? relations : undefined,
+    });
+  } finally {
+    rl.close();
+  }
 }
 
 function slugify(title: string): string {
@@ -101,9 +188,19 @@ function slugify(title: string): string {
     .substring(0, 40);
 }
 
-function generateYaml(id: string, kind: string, title: string, owner: string): string {
+function generateYaml(id: string, kind: string, title: string, owner: string, relations?: Array<{ target: string; type: string }>): string {
   const kindSpecific = getKindSpecificYaml(kind);
   const specBlock = kindSpecific ? `\nspec:\n${kindSpecific}\n` : "";
+
+  let relationsBlock: string;
+  if (relations && relations.length > 0) {
+    const entries = relations
+      .map((r) => `  - target: ${r.target}\n    type: ${r.type}`)
+      .join("\n");
+    relationsBlock = `relations:\n${entries}`;
+  } else {
+    relationsBlock = "relations: []";
+  }
 
   return `apiVersion: anchored-spec/ea/v1
 kind: ${kind}
@@ -120,11 +217,11 @@ metadata:
   status: draft
   schemaVersion: "1.0.0"
 ${specBlock}
-relations: []
+${relationsBlock}
 `;
 }
 
-function generateJson(id: string, kind: string, title: string, owner: string): string {
+function generateJson(id: string, kind: string, title: string, owner: string, relations?: Array<{ target: string; type: string }>): string {
   const artifact: Record<string, unknown> = {
     $schema: `./node_modules/anchored-spec/dist/ea/schemas/${kind}.schema.json`,
     id,
@@ -136,7 +233,9 @@ function generateJson(id: string, kind: string, title: string, owner: string): s
     owners: [owner],
     confidence: "declared",
     tags: [],
-    relations: [],
+    relations: relations && relations.length > 0
+      ? relations.map((r) => ({ target: r.target, type: r.type }))
+      : [],
   };
 
   // Add kind-specific required fields

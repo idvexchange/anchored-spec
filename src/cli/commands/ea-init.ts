@@ -14,6 +14,7 @@ import { EA_DOMAINS, resolveConfigV1, detectConfigVersion, migrateConfigV0ToV1 }
 import type { EaDomain, AnchoredSpecConfigV1, LegacyConfigInput } from "../../ea/index.js";
 import { writeIdeFiles } from "../ide-scaffold.js";
 import { writeAiConfigFiles } from "../ai-config.js";
+import { writeCiRecipes } from "../ci-recipes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -28,7 +29,8 @@ export function eaInitCommand(): Command {
     .option("--dry-run", "Show what would be created without writing")
     .option("--ide", "Generate VS Code workspace settings, snippets, and extension recommendations")
     .option("--no-ide", "Skip VS Code integration files")
-    .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, all)")
+    .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, speckit, all)")
+    .option("--ci", "Generate CI integration recipes (GitHub Actions workflow + pre-commit hook)")
     .action((options) => {
       const cwd = process.cwd();
       const rootDir = options.rootDir as string;
@@ -169,23 +171,51 @@ export function eaInitCommand(): Command {
           const result = writeAiConfigFiles(cwd, {
             rootDir: v1Config.rootDir,
             domains: v1Config.domains,
-          }, targets);
+          }, targets, { force });
           for (const f of result.created) {
             console.log(chalk.green(`  ✓ Create ${f}`));
           }
+          for (const f of result.overwritten) {
+            console.log(chalk.yellow(`  ⟳ Update ${f}`));
+          }
           for (const f of result.skipped) {
-            console.log(chalk.dim(`  · Skip ${f} (already exists)`));
+            console.log(chalk.dim(`  · Skip ${f} (already exists, use --force to overwrite)`));
           }
         } else {
           if (targets.includes("copilot") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .github/copilot-instructions.md"));
+            console.log(chalk.green("  → Generate .github/prompts/ (6 reusable prompt commands)"));
           }
           if (targets.includes("claude") || targets.includes("all")) {
             console.log(chalk.green("  → Generate CLAUDE.md"));
+            console.log(chalk.green("  → Generate .claude/commands/ (6 slash commands)"));
           }
           if (targets.includes("kiro") || targets.includes("all")) {
             console.log(chalk.green("  → Generate .kiro/steering/ files"));
+            console.log(chalk.green("  → Generate .kiro/hooks/ (4 event-driven agent hooks)"));
           }
+          if (targets.includes("speckit") || targets.includes("all")) {
+            console.log(chalk.green("  → Generate .specify/extensions/anchored-spec/ (Spec-Kit extension)"));
+          }
+        }
+      }
+
+      // 13. Generate CI integration recipes (--ci flag)
+      if (options.ci) {
+        if (!dryRun) {
+          const ciResult = writeCiRecipes(cwd, { force });
+          for (const f of ciResult.created) {
+            console.log(chalk.green(`  ✓ Create ${f}`));
+          }
+          for (const f of ciResult.overwritten) {
+            console.log(chalk.yellow(`  ⟳ Update ${f}`));
+          }
+          for (const f of ciResult.skipped) {
+            console.log(chalk.dim(`  · Skip ${f} (already exists, use --force to overwrite)`));
+          }
+        } else {
+          console.log(chalk.green("  → Generate .github/workflows/ea-validation.yml"));
+          console.log(chalk.green("  → Generate .anchored-spec/hooks/pre-commit"));
         }
       }
 
@@ -203,6 +233,9 @@ export function eaInitCommand(): Command {
       }
       if (!options.ai) {
         console.log(chalk.dim("  7. AI assistant config:   anchored-spec init --ai all"));
+      }
+      if (!options.ci) {
+        console.log(chalk.dim("  8. CI integration:        anchored-spec init --ci"));
       }
     });
 }

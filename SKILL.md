@@ -578,9 +578,126 @@ Implement Feature X strictly according to:
 
 This eliminates ambiguity by giving the agent the exact architectural context, not vague instructions.
 
+### Shortcut: `context` command
+
+For the fastest path to structured context:
+
+```bash
+# Assemble full context for an artifact (traced docs + relations + transitive requires)
+npx anchored-spec context SVC-payment-gateway
+
+# Limit to a token budget for LLM context windows
+npx anchored-spec context SVC-payment-gateway --max-tokens 8000
+
+# Follow relations deeper (default depth: 1)
+npx anchored-spec context SVC-payment-gateway --depth 2
+
+# Get JSON for programmatic use
+npx anchored-spec context SVC-payment-gateway --json
+```
+
+The `context` command follows the trace graph automatically: artifact → `traceRefs` docs → frontmatter `requires` → related artifacts. It prioritizes documents by role (`specification` > `rationale` > `context` > `evidence`) and respects token budgets.
+
 ---
 
-## 18. Workflow — Architecture Onboarding
+## 18. Workflow — Document Traceability
+
+Link narrative documentation (markdown) to EA artifacts with bidirectional trace links. This bridges human-readable specs and machine-validated architecture.
+
+### Frontmatter convention
+
+Add YAML frontmatter to markdown documents:
+
+```yaml
+---
+type: spec
+status: current
+audience: agent, developer
+domain: systems
+requires: [api-conventions.md]
+ea-artifacts: [SVC-auth-core, API-auth-v1, SREQ-auth-pkce]
+tokens: 1200
+last-verified: 2025-07-18
+---
+```
+
+The `ea-artifacts` field lists EA artifact IDs this document relates to. The framework also accepts `anchored-spec` as an alternative field name.
+
+### Check trace integrity
+
+```bash
+# Show trace summary
+npx anchored-spec trace --summary
+
+# Full bidirectional integrity check
+npx anchored-spec trace --check
+
+# Inspect a specific artifact's trace web
+npx anchored-spec trace SVC-auth-core
+
+# Inspect a specific document's artifact links
+npx anchored-spec trace docs/security/auth-contracts.md
+
+# Find docs with frontmatter refs but no traceRef back
+npx anchored-spec trace --orphans
+```
+
+### Auto-sync trace links
+
+```bash
+# Preview what would change
+npx anchored-spec link-docs --dry-run
+
+# Add missing traceRefs to artifacts (from doc frontmatter)
+npx anchored-spec link-docs
+
+# Also update doc frontmatter from artifact traceRefs
+npx anchored-spec link-docs --bidirectional
+```
+
+### Create pre-linked documents
+
+```bash
+# Create a spec doc linked to artifacts
+npx anchored-spec create-doc --title "Auth Contracts" --type spec \
+  --artifacts API-auth-v1 SVC-auth-core SREQ-auth-pkce
+
+# Create an ADR with rationale role
+npx anchored-spec create-doc --title "ADR-01 Auth Strategy" --type adr \
+  --artifacts DECISION-auth-strategy --dir docs/decisions
+```
+
+### Prose-first workflow (doc-driven discovery)
+
+Write docs first, then scaffold the artifacts they reference:
+
+```bash
+# 1. Write your spec docs with ea-artifacts listing desired artifact IDs
+#    (the artifacts don't need to exist yet)
+
+# 2. Discover and scaffold missing artifacts from doc frontmatter
+npx anchored-spec discover --from-docs --dry-run   # preview
+npx anchored-spec discover --from-docs              # create drafts
+
+# 3. Refine the generated drafts (fill in kind-specific fields)
+# 4. Sync bidirectional trace links
+npx anchored-spec link-docs
+```
+
+The `--from-docs` flag parses each doc's `ea-artifacts` field, identifies IDs that don't match existing artifacts, infers the kind from the ID prefix (e.g., `SVC-` → service), and scaffolds draft artifacts. This eliminates the chicken-and-egg problem.
+
+### When to use
+
+- **Prose-first**: Write docs → `discover --from-docs` → refine → `link-docs`
+- **Artifact-first**: Create artifact → add `traceRefs` → write docs → `link-docs`
+- **Before starting work**: Run `context <artifact-id>` to assemble full AI context
+- **After writing docs**: Run `link-docs` to sync trace links
+- **In CI**: Run `trace --check` to catch broken or orphaned links
+- **During onboarding**: Use `trace <artifact-id>` to understand documentation coverage
+
+---
+
+## 19. Workflow — Architecture Onboarding
 
 When starting a new AI session, onboarding a new team member, or re-engaging with an unfamiliar part of the codebase, use this workflow to rapidly build system understanding.
 
@@ -630,7 +747,7 @@ npx anchored-spec graph --focus <artifact-id> --depth 3
 
 ---
 
-## 19. Workflow — Confidence Audit
+## 20. Workflow — Confidence Audit
 
 Periodically assess the health of the EA model to identify where confidence is eroding. This catches the slow decay that leads to the gap between what's in production and what the team understands.
 
@@ -677,7 +794,7 @@ Check each category and flag issues:
 
 ---
 
-## 20. Relation Types
+## 21. Relation Types
 
 28 relation types. Use only canonical (forward) directions when declaring relations. Inverses are computed automatically.
 
@@ -714,7 +831,7 @@ Check each category and flag issues:
 
 ---
 
-## 21. Quality Rules
+## 22. Quality Rules
 
 When creating or modifying EA artifacts, enforce these rules:
 
@@ -731,7 +848,7 @@ When creating or modifying EA artifacts, enforce these rules:
 
 ---
 
-## 22. Lifecycle Rules
+## 23. Lifecycle Rules
 
 Status transitions follow a defined lifecycle:
 
@@ -757,12 +874,12 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 
 ---
 
-## 23. Command Reference
+## 24. Command Reference
 
 | Command | Description |
 |---|---|
-| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI assistant configs) |
-| `create` | Create a new EA artifact from template |
+| `init` | Initialize project with v1.0 config (`--ide` for VS Code, `--ai <targets>` for AI configs, `--ci` for CI workflow + pre-commit hook). `--force` overwrites existing files. Copilot/Claude targets include 6 reusable prompt commands; Kiro includes 4 event-driven hooks; Spec-Kit includes extension with 4 AI commands |
+| `create` | Create a new EA artifact from template. `--interactive` / `-i` launches a step-by-step wizard (domain → kind → title → owner → relations). Without `-i`, `[kind]` and `--title` are required as before |
 | `validate` | Validate all EA artifacts against schemas and rules |
 | `verify` | Run all validation + drift + quality checks (comprehensive) |
 | `drift` | Run drift detection (supports `--from-snapshot`, `--domain`, `--severity`) |
@@ -776,13 +893,19 @@ Valid statuses: `draft`, `planned`, `active`, `shipped`, `deprecated`, `retired`
 | `transition` | Manage artifact status transitions |
 | `diff` | Semantic diff of EA artifacts between git refs (`--compat`, `--policy`, `--fail-on`) |
 | `reconcile` | Full SDD pipeline: generate → validate → drift (`--write`, `--fix`, `--fail-fast`) |
+| `trace` | Show traceability web between artifacts and docs (`--check`, `--orphans`, `--summary`) |
+| `link-docs` | Auto-sync trace links: doc frontmatter ↔ artifact traceRefs (`--dry-run`, `--bidirectional`) |
+| `context` | Assemble AI context package for an artifact (`--max-tokens`, `--depth`) |
+| `create-doc` | Create markdown doc pre-linked to artifacts (`--type`, `--artifacts`, `--link-back`) |
 | `move` | Move/reclassify an artifact to a different kind with reference rewrites |
 | `enrich` | Merge fields from a JSON file into an existing artifact |
+| `link` | Create a relation between two artifacts (`link <from> <to> --type <relation-type>`, `--description`, `--dry-run`, `--root-dir`). Supports YAML and JSON; detects duplicates |
+| `search` | Full-text search across artifacts (`search <query>`, `--kind`, `--domain`, `--status`, `--tag`, `--confidence`, `--json`). Searches ID, name, kind, summary, and tags |
 | `create-batch` | Bulk-create artifacts from a JSON manifest |
 
 ---
 
-## 24. Before Claiming Completion
+## 25. Before Claiming Completion
 
 Before telling the user a task is complete, **always** run:
 
@@ -800,7 +923,7 @@ If it fails, fix the issues. Additionally:
 
 ---
 
-## 25. Anti-Patterns
+## 26. Anti-Patterns
 
 ### Do not model everything at once
 
@@ -832,15 +955,35 @@ Architecture is not static. Use baselines, targets, and transition plans to mana
 
 ---
 
-## 26. Integration Guide
+## 27. Integration Guide
+
+### Quick Prompts — Copy-Paste Workflow Triggers
+
+These prompts work with **any** AI agent. Copy-paste them into your chat, or generate them as slash commands with `init --ai copilot` or `init --ai claude`.
+
+| When you… | Say this to your agent |
+|---|---|
+| Create a new spec doc | "Enrich this doc with EA frontmatter — identify artifact references and add `ea-artifacts` to the YAML frontmatter" |
+| Want artifacts from docs | "Run `npx anchored-spec discover --from-docs --dry-run` and scaffold any missing artifacts" |
+| Finish editing a spec | "Check trace integrity: `npx anchored-spec trace --check` and fix any one-way links with `link-docs`" |
+| Start implementation | "Assemble context for `SVC-auth-core`: run `npx anchored-spec context SVC-auth-core`" |
+| Change implementation code | "Check for EA drift: `npx anchored-spec drift` and report any spec violations" |
+| Before marking done | "Run a spec audit: `npx anchored-spec validate && npx anchored-spec drift && npx anchored-spec trace --check`" |
+
+**Generated slash commands** (available after `init --ai`):
+
+| Agent | Commands directory | Invocation |
+|---|---|---|
+| **GitHub Copilot** | `.github/prompts/ea-*.prompt.md` | Type `/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit` in Copilot Chat |
+| **Claude Code** | `.claude/commands/ea-*.md` | Type `/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit` in Claude |
+| **Kiro** | `.kiro/hooks/*.yml` | Automatic — hooks fire on save/create events |
+| **Spec-Kit** | `.specify/extensions/anchored-spec/` | `speckit.anchored-spec.enrich`, `.scaffold`, `.trace`, `.context` |
 
 ### GitHub Copilot
 
-Add to `.github/copilot-instructions.md`:
-
-```markdown
-Read and follow the rules in SKILL.md for all code changes in this repository.
-```
+Generate with `npx anchored-spec init --ai copilot`. This creates:
+- `.github/copilot-instructions.md` — Project context
+- `.github/prompts/ea-*.prompt.md` — 6 reusable slash commands (`/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit`)
 
 ### Cursor
 
@@ -868,9 +1011,59 @@ Read and follow the rules in SKILL.md for all code changes in this repository.
 
 ### Claude Code (CLAUDE.md)
 
-```
-Read and follow the rules in SKILL.md for all code changes in this repository.
-```
+Generate with `npx anchored-spec init --ai claude`. This creates:
+- `CLAUDE.md` — Project context
+- `.claude/commands/ea-*.md` — 6 slash commands (`/ea-enrich`, `/ea-scaffold`, `/ea-trace`, `/ea-context`, `/ea-drift`, `/ea-audit`)
+
+### Kiro IDE
+
+Generate with `npx anchored-spec init --ai kiro`. This creates 3 steering files in `.kiro/steering/` plus 4 event-driven hooks in `.kiro/hooks/`:
+
+**Steering files** (always generated):
+
+| File | Purpose |
+|---|---|
+| `product.md` | Product context for the EA framework |
+| `structure.md` | Repository structure guide |
+| `tech.md` | Technology stack and constraints |
+
+**Event-driven hooks** (always generated):
+
+| File | Trigger | Purpose |
+|---|---|---|
+| `validate-artifact.yml` | `onSave` on `ea/**/*.{yaml,yml,json}` | Validate artifacts against JSON schemas |
+| `enrich-spec.yml` | `onCreate` on `{docs,specs}/**/*.md` | Auto-generate `ea-artifacts` frontmatter for new docs |
+| `trace-integrity.yml` | `onSave` on `{docs,specs}/**/*.md` | Check bidirectional trace links |
+| `drift-detection.yml` | `onSave` on `src/**/*.{ts,js,...}` | Detect drift when implementation changes |
+
+### Spec-Kit Extension
+
+Generate the extension with `npx anchored-spec init --ai speckit`. This creates `.specify/extensions/anchored-spec/` containing:
+
+| File | Purpose |
+|---|---|
+| `extension.yml` | Manifest declaring 4 commands and an `after_tasks` hook |
+| `commands/enrich.md` | AI command: analyze a spec and auto-generate `ea-artifacts` YAML frontmatter |
+| `commands/scaffold.md` | AI command: run `discover --from-docs` to scaffold EA artifacts from spec references |
+| `commands/trace.md` | AI command: check bidirectional trace integrity between docs and artifacts |
+| `commands/context.md` | AI command: assemble an AI context package for an artifact |
+
+The `after_tasks` hook in `extension.yml` runs `npx anchored-spec validate` automatically after task completion, ensuring artifacts stay valid.
+
+### CI / Pre-commit
+
+Generate with `npx anchored-spec init --ci`. This creates:
+
+| File | Purpose |
+|---|---|
+| `.github/workflows/ea-validation.yml` | GitHub Action that runs `validate --strict`, `trace --check`, `drift`, and semantic `diff` on every PR |
+| `.anchored-spec/hooks/pre-commit` | Shell script that validates EA artifacts and checks trace integrity before commits |
+
+Use `--force` to overwrite existing files. Pair with `init --ai` to get both CI enforcement and developer-facing slash commands.
+
+### SchemaStore (Any Editor)
+
+The repository includes `schemastore-catalog.json` with 3 catalog entries (config, workflow-policy, EA artifacts) referencing raw GitHub URLs for the JSON schema files. Once merged into [SchemaStore](https://github.com/SchemaStore/schemastore), any editor that supports SchemaStore (VS Code, IntelliJ, Sublime Text, Vim/Neovim with coc.nvim, etc.) will automatically validate anchored-spec files — no `init --ide` needed.
 
 ### Generic / Other Agents
 
