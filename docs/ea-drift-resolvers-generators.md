@@ -357,6 +357,7 @@ Cross-document consistency and fact-to-artifact reconciliation rules.
 | `ea:docs/naming-inconsistency` | error | Similar fact keys across documents may be the same concept (e.g., `dossier.failed` vs `dossier.cancelled`) |
 | `ea:docs/state-machine-conflict` | error | State transition diagrams disagree across documents |
 | `ea:docs/missing-entry` | warning | Annotated fact block in one doc is missing entries present in another |
+| `ea:docs/extra-entry` | error | Entry present in one annotated document but absent from another covering the same fact kind |
 | `ea:docs/artifact-mismatch` | error | Document fact contradicts artifact anchor declaration |
 | `ea:docs/artifact-missing-fact` | warning | Artifact declares anchor not found in any document |
 | `ea:docs/fact-missing-artifact` | warning | Annotated document fact has no corresponding artifact |
@@ -917,14 +918,33 @@ Extracts structured facts from markdown documentation for discovery and consiste
 <!-- @ea:end -->
 ```
 
-Supported annotation kinds: `events`, `states`, `endpoints`, `entities`, `enums`, `schema`, `transitions`
+Supported annotation kinds: `events`, `states`, `endpoints`, `entities`, `enums`, `schema`, `transitions`, `mapping`
+
+**Document Markers:**
+- `<!-- @ea:canonical -->` — Marks the document as the authoritative source of truth for its facts
+- `<!-- @ea:derived source="architecture.md" -->` — Marks the document as derived from another source
 
 **Heuristic Classification (without annotations):**
 - Tables with columns named Event/Trigger/Webhook → `event-table`
 - Tables with Status/State/Value → `status-enum`
 - Tables with Endpoint/Method/Path → `endpoint-table`
+- Tables with cross-reference column pairs (e.g., Country/Provider) → `mapping-table`
 - TypeScript code blocks with `type X = 'a' | 'b'` → `type-enum`
 - Mermaid `stateDiagram-v2` blocks → `state-transition`
+- Score-based multi-column matching selects the best-fit FactKind when multiple heuristics match
+
+**Reconciliation Anchor Fields:**
+Facts are reconciled against artifact anchor declarations. The mapping from FactKind to anchor field:
+
+| FactKind | Anchor Field | Example |
+|----------|-------------|---------|
+| `event-table` | `events` | `events: ["dossier.success"]` |
+| `endpoint-table` | `apis` | `apis: ["POST /api/v1/dossiers"]` |
+| `entity-fields` | `symbols` | `symbols: ["OrderEntity"]` |
+| `type-enum` | `schemas` | `schemas: ["OrderStatus"]` |
+| `payload-schema` | `schemas` | `schemas: ["WebhookPayload"]` |
+| `status-enum` | `statuses` | `statuses: ["open", "closed"]` |
+| `state-transition` | `transitions` | `transitions: ["open→processing"]` |
 
 **CLI Usage:**
 ```bash
@@ -932,6 +952,8 @@ anchored-spec discover --resolver markdown --source docs/
 anchored-spec drift --domain docs
 anchored-spec drift --domain docs --include-artifacts
 anchored-spec reconcile --include-docs
+anchored-spec link-docs --annotate              # Suggest @ea:* annotations
+anchored-spec link-docs --annotate --write      # Insert annotations into files
 ```
 
 ## Config-Driven Resolver Loading

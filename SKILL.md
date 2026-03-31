@@ -66,7 +66,7 @@ relations:
 **Key rules:**
 - `id` uses the format `{KIND_PREFIX}-{kebab-slug}` (e.g., `APP-order-service`, `SVC-payment-api`, `STORE-orders-db`)
 - `kind` must be a registered EA kind (see Section 4)
-- `anchors` map the artifact to actual code/config locations — each category is a flat string array (e.g., `symbols: ["ClassName"]`, `apis: ["POST /orders"]`). Valid categories: `symbols`, `apis`, `events`, `schemas`, `infra`, `catalogRefs`, `iam`, `network`, `other`
+- `anchors` map the artifact to actual code/config locations — each category is a flat string array (e.g., `symbols: ["ClassName"]`, `apis: ["POST /orders"]`). Valid categories: `symbols`, `apis`, `events`, `schemas`, `infra`, `catalogRefs`, `iam`, `network`, `statuses`, `transitions`, `other`
 - `relations` are stored in the canonical direction only; inverses are computed virtually
 
 ---
@@ -176,7 +176,7 @@ npx anchored-spec drift --severity error      # Only errors
 npx anchored-spec drift --from-snapshot snap1 # Compare against snapshot
 ```
 
-51 drift rules across 7 categories. Representative examples:
+52 drift rules across 8 categories. Representative examples:
 
 | Category | Rule | What it catches |
 |---|---|---|
@@ -190,6 +190,7 @@ npx anchored-spec drift --from-snapshot snap1 # Compare against snapshot
 | transitions | `ea:transition/baseline-stale` | Baseline snapshot is outdated |
 | exception | `ea:exception/expired` | Exception past its expiry date |
 | docs | `ea:docs/cross-doc-contradiction` | Contradictory facts across documents |
+| docs | `ea:docs/extra-entry` | Entry present in one document but missing from another |
 
 ### Doc Consistency
 
@@ -204,14 +205,16 @@ anchored-spec reconcile --include-docs          # Add to reconcile pipeline
 ```
 
 Facts are extracted from:
-- Markdown tables (events, statuses, endpoints, entities)
+- Markdown tables (events, statuses, endpoints, entities, mapping tables)
 - TypeScript/JSON fenced code blocks
 - Mermaid state diagrams
 - Heading + bullet list patterns
 - YAML frontmatter
 
-Use `@ea:events`, `@ea:states`, etc. annotation hints for precise classification.
+Use `@ea:events`, `@ea:states`, `@ea:mapping`, etc. annotation hints for precise classification.
 Use `@ea:suppress` to mark intentional contradictions.
+Use `@ea:canonical` / `@ea:derived` to classify documents as authoritative sources or derived copies.
+Use `link-docs --annotate` to auto-suggest annotation comments for un-annotated fact regions.
 
 ---
 

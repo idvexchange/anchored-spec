@@ -10,10 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Markdown prose resolver** (`discover --resolver markdown`) — Extracts structured facts from tables, TypeScript/JSON code blocks, Mermaid state diagrams, heading+list patterns, and YAML frontmatter. Supports `@ea:events`, `@ea:states`, `@ea:endpoints`, `@ea:entities`, `@ea:enums`, `@ea:schema`, `@ea:transitions` annotation hints for precise fact classification.
-- **Doc consistency drift domain** (`drift --domain docs`) — 7 new drift rules detecting value mismatches, naming inconsistencies, missing entries, and state machine conflicts across documents. Total: 51 drift rules.
+- **Doc consistency drift domain** (`drift --domain docs`) — 8 new drift rules detecting value mismatches, naming inconsistencies, missing entries, extra entries, and state machine conflicts across documents. Total: 52 drift rules.
 - **Fact-to-artifact reconciliation** (`drift --domain docs --include-artifacts`) — Compares doc facts against artifact anchor declarations to detect spec/prose divergence.
 - **Doc consistency in reconcile pipeline** (`reconcile --include-docs`) — Adds a doc consistency step to the full SDD pipeline.
 - **`@ea:suppress` inline annotations** — Mark intentional contradictions in markdown to suppress false-positive drift findings.
+- **`@ea:canonical` / `@ea:derived` document markers** — Classify markdown documents as canonical sources of truth or derived copies. Derived markers include `source="file.md"` for provenance tracking. Affects consistency check severity.
+- **`link-docs --annotate`** — Auto-suggest `@ea:*` annotation comments for markdown documents. Supports `--dry-run`, `--json`, and `--write` modes. Uses heuristic analysis to identify un-annotated fact regions.
+- **Mapping table detection** — New `mapping-table` FactKind and `@ea:mapping` annotation for cross-reference/lookup tables (e.g., country-code → provider mappings). Mapping table column pairs downgrade naming-inconsistency findings from error to warning.
+- **Extra-entry consistency check** — New `ea:docs/extra-entry` rule detects entries present in one annotated document but absent from another document covering the same fact kind.
+- **Heuristic scoring for table classification** — Score-based multi-column matching replaces first-match heuristic, improving fact kind accuracy for ambiguous tables.
+- **`statuses` and `transitions` anchor fields** — New `EaAnchors` properties for status-enum and state-transition reconciliation. Artifacts can now declare expected statuses (e.g., `statuses: ["open", "closed"]`) and state transitions (e.g., `transitions: ["open→processing"]`) for drift checking against prose.
 - **`--write-facts` option** — Persist extracted fact manifests to disk for caching and downstream tooling.
 - **New dependencies** — unified, remark-parse, remark-gfm, remark-frontmatter, mdast-util-to-string, unist-util-visit for markdown AST processing.
 - **`link` command** (`anchored-spec link <from> <to> --type <relation-type>`) — Creates a relation between two artifacts by updating the source artifact file. Options: `--type` (default: `"uses"`), `--description`, `--dry-run`, `--root-dir`. Supports YAML and JSON artifacts. Detects duplicate relations.
@@ -51,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`EaResolverConfig` type** — `path` is now optional (either `name` or `path` required). Added `name?: string` for built-in references.
 - **`config-v1.schema.json`** — `resolvers` items no longer require `path`; supports `name` for built-in resolvers.
 - **`ea discover` command** — 3-way dispatch: `--resolver` flag → config `resolvers[]` → all built-ins fallback.
-- **SKILL.md** — Now 26 sections with 15 workflows (was 16 sections in v1.0).
+- **SKILL.md** — Now 27 sections with 16 workflows (was 16 sections in v1.0).
 
 ## [1.0.0] — 2025-07-18
 

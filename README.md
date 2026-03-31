@@ -12,10 +12,10 @@
 
 | Feature | Description |
 |---|---|
-| **44 artifact kinds** | Services, APIs, deployments, data stores, business capabilities, and more across 7 domains |
+| **48 artifact kinds** | Services, APIs, deployments, data stores, business capabilities, and more across 6 domains |
 | **27 typed relations** | `dependsOn`, `implementedBy`, `consumesApi`, `deployedTo`, etc. with graph visualization |
 | **8 resolvers** | Auto-discover from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter (code analysis), Markdown (prose facts), and Anchors (code symbols) |
-| **51 drift rules** | Domain-specific drift detection between declared specs and observed reality |
+| **52 drift rules** | Domain-specific drift detection between declared specs and observed reality |
 | **Transition planning** | Baselines, targets, migration waves, and gap analysis |
 | **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
 | **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
@@ -120,7 +120,7 @@ Full documentation is in the [`docs/`](docs/) directory:
 - **[Implementation Guide](docs/ea-implementation-guide.md)** — Step-by-step implementation reference
 
 ### Core Model
-- **[Unified Artifact Model](docs/ea-unified-artifact-model.md)** — 44 artifact kinds across 7 domains
+- **[Unified Artifact Model](docs/ea-unified-artifact-model.md)** — 48 artifact kinds across 6 domains
 - **[Relationship Model](docs/ea-relationship-model.md)** — 27 typed relations between artifacts
 - **[Transitions & Evidence](docs/ea-transitions-evidence-reporting.md)** — Baselines, targets, and migration planning
 
@@ -138,7 +138,7 @@ Full documentation is in the [`docs/`](docs/) directory:
 
 ## AI Agent Skill
 
-Anchored Spec ships with **[SKILL.md](SKILL.md)** — an agent-agnostic instruction set (26 sections, 15 workflows) that teaches AI coding agents to work with the EA framework. It works with GitHub Copilot, Cursor, Cline, Windsurf, Aider, and any agent that reads project-root markdown.
+Anchored Spec ships with **[SKILL.md](SKILL.md)** — an agent-agnostic instruction set (27 sections, 16 workflows) that teaches AI coding agents to work with the EA framework. It works with GitHub Copilot, Cursor, Cline, Windsurf, Aider, and any agent that reads project-root markdown.
 
 ```
 Read and follow the rules in SKILL.md for all code changes in this repository.
