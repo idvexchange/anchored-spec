@@ -30,12 +30,15 @@ import {
   EA_DOMAINS,
   getDomainForKind,
 } from "../../ea/index.js";
-import type { EaArtifactBase, EaDomain } from "../../ea/index.js";
+import type { EaDomain } from "../../ea/index.js";
+import type { BackstageEntity } from "../../ea/backstage/types.js";
+import { artifactToBackstage } from "../../ea/backstage/bridge.js";
+import { getEntityLegacyKind } from "../../ea/backstage/accessors.js";
 import { CliError } from "../errors.js";
 
-/** Filter artifacts to a specific domain. */
-function filterByDomain(artifacts: EaArtifactBase[], domain: string): EaArtifactBase[] {
-  return artifacts.filter((a) => getDomainForKind(a.kind) === domain);
+/** Filter entities to a specific domain. */
+function filterByDomain(entities: BackstageEntity[], domain: string): BackstageEntity[] {
+  return entities.filter((a) => getDomainForKind(getEntityLegacyKind(a)) === domain);
 }
 
 export function eaReportCommand(): Command {
@@ -71,6 +74,7 @@ export function eaReportCommand(): Command {
       }
 
       const result = await root.loadArtifacts();
+      const entities = result.artifacts.map(artifactToBackstage);
 
       // Apply domain filter
       const domainFilter = options.domain as string | undefined;
@@ -81,8 +85,8 @@ export function eaReportCommand(): Command {
         );
       }
       const artifacts = domainFilter
-        ? filterByDomain(result.artifacts, domainFilter)
-        : result.artifacts;
+        ? filterByDomain(entities, domainFilter)
+        : entities;
 
       // --all: generate all reports to output directory
       if (options.all) {

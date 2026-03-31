@@ -204,6 +204,11 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
   // spec.lifecycle from status
   spec.lifecycle = mapStatusToLifecycle(artifact.status);
 
+  // Preserve exact status for lossless round-trip via getEntityStatus()
+  if (artifact.status) {
+    spec.status = artifact.status;
+  }
+
   // spec.owner
   if (artifact.owners.length > 0) {
     spec.owner = artifact.owners[0];
@@ -228,6 +233,8 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
         }
       }
     }
+    // Preserve raw relations array for direct access by drift/validate rules
+    spec.relations = artifact.relations;
   }
 
   // Carry forward extensions to spec
@@ -236,6 +243,18 @@ export function artifactToBackstage(artifact: EaArtifactBase): BackstageEntity {
       if (!(key in spec)) {
         spec[key] = value;
       }
+    }
+  }
+
+  // Carry forward kind-specific properties to spec (anything not in base EaArtifactBase)
+  const baseFields = new Set([
+    "id", "kind", "apiVersion", "title", "summary", "owners", "tags",
+    "confidence", "status", "schemaVersion", "relations", "traceRefs",
+    "anchors", "risk", "compliance", "extensions",
+  ]);
+  for (const [key, value] of Object.entries(artifact)) {
+    if (!baseFields.has(key) && !(key in spec) && value !== undefined) {
+      spec[key] = value;
     }
   }
 
