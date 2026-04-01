@@ -8,6 +8,8 @@
 
 Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in either `catalog-info.yaml` or Markdown frontmatter, then use the CLI to validate them, visualize the graph, discover missing model coverage, detect drift against code and infrastructure, reconcile docs, and assemble context for humans and AI agents.
 
+This repository is the canonical manifest-mode example: a root `catalog-info.yaml` and linked markdown documentation organized by primary EA domain under `docs/`.
+
 ## What it does
 
 - Author architecture as **Backstage-aligned entities**.
@@ -135,23 +137,27 @@ npx anchored-spec context component:default/orders-service
 │   └── config.json
 ├── catalog-info.yaml
 ├── docs/
-│   └── architecture/*.md
+│   ├── business/
+│   ├── data/
+│   ├── delivery/*.md
+│   ├── information/*.md
+│   ├── systems/*.md
+│   └── transitions/*.md
 └── package.json
 ```
 
-A project usually uses either manifest mode or inline mode as its primary authoring style. Manifest mode can also load additional YAML files from a `catalogDir`, and inline mode reads Markdown frontmatter from configured doc directories.
+A project usually uses either manifest mode or inline mode as its primary authoring style. In this repo, manifest-mode documentation lives under `docs/` and is grouped by the primary EA domain while frontmatter carries cross-domain membership.
 
 ## Documentation map
 
 Start here:
 
-- [Backstage alignment](docs/ea-backstage-alignment.md)
-- [Design overview](docs/ea-design-overview.md)
-- [Implementation guide](docs/ea-implementation-guide.md)
-- [Drift, resolvers, and generators](docs/ea-drift-resolvers-generators.md)
-- [Governed evolution](docs/ea-governed-evolution.md)
-- [Testing guide](docs/ea-testing-guide.md)
-- [Examples](examples/backstage-manifest/README.md)
+- [Documentation portal](docs/README.md)
+- [Architecture overview](docs/systems/overview.md)
+- [Entity model](docs/systems/entity-model.md)
+- [Docs and traceability](docs/information/docs-and-traceability.md)
+- [Getting started](docs/delivery/getting-started.md)
+- [Testing and CI](docs/delivery/testing-and-ci.md)
 
 ## AI agent workflow
 
