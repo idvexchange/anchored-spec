@@ -29,6 +29,8 @@ import {
 } from "../../ea/backstage/accessors.js";
 import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
+import { renderExplanationList } from "../../ea/evidence-renderer.js";
+import type { ExplainableItem } from "../../ea/evidence-renderer.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -356,6 +358,7 @@ export function eaTraceCommand(): Command {
     .option("--summary", "Show summary counts")
     .option("--source-annotations", "Include source file @anchored-spec annotations in trace analysis")
     .option("--json", "Output as JSON")
+    .option("--explain", "Show detailed rationale for each trace link")
     .action(async (target: string | undefined, options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -495,9 +498,19 @@ export function eaTraceCommand(): Command {
       if (options.check) {
         const report = buildTraceCheckReport(links);
         if (options.json) {
-          process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+          if (options.explain) {
+            const explained = traceLinksToExplainableItems(links, entityMap);
+            const jsonOut = { ...report, explanations: JSON.parse(renderExplanationList(explained, "json")) };
+            process.stdout.write(JSON.stringify(jsonOut, null, 2) + "\n");
+          } else {
+            process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+          }
         } else {
           process.stdout.write(renderCheck(report) + "\n");
+          if (options.explain) {
+            const explained = traceLinksToExplainableItems(links, entityMap);
+            process.stdout.write("\n## Explanations\n\n" + renderExplanationList(explained, "markdown") + "\n");
+          }
         }
 
         // Exit 1 when broken file references exist
@@ -623,6 +636,46 @@ export function eaTraceCommand(): Command {
         process.stdout.write(renderSummary(report) + "\n");
       }
     });
+}
+
+// ─── Explain helper ────────────────────────────────────────────────
+
+function traceLinksToExplainableItems(
+  links: TraceLink[],
+  entityMap: Map<string, TraceEntityView>,
+): ExplainableItem[] {
+  return links.map((link) => {
+    const entity = entityMap.get(link.artifactId);
+    const bidir = link.artifactToDoc && link.docToArtifact;
+    const direction = link.artifactToDoc && link.docToArtifact
+      ? "bidirectional"
+      : link.artifactToDoc
+        ? "entity→doc"
+        : "doc→entity";
+
+    const source = link.artifactToDoc
+      ? "traceRef in entity spec"
+      : "ea-artifacts frontmatter in doc";
+
+    const reason = bidir
+      ? `Bidirectional link between ${link.artifactId} and ${link.docPath}`
+      : `One-way ${direction} link from ${link.artifactToDoc ? link.artifactId : link.docPath} to ${link.artifactToDoc ? link.docPath : link.artifactId}`;
+
+    const evidence: string[] = [];
+    evidence.push(`Direction: ${direction}`);
+    evidence.push(`Link source: ${source}`);
+    if (link.isUrl) evidence.push("Target is a URL (not a local file)");
+    if (!link.isUrl && link.artifactToDoc) evidence.push(`File exists: ${link.fileExists}`);
+    if (bidir) evidence.push("Bidirectional: entity traceRef ↔ doc frontmatter");
+
+    return {
+      ref: link.artifactId,
+      kind: entity?.kind ?? "unknown",
+      title: link.docPath,
+      reason,
+      evidence,
+    };
+  });
 }
 
 // ─── Fix-broken helper ─────────────────────────────────────────────

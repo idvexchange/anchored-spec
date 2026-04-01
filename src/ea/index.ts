@@ -68,6 +68,10 @@ export { EA_DRIFT_RULES, evaluateEaDrift, detectEaDrift } from "./drift.js";
 export type { SystemDataCell, SystemDataMatrixReport, ClassifiedEntity, ClassificationStore, ClassificationCoverageEntry, ClassificationCoverageReport, CapabilityMapNode, CapabilityMapMission, CapabilityMapReport, GapNewWorkItem, GapRetirementItem, GapMilestoneStatus, GapSuccessMetric, GapAnalysisReport, ExceptionStatus, ExceptionReportEntry, ExceptionReport, ReportIndexEntry, ReportIndex, ReportView, DriftHeatmapReport, TraceabilityIndexEntry, TraceabilityDocumentGroup, TraceabilityIndexReport } from "./report.js";
 export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown, buildClassificationCoverage, renderClassificationCoverageMarkdown, buildCapabilityMap, renderCapabilityMapMarkdown, buildGapAnalysis, renderGapAnalysisMarkdown, buildExceptionReport, renderExceptionReportMarkdown, REPORT_VIEWS, buildReportIndex, buildDriftHeatmap, renderDriftHeatmapMarkdown, buildTraceabilityIndex, renderTraceabilityIndexMarkdown } from "./report.js";
 
+// Evidence Renderer (cross-command explainability)
+export type { ExplainableItem } from "./evidence-renderer.js";
+export { renderExplanation, renderExplanationList } from "./evidence-renderer.js";
+
 // Evidence
 export type { EaEvidenceKind, EaEvidenceRecord, EaEvidence, EaEvidenceValidationError, EaEvidenceSummary } from "./evidence.js";
 export { EA_EVIDENCE_KINDS, createEaEvidenceRecord, loadEaEvidence, writeEaEvidence, mergeEaEvidence, validateEaEvidence, summarizeEaEvidence } from "./evidence.js";
@@ -327,6 +331,10 @@ export {
   getBackstageSchemaNames,
   resetBackstageAjv,
 } from "./backstage/validate.js";
+
+// Constraints Surface
+export type { ConstraintResult, ConstraintOptions } from "./constraints.js";
+export { extractConstraints, renderConstraintsMarkdown } from "./constraints.js";
 
 // Reverse Resolution
 export type {

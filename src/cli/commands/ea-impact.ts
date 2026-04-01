@@ -16,7 +16,9 @@ import {
   analyzeImpact,
   renderImpactReportMarkdown,
 } from "../../ea/index.js";
-import type { ImpactOptions, ImpactReport } from "../../ea/index.js";
+import type { ImpactOptions, ImpactReport, ImpactedEntity } from "../../ea/index.js";
+import { renderExplanationList } from "../../ea/evidence-renderer.js";
+import type { ExplainableItem } from "../../ea/evidence-renderer.js";
 import { resolveFromFiles, resolveFromDiff } from "../../ea/reverse-resolution.js";
 import { scanDocs } from "../../ea/docs/scanner.js";
 import { getEntityId } from "../../ea/backstage/index.js";
@@ -38,6 +40,7 @@ export function eaImpactCommand(): Command {
     .option("--min-score <n>", "Filter results below this score threshold")
     .option("--max-results <n>", "Maximum number of results to return")
     .option("--view <mode>", "View mode: summary, code, contracts, docs, constraints, graph, llm, domain", "summary")
+    .option("--explain", "Show detailed rationale for each impacted entity")
     .option("--fail-on-impact", "Exit with code 1 if any impacted entities found (CI gate)")
     .action(async (entityInput: string | undefined, options) => {
       const cwd = process.cwd();
@@ -210,7 +213,13 @@ export function eaImpactCommand(): Command {
       // Output based on view mode
       let output: string;
       if (options.format === "json") {
-        output = JSON.stringify(report, null, 2) + "\n";
+        if (options.explain) {
+          const explained = impactedToExplainableItems(report.impacted, report.sourceRef);
+          const jsonOut = { ...report, explanations: JSON.parse(renderExplanationList(explained, "json")) };
+          output = JSON.stringify(jsonOut, null, 2) + "\n";
+        } else {
+          output = JSON.stringify(report, null, 2) + "\n";
+        }
       } else {
         const viewMode = options.view as string;
         switch (viewMode) {
@@ -231,6 +240,12 @@ export function eaImpactCommand(): Command {
             output = renderImpactReportMarkdown(report);
             break;
         }
+      }
+
+      // Append explain section for markdown output
+      if (options.explain && options.format !== "json") {
+        const explained = impactedToExplainableItems(report.impacted, report.sourceRef);
+        output += "\n## Explanations\n\n" + renderExplanationList(explained, "markdown");
       }
 
       if (options.output) {
@@ -285,4 +300,28 @@ function renderDomainView(report: ImpactReport): string {
   }
 
   return lines.join("\n");
+}
+
+function impactedToExplainableItems(entities: ImpactedEntity[], sourceRef: string): ExplainableItem[] {
+  return entities.map((e) => {
+    const viaStr = e.viaRelations.join(", ");
+    const reason = e.depth === 1
+      ? `Directly depends on ${sourceRef} via \`${viaStr}\` relation (depth ${e.depth})`
+      : `Transitively impacted via \`${viaStr}\` relation at depth ${e.depth} from ${sourceRef}`;
+
+    return {
+      ref: e.id,
+      kind: e.kind,
+      title: e.title,
+      reason,
+      evidence: [
+        `Impact score: ${e.score.toFixed(2)}`,
+        `Category: ${e.category}`,
+        `Confidence: ${e.confidence}`,
+      ],
+      scoreBreakdown: e.scoreBreakdown
+        ? { ...e.scoreBreakdown }
+        : undefined,
+    };
+  });
 }

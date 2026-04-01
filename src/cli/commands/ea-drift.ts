@@ -23,6 +23,8 @@ import { reconcileFactsWithArtifacts } from "../../ea/facts/reconciler.js";
 import type { ReconciliationReport } from "../../ea/facts/reconciler.js";
 import { applySuppressions, collectSuppressions } from "../../ea/facts/suppression.js";
 import { CliError } from "../errors.js";
+import { renderExplanationList } from "../../ea/evidence-renderer.js";
+import type { ExplainableItem } from "../../ea/evidence-renderer.js";
 
 export function eaDriftCommand(): Command {
   return new Command("drift")
@@ -38,6 +40,7 @@ export function eaDriftCommand(): Command {
     .option("--no-cache", "Disable resolver cache")
     .option("--from-snapshot <path>", "Use a snapshot file instead of live resolvers")
     .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--explain", "Show detailed rationale for each drift finding")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -203,7 +206,13 @@ export function eaDriftCommand(): Command {
 
       // JSON output
       if (options.json) {
-        process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+        if (options.explain) {
+          const explained = driftFindingsToExplainableItems(filteredFindings);
+          const jsonOut = { ...report, explanations: JSON.parse(renderExplanationList(explained, "json")) };
+          process.stdout.write(JSON.stringify(jsonOut, null, 2) + "\n");
+        } else {
+          process.stdout.write(JSON.stringify(report, null, 2) + "\n");
+        }
       } else {
         // Text output
         const status = report.passed ? chalk.green("✅ PASSED") : chalk.red("❌ FAILED");
@@ -236,6 +245,12 @@ export function eaDriftCommand(): Command {
           }
           console.log("");
         }
+
+        // Explain section
+        if (options.explain && filteredFindings.length > 0) {
+          const explained = driftFindingsToExplainableItems(filteredFindings);
+          process.stdout.write("## Explanations\n\n" + renderExplanationList(explained, "markdown") + "\n");
+        }
       }
 
       // Exit code
@@ -246,4 +261,34 @@ export function eaDriftCommand(): Command {
         throw new CliError("", 1);
       }
     });
+}
+
+// ─── Explain helper ─────────────────────────────────────────────────
+
+interface DriftFindingLike {
+  rule: string;
+  severity: string;
+  artifactId: string;
+  path: string;
+  domain: string;
+  message: string;
+  suggestion?: string;
+}
+
+function driftFindingsToExplainableItems(findings: DriftFindingLike[]): ExplainableItem[] {
+  return findings.map((f) => {
+    const evidence: string[] = [];
+    evidence.push(`Rule: ${f.rule}`);
+    evidence.push(`Severity: ${f.severity}`);
+    evidence.push(`Domain: ${f.domain}`);
+    if (f.path) evidence.push(`Path: ${f.path}`);
+    if (f.suggestion) evidence.push(`Suggestion: ${f.suggestion}`);
+
+    return {
+      ref: f.artifactId,
+      kind: f.domain,
+      reason: f.message,
+      evidence,
+    };
+  });
 }
