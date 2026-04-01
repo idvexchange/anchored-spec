@@ -47,7 +47,7 @@ export function eaLinkDocsCommand(): Command {
     .description(
       "Auto-sync trace links between docs and entities"
     )
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option(
       "--doc-dirs <dirs>",
       "Comma-separated doc directories to scan",

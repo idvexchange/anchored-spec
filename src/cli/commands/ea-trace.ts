@@ -347,7 +347,7 @@ export function eaTraceCommand(): Command {
   return new Command("trace")
     .description("Show traceability web between entities and documents")
     .argument("[target]", "Entity ref or document path to inspect")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
     .option("--orphans", "Show orphaned docs (frontmatter refs with no traceRef back)")
     .option("--check", "Full bidirectional integrity report")

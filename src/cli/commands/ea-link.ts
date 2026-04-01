@@ -34,7 +34,7 @@ export function eaLinkCommand(): Command {
     .argument("<to>", "Target entity ref")
     .option("--type <type>", "Relation type (e.g., uses, owns, implements)", "uses")
     .option("--description <desc>", "Optional description of the relationship")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--dry-run", "Show what would change without writing")
     .action(async (from: string, to: string, options) => {
       const cwd = process.cwd();

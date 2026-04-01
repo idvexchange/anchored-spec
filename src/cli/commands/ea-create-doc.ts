@@ -88,7 +88,7 @@ export function eaCreateDocCommand(): Command {
     .option("--dir <path>", "Output directory", "docs")
     .option("--audience <audience>", "Target audience (comma-separated)", "agent, developer")
     .option("--domain <domain>", "EA domain(s) (comma-separated)")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--link-back", "Update referenced entities' traceRefs", true)
     .option("--no-link-back", "Skip updating entity traceRefs")
     .option("--json", "Output result as JSON")

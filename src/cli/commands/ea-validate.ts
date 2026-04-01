@@ -21,7 +21,7 @@ export function eaValidateCommand(): Command {
   return new Command("validate")
     .description("Validate EA entities (schema + quality rules + relations)")
     .option("--domain <domain>", "Validate only a specific domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--strict", "Treat warnings as errors")
     .option("--json", "Output structured JSON")
     .action(async (options) => {

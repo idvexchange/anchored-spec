@@ -26,7 +26,7 @@ export function eaStatusCommand(): Command {
     .description("Show EA entity health dashboard")
     .option("--json", "Output as JSON")
     .option("--domain <domain>", "Filter by domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });

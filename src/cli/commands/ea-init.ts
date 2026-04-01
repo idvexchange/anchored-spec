@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export function eaInitCommand(): Command {
   return new Command("init")
     .description("Initialize EA directory structure and v1.0 configuration")
-    .option("--root-dir <path>", "Root directory for EA artifacts", "ea")
+    .option("--root-dir <path>", "Root directory for EA artifacts", "docs")
     .option("--mode <mode>", "Storage mode for backstage format: manifest (default), inline", "manifest")
     .option("--with-examples", "Create starter Backstage entities")
     .option("--with-policy", "Create a starter workflow policy file")

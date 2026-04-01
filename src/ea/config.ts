@@ -82,7 +82,7 @@ export interface AnchoredSpecConfigV1 {
   /** Config format version. Must be "1.0". */
   schemaVersion: "1.0";
 
-  /** Root directory for EA artifacts. Default: "ea". */
+  /** Root directory for EA artifacts. Default: "docs". */
   rootDir: string;
 
   /** Directory for generated output files. Default: "ea/generated". */
@@ -223,7 +223,7 @@ function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1 {
 export function resolveConfigV1(
   partial?: Partial<AnchoredSpecConfigV1> | null
 ): AnchoredSpecConfigV1 {
-  const rootDir = partial?.rootDir ?? "ea";
+  const rootDir = partial?.rootDir ?? "docs";
   const defaults = buildV1Defaults(rootDir);
 
   if (!partial) return defaults;

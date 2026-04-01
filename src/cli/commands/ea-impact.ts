@@ -27,7 +27,7 @@ export function eaImpactCommand(): Command {
     .option("--format <format>", "Output format: markdown, json", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--max-depth <n>", "Maximum traversal depth")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });

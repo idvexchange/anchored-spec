@@ -97,7 +97,7 @@ export async function reconcileEaProject(
   options: ReconcileOptions = {},
 ): Promise<ReconcileReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
-  const eaConfig = resolveConfigV1({ rootDir: options.eaRoot ?? "ea" });
+  const eaConfig = resolveConfigV1({ rootDir: options.eaRoot ?? "docs" });
   const root = new EaRoot(projectRoot, eaConfig);
 
   const steps: ReconcileStepResult[] = [];

@@ -35,7 +35,7 @@ export function eaEvidenceCommand(): Command {
     .requiredOption("--status <status>", "Evidence status: passed, failed, skipped, error")
     .requiredOption("--source <source>", "Source tool or file that produced this evidence")
     .option("--summary <text>", "Human-readable summary")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--output <path>", "Evidence file path")
     .action(async (options) => {
       const kind = options.kind as string;
@@ -95,7 +95,7 @@ export function eaEvidenceCommand(): Command {
   cmd
     .command("validate")
     .description("Validate EA evidence for freshness and coverage")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--evidence <path>", "Evidence file path")
     .option("--freshness <days>", "Freshness window in days", "30")
     .action(async (options) => {
@@ -148,7 +148,7 @@ export function eaEvidenceCommand(): Command {
   cmd
     .command("summary")
     .description("Show EA evidence summary")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--evidence <path>", "Evidence file path")
     .option("--freshness <days>", "Freshness window in days", "30")
     .option("--format <format>", "Output format: text, json", "text")

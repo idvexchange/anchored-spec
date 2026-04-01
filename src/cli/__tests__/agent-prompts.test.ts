@@ -10,7 +10,7 @@ import {
   writeAiConfigFiles,
 } from "../ai-config.js";
 
-const config = { rootDir: "ea", domains: { systems: "ea/systems" } };
+const config = { rootDir: "docs", domains: { systems: "docs/systems" } };
 
 describe("Agent Prompt Templates", () => {
   // ─── generateAgentPrompts ────────────────────────────────────────

@@ -26,7 +26,7 @@ export function eaReconcileCommand(): Command {
     .option("--domain <domain>", "Filter to a specific EA domain")
     .option("--json", "Output full report as JSON")
     .option("--output <file>", "Write report to file")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       process.stdout.write(chalk.dim("⏳ Reconciling EA project...\n\n"));
 

@@ -49,7 +49,7 @@ export function eaReportCommand(): Command {
     .option("--output <file>", "Write to file instead of stdout")
     .option("--output-dir <dir>", "Output directory for --all", "ea/generated")
     .option("--domain <domain>", "Filter report to a specific EA domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--baseline <entity-ref>", "Baseline entity ref for gap-analysis")
     .option("--target <entity-ref>", "Target entity ref for gap-analysis")
     .option("--plan <entity-ref>", "Transition plan entity ref for gap-analysis")

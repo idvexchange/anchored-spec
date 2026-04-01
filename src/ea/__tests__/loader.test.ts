@@ -92,13 +92,13 @@ describe("EaRoot", () => {
   });
 
   it("loads workflow policy and transition verifications from configured directories", () => {
-    mkdirSync(join(tempDir, "ea", "transitions", "change-1"), { recursive: true });
+    mkdirSync(join(tempDir, "docs", "transitions", "change-1"), { recursive: true });
     writeFileSync(
-      join(tempDir, "ea", "workflow-policy.yaml"),
+      join(tempDir, "docs", "workflow-policy.yaml"),
       "workflowVariants:\n  - id: default\n",
     );
     writeFileSync(
-      join(tempDir, "ea", "transitions", "change-1", "verification.yaml"),
+      join(tempDir, "docs", "transitions", "change-1", "verification.yaml"),
       "checks:\n  - id: smoke\n",
     );
 

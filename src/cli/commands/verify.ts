@@ -21,7 +21,7 @@ import { CliError } from "../errors.js";
 export function verifyCommand(): Command {
   return new Command("verify")
     .description("Run all spec validation checks")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--strict", "Treat warnings as errors")
     .option("--quiet", "Only show errors")
     .option("--json", "Output structured JSON to stdout")
