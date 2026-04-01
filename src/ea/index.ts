@@ -327,3 +327,22 @@ export {
   getBackstageSchemaNames,
   resetBackstageAjv,
 } from "./backstage/validate.js";
+
+// Reverse Resolution
+export type {
+  ResolutionConfidence,
+  ResolutionStrategy,
+  ResolutionResult,
+  ReverseIndex,
+  DiffInput,
+  CachedReverseIndex,
+} from "./reverse-resolution.js";
+
+export {
+  buildReverseIndex,
+  buildReverseIndexCached,
+  resolveFromFiles,
+  resolveFromSymbols,
+  resolveFromDiff,
+  extractChangedFiles,
+} from "./reverse-resolution.js";
