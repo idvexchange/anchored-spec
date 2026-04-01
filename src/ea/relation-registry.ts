@@ -4,7 +4,7 @@
  * Single source of truth for relation type semantics: canonical directions,
  * computed inverses, valid source/target kind constraints, and cycle policies.
  *
- * Design reference: docs/ea-relationship-model.md
+ * Design reference: docs/systems/entity-model.md
  */
 
 // ─── Registry Entry ─────────────────────────────────────────────────────────────

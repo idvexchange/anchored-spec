@@ -11,3 +11,7 @@ npm-debug.log*
 # Anchored Spec
 ea/generated/
 .anchored-spec/cache/
+
+# Anchored Spec
+docs/generated/
+.anchored-spec/cache/

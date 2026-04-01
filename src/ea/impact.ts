@@ -5,7 +5,7 @@
  * Given an artifact ID, finds everything that would be affected
  * by a change to that artifact, grouped by domain and severity.
  *
- * Design reference: docs/ea-implementation-guide.md §Phase A
+ * Design reference: docs/delivery/reporting-and-analysis.md (impact workflow)
  */
 
 import type { RelationGraph } from "./graph.js";

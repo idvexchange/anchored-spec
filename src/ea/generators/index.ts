@@ -5,7 +5,7 @@
  * Generators transform EA artifacts (e.g., api-contract → OpenAPI stub,
  * canonical-entity → JSON Schema) and detect generation drift.
  *
- * Design reference: docs/ea-drift-resolvers-generators.md (Generator Interface)
+ * Design reference: docs/delivery/discovery-drift-generation.md (Generator Interface)
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
