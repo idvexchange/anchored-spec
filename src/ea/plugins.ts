@@ -9,14 +9,14 @@
 
 import { resolve, join, relative } from "node:path";
 import { existsSync } from "node:fs";
-import type { EaArtifactBase } from "./types.js";
 import type { EaValidationError } from "./validate.js";
+import type { BackstageEntity } from "./backstage/types.js";
 
 // ─── EA Plugin Types ────────────────────────────────────────────────────────────
 
 /** Context passed to EA plugin checks. */
 export interface EaPluginContext {
-  artifacts: EaArtifactBase[];
+  entities: BackstageEntity[];
   projectRoot: string;
   config: Record<string, unknown>;
 }
@@ -30,9 +30,9 @@ export interface EaPluginCheck {
 
 /** Hooks an EA plugin can provide. */
 export interface EaPluginHooks {
-  onValidate?: (ctx: { artifacts: EaArtifactBase[]; builtinFindings: EaValidationError[] }) =>
+  onValidate?: (ctx: { entities: BackstageEntity[]; builtinFindings: EaValidationError[] }) =>
     EaValidationError[] | Promise<EaValidationError[]>;
-  onGenerate?: (ctx: { artifacts: EaArtifactBase[]; generatedDir: string }) =>
+  onGenerate?: (ctx: { entities: BackstageEntity[]; generatedDir: string }) =>
     void | Promise<void>;
 }
 

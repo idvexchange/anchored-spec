@@ -1,31 +1,29 @@
 /**
  * Backstage-Aware Entity Loader
  *
- * Loads Backstage-format entities from all three storage modes
- * (manifest, catalog directory, inline frontmatter) and converts
- * them to `EaArtifactBase[]` via the bridge, so all downstream
- * modules work unchanged.
+ * Loads Backstage-format entities from supported storage modes
+ * (manifest, catalog directory, inline frontmatter).
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, extname, relative } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { parseAllDocuments } from "yaml";
 
-import type { EaArtifactBase, EaDomain } from "../types.js";
-import { getDomainForKind } from "../types.js";
+import type { EaDomain } from "../types.js";
 import type { EaValidationError } from "../validate.js";
 import type { AnchoredSpecConfigV1 } from "../config.js";
-import type { BackstageEntity } from "./types.js";
+import type { BackstageEntity, DescriptorSubstitution } from "./types.js";
 import { parseBackstageYaml, parseFrontmatterEntity } from "./parser.js";
-import { backstageToArtifact } from "./bridge.js";
+import { getEntityDomain } from "./accessors.js";
 import { validateBackstageEntity } from "./validate.js";
 
 // Re-use the loader types from the main loader
-export interface BackstageLoadedEntity {
-  /** The converted artifact (undefined if conversion failed). */
-  artifact?: EaArtifactBase;
-  /** Original Backstage entity (undefined if parse failed). */
+export interface BackstageEntityLoadDetail {
+  /** Resolved runtime Backstage entity (undefined if parse failed). */
   entity?: BackstageEntity;
+  /** Raw authored Backstage entity before local substitution resolution. */
+  authoredEntity?: BackstageEntity;
   /** Absolute file path. */
   filePath: string;
   /** Path relative to project root. */
@@ -36,11 +34,11 @@ export interface BackstageLoadedEntity {
   errors: EaValidationError[];
 }
 
-export interface BackstageLoadResult {
-  /** Successfully converted artifacts. */
-  artifacts: EaArtifactBase[];
+export interface BackstageEntityLoadResult {
+  /** Successfully loaded entities. */
+  entities: BackstageEntity[];
   /** All load results with per-entity details. */
-  details: BackstageLoadedEntity[];
+  details: BackstageEntityLoadDetail[];
   /** Flat list of all errors. */
   errors: EaValidationError[];
 }
@@ -53,13 +51,13 @@ export interface BackstageLoadResult {
 export async function loadManifestFile(
   manifestPath: string,
   projectRoot: string,
-): Promise<BackstageLoadResult> {
+): Promise<BackstageEntityLoadResult> {
   const relativePath = relative(projectRoot, manifestPath);
-  const details: BackstageLoadedEntity[] = [];
+  const details: BackstageEntityLoadDetail[] = [];
 
   if (!existsSync(manifestPath)) {
     return {
-      artifacts: [],
+      entities: [],
       details: [],
       errors: [
         {
@@ -94,7 +92,7 @@ export async function loadManifestFile(
 
   // Convert each parsed entity
   for (const { entity } of parseResult.entities) {
-    const detail = convertEntity(entity, manifestPath, relativePath);
+    const detail = await convertEntity(entity, manifestPath, relativePath);
     details.push(detail);
   }
 
@@ -109,13 +107,13 @@ export async function loadManifestFile(
 export async function loadCatalogDirectory(
   catalogDir: string,
   projectRoot: string,
-): Promise<BackstageLoadResult> {
+): Promise<BackstageEntityLoadResult> {
   if (!existsSync(catalogDir)) {
-    return { artifacts: [], details: [], errors: [] };
+    return { entities: [], details: [], errors: [] };
   }
 
   const files = await collectYamlFiles(catalogDir);
-  const details: BackstageLoadedEntity[] = [];
+  const details: BackstageEntityLoadDetail[] = [];
 
   for (const filePath of files) {
     const relativePath = relative(projectRoot, filePath);
@@ -139,7 +137,7 @@ export async function loadCatalogDirectory(
     }
 
     for (const { entity } of parseResult.entities) {
-      const detail = convertEntity(entity, filePath, relativePath);
+      const detail = await convertEntity(entity, filePath, relativePath);
       details.push(detail);
     }
   }
@@ -155,8 +153,8 @@ export async function loadCatalogDirectory(
 export async function loadInlineEntities(
   docDirs: string[],
   projectRoot: string,
-): Promise<BackstageLoadResult> {
-  const details: BackstageLoadedEntity[] = [];
+): Promise<BackstageEntityLoadResult> {
+  const details: BackstageEntityLoadDetail[] = [];
 
   for (const dir of docDirs) {
     const absDir = join(projectRoot, dir);
@@ -190,7 +188,7 @@ export async function loadInlineEntities(
       }
 
       for (const { entity } of parseResult.entities) {
-        const detail = convertEntity(entity, filePath, relativePath);
+        const detail = await convertEntity(entity, filePath, relativePath);
         details.push(detail);
       }
     }
@@ -210,8 +208,8 @@ export async function loadInlineEntities(
 export async function loadBackstageEntities(
   config: AnchoredSpecConfigV1,
   projectRoot: string,
-): Promise<BackstageLoadResult> {
-  const mode = config.entityMode ?? "artifacts";
+): Promise<BackstageEntityLoadResult> {
+  const mode = config.entityMode ?? "manifest";
 
   switch (mode) {
     case "manifest": {
@@ -244,23 +242,228 @@ export async function loadBackstageEntities(
     }
 
     default:
-      // "artifacts" mode is handled by the existing loader
-      return { artifacts: [], details: [], errors: [] };
+      throw new Error(`Unsupported entity mode: ${mode}`);
   }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-/** Convert a parsed BackstageEntity to a BackstageLoadedEntity. */
-function convertEntity(
+class DescriptorSubstitutionError extends Error {
+  constructor(
+    readonly fieldPath: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "DescriptorSubstitutionError";
+  }
+}
+
+function isDescriptorSubstitution(
+  value: unknown,
+  fieldPath: string,
+): DescriptorSubstitution | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entry = value as Record<string, unknown>;
+  const keys = Object.keys(entry);
+  const substitutionKeys = keys.filter((key) =>
+    key === "$text" || key === "$json" || key === "$yaml",
+  );
+
+  if (substitutionKeys.length === 0) {
+    return undefined;
+  }
+
+  if (substitutionKeys.length !== 1 || keys.length !== 1) {
+    throw new DescriptorSubstitutionError(
+      fieldPath,
+      "Malformed substitution object; expected exactly one of $text, $json, or $yaml",
+    );
+  }
+
+  const key = substitutionKeys[0]!;
+  if (typeof entry[key] !== "string" || !entry[key]) {
+    throw new DescriptorSubstitutionError(
+      fieldPath,
+      `Substitution ${key} must point to a non-empty string path`,
+    );
+  }
+
+  return entry as unknown as DescriptorSubstitution;
+}
+
+function isRemoteSubstitutionTarget(target: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(target) || target.startsWith("file:");
+}
+
+function resolveSubstitutionPath(
+  sourceFilePath: string,
+  target: string,
+): string {
+  return isAbsolute(target) ? target : resolve(dirname(sourceFilePath), target);
+}
+
+async function loadYamlSubstitution(
+  absolutePath: string,
+  fieldPath: string,
+): Promise<unknown> {
+  const content = await readFile(absolutePath, "utf-8");
+  const docs = parseAllDocuments(content);
+
+  if (docs.length === 0) {
+    return null;
+  }
+
+  for (const doc of docs) {
+    if (doc.errors.length > 0) {
+      throw new DescriptorSubstitutionError(
+        fieldPath,
+        `Invalid YAML substitution: ${doc.errors[0]!.message}`,
+      );
+    }
+  }
+
+  const values = docs
+    .map((doc) => doc.toJSON())
+    .filter((value) => value !== null);
+
+  if (values.length > 1) {
+    throw new DescriptorSubstitutionError(
+      fieldPath,
+      "YAML substitution must contain exactly one non-empty document",
+    );
+  }
+
+  return values[0] ?? null;
+}
+
+async function resolveSubstitution(
+  substitution: DescriptorSubstitution,
+  sourceFilePath: string,
+  fieldPath: string,
+): Promise<unknown> {
+  const [kind, target] = Object.entries(substitution)[0] as [string, string];
+
+  if (isRemoteSubstitutionTarget(target)) {
+    throw new DescriptorSubstitutionError(
+      fieldPath,
+      `Remote substitutions are not supported by default: ${target}`,
+    );
+  }
+
+  const absolutePath = resolveSubstitutionPath(sourceFilePath, target);
+
+  try {
+    switch (kind) {
+      case "$text":
+        return await readFile(absolutePath, "utf-8");
+      case "$json":
+        return JSON.parse(await readFile(absolutePath, "utf-8")) as unknown;
+      case "$yaml":
+        return loadYamlSubstitution(absolutePath, fieldPath);
+      default:
+        throw new DescriptorSubstitutionError(
+          fieldPath,
+          `Unsupported substitution kind: ${kind}`,
+        );
+    }
+  } catch (err) {
+    if (err instanceof DescriptorSubstitutionError) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    throw new DescriptorSubstitutionError(
+      fieldPath,
+      `Failed to resolve ${kind} substitution from ${target}: ${message}`,
+    );
+  }
+}
+
+async function resolveDescriptorValue(
+  value: unknown,
+  sourceFilePath: string,
+  fieldPath: string = "/",
+): Promise<unknown> {
+  if (Array.isArray(value)) {
+    const entries = await Promise.all(
+      value.map((entry, index) =>
+        resolveDescriptorValue(entry, sourceFilePath, `${fieldPath}/${index}`),
+      ),
+    );
+    return entries;
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const substitution = isDescriptorSubstitution(value, fieldPath);
+  if (substitution) {
+    return resolveSubstitution(substitution, sourceFilePath, fieldPath);
+  }
+
+  const resolvedEntries = await Promise.all(
+    Object.entries(value as Record<string, unknown>).map(async ([key, entry]) => [
+      key,
+      await resolveDescriptorValue(
+        entry,
+        sourceFilePath,
+        fieldPath === "/" ? `/${key}` : `${fieldPath}/${key}`,
+      ),
+    ]),
+  );
+
+  return Object.fromEntries(resolvedEntries);
+}
+
+async function resolveEntitySubstitutions(
+  entity: BackstageEntity,
+  sourceFilePath: string,
+): Promise<BackstageEntity> {
+  return await resolveDescriptorValue(
+    entity,
+    sourceFilePath,
+  ) as BackstageEntity;
+}
+
+/** Convert a parsed BackstageEntity to an entity load detail record. */
+async function convertEntity(
   entity: BackstageEntity,
   filePath: string,
   relativePath: string,
-): BackstageLoadedEntity {
+): Promise<BackstageEntityLoadDetail> {
   const errors: EaValidationError[] = [];
+  const authoredEntity = entity;
 
-  // Validate entity against Backstage schema before bridge conversion
-  const schemaResult = validateBackstageEntity(entity);
+  let resolvedEntity: BackstageEntity;
+  try {
+    resolvedEntity = await resolveEntitySubstitutions(authoredEntity, filePath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const fieldPath = err instanceof DescriptorSubstitutionError
+      ? err.fieldPath
+      : "/";
+    errors.push({
+      path: relativePath,
+      message: `${relativePath}${fieldPath}: ${message}`,
+      severity: "error",
+      rule: "ea:backstage:substitution-error",
+    });
+
+    return {
+      authoredEntity,
+      entity: authoredEntity,
+      filePath,
+      relativePath,
+      domain: "systems",
+      errors,
+    };
+  }
+
+  // Validate entity against Backstage schema before any downstream processing
+  const schemaResult = await validateBackstageEntity(resolvedEntity);
   if (!schemaResult.valid) {
     for (const err of schemaResult.errors) {
       errors.push({
@@ -281,53 +484,32 @@ function convertEntity(
     });
   }
 
-  try {
-    const artifact = backstageToArtifact(entity);
-    const domain = getDomainForKind(artifact.kind) ?? "systems";
-
-    return {
-      artifact,
-      entity,
-      filePath,
-      relativePath,
-      domain,
-      errors,
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    errors.push({
-      path: relativePath,
-      message: `${relativePath}: Bridge conversion error — ${message}`,
-      severity: "error",
-      rule: "ea:backstage:bridge-error",
-    });
-
-    return {
-      entity,
-      filePath,
-      relativePath,
-      domain: "systems",
-      errors,
-    };
-  }
+  return {
+    entity: resolvedEntity,
+    authoredEntity,
+    filePath,
+    relativePath,
+    domain: (getEntityDomain(resolvedEntity) as EaDomain | undefined) ?? "systems",
+    errors,
+  };
 }
 
-/** Build a BackstageLoadResult from detail entries. */
-function buildResult(details: BackstageLoadedEntity[]): BackstageLoadResult {
-  const artifacts = details
-    .filter((d) => d.artifact !== undefined)
-    .map((d) => d.artifact!);
+/** Build an entity load result from detail entries. */
+function buildResult(details: BackstageEntityLoadDetail[]): BackstageEntityLoadResult {
+  const entities = details
+    .filter((detail): detail is BackstageEntityLoadDetail & { entity: BackstageEntity } => detail.entity !== undefined)
+    .map((detail) => detail.entity);
   const errors = details.flatMap((d) => d.errors);
-  return { artifacts, details, errors };
+  return { entities, details, errors };
 }
 
 /** Merge two load results. */
 function mergeResults(
-  a: BackstageLoadResult,
-  b: BackstageLoadResult,
-): BackstageLoadResult {
+  a: BackstageEntityLoadResult,
+  b: BackstageEntityLoadResult,
+): BackstageEntityLoadResult {
   return {
-    artifacts: [...a.artifacts, ...b.artifacts],
+    entities: [...a.entities, ...b.entities],
     details: [...a.details, ...b.details],
     errors: [...a.errors, ...b.errors],
   };

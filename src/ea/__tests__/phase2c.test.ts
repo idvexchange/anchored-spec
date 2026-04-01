@@ -14,20 +14,19 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  getKindEntry,
-  getKindsByDomain,
   createDefaultRegistry,
   validateEaArtifacts,
   validateEaRelations,
   validateEaSchema,
   evaluateEaDrift,
 } from "../index.js";
+import { BACKSTAGE_KIND_REGISTRY, mapLegacyKind } from "../backstage/kind-mapping.js";
 import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 
 describe("Phase 2C: Information Layer Kinds", () => {
-  const infoKinds = getKindsByDomain("information");
+  const infoKinds = BACKSTAGE_KIND_REGISTRY.filter((entry) => entry.domain === "information");
 
   it("registers 7 information-layer kinds", () => {
     expect(infoKinds).toHaveLength(7);
@@ -41,9 +40,9 @@ describe("Phase 2C: Information Layer Kinds", () => {
     ["retention-policy", "RET"],
     ["glossary-term", "TERM"],
   ])("registers %s with prefix %s", (kind, prefix) => {
-    const entry = getKindEntry(kind);
+    const entry = mapLegacyKind(kind);
     expect(entry).toBeDefined();
-    expect(entry!.prefix).toBe(prefix);
+    expect(entry!.legacyPrefix).toBe(prefix);
     expect(entry!.domain).toBe("information");
   });
 });
@@ -54,7 +53,7 @@ describe("Phase 2C: Schema Validation", () => {
   describe("information-concept", () => {
     it("validates a valid information-concept", () => {
       const result = validateEaSchema({
-        id: "IC-customer",
+        id: "IC-customer-concept",
         schemaVersion: "1.0.0",
         kind: "information-concept",
         title: "Customer",
@@ -87,7 +86,7 @@ describe("Phase 2C: Schema Validation", () => {
   describe("canonical-entity", () => {
     it("validates a valid canonical-entity", () => {
       const result = validateEaSchema({
-        id: "CE-customer",
+        id: "CE-customer-entity",
         schemaVersion: "1.0.0",
         kind: "canonical-entity",
         title: "Customer Entity",
@@ -99,7 +98,7 @@ describe("Phase 2C: Schema Validation", () => {
           { name: "id", type: "uuid", required: true },
           { name: "email", type: "email", required: true, classification: "CLASS-pii" },
         ],
-        conceptRef: "IC-customer",
+        conceptRef: "canonicalentity:customer-concept",
         governanceStatus: "ratified",
       }, "canonical-entity");
       expect(result.valid).toBe(true);
@@ -521,12 +520,12 @@ describe("Phase 2C: implementedBy Extension", () => {
   it("validates information-concept → canonical-entity via implementedBy", () => {
     const artifacts = [
       makeEntity({
-        id: "IC-customer",
+        id: "IC-customer-concept",
         kind: "information-concept",
-        relations: [{ type: "implementedBy", target: "CE-customer" }],
+        relations: [{ type: "implementedBy", target: "CE-customer-entity" }],
       } as any),
       makeEntity({
-        id: "CE-customer",
+        id: "CE-customer-entity",
         kind: "canonical-entity",
       }),
     ];
@@ -558,7 +557,7 @@ describe("Phase 2C: New Relations", () => {
     it("validates CE → classification via classifiedAs", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
         } as any),
@@ -584,7 +583,7 @@ describe("Phase 2C: New Relations", () => {
     it("rejects invalid target kind for classifiedAs", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "classifiedAs", target: "APP-backend" }],
         } as any),
@@ -609,7 +608,7 @@ describe("Phase 2C: New Relations", () => {
     it("validates CE → information-exchange via exchangedVia", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "exchangedVia", target: "EXCH-onboarding" }],
         } as any),
@@ -661,7 +660,7 @@ describe("Phase 2C: Information Drift Rules", () => {
     it("does not fire when CE has implementedBy", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "implementedBy", target: "SCHEMA-customers" }],
         } as any),
@@ -709,7 +708,7 @@ describe("Phase 2C: Information Drift Rules", () => {
     it("fires when entity classified but downstream store is not", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [
             { type: "classifiedAs", target: "CLASS-pii" },
@@ -722,13 +721,13 @@ describe("Phase 2C: Information Drift Rules", () => {
       const result = evaluateEaDrift(artifacts);
       const finding = result.warnings.find((w) => w.rule === "ea:information/classification-not-propagated");
       expect(finding).toBeDefined();
-      expect(finding!.path).toBe("SCHEMA-customers");
+      expect(finding!.path).toBe("resource:customers");
     });
 
     it("does not fire when downstream store carries same classification", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [
             { type: "classifiedAs", target: "CLASS-pii" },
@@ -749,21 +748,21 @@ describe("Phase 2C: Information Drift Rules", () => {
     it("detects multi-hop propagation gap via stores relation", () => {
       const artifacts = [
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
         } as any),
         makeEntity({
           id: "STORE-orders",
           kind: "data-store",
-          relations: [{ type: "stores", target: "CE-customer" }],
+          relations: [{ type: "stores", target: "CE-customer-entity" }],
         } as any),
         makeEntity({ id: "CLASS-pii", kind: "classification" }),
       ];
       const result = evaluateEaDrift(artifacts);
       const finding = result.warnings.find((w) => w.rule === "ea:information/classification-not-propagated");
       expect(finding).toBeDefined();
-      expect(finding!.path).toBe("STORE-orders");
+      expect(finding!.path).toBe("resource:orders");
     });
   });
 
@@ -829,11 +828,11 @@ describe("Phase 2C: Information Drift Rules", () => {
 
     it("does not fire when a CE references the concept", () => {
       const artifacts = [
-        makeEntity({ id: "IC-customer", kind: "information-concept" }),
+        makeEntity({ id: "IC-customer-concept", kind: "information-concept" }),
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
-          conceptRef: "IC-customer",
+          conceptRef: "canonicalentity:customer-concept",
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);
@@ -864,7 +863,7 @@ describe("Phase 2C: Information Drift Rules", () => {
           requiredControls: [{ control: "encrypt", description: "encrypt" }],
         } as any),
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
         } as any),
@@ -882,11 +881,11 @@ describe("Phase 2C: Information Drift Rules", () => {
           kind: "information-exchange",
           source: { artifactId: "APP-frontend" },
           destination: { artifactId: "APP-backend" },
-          exchangedEntities: ["CE-customer"],
+          exchangedEntities: ["canonicalentity:customer-entity"],
           purpose: "Customer onboarding",
         } as any),
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
         } as any),
@@ -903,12 +902,12 @@ describe("Phase 2C: Information Drift Rules", () => {
           kind: "information-exchange",
           source: { artifactId: "APP-frontend" },
           destination: { artifactId: "APP-backend" },
-          exchangedEntities: ["CE-customer"],
+          exchangedEntities: ["canonicalentity:customer-entity"],
           purpose: "Customer onboarding",
           classificationLevel: "CLASS-pii",
         } as any),
         makeEntity({
-          id: "CE-customer",
+          id: "CE-customer-entity",
           kind: "canonical-entity",
           relations: [{ type: "classifiedAs", target: "CLASS-pii" }],
         } as any),

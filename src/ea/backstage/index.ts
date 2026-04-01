@@ -84,9 +84,6 @@ export {
   extractRelationsFromSpec,
 } from "./relation-mapping.js";
 
-// Bridge
-export { backstageToArtifact, artifactToBackstage } from "./bridge.js";
-
 // Parser
 export type {
   EntitySourceInfo,
@@ -112,8 +109,8 @@ export {
 
 // Loader
 export type {
-  BackstageLoadedEntity,
-  BackstageLoadResult,
+  BackstageEntityLoadDetail,
+  BackstageEntityLoadResult,
 } from "./loader.js";
 
 export {
@@ -163,7 +160,6 @@ export {
   getEntityExpectAnchors,
   getEntityAnchors,
   getEntitySuppressions,
-  getEntityLegacyId,
   getLabel,
   getLabels,
   getEntitySpecRelations,

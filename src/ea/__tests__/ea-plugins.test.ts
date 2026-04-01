@@ -13,27 +13,26 @@ import {
   type EaPlugin,
   type EaPluginContext,
 } from "../plugins.js";
-import type { EaArtifactBase } from "../types.js";
+import { getEntityDescription, getEntityId } from "../backstage/accessors.js";
+import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────
 
-function makeContext(artifacts?: EaArtifactBase[]): EaPluginContext {
+function makeContext(entities?: ReturnType<typeof makeEntity>[]): EaPluginContext {
   return {
-    artifacts: artifacts ?? [],
+    entities: entities ?? [],
     projectRoot: "/tmp/test",
     config: {},
   };
 }
 
-function makeArtifact(id: string, status = "active"): EaArtifactBase {
-  return {
+function makePluginEntity(id: string, status = "active") {
+  return makeEntity({
     id,
     kind: "service",
-    name: id,
-    status: status as EaArtifactBase["status"],
-    confidence: "high",
-    relations: [],
-  };
+    status: status as "active" | "draft",
+    summary: "",
+  });
 }
 
 // ─── runEaPluginChecks ──────────────────────────────────────────────────────────
@@ -47,11 +46,11 @@ describe("runEaPluginChecks", () => {
           id: "must-have-summary",
           description: "Artifacts must have a summary",
           check: (ctx) =>
-            ctx.artifacts
-              .filter((a) => !a.summary)
-              .map((a) => ({
-                path: a.id,
-                message: `Artifact ${a.id} has no summary`,
+            ctx.entities
+              .filter((entity) => !getEntityDescription(entity))
+              .map((entity) => ({
+                path: getEntityId(entity),
+                message: `Artifact ${getEntityId(entity)} has no summary`,
                 severity: "warning" as const,
                 rule: "must-have-summary",
               })),
@@ -59,11 +58,11 @@ describe("runEaPluginChecks", () => {
       ],
     };
 
-    const artifact = makeArtifact("svc-no-summary");
-    const errors = runEaPluginChecks([plugin], makeContext([artifact]));
+    const entity = makePluginEntity("svc-no-summary");
+    const errors = runEaPluginChecks([plugin], makeContext([entity]));
     expect(errors).toHaveLength(1);
     expect(errors[0]!.rule).toBe("plugin:test-plugin/must-have-summary");
-    expect(errors[0]!.path).toBe("svc-no-summary");
+    expect(errors[0]!.path).toBe("component:svc-no-summary");
   });
 
   it("returns empty array when plugin has no checks", () => {

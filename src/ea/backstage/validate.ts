@@ -10,6 +10,18 @@
 
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
+import {
+  apiEntityV1alpha1Validator,
+  componentEntityV1alpha1Validator,
+  domainEntityV1alpha1Validator,
+  entityEnvelopeSchemaValidator,
+  groupEntityV1alpha1Validator,
+  locationEntityV1alpha1Validator,
+  resourceEntityV1alpha1Validator,
+  systemEntityV1alpha1Validator,
+  userEntityV1alpha1Validator,
+} from "@backstage/catalog-model";
+import type { Entity as CatalogEntity, KindValidator } from "@backstage/catalog-model";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,14 +29,9 @@ import type { BackstageEntity } from "./types.js";
 import type { EaValidationError, EaValidationResult, EaValidationOptions } from "../validate.js";
 import {
   getEntityId,
-  getEntityTitle,
   getEntityDescription,
   getEntityStatus,
   getEntityOwners,
-  getEntityConfidence,
-  getEntitySpecType,
-  getEntityExpectAnchors,
-  getEntitySource,
   getEntitySpecRelations,
 } from "./accessors.js";
 
@@ -51,6 +58,8 @@ export type BackstageSchemaName =
   | "system"
   | "domain"
   | "group"
+  | "user"
+  | "location"
   | "requirement"
   | "decision"
   | "canonical-entity"
@@ -64,6 +73,44 @@ export type BackstageSchemaName =
   | "transition-plan"
   | "exception";
 
+type BuiltinBackstageSchemaName =
+  | "entity-envelope"
+  | "component"
+  | "api"
+  | "resource"
+  | "system"
+  | "domain"
+  | "group"
+  | "user"
+  | "location";
+
+const BUILTIN_SCHEMA_NAMES: readonly BuiltinBackstageSchemaName[] = [
+  "entity-envelope",
+  "component",
+  "api",
+  "resource",
+  "system",
+  "domain",
+  "group",
+  "user",
+  "location",
+] as const;
+
+const CUSTOM_SCHEMA_NAMES: readonly BackstageSchemaName[] = [
+  "requirement",
+  "decision",
+  "canonical-entity",
+  "exchange",
+  "capability",
+  "value-stream",
+  "mission",
+  "technology",
+  "system-interface",
+  "control",
+  "transition-plan",
+  "exception",
+] as const;
+
 const BACKSTAGE_SCHEMA_NAMES: BackstageSchemaName[] = [
   "entity-envelope",
   "component",
@@ -72,6 +119,8 @@ const BACKSTAGE_SCHEMA_NAMES: BackstageSchemaName[] = [
   "system",
   "domain",
   "group",
+  "user",
+  "location",
   "requirement",
   "decision",
   "canonical-entity",
@@ -106,6 +155,22 @@ const KIND_TO_SCHEMA: Record<string, BackstageSchemaName> = {
   Control: "control",
   TransitionPlan: "transition-plan",
   Exception: "exception",
+  User: "user",
+  Location: "location",
+};
+
+const BUILTIN_KIND_VALIDATORS: Record<
+  Exclude<BuiltinBackstageSchemaName, "entity-envelope">,
+  KindValidator
+> = {
+  component: componentEntityV1alpha1Validator,
+  api: apiEntityV1alpha1Validator,
+  resource: resourceEntityV1alpha1Validator,
+  system: systemEntityV1alpha1Validator,
+  domain: domainEntityV1alpha1Validator,
+  group: groupEntityV1alpha1Validator,
+  user: userEntityV1alpha1Validator,
+  location: locationEntityV1alpha1Validator,
 };
 
 // ─── Ajv Instance ───────────────────────────────────────────────────────────────
@@ -122,13 +187,13 @@ function getBackstageAjv(): Ajv {
     });
     addFormats(backstageAjvInstance);
 
-    // Load envelope first (it's referenced by all kind schemas)
+    // Load local envelope first (it's referenced by anchored-spec custom kind schemas)
     const envelope = loadBackstageSchema("entity-envelope");
     backstageAjvInstance.addSchema(envelope, "entity-envelope");
 
-    // Load all kind-specific schemas
-    for (const name of BACKSTAGE_SCHEMA_NAMES) {
-      if (name === "entity-envelope") continue;
+    // Load anchored-spec custom kind schemas only. Backstage built-ins are validated
+    // using the upstream catalog-model validators instead of local shadow schemas.
+    for (const name of CUSTOM_SCHEMA_NAMES) {
       const schema = loadBackstageSchema(name);
       backstageAjvInstance.addSchema(schema, name);
     }
@@ -171,24 +236,85 @@ export function getBackstageSchemaNames(): readonly BackstageSchemaName[] {
   return BACKSTAGE_SCHEMA_NAMES;
 }
 
-/**
- * Validate a Backstage entity against its kind-specific schema.
- * Falls back to the entity-envelope schema if no kind-specific schema exists.
- */
-export function validateBackstageEntity(
+function isBuiltinSchemaName(name: BackstageSchemaName): name is BuiltinBackstageSchemaName {
+  return (BUILTIN_SCHEMA_NAMES as readonly string[]).includes(name);
+}
+
+function errorToValidationResult(
+  name: BackstageSchemaName,
+  err: unknown,
+): EaValidationResult {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    valid: false,
+    errors: [{
+      path: "/",
+      message,
+      severity: "error",
+      rule: `backstage:schema:${name}`,
+    }],
+    warnings: [],
+  };
+}
+
+async function validateBuiltinEntity(
   data: unknown,
-  schemaName?: BackstageSchemaName,
+  schemaName: BuiltinBackstageSchemaName,
+): Promise<EaValidationResult> {
+  try {
+    if (schemaName === "entity-envelope") {
+      const validateEnvelope = entityEnvelopeSchemaValidator();
+      validateEnvelope(data);
+      return { valid: true, errors: [], warnings: [] };
+    }
+
+    const validator = BUILTIN_KIND_VALIDATORS[schemaName];
+    if (!validator) {
+      return {
+        valid: false,
+        errors: [{
+          path: "/",
+          message: `Unsupported Backstage built-in schema: ${schemaName}`,
+          severity: "error",
+          rule: `backstage:schema:${schemaName}`,
+        }],
+        warnings: [],
+      };
+    }
+
+    const handled = await validator.check(data as CatalogEntity);
+    if (!handled) {
+      return {
+        valid: false,
+        errors: [{
+          path: "/",
+          message: `Entity does not match Backstage schema: ${schemaName}`,
+          severity: "error",
+          rule: `backstage:schema:${schemaName}`,
+        }],
+        warnings: [],
+      };
+    }
+
+    return { valid: true, errors: [], warnings: [] };
+  } catch (err) {
+    return errorToValidationResult(schemaName, err);
+  }
+}
+
+function validateCustomEntity(
+  data: unknown,
+  schemaName: BackstageSchemaName,
 ): EaValidationResult {
   const ajv = getBackstageAjv();
-  const name = schemaName ?? resolveBackstageSchemaName(data);
-  const validate = ajv.getSchema(name);
+  const validate = ajv.getSchema(schemaName);
 
   if (!validate) {
     return {
       valid: false,
       errors: [{
         path: "",
-        message: `Unknown Backstage schema: ${name}`,
+        message: `Unknown Backstage schema: ${schemaName}`,
         severity: "error",
         rule: "backstage:schema:unknown",
       }],
@@ -208,12 +334,27 @@ export function validateBackstageEntity(
         path,
         message: `${path}: ${message}`,
         severity: "error",
-        rule: `backstage:schema:${name}`,
+        rule: `backstage:schema:${schemaName}`,
       });
     }
   }
 
   return { valid, errors, warnings };
+}
+
+/**
+ * Validate a Backstage entity against its kind-specific schema.
+ * Falls back to the entity-envelope schema if no kind-specific schema exists.
+ */
+export async function validateBackstageEntity(
+  data: unknown,
+  schemaName?: BackstageSchemaName,
+): Promise<EaValidationResult> {
+  const name = schemaName ?? resolveBackstageSchemaName(data);
+  if (isBuiltinSchemaName(name)) {
+    return validateBuiltinEntity(data, name);
+  }
+  return validateCustomEntity(data, name);
 }
 
 // ─── Quality Rules ──────────────────────────────────────────────────────────────
@@ -294,8 +435,6 @@ export function validateBackstageEntities(
 
   const NAME_RE = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$/;
 
-  // Collect all entity refs for orphan detection
-  const allRefs = new Set(entities.map(getEntityId));
   const referenced = new Set<string>();
 
   // Collect referenced entities

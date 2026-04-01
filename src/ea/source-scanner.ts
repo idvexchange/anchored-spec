@@ -1,14 +1,14 @@
 /**
  * EA Source Annotation Scanner
  *
- * Scans source files for inline `// @anchored-spec: ARTIFACT-ID` annotations.
+ * Scans source files for inline `// @anchored-spec: ENTITY-REF` annotations.
  * Returns results compatible with `ScannedDoc` so they integrate directly
  * with the trace-analysis pipeline.
  *
  * Supports single-line comments in all common styles:
- *   // @anchored-spec: SVC-auth-core
- *   # @anchored-spec: SVC-auth-core
- *   -- @anchored-spec: SVC-auth-core
+ *   // @anchored-spec: component:auth-core
+ *   # @anchored-spec: component:auth-core
+ *   -- @anchored-spec: component:auth-core
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
@@ -29,7 +29,7 @@ const IGNORE_PATTERNS = [
   "**/*.d.ts",
 ];
 
-// Pattern: // @anchored-spec: ARTIFACT-ID  (also # and --)
+// Pattern: // @anchored-spec: ENTITY-REF  (also # and --)
 const ANNOTATION_RE = /(?:\/\/|#|--)\s*@anchored-spec:\s+(\S+)/g;
 
 // ─── Config ───────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ function discoverSourceFiles(
 
 // ─── Annotation extraction ────────────────────────────────────────────
 
-/** Extract unique artifact IDs from @anchored-spec annotations in source content. */
+/** Extract unique entity refs from @anchored-spec annotations in source content. */
 export function extractAnnotations(content: string): string[] {
   const ids = new Set<string>();
   ANNOTATION_RE.lastIndex = 0;

@@ -6,7 +6,7 @@
  * Spec-as-source enterprise architecture framework.
  * Usage: anchored-spec <command> [options]
  *
- * All commands operate on EA artifacts. Legacy core commands have been
+ * All commands operate on Backstage-aligned entities. Legacy core commands have been
  * replaced by their EA equivalents.
  */
 
@@ -27,11 +27,7 @@ import { eaImpactCommand } from "./commands/ea-impact.js";
 import { eaStatusCommand } from "./commands/ea-status.js";
 import { eaTransitionCommand } from "./commands/ea-transition.js";
 import { verifyCommand } from "./commands/verify.js";
-import { moveCommand } from "./commands/move.js";
-import { enrichCommand } from "./commands/enrich.js";
 import { batchUpdateCommand } from "./commands/batch-update.js";
-import { createBatchCommand } from "./commands/create-batch.js";
-import { migrateConfigCommand } from "./commands/migrate-config.js";
 import { eaDiffCommand } from "./commands/ea-diff.js";
 import { eaReconcileCommand } from "./commands/ea-reconcile.js";
 import { eaTraceCommand } from "./commands/ea-trace.js";
@@ -76,11 +72,7 @@ program.addCommand(eaImpactCommand());
 program.addCommand(eaStatusCommand());
 program.addCommand(eaTransitionCommand());
 program.addCommand(verifyCommand());
-program.addCommand(moveCommand());
-program.addCommand(enrichCommand());
 program.addCommand(batchUpdateCommand());
-program.addCommand(createBatchCommand());
-program.addCommand(migrateConfigCommand());
 program.addCommand(eaDiffCommand());
 program.addCommand(eaReconcileCommand());
 program.addCommand(eaTraceCommand());
@@ -89,38 +81,6 @@ program.addCommand(eaContextCommand());
 program.addCommand(eaCreateDocCommand());
 program.addCommand(eaLinkCommand());
 program.addCommand(eaSearchCommand());
-
-// ─── Deprecated "ea" alias group ────────────────────────────────────────────────
-// Keeps `anchored-spec ea <cmd>` working but emits a deprecation warning.
-
-function wrapWithDeprecationWarning(cmd: Command): Command {
-  cmd.hook("preAction", () => {
-    console.error(
-      chalk.yellow(
-        `⚠ "anchored-spec ea ${cmd.name()}" is deprecated. Use "anchored-spec ${cmd.name()}" directly.`,
-      ),
-    );
-  });
-  return cmd;
-}
-
-const ea = new Command("ea")
-  .description("(Deprecated) EA commands — use top-level commands instead");
-
-ea.addCommand(wrapWithDeprecationWarning(eaInitCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaCreateCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaValidateCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaGraphCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaReportCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaEvidenceCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaDriftCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaDiscoverCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaGenerateCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaImpactCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaStatusCommand()));
-ea.addCommand(wrapWithDeprecationWarning(eaTransitionCommand()));
-
-program.addCommand(ea);
 
 // ─── Run ────────────────────────────────────────────────────────────────────────
 

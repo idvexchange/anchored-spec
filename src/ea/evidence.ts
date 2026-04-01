@@ -7,7 +7,8 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { EaArtifactBase, ControlArtifact } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import { getEntityId, getSpecField } from "./backstage/accessors.js";
 
 // ─── EA Evidence Types ──────────────────────────────────────────────────────────
 
@@ -156,12 +157,11 @@ export interface EaEvidenceValidationError {
  */
 export function validateEaEvidence(
   evidence: EaEvidence,
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options?: { freshnessWindowDays?: number },
 ): EaEvidenceValidationError[] {
   const issues: EaEvidenceValidationError[] = [];
-  const artifactMap = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) artifactMap.set(a.id, a);
+  const entityIds = new Set(entities.map((entity) => getEntityId(entity)));
 
   const freshnessMs = (options?.freshnessWindowDays ?? 30) * 24 * 60 * 60 * 1000;
   const now = Date.now();
@@ -169,7 +169,7 @@ export function validateEaEvidence(
   // Check each evidence record
   for (const record of evidence.records) {
     // Artifact reference exists
-    if (!artifactMap.has(record.artifactId)) {
+    if (!entityIds.has(record.artifactId)) {
       issues.push({
         path: record.artifactId,
         message: `Evidence references artifact "${record.artifactId}" which does not exist`,
@@ -218,12 +218,13 @@ export function validateEaEvidence(
     evidenceByArtifact.set(r.artifactId, list);
   }
 
-  for (const a of artifacts) {
-    const producesEvidence = (a as ControlArtifact).producesEvidence;
-    if (producesEvidence && !evidenceByArtifact.has(a.id)) {
+  for (const entity of entities) {
+    const entityId = getEntityId(entity);
+    const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
+    if (producesEvidence && !evidenceByArtifact.has(entityId)) {
       issues.push({
-        path: a.id,
-        message: `Artifact "${a.id}" declares producesEvidence but has no evidence records`,
+        path: entityId,
+        message: `Artifact "${entityId}" declares producesEvidence but has no evidence records`,
         severity: "warning",
         rule: "ea:evidence/coverage",
       });
@@ -249,7 +250,7 @@ export interface EaEvidenceSummary {
  */
 export function summarizeEaEvidence(
   evidence: EaEvidence,
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options?: { freshnessWindowDays?: number },
 ): EaEvidenceSummary {
   const freshnessMs = (options?.freshnessWindowDays ?? 30) * 24 * 60 * 60 * 1000;
@@ -272,8 +273,11 @@ export function summarizeEaEvidence(
   }
 
   // Count artifacts that declare evidence expectations
-  const artifactsWithEvidence = artifacts.filter((a) => (a as ControlArtifact).producesEvidence);
-  const uncoveredArtifacts = artifactsWithEvidence.filter((a) => !coveredIds.has(a.id)).length;
+  const entitiesWithEvidence = entities.filter((entity) => {
+    const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
+    return Array.isArray(producesEvidence) && producesEvidence.length > 0;
+  });
+  const uncoveredArtifacts = entitiesWithEvidence.filter((entity) => !coveredIds.has(getEntityId(entity))).length;
 
   return {
     totalRecords: evidence.records.length,

@@ -1,51 +1,42 @@
 /**
  * EA Spec Diff — Git Integration
  *
- * Functions to load EA artifacts from git refs and diff between them.
+ * Functions to load Backstage entities from git refs and diff between them.
  */
 
-import { execSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { parse as parseYaml } from "yaml";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 import type { BackstageEntity } from "./backstage/types.js";
+import { parseBackstageYaml, parseFrontmatterEntity } from "./backstage/parser.js";
+import type { AnchoredSpecConfigV1 } from "./config.js";
 import { diffEaArtifacts } from "./diff.js";
 import type { EaDiffReport } from "./diff.js";
 
-// ─── Git Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * List all YAML artifact files under the EA root at a given git ref.
- */
-function listArtifactFiles(
+function listFilesAtRef(
   projectRoot: string,
-  eaRoot: string,
+  targetPath: string,
   ref: string,
 ): string[] {
   try {
-    const output = execSync(
-      `git ls-tree -r --name-only ${ref} -- ${eaRoot}/`,
+    const output = execFileSync(
+      "git",
+      ["ls-tree", "-r", "--name-only", ref, "--", targetPath],
       { cwd: projectRoot, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
     );
-    return output
-      .split("\n")
-      .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"))
-      .filter((f) => !f.includes("/generated/"));
+    return output.split("\n").filter(Boolean).filter((file) => !file.includes("/generated/"));
   } catch {
     return [];
   }
 }
 
-/**
- * Read a file's content from a specific git ref.
- */
 function readFileAtRef(
   projectRoot: string,
   ref: string,
   filePath: string,
 ): string | null {
   try {
-    return execSync(`git show ${ref}:${filePath}`, {
+    return execFileSync("git", ["show", `${ref}:${filePath}`], {
       cwd: projectRoot,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -55,109 +46,151 @@ function readFileAtRef(
   }
 }
 
-// ─── Artifact Loading ───────────────────────────────────────────────────────────
-
-/**
- * Parse a YAML string into an artifact, returning null if invalid.
- */
-function parseArtifact(content: string): BackstageEntity | null {
-  try {
-    const parsed = parseYaml(content);
-    if (parsed && typeof parsed === "object" && "kind" in parsed && "metadata" in parsed) {
-      return parsed as BackstageEntity;
-    }
-    return null;
-  } catch {
-    return null;
+function parseEntitiesFromFileContent(content: string, filePath: string): BackstageEntity[] {
+  if (filePath.endsWith(".md") || filePath.endsWith(".markdown")) {
+    return parseFrontmatterEntity(content, filePath).entities.map((entry) => entry.entity);
   }
+  return parseBackstageYaml(content, filePath).entities.map((entry) => entry.entity);
 }
 
-/**
- * Load all EA artifacts from a git ref.
- */
-export function loadArtifactsFromGitRef(
+function collectFilesFromWorkingTree(
   projectRoot: string,
-  eaRoot: string,
-  ref: string,
-): BackstageEntity[] {
-  const files = listArtifactFiles(projectRoot, eaRoot, ref);
-  const artifacts: BackstageEntity[] = [];
-
-  for (const file of files) {
-    const content = readFileAtRef(projectRoot, ref, file);
-    if (content) {
-      const artifact = parseArtifact(content);
-      if (artifact) {
-        artifacts.push(artifact);
-      }
-    }
-  }
-
-  return artifacts;
-}
-
-/**
- * Load EA artifacts from the working tree (unstaged + staged).
- */
-export function loadArtifactsFromWorkingTree(
-  projectRoot: string,
-  eaRoot: string,
-): BackstageEntity[] {
-  const artifacts: BackstageEntity[] = [];
+  roots: string[],
+  extensions: string[],
+): string[] {
+  const files: string[] = [];
 
   function walk(dir: string): void {
+    if (!existsSync(dir)) return;
+
     let entries: string[];
     try {
       entries = readdirSync(dir);
     } catch {
       return;
     }
+
     for (const entry of entries) {
-      const full = join(dir, entry);
-      if (entry === "generated" || entry === "schemas" || entry === ".gitkeep") continue;
+      const fullPath = join(dir, entry);
+      const relPath = relative(projectRoot, fullPath);
+      if (relPath.includes("/generated/")) continue;
+
       try {
-        const stat = statSync(full);
-        if (stat.isDirectory()) {
-          walk(full);
-        } else if (entry.endsWith(".yaml") || entry.endsWith(".yml")) {
-          const content = readFileSync(full, "utf-8");
-          const artifact = parseArtifact(content);
-          if (artifact) artifacts.push(artifact);
+        const stats = statSync(fullPath);
+        if (stats.isDirectory()) {
+          walk(fullPath);
+        } else if (extensions.some((extension) => entry.endsWith(extension))) {
+          files.push(fullPath);
         }
       } catch {
-        // skip unreadable files
+        // Skip unreadable files.
       }
     }
   }
 
-  walk(resolve(projectRoot, eaRoot));
-  return artifacts;
+  for (const root of roots) {
+    walk(resolve(projectRoot, root));
+  }
+
+  return files;
 }
 
-// ─── Public API ─────────────────────────────────────────────────────────────────
+export function loadEntitiesFromGitRef(
+  projectRoot: string,
+  config: AnchoredSpecConfigV1,
+  ref: string,
+): BackstageEntity[] {
+  const files = new Set<string>();
+  const entityMode = config.entityMode ?? "manifest";
+
+  if (entityMode === "inline") {
+    for (const dir of config.inlineDocDirs ?? ["docs"]) {
+      for (const file of listFilesAtRef(projectRoot, dir, ref)) {
+        if (file.endsWith(".md") || file.endsWith(".markdown")) {
+          files.add(file);
+        }
+      }
+    }
+  } else {
+    const manifestPath = config.manifestPath ?? "catalog-info.yaml";
+    if (readFileAtRef(projectRoot, ref, manifestPath) != null) {
+      files.add(manifestPath);
+    }
+    if (config.catalogDir) {
+      for (const file of listFilesAtRef(projectRoot, config.catalogDir, ref)) {
+        if (file.endsWith(".yaml") || file.endsWith(".yml")) {
+          files.add(file);
+        }
+      }
+    }
+  }
+
+  const entities: BackstageEntity[] = [];
+  for (const file of files) {
+    const content = readFileAtRef(projectRoot, ref, file);
+    if (content) {
+      entities.push(...parseEntitiesFromFileContent(content, file));
+    }
+  }
+  return entities;
+}
+
+export function loadEntitiesFromWorkingTree(
+  projectRoot: string,
+  config: AnchoredSpecConfigV1,
+): BackstageEntity[] {
+  const entityMode = config.entityMode ?? "manifest";
+  const files = entityMode === "inline"
+    ? collectFilesFromWorkingTree(projectRoot, config.inlineDocDirs ?? ["docs"], [".md", ".markdown"])
+    : [
+        ...(config.manifestPath && existsSync(resolve(projectRoot, config.manifestPath))
+          ? [resolve(projectRoot, config.manifestPath)]
+          : []),
+        ...collectFilesFromWorkingTree(projectRoot, config.catalogDir ? [config.catalogDir] : [], [".yaml", ".yml"]),
+      ];
+
+  const entities: BackstageEntity[] = [];
+  for (const file of files) {
+    const content = readFileSync(file, "utf-8");
+    entities.push(...parseEntitiesFromFileContent(content, file));
+  }
+  return entities;
+}
 
 export interface DiffGitOptions {
   projectRoot: string;
-  eaRoot: string;
+  config: AnchoredSpecConfigV1;
   baseRef: string;
   /** If omitted, compares against working tree */
   headRef?: string;
 }
 
-/**
- * Diff EA artifacts between two git refs (or a ref and the working tree).
- */
-export function diffEaGitRefs(options: DiffGitOptions): EaDiffReport {
-  const { projectRoot, eaRoot, baseRef, headRef } = options;
-
-  const baseArtifacts = loadArtifactsFromGitRef(projectRoot, eaRoot, baseRef);
-
-  const headArtifacts = headRef
-    ? loadArtifactsFromGitRef(projectRoot, eaRoot, headRef)
-    : loadArtifactsFromWorkingTree(projectRoot, eaRoot);
-
-  return diffEaArtifacts(baseArtifacts, headArtifacts, {
-    baseRef,
-    headRef: headRef ?? "working-tree",
-  });
+export interface EaGitDiffResult {
+  report: EaDiffReport;
+  baseEntities: BackstageEntity[];
+  headEntities: BackstageEntity[];
 }
+
+/**
+ * Diff Backstage entities between two git refs (or a ref and the working tree).
+ */
+export function diffEaGitRefs(options: DiffGitOptions): EaGitDiffResult {
+  const { projectRoot, config, baseRef, headRef } = options;
+
+  const baseEntities = loadEntitiesFromGitRef(projectRoot, config, baseRef);
+  const headEntities = headRef
+    ? loadEntitiesFromGitRef(projectRoot, config, headRef)
+    : loadEntitiesFromWorkingTree(projectRoot, config);
+
+  return {
+    report: diffEaArtifacts(baseEntities, headEntities, {
+      baseRef,
+      headRef: headRef ?? "working-tree",
+    }),
+    baseEntities,
+    headEntities,
+  };
+}
+
+export const loadArtifactsFromGitRef = loadEntitiesFromGitRef;
+export const loadArtifactsFromWorkingTree = loadEntitiesFromWorkingTree;

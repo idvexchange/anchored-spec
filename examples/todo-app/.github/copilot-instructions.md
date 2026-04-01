@@ -1,41 +1,31 @@
-# Anchored Spec — Copilot Instructions
+# Anchored Spec Instructions for Copilot
 
-This project uses **anchored-spec**, a spec-as-source enterprise architecture framework.
-Architecture is defined as machine-validated YAML/JSON artifacts, not documentation.
+This example repository uses anchored-spec to keep architecture, documentation, and source changes reviewable together.
 
-## Project Structure
+## Read first
 
-- `.anchored-spec/config.json` — Framework configuration
-- `ea/` — EA artifact directories organized by domain:
-  - `ea/systems/` — systems
-  - `ea/delivery/` — delivery
-  - `ea/data/` — data
-  - `ea/information/` — information
-  - `ea/business/` — business
-  - `ea/transitions/` — transitions
-- `SKILL.md` — Detailed AI agent workflow instructions (READ THIS for comprehensive guidance)
+- repository root `SKILL.md`
+- `.anchored-spec/config.json`
+- the `ea/` fixture set in this example
 
-## Key Commands
+## How to think about this repo
 
-| Command | Purpose |
-|---|---|
-| `npx anchored-spec validate` | Validate all artifacts against schemas |
-| `npx anchored-spec create --kind <kind> --title "Name"` | Create a new artifact |
-| `npx anchored-spec discover` | Discover artifacts from code and infrastructure |
-| `npx anchored-spec drift` | Detect drift between specs and reality |
-| `npx anchored-spec diff --base main` | Semantic diff with compatibility checks |
-| `npx anchored-spec reconcile` | Full pipeline: generate → validate → drift |
-| `npx anchored-spec graph` | Generate dependency graph |
-| `npx anchored-spec impact <artifact-id>` | Analyze change impact |
+- the framework is entity-native even when this example stores historical fixture data in `ea/`
+- current CLI workflows still revolve around validation, drift, diff, traceability, and reconcile
+- architecture changes should be made deliberately, with docs and source kept in sync
 
-## Artifact Format
+## Commands to use most often
 
-Every artifact has: `apiVersion: anchored-spec/ea/v1`, `kind`, `id` ({PREFIX}-{slug}),
-`metadata` (name, summary, owners, tags, confidence, status), `relations[]`.
+```bash
+npx anchored-spec --cwd examples/todo-app validate
+npx anchored-spec --cwd examples/todo-app drift
+npx anchored-spec --cwd examples/todo-app status
+npx anchored-spec --cwd examples/todo-app report --view drift-heatmap
+```
 
-## Rules
+## Expectations
 
-1. Always validate after modifying artifacts: `npx anchored-spec validate`
-2. Never set `confidence: "declared"` on discovered/inferred artifacts — human must promote
-3. Relations reference artifact IDs, not file paths
-4. Read `SKILL.md` for detailed workflow guidance before complex operations
+- preserve meaningful ownership, lifecycle, and relation data
+- do not invent removed commands or old migration-only workflows
+- prefer current framework language in explanations
+- when editing docs, describe the current anchored-spec model accurately even if the example data set is historical

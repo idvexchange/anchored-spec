@@ -15,27 +15,13 @@ import {
   buildClassificationCoverage,
   renderClassificationCoverageMarkdown,
 } from "../index.js";
-import { artifactToBackstage } from "../backstage/bridge.js";
 import type { BackstageEntity } from "../backstage/types.js";
+import { makeEntity as makeFixtureEntity } from "./helpers/make-entity.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeEntity(overrides: Record<string, unknown> & { id: string; kind: string }): BackstageEntity {
-  const { id, kind, title, summary, owners, tags, confidence, status, schemaVersion, apiVersion, name, domain, owner, lastUpdated, relations, ...specFields } = overrides;
-  const artifact = {
-    id,
-    kind,
-    schemaVersion: (schemaVersion as string) ?? "1.0.0",
-    title: (title as string) ?? id,
-    summary: (summary as string) ?? "A well-described artifact for testing purposes.",
-    owners: (owners as string[]) ?? ["team-test"],
-    tags: (tags as string[]) ?? [],
-    confidence: (confidence as string) ?? "declared",
-    status: (status as string) ?? "active",
-    relations: (relations as Array<{ type: string; target: string }>) ?? [],
-    ...(Object.keys(specFields).length > 0 && { extensions: specFields }),
-  } as import("../types.js").EaArtifactBase;
-  return artifactToBackstage(artifact);
+  return makeFixtureEntity(overrides);
 }
 
 // ─── buildSystemDataMatrix ──────────────────────────────────────────────────────

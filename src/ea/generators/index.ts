@@ -10,8 +10,9 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { EaArtifactBase } from "../types.js";
 import type { ResolverLogger } from "../resolvers/types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityId, getEntityLegacyKind } from "../backstage/accessors.js";
 
 // ─── Generator Types ────────────────────────────────────────────────────────────
 
@@ -19,8 +20,8 @@ import type { ResolverLogger } from "../resolvers/types.js";
 export interface EaGeneratorContext {
   /** Absolute path to the project root. */
   projectRoot: string;
-  /** All loaded EA artifacts (for cross-reference). */
-  artifacts: EaArtifactBase[];
+  /** All loaded entities (for cross-reference). */
+  entities: BackstageEntity[];
   /** Output directory for generated files. */
   outputDir: string;
   /** Logger. */
@@ -72,21 +73,21 @@ export interface EaGenerator {
   outputFormat: string;
 
   /**
-   * Generate implementation artifacts from an EA artifact.
+   * Generate implementation artifacts from an EA entity.
    * Returns one or more generated outputs.
    */
   generate(
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaGeneratorContext,
   ): GeneratedOutput[];
 
   /**
-   * Compare current generated output against the EA artifact to detect drift.
+     * Compare current generated output against the EA entity to detect drift.
    * Returns findings for cases where the generated file has been manually modified.
    */
   diff?(
     currentOutput: string,
-    artifact: EaArtifactBase,
+    entity: BackstageEntity,
     ctx: EaGeneratorContext,
   ): GenerationDrift[];
 }
@@ -107,8 +108,8 @@ export interface GeneratorConfig {
 
 /** Options for the generator pipeline. */
 export interface EaGeneratorOptions {
-  /** All loaded EA artifacts. */
-  artifacts: EaArtifactBase[];
+  /** All loaded entities. */
+  entities: BackstageEntity[];
   /** Configured generators to run. */
   generators: EaGenerator[];
   /** Generator configs (for output dirs and options). */
@@ -157,7 +158,7 @@ export interface GenerationReport {
  */
 export function runGenerators(options: EaGeneratorOptions): GenerationReport {
   const {
-    artifacts,
+    entities,
     generators,
     generatorConfigs,
     projectRoot,
@@ -186,18 +187,18 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     const genOutputDir = config?.outputDir ?? outputDir;
     const genOptions = config?.options;
 
-    const ctx: EaGeneratorContext = {
-      projectRoot,
-      artifacts,
+      const ctx: EaGeneratorContext = {
+        projectRoot,
+        entities,
       outputDir: genOutputDir,
       logger,
       options: genOptions,
     };
 
     // Find matching artifacts
-    let matchingArtifacts = artifacts.filter((a) => generator.kinds.includes(a.kind));
+    let matchingArtifacts = entities.filter((entity) => generator.kinds.includes(getEntityLegacyKind(entity)));
     if (kinds && kinds.length > 0) {
-      matchingArtifacts = matchingArtifacts.filter((a) => kinds.includes(a.kind));
+      matchingArtifacts = matchingArtifacts.filter((entity) => kinds.includes(getEntityLegacyKind(entity)));
     }
 
     if (matchingArtifacts.length === 0) {
@@ -211,22 +212,22 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
       outputDir: genOutputDir,
     });
 
-    for (const artifact of matchingArtifacts) {
+    for (const entity of matchingArtifacts) {
       artifactsProcessed++;
 
       if (checkOnly && generator.diff) {
         // Check mode: compare existing vs what would be generated
-        const generated = generator.generate(artifact, ctx);
+        const generated = generator.generate(entity, ctx);
         for (const output of generated) {
           const fullPath = join(projectRoot, genOutputDir, output.relativePath);
           if (existsSync(fullPath)) {
             const existing = readFileSync(fullPath, "utf-8");
-            const genDrifts = generator.diff(existing, artifact, ctx);
+            const genDrifts = generator.diff(existing, entity, ctx);
             drifts.push(...genDrifts);
           } else {
             drifts.push({
               filePath: join(genOutputDir, output.relativePath),
-              sourceArtifactId: artifact.id,
+              sourceArtifactId: getEntityId(entity),
               message: `Generated file does not exist: ${output.relativePath}`,
               suggestion: "regenerate",
             });
@@ -234,7 +235,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
         }
       } else {
         // Generate mode
-        const generated = generator.generate(artifact, ctx);
+        const generated = generator.generate(entity, ctx);
         outputs.push(...generated);
 
         // Write files unless dry-run or check-only
@@ -252,7 +253,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
             writeFileSync(fullPath, output.content);
             filesWritten++;
             logger.info(`Generated: ${output.relativePath}`, {
-              from: artifact.id,
+              from: getEntityId(entity),
               type: output.contentType,
             });
           }

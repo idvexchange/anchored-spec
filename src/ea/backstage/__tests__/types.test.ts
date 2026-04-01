@@ -35,7 +35,6 @@ describe("Annotation keys", () => {
     expect(ANNOTATION_KEYS.COMPLIANCE).toBe("anchored-spec.dev/compliance");
     expect(ANNOTATION_KEYS.RISK).toBe("anchored-spec.dev/risk");
     expect(ANNOTATION_KEYS.SUPPRESS).toBe("anchored-spec.dev/suppress");
-    expect(ANNOTATION_KEYS.LEGACY_ID).toBe("anchored-spec.dev/legacy-id");
     expect(ANNOTATION_KEYS.LEGACY_KIND).toBe("anchored-spec.dev/legacy-kind");
   });
 });

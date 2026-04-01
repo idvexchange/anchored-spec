@@ -61,11 +61,6 @@ function makeEntity(opts: {
   };
 }
 
-/** Get the expected entity ref ID for a given entity. */
-function entityId(kind: string, name: string): string {
-  return `${kind.toLowerCase()}:${name}`;
-}
-
 // ─── deepEqual ──────────────────────────────────────────────────────────────────
 
 describe("deepEqual", () => {

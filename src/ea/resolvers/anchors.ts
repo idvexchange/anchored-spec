@@ -11,7 +11,6 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { minimatch } from "minimatch";
-import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityId, getEntityLegacyKind, getEntityAnchors } from "../backstage/accessors.js";
 import type { EaResolver, EaResolverContext, ObservedEaState, ObservedEntity } from "./types.js";
 

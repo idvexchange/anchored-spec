@@ -1,30 +1,25 @@
-# CLAUDE.md — Anchored Spec Project
+# CLAUDE.md
 
-Spec-as-source EA framework. Architecture = validated YAML/JSON artifacts, not docs.
+This example repository is wired for anchored-spec architecture workflows.
 
-## Read First
-- `SKILL.md` — Complete AI agent instruction set (26 sections, 15 workflows). READ THIS.
-- `.anchored-spec/config.json` — Project configuration
+## What matters here
 
-## Structure
-`ea/` contains EA artifacts across domains:
-- `ea/systems/` — systems
-- `ea/delivery/` — delivery
-- `ea/data/` — data
-- `ea/information/` — information
-- `ea/business/` — business
-- `ea/transitions/` — transitions
+- the application code lives beside a richer architecture fixture set
+- the fixture set is useful for current anchored-spec validation, drift, diff, and policy workflows
+- the root `SKILL.md` is the main operating guide for architecture-aware changes
 
-## Commands
-- `npx anchored-spec validate` — Validate artifacts
-- `npx anchored-spec create --kind <kind> --title "Name"` — Create artifact
-- `npx anchored-spec discover` — Discover from code/infra
-- `npx anchored-spec drift` — Check drift
-- `npx anchored-spec diff --base main` — Semantic diff
-- `npx anchored-spec reconcile` — Full SDD pipeline
+## Default workflow
 
-## Key Rules
-- Always validate after changes
-- Artifacts use `id: {PREFIX}-{slug}` format (e.g., APP-todo-web, API-v1)
-- Relations reference artifact IDs, not paths
-- Discovered artifacts are `draft` + `inferred` — never auto-promote
+1. inspect the relevant code and architecture files
+2. update the app and the architecture material together when the change affects behavior or structure
+3. run current anchored-spec checks from the repository root with `--cwd examples/todo-app`
+4. explain lifecycle, compatibility, or traceability impacts when relevant
+
+## Useful commands
+
+```bash
+npx anchored-spec --cwd examples/todo-app validate
+npx anchored-spec --cwd examples/todo-app drift
+npx anchored-spec --cwd examples/todo-app diff --base main --compat --policy
+npx anchored-spec --cwd examples/todo-app reconcile --include-docs
+```

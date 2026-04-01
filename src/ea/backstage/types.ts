@@ -10,6 +10,25 @@
  * `anchored-spec.dev/v1alpha1`.
  */
 
+import type {
+  ApiEntityV1alpha1,
+  ComponentEntityV1alpha1,
+  DomainEntityV1alpha1,
+  Entity as CatalogEntity,
+  EntityLink as CatalogEntityLink,
+  EntityMeta as CatalogEntityMeta,
+  EntityRelation as CatalogEntityRelation,
+  GroupEntityV1alpha1,
+  LocationEntityV1alpha1,
+  ResourceEntityV1alpha1,
+  SystemEntityV1alpha1,
+  UserEntityV1alpha1,
+} from "@backstage/catalog-model";
+import type {
+  AlphaEntity as CatalogAlphaEntity,
+  EntityStatus as CatalogEntityStatus,
+} from "@backstage/catalog-model/alpha";
+
 // ─── API Versions ───────────────────────────────────────────────────────────────
 
 /** Backstage built-in API version. */
@@ -25,17 +44,19 @@ export type ApiVersion =
 
 // ─── Entity Kinds ───────────────────────────────────────────────────────────────
 
+/** Backstage built-in entities supported directly by anchored-spec. */
+export type BackstageBuiltinEntity =
+  | ComponentEntityV1alpha1
+  | ApiEntityV1alpha1
+  | ResourceEntityV1alpha1
+  | SystemEntityV1alpha1
+  | DomainEntityV1alpha1
+  | GroupEntityV1alpha1
+  | UserEntityV1alpha1
+  | LocationEntityV1alpha1;
+
 /** Backstage built-in entity kinds. */
-export type BackstageBuiltinKind =
-  | "Component"
-  | "API"
-  | "Resource"
-  | "System"
-  | "Domain"
-  | "Group"
-  | "User"
-  | "Location"
-  | "Template";
+export type BackstageBuiltinKind = BackstageBuiltinEntity["kind"];
 
 /** anchored-spec custom entity kinds. */
 export type AnchoredSpecKind =
@@ -58,48 +79,13 @@ export type EntityKind = BackstageBuiltinKind | AnchoredSpecKind;
 // ─── Metadata ───────────────────────────────────────────────────────────────────
 
 /** A link associated with an entity. */
-export interface EntityLink {
-  url: string;
-  title?: string;
-  icon?: string;
-  type?: string;
-}
+export type EntityLink = CatalogEntityLink;
 
 /**
  * Entity metadata — identity, labels, annotations, and tags.
  * Follows the Backstage metadata schema.
  */
-export interface EntityMetadata {
-  /** The machine-readable name of the entity (unique within namespace + kind). */
-  name: string;
-
-  /** The namespace the entity belongs to. Default: "default". */
-  namespace?: string;
-
-  /** A human-readable title for display purposes. */
-  title?: string;
-
-  /** A human-readable description. */
-  description?: string;
-
-  /** Key-value labels for filtering. */
-  labels?: Record<string, string>;
-
-  /** Key-value annotations for tooling metadata. */
-  annotations?: Record<string, string>;
-
-  /** Freeform string tags for grouping. */
-  tags?: string[];
-
-  /** External links associated with this entity. */
-  links?: EntityLink[];
-
-  /** Auto-generated UID (populated by Backstage catalog, optional in anchored-spec). */
-  uid?: string;
-
-  /** Auto-generated etag for optimistic concurrency. */
-  etag?: string;
-}
+export type EntityMetadata = CatalogEntityMeta;
 
 // ─── anchored-spec Annotation Keys ──────────────────────────────────────────────
 
@@ -122,14 +108,12 @@ export const ANNOTATION_KEYS = {
   RISK: `${ANNOTATION_PREFIX}/risk`,
   /** CSV of drift/validation rules to suppress. */
   SUPPRESS: `${ANNOTATION_PREFIX}/suppress`,
-  /** Legacy artifact ID (for bridge compatibility). */
-  LEGACY_ID: `${ANNOTATION_PREFIX}/legacy-id`,
-  /** Legacy artifact kind (for bridge compatibility). */
+  /** Legacy kind discriminator for lossy Backstage kind mappings. */
   LEGACY_KIND: `${ANNOTATION_PREFIX}/legacy-kind`,
 } as const;
 
 /** Confidence levels for the confidence annotation. */
-export type EntityConfidence = "observed" | "declared" | "verified";
+export type EntityConfidence = "observed" | "declared" | "inferred";
 
 /** Risk levels for the risk annotation. */
 export type EntityRisk = "low" | "moderate" | "high" | "critical";
@@ -137,69 +121,55 @@ export type EntityRisk = "low" | "moderate" | "high" | "critical";
 // ─── Entity Spec (kind-specific) ────────────────────────────────────────────────
 
 /**
- * Base spec fields shared by Backstage built-in kinds.
- * Kind-specific specs extend this.
+ * Standard Backstage descriptor substitution objects.
+ *
+ * anchored-spec supports local relative-file substitutions and keeps the authored
+ * object shape intact so YAML can remain Backstage-compatible.
  */
-export interface EntitySpecBase {
+export interface DescriptorTextSubstitution {
+  $text: string;
+}
+
+export interface DescriptorJsonSubstitution {
+  $json: string;
+}
+
+export interface DescriptorYamlSubstitution {
+  $yaml: string;
+}
+
+export type DescriptorSubstitution =
+  | DescriptorTextSubstitution
+  | DescriptorJsonSubstitution
+  | DescriptorYamlSubstitution;
+
+/**
+ * Shared shape used by anchored-spec custom kinds.
+ *
+ * Built-in kinds should come directly from Backstage entity definitions wherever
+ * possible; this base exists for custom kinds that intentionally extend the model.
+ */
+export interface EntitySpecBase extends Record<string, unknown> {
   /** The subtype within a kind. */
   type?: string;
   /** Entity lifecycle stage. */
   lifecycle?: string;
-  /** Owner entity reference (e.g., "group:default/platform-team"). */
+  /** Owner entity reference (e.g. "group:default/platform-team"). */
   owner?: string;
   /** System this entity belongs to. */
   system?: string;
 }
 
-/** Component spec (Backstage built-in). */
-export interface ComponentSpec extends EntitySpecBase {
-  type: string; // service | library | website | worker | data-pipeline
-  lifecycle: string; // experimental | production | deprecated
-  subcomponentOf?: string;
-  providesApis?: string[];
-  consumesApis?: string[];
-  dependsOn?: string[];
-  dependencyOf?: string[];
-}
-
-/** API spec (Backstage built-in). */
-export interface ApiSpec extends EntitySpecBase {
-  type: string; // openapi | asyncapi | grpc | graphql
-  lifecycle: string;
-  definition: string; // inline or $ref to spec file
-  dependsOn?: string[];
-}
-
-/** Resource spec (Backstage built-in). */
-export interface ResourceSpec extends EntitySpecBase {
-  type: string; // database | database-table | s3-bucket | queue | cache | etc.
-  dependsOn?: string[];
-  dependencyOf?: string[];
-}
-
-/** System spec (Backstage built-in). */
-export interface SystemSpec {
-  owner: string;
-  domain?: string;
-}
-
-/** Domain spec (Backstage built-in). */
-export interface DomainSpec {
-  owner: string;
-}
-
-/** Group spec (Backstage built-in). */
-export interface GroupSpec {
-  type: string; // team | department | org
-  profile?: {
-    displayName?: string;
-    email?: string;
-    picture?: string;
-  };
-  parent?: string;
-  children: string[];
-  members?: string[];
-}
+/** Built-in Backstage kind specs, sourced from the Backstage model. */
+export type ComponentSpec = ComponentEntityV1alpha1["spec"] & Record<string, unknown>;
+export type ApiSpec =
+  Omit<ApiEntityV1alpha1["spec"], "definition"> & {
+    definition: ApiEntityV1alpha1["spec"]["definition"] | DescriptorSubstitution;
+  } & Record<string, unknown>;
+export type ResourceSpec = ResourceEntityV1alpha1["spec"] & Record<string, unknown>;
+export type SystemSpec = SystemEntityV1alpha1["spec"] & Record<string, unknown>;
+export type DomainSpec = DomainEntityV1alpha1["spec"] & Record<string, unknown>;
+export type GroupSpec = GroupEntityV1alpha1["spec"] & Record<string, unknown>;
 
 // ─── Custom Kind Specs ──────────────────────────────────────────────────────────
 
@@ -333,34 +303,32 @@ export interface ExceptionSpec extends EntitySpecBase {
  * This is compatible with Backstage's Software Catalog and can be ingested
  * directly by a Backstage instance.
  */
-export interface BackstageEntity {
-  /** Schema version — either `backstage.io/v1alpha1` or `anchored-spec.dev/v1alpha1`. */
-  apiVersion: string;
-
-  /** Entity kind (PascalCase). */
-  kind: string;
-
-  /** Identity, labels, annotations, tags. */
-  metadata: EntityMetadata;
-
-  /**
-   * Kind-specific fields. The shape depends on the `kind` field.
-   * Use the typed spec interfaces (ComponentSpec, ApiSpec, etc.) for type safety.
-   */
-  spec: Record<string, unknown>;
-
-  /**
-   * Relations computed by the catalog (optional, not stored in YAML).
-   * Backstage populates this; anchored-spec may compute it at load time.
-   */
-  relations?: EntityRelation[];
-}
+export type BackstageEntity =
+  Omit<CatalogEntity, "metadata" | "spec" | "relations"> &
+  Omit<CatalogAlphaEntity, "metadata" | "spec" | "relations"> & {
+    /** Identity, labels, annotations, tags. */
+    metadata: EntityMetadata;
+    /**
+     * Kind-specific fields.
+     *
+     * Built-in shapes should align with Backstage definitions; custom kinds use
+     * anchored-spec schemas under `anchored-spec.dev/v1alpha1`.
+     */
+    spec: Record<string, unknown>;
+    /**
+     * Relations computed by the catalog or by anchored-spec runtime analysis.
+     * These are derived output, not authored descriptor fields.
+     */
+    relations?: EntityRelation[];
+    /**
+     * Catalog-style status output. This is distinct from authored `spec.lifecycle`
+     * or custom kind `spec.status`.
+     */
+    status?: CatalogEntityStatus;
+  };
 
 /** A computed relation (Backstage catalog format). */
-export interface EntityRelation {
-  type: string;
-  targetRef: string;
-}
+export type EntityRelation = CatalogEntityRelation;
 
 // ─── Entity References ──────────────────────────────────────────────────────────
 

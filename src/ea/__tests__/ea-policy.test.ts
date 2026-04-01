@@ -20,7 +20,8 @@ import {
   isEaChoreEligible,
   isPathCoveredByChangeArtifact,
 } from "../policy.js";
-import type { EaWorkflowPolicy, EaChangeRequiredRule, EaArtifactBase } from "../../ea/index.js";
+import type { EaWorkflowPolicy, EaChangeRequiredRule } from "../../ea/index.js";
+import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -48,8 +49,10 @@ function makePolicy(overrides?: Partial<EaWorkflowPolicy>): EaWorkflowPolicy {
   };
 }
 
-function makeArtifact(overrides: Partial<EaArtifactBase> & { scope?: { include: string[]; exclude?: string[] } }): EaArtifactBase {
-  return {
+function makeChangeEntity(
+  overrides: Record<string, unknown> & { scope?: { include: string[]; exclude?: string[] } },
+) {
+  return makeEntity({
     id: "chg-test",
     kind: "change",
     name: "Test Change",
@@ -57,7 +60,7 @@ function makeArtifact(overrides: Partial<EaArtifactBase> & { scope?: { include: 
     confidence: "high",
     relations: [],
     ...overrides,
-  } as EaArtifactBase;
+  });
 }
 
 // ─── isTrivialPath ──────────────────────────────────────────────────────────────
@@ -167,7 +170,7 @@ describe("checkEaPaths", () => {
   const policy = makePolicy();
 
   it("valid when governed paths are covered by active changes", () => {
-    const change = makeArtifact({
+    const change = makeChangeEntity({
       id: "chg-auth",
       scope: { include: ["src/**"] },
     });
@@ -184,7 +187,7 @@ describe("checkEaPaths", () => {
   });
 
   it("ignores non-active change artifacts", () => {
-    const change = makeArtifact({
+    const change = makeChangeEntity({
       id: "chg-draft",
       status: "draft",
       scope: { include: ["src/**"] },
@@ -204,17 +207,17 @@ describe("checkEaPaths", () => {
 
 describe("isPathCoveredByChangeArtifact", () => {
   it("returns true when path matches scope include", () => {
-    const artifact = makeArtifact({ scope: { include: ["src/**"] } });
+    const artifact = makeChangeEntity({ scope: { include: ["src/**"] } });
     expect(isPathCoveredByChangeArtifact("src/app.ts", artifact)).toBe(true);
   });
 
   it("returns false when path matches scope exclude", () => {
-    const artifact = makeArtifact({ scope: { include: ["src/**"], exclude: ["src/test/**"] } });
+    const artifact = makeChangeEntity({ scope: { include: ["src/**"], exclude: ["src/test/**"] } });
     expect(isPathCoveredByChangeArtifact("src/test/app.test.ts", artifact)).toBe(false);
   });
 
   it("returns false when artifact has no scope", () => {
-    const artifact = makeArtifact({});
+    const artifact = makeChangeEntity({});
     expect(isPathCoveredByChangeArtifact("src/app.ts", artifact)).toBe(false);
   });
 });

@@ -1,25 +1,31 @@
 /**
  * anchored-spec create-doc
  *
- * Create a markdown document pre-linked to EA artifacts via frontmatter.
- * Optionally updates referenced artifacts' traceRefs to point back at the
+ * Create a markdown document pre-linked to entities via frontmatter.
+ * Optionally updates referenced entities' traceRefs to point back at the
  * new document.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, join, relative } from "node:path";
 import { Command } from "commander";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
-import type { EaTraceRef } from "../../ea/types.js";
+import { resolveConfigV1 } from "../../ea/config.js";
 import { serializeFrontmatter } from "../../ea/docs/frontmatter.js";
 import type { DocFrontmatter } from "../../ea/docs/frontmatter.js";
+import {
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityTitle,
+} from "../../ea/backstage/accessors.js";
+import { buildEntityLookup, formatEntityHint } from "../entity-ref.js";
 import { CliError } from "../errors.js";
+import { appendTraceRefs } from "./trace-ref-writer.js";
 
 const VALID_TYPES = ["spec", "architecture", "guide", "adr", "runbook"] as const;
 const VALID_STATUSES = ["current", "draft", "deprecated", "superseded"] as const;
+type CreateDocTraceRole = "specification" | "rationale" | "context";
 
 /** Convert a title string to a kebab-case filename slug. */
 function slugify(title: string): string {
@@ -30,7 +36,7 @@ function slugify(title: string): string {
 }
 
 /** Map document type to the appropriate traceRef role. */
-function docTypeToRole(type: string): string {
+function docTypeToRole(type: string): CreateDocTraceRole {
   switch (type) {
     case "spec":
       return "specification";
@@ -52,7 +58,7 @@ function parseAudience(audience: string): string[] {
   return audience.split(",").map((s) => s.trim());
 }
 
-/** Result of linking a single artifact. */
+/** Result of linking a single entity. */
 interface ArtifactLinkResult {
   id: string;
   linked: boolean;
@@ -62,7 +68,7 @@ interface ArtifactLinkResult {
 export function eaCreateDocCommand(): Command {
   return new Command("create-doc")
     .description(
-      "Create a markdown document pre-linked to EA artifacts via frontmatter"
+      "Create a markdown document pre-linked to entities via frontmatter"
     )
     .requiredOption("--title <title>", "Document title")
     .option(
@@ -76,28 +82,24 @@ export function eaCreateDocCommand(): Command {
       "draft"
     )
     .option(
-      "--artifacts <ids...>",
-      "EA artifact IDs to link (space-separated)"
+      "--entities <refs...>",
+      "Entity refs to link (space-separated)"
     )
     .option("--dir <path>", "Output directory", "docs")
     .option("--audience <audience>", "Target audience (comma-separated)", "agent, developer")
     .option("--domain <domain>", "EA domain(s) (comma-separated)")
     .option("--root-dir <path>", "EA root directory", "ea")
-    .option("--link-back", "Update referenced artifacts' traceRefs", true)
-    .option("--no-link-back", "Skip updating artifact traceRefs")
+    .option("--link-back", "Update referenced entities' traceRefs", true)
+    .option("--no-link-back", "Skip updating entity traceRefs")
     .option("--json", "Output result as JSON")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, {
-        specDir: "specs",
-        outputDir: "output",
-        ea: eaConfig,
-      } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2
         );
       }
@@ -120,25 +122,33 @@ export function eaCreateDocCommand(): Command {
       }
 
       const title = options.title as string;
-      const artifactIds: string[] = options.artifacts ?? [];
+      const entityInputs: string[] = options.entities ?? [];
 
-      // ── Load artifacts ────────────────────────────────────────────
-      const loadResult = await root.loadArtifacts();
-
+      // ── Load entities ─────────────────────────────────────────────
+      const loadResult = await root.loadEntities();
       const detailById = new Map(
-        loadResult.details
-          .filter((d) => d.artifact)
-          .map((d) => [d.artifact!.id, d])
+        loadResult.details.flatMap((detail) => {
+          const entity = detail.entity ?? detail.authoredEntity;
+          if (!entity) return [];
+          return [[getEntityId(entity), detail] as const];
+        }),
       );
 
-      const artifactById = new Map(
-        loadResult.artifacts.map((a) => [a.id, a])
+      const entityById = new Map(
+        loadResult.entities.flatMap((entity) => {
+          return [[getEntityId(entity), entity] as const];
+        }),
       );
+      const lookup = buildEntityLookup(loadResult.entities);
+      const entityIds = entityInputs.map((id) => {
+        const entity = lookup.byInput.get(id);
+        return entity ? getEntityId(entity) : id;
+      });
 
-      // Warn about missing artifact IDs (but keep them in frontmatter).
+      // Warn about missing entity refs (but keep them in frontmatter).
       const missingIds: string[] = [];
-      for (const id of artifactIds) {
-        if (!artifactById.has(id)) {
+      for (const id of entityIds) {
+        if (!entityById.has(id)) {
           missingIds.push(id);
         }
       }
@@ -164,7 +174,7 @@ export function eaCreateDocCommand(): Command {
         domain: options.domain
           ? (options.domain as string).split(",").map((s) => s.trim())
           : undefined,
-        eaArtifacts: artifactIds.length > 0 ? artifactIds : undefined,
+        eaArtifacts: entityIds.length > 0 ? entityIds : undefined,
       };
 
       // ── Build markdown body ───────────────────────────────────────
@@ -174,14 +184,14 @@ export function eaCreateDocCommand(): Command {
       bodyLines.push("> TODO: Document the specification for these artifacts.");
       bodyLines.push("");
 
-      if (artifactIds.length > 0) {
-        bodyLines.push("## Referenced Artifacts");
+      if (entityIds.length > 0) {
+        bodyLines.push("## Referenced Entities");
         bodyLines.push("");
-        for (const id of artifactIds) {
-          const artifact = artifactById.get(id);
-          if (artifact) {
+        for (const id of entityIds) {
+          const entity = entityById.get(id);
+          if (entity) {
             bodyLines.push(
-              `- **${id}** (${artifact.kind}) — ${artifact.title}`
+              `- **${formatEntityHint(entity)}** (${getEntityLegacyKind(entity)}) — ${getEntityTitle(entity)}`
             );
           } else {
             bodyLines.push(`- **${id}**`);
@@ -199,13 +209,13 @@ export function eaCreateDocCommand(): Command {
 
       const relativeDocPath = relative(cwd, filePath);
 
-      // ── Link back: add traceRefs to referenced artifacts ──────────
+      // ── Link back: add traceRefs to referenced entities ───────────
       const linkResults: ArtifactLinkResult[] = [];
 
-      if (options.linkBack && artifactIds.length > 0) {
+      if (options.linkBack && entityIds.length > 0) {
         const role = docTypeToRole(type);
 
-        for (const id of artifactIds) {
+        for (const id of entityIds) {
           const detail = detailById.get(id);
           if (!detail) {
             linkResults.push({ id, linked: false, reason: "not found" });
@@ -230,7 +240,7 @@ export function eaCreateDocCommand(): Command {
         const output = {
           docPath: relativeDocPath,
           frontmatter,
-          linkedArtifacts: artifactIds.map((id) => {
+          linkedEntities: entityIds.map((id) => {
             const result = linkResults.find((r) => r.id === id);
             return {
               id,
@@ -259,35 +269,9 @@ export function eaCreateDocCommand(): Command {
 function writeArtifactTraceRef(
   filePath: string,
   docPath: string,
-  role: string
+  role: CreateDocTraceRole,
 ): void {
-  const raw = readFileSync(filePath, "utf-8");
-  const isJson = filePath.endsWith(".json");
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let data: any;
-  if (isJson) {
-    data = JSON.parse(raw);
-  } else {
-    data = parseYaml(raw);
-  }
-
-  if (!Array.isArray(data.traceRefs)) {
-    data.traceRefs = [];
-  }
-
-  const alreadyPresent = (data.traceRefs as EaTraceRef[]).some(
-    (existing) => existing.path === docPath
-  );
-  if (alreadyPresent) return;
-
-  data.traceRefs.push({ path: docPath, role });
-
-  if (isJson) {
-    writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
-  } else {
-    writeFileSync(filePath, stringifyYaml(data), "utf-8");
-  }
+  appendTraceRefs(filePath, [{ path: docPath, role }]);
 }
 
 /** Print human-readable create-doc report to stdout. */
@@ -309,7 +293,7 @@ function printHumanOutput(
 
   if (linkResults.length > 0) {
     console.log("");
-    console.log(chalk.dim("  Linked artifacts:"));
+    console.log(chalk.dim("  Linked entities:"));
     for (const result of linkResults) {
       if (result.linked) {
         console.log(chalk.green(`    ✅ ${result.id} — traceRef added`));
@@ -335,7 +319,7 @@ function printHumanOutput(
   const linkedCount = linkResults.filter((r) => r.linked).length;
   console.log(
     chalk.dim(
-      `\n  1 document created, ${linkedCount} artifact${linkedCount !== 1 ? "s" : ""} updated`
+      `\n  1 document created, ${linkedCount} entit${linkedCount !== 1 ? "ies" : "y"} updated`
     )
   );
 }

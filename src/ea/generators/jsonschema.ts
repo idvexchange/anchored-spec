@@ -8,7 +8,8 @@
  * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (JSON Schema Generator)
  */
 
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityDescription, getEntityId, getEntityTitle, getSpecField } from "../backstage/accessors.js";
 import type {
   EaGenerator,
   EaGeneratorContext,
@@ -69,9 +70,8 @@ export const jsonSchemaGenerator: EaGenerator = {
   kinds: ["canonical-entity"],
   outputFormat: "json-schema",
 
-  generate(artifact: EaArtifactBase, _ctx: EaGeneratorContext): GeneratedOutput[] {
-    const fields = artifact as EaArtifactBase & CanonicalEntityFields;
-    const attributes = fields.attributes ?? [];
+  generate(entity: BackstageEntity, _ctx: EaGeneratorContext): GeneratedOutput[] {
+    const attributes = getSpecField<CanonicalEntityFields["attributes"]>(entity, "attributes") ?? [];
 
     // Build JSON Schema
     const properties: Record<string, Record<string, unknown>> = {};
@@ -95,10 +95,10 @@ export const jsonSchemaGenerator: EaGenerator = {
 
     const schema: Record<string, unknown> = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
-      $id: `https://anchored-spec.dev/schemas/entities/${slugify(artifact.id)}.schema.json`,
-      title: artifact.title,
-      description: artifact.summary ?? "",
-      $comment: `Generated from EA artifact: ${artifact.id}`,
+      $id: `https://anchored-spec.dev/schemas/entities/${slugify(getEntityId(entity))}.schema.json`,
+      title: getEntityTitle(entity),
+      description: getEntityDescription(entity),
+      $comment: `Generated from EA artifact: ${getEntityId(entity)}`,
       type: "object",
       properties,
     };
@@ -110,26 +110,26 @@ export const jsonSchemaGenerator: EaGenerator = {
     schema.additionalProperties = false;
 
     const content = JSON.stringify(schema, null, 2) + "\n";
-    const slug = artifact.id.replace(/\//g, "-");
+    const slug = getEntityId(entity).replace(/[:/]/g, "-");
 
     return [
       {
         relativePath: `${slug}.schema.json`,
         content,
         contentType: "json",
-        sourceArtifactId: artifact.id,
-        description: `JSON Schema for ${artifact.title}`,
+        sourceArtifactId: getEntityId(entity),
+        description: `JSON Schema for ${getEntityTitle(entity)}`,
         overwrite: true,
       },
     ];
   },
 
-  diff(currentOutput: string, artifact: EaArtifactBase, ctx: EaGeneratorContext): GenerationDrift[] {
+  diff(currentOutput: string, entity: BackstageEntity, ctx: EaGeneratorContext): GenerationDrift[] {
     const drifts: GenerationDrift[] = [];
-    const generated = this.generate(artifact, ctx);
+    const generated = this.generate(entity, ctx);
     if (generated.length === 0) return [];
 
-    const slug = artifact.id.replace(/\//g, "-");
+    const slug = getEntityId(entity).replace(/[:/]/g, "-");
 
     try {
       const currentParsed = JSON.parse(currentOutput);
@@ -142,7 +142,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       if (JSON.stringify(currentProps) !== JSON.stringify(expectedProps)) {
         drifts.push({
           filePath: `${slug}.schema.json`,
-          sourceArtifactId: artifact.id,
+          sourceArtifactId: getEntityId(entity),
           message: `Schema properties differ: expected [${expectedProps.join(", ")}], found [${currentProps.join(", ")}]`,
           suggestion: "review",
         });
@@ -151,7 +151,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       if (JSON.stringify(currentParsed.required?.sort()) !== JSON.stringify(expectedParsed.required?.sort())) {
         drifts.push({
           filePath: `${slug}.schema.json`,
-          sourceArtifactId: artifact.id,
+          sourceArtifactId: getEntityId(entity),
           message: "Schema required fields differ from spec",
           suggestion: "review",
         });
@@ -159,7 +159,7 @@ export const jsonSchemaGenerator: EaGenerator = {
     } catch {
       drifts.push({
         filePath: `${slug}.schema.json`,
-        sourceArtifactId: artifact.id,
+        sourceArtifactId: getEntityId(entity),
         message: "Cannot parse existing schema as JSON",
         suggestion: "regenerate",
       });

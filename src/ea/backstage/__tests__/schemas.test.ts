@@ -51,14 +51,12 @@ describe("Backstage JSON Schemas", () => {
   });
 
   describe("entity-envelope schema validates correctly", () => {
-    let validate: ReturnType<Ajv["compile"]>;
-
     const ajv = new Ajv({ allErrors: true, strict: false, validateSchema: false });
     addFormats(ajv);
 
     // Load and register the envelope schema directly
     const envelopeSchema = loadSchema("entity-envelope.schema.json");
-    validate = ajv.compile(envelopeSchema);
+    const validate = ajv.compile(envelopeSchema);
 
     it("accepts a valid Component entity", () => {
       const entity = {

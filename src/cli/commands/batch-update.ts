@@ -8,12 +8,18 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { readFileSync, writeFileSync } from "node:fs";
-import { relative } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
-import type { EaArtifactBase } from "../../ea/types.js";
-import { getDomainForKind } from "../../ea/types.js";
+import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  getAnnotation,
+  getEntityDomain,
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityStatus,
+} from "../../ea/backstage/accessors.js";
+import { ANNOTATION_KEYS } from "../../ea/backstage/types.js";
+import type { BackstageEntity } from "../../ea/backstage/types.js";
 import { CliError } from "../errors.js";
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -96,29 +102,29 @@ function parseSetOps(setStr: string): SetOperation[] {
 // ─── Filter matching ──────────────────────────────────────────────────
 
 function matchesFilters(
-  artifact: EaArtifactBase,
+  entity: BackstageEntity,
   filters: FilterCriteria[],
   domain?: string,
 ): boolean {
   for (const f of filters) {
-    const actual = getFieldValue(artifact, f.field);
+    const actual = getFieldValue(entity, f.field);
     if (actual !== f.value) return false;
   }
   if (domain) {
-    const artifactDomain = getDomainForKind(artifact.kind);
+    const artifactDomain = getEntityDomain(entity);
     if (artifactDomain !== domain) return false;
   }
   return true;
 }
 
-function getFieldValue(artifact: EaArtifactBase, field: string): string {
+function getFieldValue(entity: BackstageEntity, field: string): string {
   switch (field) {
     case "confidence":
-      return artifact.confidence;
+      return getAnnotation(entity, ANNOTATION_KEYS.CONFIDENCE) ?? "declared";
     case "status":
-      return artifact.status;
+      return getEntityStatus(entity);
     case "kind":
-      return artifact.kind;
+      return getEntityLegacyKind(entity);
     default:
       return "";
   }
@@ -172,7 +178,7 @@ function applyUpdates(
 export function batchUpdateCommand(): Command {
   return new Command("batch-update")
     .description(
-      "Apply field changes to multiple artifacts matching a filter",
+      "Apply field changes to multiple entities matching a filter",
     )
     .requiredOption(
       "--filter <criteria>",
@@ -188,16 +194,12 @@ export function batchUpdateCommand(): Command {
     .option("--json", "Output as JSON")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, {
-        specDir: "specs",
-        outputDir: "output",
-        ea: eaConfig,
-      } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2,
         );
       }
@@ -205,22 +207,37 @@ export function batchUpdateCommand(): Command {
       const filters = parseFilters(options.filter as string);
       const setOps = parseSetOps(options.set as string);
 
-      const loadResult = await root.loadArtifacts();
-
-      const matched = loadResult.details.filter(
-        (d) =>
-          d.artifact &&
-          matchesFilters(d.artifact, filters, options.domain),
+      const loadResult = await root.loadEntities();
+      const detailById = new Map(
+        loadResult.details
+          .flatMap((detail) => {
+            const entity = detail.entity ?? detail.authoredEntity;
+            if (!entity) return [];
+            return [[getEntityId(entity), detail] as const];
+          }),
       );
+
+      const matched = loadResult.entities
+        .map((entity) => ({
+          entity,
+          id: getEntityId(entity),
+          detail: detailById.get(getEntityId(entity)),
+        }))
+        .filter(
+          (entry) =>
+            entry.detail &&
+            matchesFilters(entry.entity, filters, options.domain),
+        );
 
       const results: UpdateResult[] = [];
 
-      for (const detail of matched) {
-        const artifact = detail.artifact!;
+      for (const entry of matched) {
+        const { entity, id, detail } = entry;
+        if (!detail) continue;
         const changes: UpdateResult["changes"] = [];
 
         for (const op of setOps) {
-          const oldValue = getFieldValue(artifact, op.field);
+          const oldValue = getFieldValue(entity, op.field);
           if (oldValue !== op.value) {
             changes.push({
               field: op.field,
@@ -233,7 +250,7 @@ export function batchUpdateCommand(): Command {
         if (changes.length === 0) continue;
 
         results.push({
-          id: artifact.id,
+          id,
           filePath: detail.relativePath,
           changes,
         });
@@ -266,7 +283,7 @@ export function batchUpdateCommand(): Command {
       if (results.length === 0) {
         console.log(
           chalk.green(
-            `✓ ${matched.length} artifact${matched.length === 1 ? "" : "s"} matched, 0 need changes.`,
+            `✓ ${matched.length} entit${matched.length === 1 ? "y" : "ies"} matched, 0 need changes.`,
           ),
         );
         return;
@@ -274,7 +291,7 @@ export function batchUpdateCommand(): Command {
 
       console.log(
         chalk.bold(
-          `Updating ${results.length} artifact${results.length === 1 ? "" : "s"}:\n`,
+          `Updating ${results.length} entit${results.length === 1 ? "y" : "ies"}:\n`,
         ),
       );
       for (const r of results) {

@@ -1,8 +1,8 @@
 /**
  * anchored-spec ea discover
  *
- * Discover new EA artifacts from sources (OpenAPI, K8s, Terraform, etc.).
- * Creates draft artifacts with confidence "inferred" or "observed".
+ * Discover new entities from sources (OpenAPI, K8s, Terraform, etc.).
+ * Creates draft entities with confidence "inferred" or "observed".
  */
 
 import { Command } from "commander";
@@ -10,7 +10,7 @@ import chalk from "chalk";
 import { join } from "node:path";
 import {
   EaRoot,
-  resolveEaConfig,
+  resolveConfigV1,
   discoverArtifacts,
   renderDiscoveryReportMarkdown,
   createResolverCache,
@@ -25,7 +25,6 @@ import {
   getQueryPacks,
   scanDocs,
   discoverFromDocs,
-  artifactToBackstage,
 } from "../../ea/index.js";
 import { MarkdownResolver } from "../../ea/resolvers/markdown.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
@@ -47,11 +46,11 @@ const AVAILABLE_RESOLVERS = [...Object.keys(RESOLVER_MAP), "tree-sitter"].join("
 
 export function eaDiscoverCommand(): Command {
   return new Command("discover")
-    .description("Discover EA artifacts from external sources")
+    .description("Discover entities from external sources")
     .option("--resolver <name>", `Resolver to run: ${AVAILABLE_RESOLVERS}`)
     .option("--source <path>", "Source path to scan")
     .option("--dry-run", "Show what would be created without writing files")
-    .option("--from-docs", "Discover artifacts from document frontmatter (prose-first workflow)")
+    .option("--from-docs", "Discover entities from document frontmatter (prose-first workflow)")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories for --from-docs", "docs,specs,.")
     .option("--write-facts", "Persist extracted fact manifests to .ea/facts/ directory")
     .option("--json", "Output discovery report as JSON")
@@ -60,43 +59,44 @@ export function eaDiscoverCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2,
         );
       }
 
-      const result = await root.loadArtifacts();
+      const result = await root.loadEntities();
+      const existingArtifacts = result.entities;
 
       // ── --from-docs: prose-first discovery ──────────────────────────
       if (options.fromDocs) {
         const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
         const scanResult = scanDocs(cwd, { dirs: docDirs });
-        const docResult = discoverFromDocs(scanResult.docs, result.artifacts);
+        const docResult = discoverFromDocs(scanResult.docs, existingArtifacts);
 
         // Feed doc-discovered drafts into the standard pipeline
-        const report = discoverArtifacts({
-          existingArtifacts: result.artifacts,
+        const report = await discoverArtifacts({
+          existingArtifacts,
           drafts: docResult.drafts,
           resolverNames: ["doc-frontmatter"],
           projectRoot: cwd,
-          domainDirs: eaConfig.domains,
+          config: eaConfig,
           dryRun: options.dryRun as boolean,
         });
 
         if (options.json) {
           process.stdout.write(JSON.stringify({
-            ...report,
-            docDiscovery: {
-              docsScanned: scanResult.totalScanned,
-              docsWithArtifacts: scanResult.docs.length,
-              alreadyExists: docResult.alreadyExists,
-              unknownPrefix: docResult.unknownPrefix,
-            },
+              ...report,
+              docDiscovery: {
+                docsScanned: scanResult.totalScanned,
+                docsWithArtifacts: scanResult.docs.length,
+                alreadyExists: docResult.alreadyExists,
+                unknownPrefix: docResult.unknownPrefix,
+              },
           }, null, 2) + "\n");
         } else {
           const md = renderDiscoveryReportMarkdown(report);
@@ -112,16 +112,16 @@ export function eaDiscoverCommand(): Command {
           if (docResult.alreadyExists.length > 0) {
             console.log(
               chalk.dim(
-                `  (${docResult.alreadyExists.length} artifact(s) already exist — skipped)`,
-              ),
-            );
+                 `  (${docResult.alreadyExists.length} existing entities skipped)`,
+               ),
+             );
           }
         }
 
         if (!options.dryRun && report.summary.newArtifacts > 0) {
           console.log(
             chalk.green(
-              `\n✓ Created ${report.summary.newArtifacts} draft artifact(s) from doc frontmatter`,
+              `\n✓ Created ${report.summary.newArtifacts} draft entit${report.summary.newArtifacts === 1 ? "y" : "ies"} from doc frontmatter`,
             ),
           );
           console.log(
@@ -145,8 +145,8 @@ export function eaDiscoverCommand(): Command {
       const logger = process.env.DEBUG ? consoleLogger : silentLogger;
       const resolverName = (options.resolver as string | undefined);
 
-      // Convert legacy artifacts to BackstageEntity for resolver context
-      const entities = result.artifacts.map(artifactToBackstage);
+      // Use entity-first context for resolver execution.
+      const entities = result.entities;
 
       // Instantiate resolver(s) and run discovery
       const drafts: EaArtifactDraft[] = [];
@@ -265,12 +265,12 @@ export function eaDiscoverCommand(): Command {
         }
       }
 
-      const report = discoverArtifacts({
-        existingArtifacts: result.artifacts,
+      const report = await discoverArtifacts({
+        existingArtifacts,
         drafts,
         resolverNames,
         projectRoot: cwd,
-        domainDirs: eaConfig.domains,
+        config: eaConfig,
         dryRun: options.dryRun as boolean,
       });
 
@@ -299,7 +299,7 @@ export function eaDiscoverCommand(): Command {
       if (!options.dryRun && report.summary.newArtifacts > 0) {
         console.log(
           chalk.green(
-            `\n✓ Created ${report.summary.newArtifacts} draft artifact(s)`,
+            `\n✓ Created ${report.summary.newArtifacts} draft entit${report.summary.newArtifacts === 1 ? "y" : "ies"}`,
           ),
         );
       }

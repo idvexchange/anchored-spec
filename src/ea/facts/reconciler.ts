@@ -154,7 +154,7 @@ function checkFactMissingArtifact(
               value: fact.key,
             },
           ],
-          suggestion: `Add an artifact with a ${KIND_TO_ANCHOR_FIELD[factKind]!} anchor for "${fact.key}", or annotate the block with @ea:suppress`,
+          suggestion: `Add an artifact with a ${KIND_TO_ANCHOR_FIELD[factKind]!} anchor for "${fact.key}", or annotate the block with @anchored-spec:suppress`,
         });
       }
     }

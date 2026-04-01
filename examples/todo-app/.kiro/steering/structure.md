@@ -1,26 +1,16 @@
-# Project Structure
+# Structure Steering
 
-## EA Artifact Directories
-- `ea/systems/` — systems
-- `ea/delivery/` — delivery
-- `ea/data/` — data
-- `ea/information/` — information
-- `ea/business/` — business
-- `ea/transitions/` — transitions
+This example combines application code with architecture fixture material.
 
-## Configuration
-- `.anchored-spec/config.json` — Framework config (schema version, domains, resolvers, quality rules)
+## Layout summary
 
-## Key Files
-- `SKILL.md` — AI agent instruction set (READ THIS for workflows)
-- `ea/workflow-policy.yaml` — Workflow policy rules (if exists)
+- app code lives in the Next.js source tree
+- anchored-spec configuration lives in `.anchored-spec/config.json`
+- architecture fixture material lives under `ea/`
+- repository-level agent guidance lives in the root `SKILL.md`
 
-## Artifact Naming
-Each artifact kind has a unique prefix:
-- Systems: APP, SVC, API, EVT, INT, SIF, CON
-- Delivery: PLAT, DEPLOY, CLUSTER, ZONE, IDB, CLOUD, ENV, TECH
-- Data: LDM, SCHEMA, STORE, LINEAGE, MDM, DQR, DPROD
-- Information: IC, CE, EXCH, CLASS, RET, TERM
-- Business: MISSION, CAP, VS, PROC, ORG, POL, BSVC, CTRL
-- Transitions: BASELINE, TARGET, PLAN, WAVE, EXCEPT, CHG, ADR
-- Requirements: REQ, SREQ, DREQ, TREQ, IREQ
+## Guidance
+
+Changes that affect the modeled architecture should update both the code and the relevant architecture material when that relationship is meaningful.
+
+Use current anchored-spec commands from the repo root with `--cwd examples/todo-app`.

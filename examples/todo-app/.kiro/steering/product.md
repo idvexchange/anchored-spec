@@ -1,15 +1,17 @@
-# Product Context
+# Product Steering
 
-This project uses anchored-spec for enterprise architecture governance.
+This example product is a Todo application used to demonstrate how anchored-spec fits into a real repository.
 
-## Goals
-- Maintain a living architecture model as code
-- Validate specs against 55 JSON schemas
-- Detect drift between declared and observed state
-- Track artifact lifecycle from draft to retired
+## Product intent
 
-## Workflows
-- Spec-first: write the spec before the code
-- Discovery: bootstrap specs from existing infrastructure
-- Drift detection: continuous validation of spec ↔ reality alignment
-- Governed evolution: diff → compat check → reconcile pipeline
+The app is intentionally simple at the UI level so the repository can focus on architecture workflows such as:
+
+- lifecycle modeling
+- transition planning
+- exception handling
+- resolver-driven discovery
+- drift and report review
+
+## Guidance
+
+When proposing changes, treat the example as a product plus an architecture review surface. Keep implementation choices and architecture documentation aligned.

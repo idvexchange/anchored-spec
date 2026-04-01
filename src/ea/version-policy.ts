@@ -8,8 +8,13 @@
  */
 
 import type { CompatibilityReport, CompatibilityLevel, CompatibilityReason } from "./compat.js";
-import type { EaArtifactBase } from "./types.js";
-import { getDomainForKind } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import {
+  getEntityId,
+  getEntityKindMapping,
+  getEntityLegacyKind,
+  getSpec,
+} from "./backstage/accessors.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -69,24 +74,22 @@ const DEFAULT_POLICY: VersionPolicy = {
  * Priority: artifact-level > kind-level > domain-level > global default > breaking-allowed
  */
 export function resolveVersionPolicy(
-  artifact: EaArtifactBase,
+  entity: BackstageEntity,
   config?: VersionPolicyConfig,
 ): VersionPolicy {
-  // 1. Artifact-level (from extensions.versionPolicy)
-  const ext = artifact.extensions as Record<string, unknown> | undefined;
-  const artifactPolicy = ext?.versionPolicy as Partial<VersionPolicy> | undefined;
-  if (artifactPolicy?.compatibility) {
+  const entityPolicy = getSpec(entity).versionPolicy as Partial<VersionPolicy> | undefined;
+  if (entityPolicy?.compatibility) {
     return {
       ...DEFAULT_POLICY,
-      ...artifactPolicy,
-      compatibility: artifactPolicy.compatibility,
+      ...entityPolicy,
+      compatibility: entityPolicy.compatibility,
     };
   }
 
   if (!config) return DEFAULT_POLICY;
 
   // 2. Kind-level
-  const kindPolicy = config.perKind?.[artifact.kind];
+  const kindPolicy = config.perKind?.[getEntityLegacyKind(entity)];
   if (kindPolicy?.compatibility) {
     return {
       ...DEFAULT_POLICY,
@@ -96,7 +99,7 @@ export function resolveVersionPolicy(
   }
 
   // 3. Domain-level
-  const domain = getDomainForKind(artifact.kind) ?? "unknown";
+  const domain = getEntityKindMapping(entity)?.domain ?? "unknown";
   const domainPolicy = config.perDomain?.[domain];
   if (domainPolicy?.compatibility) {
     return {
@@ -146,11 +149,11 @@ function violatesPolicy(
  */
 export function enforceVersionPolicies(
   compatReport: CompatibilityReport,
-  artifacts: { base: EaArtifactBase[]; head: EaArtifactBase[] },
+  entities: { base: BackstageEntity[]; head: BackstageEntity[] },
   config?: VersionPolicyConfig,
 ): PolicyEnforcementReport {
-  const headMap = new Map(artifacts.head.map((a) => [a.id, a]));
-  const baseMap = new Map(artifacts.base.map((a) => [a.id, a]));
+  const headMap = new Map(entities.head.map((entity) => [getEntityId(entity), entity]));
+  const baseMap = new Map(entities.base.map((entity) => [getEntityId(entity), entity]));
   const violations: PolicyViolation[] = [];
 
   const byPolicy: Record<CompatibilityMode, number> = {
@@ -162,10 +165,10 @@ export function enforceVersionPolicies(
 
   for (const assessment of compatReport.assessments) {
     // Resolve policy from the head artifact (or base if removed)
-    const artifact = headMap.get(assessment.artifactId) ?? baseMap.get(assessment.artifactId);
-    if (!artifact) continue;
+    const entity = headMap.get(assessment.artifactId) ?? baseMap.get(assessment.artifactId);
+    if (!entity) continue;
 
-    const policy = resolveVersionPolicy(artifact, config);
+    const policy = resolveVersionPolicy(entity, config);
     byPolicy[policy.compatibility]++;
 
     if (violatesPolicy(assessment.level, policy.compatibility, true)) {

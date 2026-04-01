@@ -7,8 +7,18 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import type { EaArtifactBase } from "../../ea/types.js";
-import { getDomainForKind, resolveEaConfig } from "../../ea/index.js";
+import { resolveConfigV1 } from "../../ea/index.js";
+import {
+  getEntityConfidence,
+  getEntityDomain,
+  getEntityDescription,
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityStatus,
+  getEntityTags,
+  getEntityTitle,
+} from "../../ea/backstage/accessors.js";
+import { formatEntityDisplay, formatEntityHint } from "../entity-ref.js";
 
 export function eaSearchCommand(): Command {
   return new Command("search")
@@ -23,19 +33,19 @@ export function eaSearchCommand(): Command {
     .option("--json", "Output results as JSON")
     .action(async (query: string, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir as string });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
-      const loadResult = await root.loadArtifacts();
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir as string });
+      const root = new EaRoot(cwd, eaConfig);
+      const loadResult = await root.loadEntities();
 
       const queryLower = query.toLowerCase();
 
-      let results: EaArtifactBase[] = loadResult.artifacts.filter((a: EaArtifactBase) => {
+      let results = loadResult.entities.filter((entity) => {
         const searchable = [
-          a.id,
-          a.title,
-          a.kind,
-          a.summary,
-          ...(a.tags ?? []),
+          getEntityId(entity),
+          getEntityTitle(entity),
+          getEntityLegacyKind(entity),
+          getEntityDescription(entity),
+          ...getEntityTags(entity),
         ]
           .join(" ")
           .toLowerCase();
@@ -45,38 +55,39 @@ export function eaSearchCommand(): Command {
 
       // Apply filters
       if (options.kind) {
-        results = results.filter((a: EaArtifactBase) => a.kind === options.kind);
+        results = results.filter((entity) => getEntityLegacyKind(entity) === options.kind);
       }
       if (options.domain) {
-        results = results.filter((a: EaArtifactBase) => getDomainForKind(a.kind) === options.domain);
+        results = results.filter(
+          (entity) => getEntityDomain(entity) === options.domain,
+        );
       }
       if (options.status) {
-        results = results.filter(
-          (a: EaArtifactBase) => a.status === options.status,
-        );
+        results = results.filter((entity) => getEntityStatus(entity) === options.status);
       }
       if (options.tag) {
         const tag = (options.tag as string).toLowerCase();
-        results = results.filter((a: EaArtifactBase) => {
-          const tags = (a.tags ?? []).map((t: string) => t.toLowerCase());
-          return tags.includes(tag);
-        });
+        results = results.filter((entity) =>
+          getEntityTags(entity).some((entityTag) => entityTag.toLowerCase() === tag),
+        );
       }
       if (options.confidence) {
-        results = results.filter(
-          (a: EaArtifactBase) => a.confidence === options.confidence,
-        );
+        results = results.filter((entity) => getEntityConfidence(entity) === options.confidence);
       }
 
       if (options.json) {
-        const output = results.map((a: EaArtifactBase) => ({
-          id: a.id,
-          kind: a.kind,
-          name: a.title,
-          status: a.status,
-          confidence: a.confidence,
-          domain: getDomainForKind(a.kind),
-        }));
+        const output = results.map((entity) => {
+          const kind = getEntityLegacyKind(entity);
+          return {
+            id: getEntityId(entity),
+            displayId: formatEntityHint(entity),
+            kind,
+            name: getEntityTitle(entity),
+            status: getEntityStatus(entity),
+            confidence: getEntityConfidence(entity),
+            domain: getEntityDomain(entity),
+          };
+        });
         console.log(JSON.stringify(output, null, 2));
         return;
       }
@@ -88,14 +99,19 @@ export function eaSearchCommand(): Command {
 
       console.log(chalk.blue(`Found ${results.length} artifact${results.length === 1 ? "" : "s"}:\n`));
 
-      for (const a of results) {
-        const domain = getDomainForKind(a.kind) ?? "unknown";
+      for (const entity of results) {
+        const kind = getEntityLegacyKind(entity);
+        const domain = getEntityDomain(entity) ?? "unknown";
+        const id = formatEntityDisplay(entity);
+        const title = getEntityTitle(entity);
+        const status = getEntityStatus(entity);
+        const confidence = getEntityConfidence(entity);
 
         console.log(
-          `  ${chalk.green(a.id)} ${chalk.dim("·")} ${a.title}`,
+          `  ${chalk.green(id)} ${chalk.dim("·")} ${title}`,
         );
         console.log(
-          chalk.dim(`    ${a.kind} · ${domain} · ${a.status} · ${a.confidence}`),
+          chalk.dim(`    ${kind} · ${domain} · ${status} · ${confidence}`),
         );
       }
     });

@@ -1,58 +1,24 @@
-# EA Example Project — E-Commerce Platform
+# Historical EA Fixture Example
 
-This directory contains a realistic 15-artifact EA fixture set for an e-commerce platform. It demonstrates the unified artifact model, relations, anchors, transitions, and exceptions.
+This directory is a regression fixture for the older domain-folder EA layout.
 
-## Artifacts
+It is kept because the repository still tests and documents current anchored-spec behavior against realistic historical data sets, but it is **not** the recommended starting point for new projects.
 
-### Systems Domain (5 artifacts)
-- `APP-order-service` — Core order processing application
-- `SVC-payment-api` — Payment processing API service
-- `API-orders-v2` — Versioned API contract for orders
-- `IFACE-order-events` — Event-driven interface (Kafka)
-- `CON-partner-portal` — External consumer of the orders API
+## Use this example for
 
-### Delivery Domain (3 artifacts)
-- `DEP-order-service-k8s` — Kubernetes deployment for order service
-- `PIPE-order-service-ci` — CI/CD pipeline
-- `ENV-production` — Production environment
+- regression-oriented tests
+- comparing old fixture layouts to the current entity-native framework
+- understanding the kinds of data older repositories may still carry during migration work
 
-### Data Domain (3 artifacts)
-- `STORE-orders-postgres` — PostgreSQL database for orders
-- `DOBJ-orders-table` — The orders table schema
-- `DFLOW-order-analytics` — ETL pipeline to analytics warehouse
+## Do not use this example as a new project template
 
-### Transitions Domain (3 artifacts)
-- `BASELINE-q1-2026` — Current state baseline
-- `TARGET-q3-2026` — Target state (payment service migration)
-- `TPLAN-payment-migration` — Transition plan for the migration
+For current authoring, start with:
 
-### Exceptions (1 artifact)
-- `EXC-legacy-payment-endpoint` — Exception for undocumented legacy endpoint
+- `examples/backstage-manifest`
+- `examples/backstage-inline`
 
-## Usage
+## What is inside
 
-These files serve as:
-1. **Test fixtures** for EA validation, drift, and graph tests
-2. **Documentation examples** showing correct artifact structure
-3. **Onboarding reference** for teams adopting EA
+The fixture models a small e-commerce architecture with systems, delivery, data, information, business, and transition records arranged in the older folder-first structure.
 
-## Relation Graph
-
-```mermaid
-graph LR
-    APP-order-service -->|dependsOn| SVC-payment-api
-    APP-order-service -->|implements| API-orders-v2
-    APP-order-service -->|deployedAs| DEP-order-service-k8s
-    APP-order-service -->|storesIn| STORE-orders-postgres
-    APP-order-service -->|publishes| IFACE-order-events
-    API-orders-v2 -->|consumedBy| CON-partner-portal
-    STORE-orders-postgres -->|contains| DOBJ-orders-table
-    DOBJ-orders-table -->|flowsTo| DFLOW-order-analytics
-    DEP-order-service-k8s -->|deployedTo| ENV-production
-    SVC-payment-api -->|deployedTo| ENV-production
-    BASELINE-q1-2026 -.->|captures| APP-order-service
-    BASELINE-q1-2026 -.->|captures| SVC-payment-api
-    TARGET-q3-2026 -.->|targets| SVC-payment-api
-    TPLAN-payment-migration -.->|from| BASELINE-q1-2026
-    TPLAN-payment-migration -.->|to| TARGET-q3-2026
-```
+That makes it useful as a compatibility and migration reference, but not as the current authored contract.

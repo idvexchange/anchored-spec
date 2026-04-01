@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Heading, List, ListItem, PhrasingContent } from "mdast";
+import type { Heading, List, ListItem } from "mdast";
 import { toString } from "mdast-util-to-string";
 import type {
   FactExtractor,

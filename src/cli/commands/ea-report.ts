@@ -10,7 +10,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   EaRoot,
-  resolveEaConfig,
+  resolveConfigV1,
   buildSystemDataMatrix,
   renderSystemDataMatrixMarkdown,
   buildClassificationCoverage,
@@ -28,17 +28,16 @@ import {
   renderTraceabilityIndexMarkdown,
   REPORT_VIEWS,
   EA_DOMAINS,
-  getDomainForKind,
 } from "../../ea/index.js";
 import type { EaDomain } from "../../ea/index.js";
 import type { BackstageEntity } from "../../ea/backstage/types.js";
-import { artifactToBackstage } from "../../ea/backstage/bridge.js";
-import { getEntityLegacyKind } from "../../ea/backstage/accessors.js";
+import { getEntityDomain, getEntityId } from "../../ea/backstage/accessors.js";
+import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
 /** Filter entities to a specific domain. */
 function filterByDomain(entities: BackstageEntity[], domain: string): BackstageEntity[] {
-  return entities.filter((a) => getDomainForKind(getEntityLegacyKind(a)) === domain);
+  return entities.filter((a) => getEntityDomain(a) === domain);
 }
 
 export function eaReportCommand(): Command {
@@ -51,17 +50,17 @@ export function eaReportCommand(): Command {
     .option("--output-dir <dir>", "Output directory for --all", "ea/generated")
     .option("--domain <domain>", "Filter report to a specific EA domain")
     .option("--root-dir <path>", "EA root directory", "ea")
-    .option("--baseline <id>", "Baseline artifact ID (for gap-analysis)")
-    .option("--target <id>", "Target artifact ID (for gap-analysis)")
-    .option("--plan <id>", "Transition plan artifact ID (for gap-analysis)")
+    .option("--baseline <entity-ref>", "Baseline entity ref for gap-analysis")
+    .option("--target <entity-ref>", "Target entity ref for gap-analysis")
+    .option("--plan <entity-ref>", "Transition plan entity ref for gap-analysis")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2
         );
       }
@@ -73,8 +72,9 @@ export function eaReportCommand(): Command {
         );
       }
 
-      const result = await root.loadArtifacts();
-      const entities = result.artifacts.map(artifactToBackstage);
+      const result = await root.loadEntities();
+      const entities = result.entities;
+      const lookup = buildEntityLookup(entities);
 
       // Apply domain filter
       const domainFilter = options.domain as string | undefined;
@@ -193,10 +193,19 @@ export function eaReportCommand(): Command {
               2
             );
           }
+          const resolveGapEntity = (input: string, label: string): string => {
+            const entity = lookup.byInput.get(input);
+            if (entity) return getEntityId(entity);
+            const similar = suggestEntities(input, entities);
+            const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
+            throw new CliError(`${label} "${input}" not found.${hint}`, 2);
+          };
           const report = buildGapAnalysis(artifacts, {
-            baselineId: options.baseline as string,
-            targetId: options.target as string,
-            planId: options.plan as string | undefined,
+            baselineId: resolveGapEntity(options.baseline as string, "Baseline entity"),
+            targetId: resolveGapEntity(options.target as string, "Target entity"),
+            planId: options.plan
+              ? resolveGapEntity(options.plan as string, "Transition plan entity")
+              : undefined,
           });
           if (format === "json") {
             output = JSON.stringify(report, null, 2);

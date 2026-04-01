@@ -3,13 +3,14 @@ import { join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { silentLogger } from "../resolvers/types.js";
-import type { EaArtifactBase } from "../types.js";
+import { getEntityId, getEntityTitle } from "../backstage/accessors.js";
 import type {
   EaGenerator,
   EaGeneratorContext,
   GeneratedOutput,
   GenerationDrift,
 } from "../generators/index.js";
+import { makeEntity } from "./helpers/make-entity.js";
 import {
   runGenerators,
   renderGenerationReportMarkdown,
@@ -28,14 +29,14 @@ function makeTestGenerator(overrides?: Partial<EaGenerator>): EaGenerator {
     name: "test-gen",
     kinds: ["api-contract"],
     outputFormat: "json",
-    generate(artifact: EaArtifactBase, _ctx: EaGeneratorContext): GeneratedOutput[] {
+    generate(entity, _ctx: EaGeneratorContext): GeneratedOutput[] {
       return [
         {
-          relativePath: `${artifact.id.replace(/\//g, "-")}.json`,
-          content: JSON.stringify({ title: artifact.title, generated: true }, null, 2),
+          relativePath: `${getEntityId(entity).replace(/[:/]/g, "-")}.json`,
+          content: JSON.stringify({ title: getEntityTitle(entity), generated: true }, null, 2),
           contentType: "json",
-          sourceArtifactId: artifact.id,
-          description: `Generated from ${artifact.title}`,
+          sourceArtifactId: getEntityId(entity),
+          description: `Generated from ${getEntityTitle(entity)}`,
           overwrite: true,
         },
       ];
@@ -44,8 +45,8 @@ function makeTestGenerator(overrides?: Partial<EaGenerator>): EaGenerator {
   };
 }
 
-function makeArtifact(overrides: Partial<EaArtifactBase> = {}): EaArtifactBase {
-  return {
+function makeGeneratorEntity(overrides: Record<string, unknown> = {}) {
+  return makeEntity({
     id: "systems/API-orders",
     kind: "api-contract",
     title: "Orders API",
@@ -53,7 +54,7 @@ function makeArtifact(overrides: Partial<EaArtifactBase> = {}): EaArtifactBase {
     owners: ["team-commerce"],
     anchors: { apis: ["GET /orders", "POST /orders"] },
     ...overrides,
-  } as EaArtifactBase;
+  });
 }
 
 // ─── runGenerators ──────────────────────────────────────────────────────────────
@@ -67,10 +68,10 @@ describe("runGenerators", () => {
 
   it("should generate outputs for matching artifacts", () => {
     const generator = makeTestGenerator();
-    const artifact = makeArtifact();
+    const entity = makeGeneratorEntity();
 
     const report = runGenerators({
-      artifacts: [artifact],
+      entities: [entity],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -80,7 +81,7 @@ describe("runGenerators", () => {
     });
 
     expect(report.outputs.length).toBe(1);
-    expect(report.outputs[0]!.sourceArtifactId).toBe("systems/API-orders");
+    expect(report.outputs[0]!.sourceArtifactId).toBe("api:orders");
     expect(report.summary.generatorsRun).toBe(1);
     expect(report.summary.artifactsProcessed).toBe(1);
     expect(report.summary.filesGenerated).toBe(1);
@@ -88,10 +89,10 @@ describe("runGenerators", () => {
 
   it("should skip non-matching artifact kinds", () => {
     const generator = makeTestGenerator({ kinds: ["deployment"] });
-    const artifact = makeArtifact({ kind: "api-contract" });
+    const entity = makeGeneratorEntity({ kind: "api-contract" });
 
     const report = runGenerators({
-      artifacts: [artifact],
+      entities: [entity],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -107,10 +108,10 @@ describe("runGenerators", () => {
   it("should write files in generate mode", () => {
     mkdirSync(TEST_ROOT, { recursive: true });
     const generator = makeTestGenerator();
-    const artifact = makeArtifact();
+    const entity = makeGeneratorEntity();
 
     const report = runGenerators({
-      artifacts: [artifact],
+      entities: [entity],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -119,7 +120,7 @@ describe("runGenerators", () => {
     });
 
     expect(report.summary.filesWritten).toBe(1);
-    const outputPath = join(TEST_ROOT, "generated", "systems-API-orders.json");
+    const outputPath = join(TEST_ROOT, "generated", "api-orders.json");
     expect(existsSync(outputPath)).toBe(true);
     const content = JSON.parse(readFileSync(outputPath, "utf-8"));
     expect(content.title).toBe("Orders API");
@@ -129,10 +130,10 @@ describe("runGenerators", () => {
   it("should not write files in dry-run mode", () => {
     mkdirSync(TEST_ROOT, { recursive: true });
     const generator = makeTestGenerator();
-    const artifact = makeArtifact();
+    const entity = makeGeneratorEntity();
 
     const report = runGenerators({
-      artifacts: [artifact],
+      entities: [entity],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -148,16 +149,16 @@ describe("runGenerators", () => {
 
   it("should skip existing files when overwrite is false", () => {
     mkdirSync(join(TEST_ROOT, "generated"), { recursive: true });
-    writeFileSync(join(TEST_ROOT, "generated", "systems-API-orders.json"), "existing");
+    writeFileSync(join(TEST_ROOT, "generated", "api-orders.json"), "existing");
 
     const generator = makeTestGenerator({
-      generate(artifact) {
+      generate(entity) {
         return [
           {
-            relativePath: `${artifact.id.replace(/\//g, "-")}.json`,
+            relativePath: `${getEntityId(entity).replace(/[:/]/g, "-")}.json`,
             content: "new content",
             contentType: "json",
-            sourceArtifactId: artifact.id,
+            sourceArtifactId: getEntityId(entity),
             description: "test",
             overwrite: false,
           },
@@ -166,7 +167,7 @@ describe("runGenerators", () => {
     });
 
     const report = runGenerators({
-      artifacts: [makeArtifact()],
+      entities: [makeGeneratorEntity()],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -176,7 +177,7 @@ describe("runGenerators", () => {
 
     expect(report.summary.filesSkipped).toBe(1);
     expect(report.summary.filesWritten).toBe(0);
-    expect(readFileSync(join(TEST_ROOT, "generated", "systems-API-orders.json"), "utf-8")).toBe("existing");
+    expect(readFileSync(join(TEST_ROOT, "generated", "api-orders.json"), "utf-8")).toBe("existing");
   });
 
   it("should filter by generator name", () => {
@@ -184,7 +185,7 @@ describe("runGenerators", () => {
     const gen2 = makeTestGenerator({ name: "gen2" });
 
     const report = runGenerators({
-      artifacts: [makeArtifact()],
+      entities: [makeGeneratorEntity()],
       generators: [gen1, gen2],
       generatorConfigs: [{ name: "gen1" }, { name: "gen2" }],
       projectRoot: TEST_ROOT,
@@ -199,13 +200,13 @@ describe("runGenerators", () => {
 
   it("should filter by artifact kind", () => {
     const generator = makeTestGenerator({ kinds: ["api-contract", "deployment"] });
-    const artifacts = [
-      makeArtifact({ kind: "api-contract" }),
-      makeArtifact({ id: "delivery/DEPLOY-x", kind: "deployment", title: "Deploy X" }),
+    const entities = [
+      makeGeneratorEntity({ kind: "api-contract" }),
+      makeGeneratorEntity({ id: "delivery/DEPLOY-x", kind: "deployment", title: "Deploy X" }),
     ];
 
     const report = runGenerators({
-      artifacts,
+      entities,
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -220,14 +221,14 @@ describe("runGenerators", () => {
 
   it("should process multiple artifacts", () => {
     const generator = makeTestGenerator();
-    const artifacts = [
-      makeArtifact({ id: "systems/API-a", title: "A" }),
-      makeArtifact({ id: "systems/API-b", title: "B" }),
-      makeArtifact({ id: "systems/API-c", title: "C" }),
+    const entities = [
+      makeGeneratorEntity({ id: "systems/API-a", title: "A" }),
+      makeGeneratorEntity({ id: "systems/API-b", title: "B" }),
+      makeGeneratorEntity({ id: "systems/API-c", title: "C" }),
     ];
 
     const report = runGenerators({
-      artifacts,
+      entities,
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -259,7 +260,7 @@ describe("runGenerators check mode", () => {
     });
 
     const report = runGenerators({
-      artifacts: [makeArtifact()],
+      entities: [makeGeneratorEntity()],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -276,17 +277,17 @@ describe("runGenerators check mode", () => {
   it("should detect drift in existing files", () => {
     mkdirSync(join(TEST_ROOT, "generated"), { recursive: true });
     writeFileSync(
-      join(TEST_ROOT, "generated", "systems-API-orders.json"),
+      join(TEST_ROOT, "generated", "api-orders.json"),
       '{"manually": "modified"}',
     );
 
     const generator = makeTestGenerator({
-      diff(currentOutput, artifact): GenerationDrift[] {
+      diff(currentOutput, entity): GenerationDrift[] {
         if (currentOutput.includes("manually")) {
           return [
             {
-              filePath: `${artifact.id.replace(/\//g, "-")}.json`,
-              sourceArtifactId: artifact.id,
+              filePath: `${getEntityId(entity).replace(/[:/]/g, "-")}.json`,
+              sourceArtifactId: getEntityId(entity),
               message: "File has been manually modified",
               suggestion: "review",
             },
@@ -297,7 +298,7 @@ describe("runGenerators check mode", () => {
     });
 
     const report = runGenerators({
-      artifacts: [makeArtifact()],
+      entities: [makeGeneratorEntity()],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,
@@ -313,7 +314,7 @@ describe("runGenerators check mode", () => {
   it("should report no drift when files match", () => {
     mkdirSync(join(TEST_ROOT, "generated"), { recursive: true });
     writeFileSync(
-      join(TEST_ROOT, "generated", "systems-API-orders.json"),
+      join(TEST_ROOT, "generated", "api-orders.json"),
       JSON.stringify({ title: "Orders API", generated: true }, null, 2),
     );
 
@@ -324,7 +325,7 @@ describe("runGenerators check mode", () => {
     });
 
     const report = runGenerators({
-      artifacts: [makeArtifact()],
+      entities: [makeGeneratorEntity()],
       generators: [generator],
       generatorConfigs: [{ name: "test-gen" }],
       projectRoot: TEST_ROOT,

@@ -9,42 +9,29 @@ import {
   renderCompatSummary,
   renderCompatMarkdown,
 } from "../compat.js";
-import type { EaArtifactBase } from "../types.js";
 import type { BackstageEntity } from "../backstage/types.js";
-import { makeEntity as _bridgeMakeEntity } from "./helpers/make-entity.js";
-import { getEntityId, getEntityStatus } from "../backstage/accessors.js";
+import { makeEntity as _makeEntity } from "./helpers/make-entity.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 /**
- * Create a BackstageEntity for compat testing. Wraps the bridge-based helper
+ * Create a BackstageEntity for compat testing.
  * and injects spec.status / spec.confidence so the diff engine produces field
  * names the compat rules can detect.
  */
 function makeEntity(
-  overrides: Parameters<typeof _bridgeMakeEntity>[0],
+  overrides: Parameters<typeof _makeEntity>[0],
 ): BackstageEntity {
-  const entity = _bridgeMakeEntity(overrides);
+  const entity = _makeEntity(overrides);
   const spec = entity.spec as Record<string, unknown>;
   spec.status = overrides.status ?? "active";
   spec.confidence = overrides.confidence ?? "declared";
   return entity;
 }
 
-/** Thin shim so assessCompatibility can look up artifacts by entity-ref ID. */
-function toShim(entity: BackstageEntity): EaArtifactBase {
-  return {
-    id: getEntityId(entity),
-    status: getEntityStatus(entity),
-  } as EaArtifactBase;
-}
-
 function assess(base: BackstageEntity[], head: BackstageEntity[]) {
   const diff = diffEaArtifacts(base, head);
-  return assessCompatibility(diff, {
-    base: base.map(toShim),
-    head: head.map(toShim),
-  });
+  return assessCompatibility(diff, { base, head });
 }
 
 // ─── assessCompatibility ────────────────────────────────────────────────────────

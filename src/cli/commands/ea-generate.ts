@@ -5,7 +5,7 @@
  */
 
 import { Command } from "commander";
-import { resolveEaConfig, EaRoot } from "../../ea/index.js";
+import { resolveConfigV1, EaRoot } from "../../ea/index.js";
 import { CliError } from "../errors.js";
 import {
   runGenerators,
@@ -27,21 +27,21 @@ export function eaGenerateCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2,
         );
       }
 
-      // Load artifacts
-      const result = await root.loadArtifacts();
-      const artifacts = result.artifacts;
-      if (artifacts.length === 0) {
-        console.log("No EA artifacts found.");
+      // Load entities
+      const result = await root.loadEntities();
+      const entities = result.entities;
+      if (entities.length === 0) {
+        console.log("No EA entities found.");
         return;
       }
 
@@ -73,7 +73,7 @@ export function eaGenerateCommand(): Command {
       const kinds = options.kind ? options.kind.split(",").map((k: string) => k.trim()) : undefined;
 
       const report = runGenerators({
-        artifacts,
+        entities,
         generators,
         generatorConfigs,
         projectRoot: cwd,

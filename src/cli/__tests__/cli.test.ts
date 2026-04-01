@@ -14,7 +14,6 @@ describe("CLI", () => {
     const { eaEvidenceCommand } = await import("../commands/ea-evidence.js");
     const { eaGraphCommand } = await import("../commands/ea-graph.js");
     const { eaImpactCommand } = await import("../commands/ea-impact.js");
-    const { migrateConfigCommand } = await import("../commands/migrate-config.js");
 
     expect(typeof eaInitCommand).toBe("function");
     expect(typeof eaCreateCommand).toBe("function");
@@ -28,6 +27,5 @@ describe("CLI", () => {
     expect(typeof eaEvidenceCommand).toBe("function");
     expect(typeof eaGraphCommand).toBe("function");
     expect(typeof eaImpactCommand).toBe("function");
-    expect(typeof migrateConfigCommand).toBe("function");
   });
 });

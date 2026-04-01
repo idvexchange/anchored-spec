@@ -18,6 +18,8 @@ export interface WriteOptions {
   indent?: number;
   /** Line width for YAML scalar wrapping (default: 120, 0 to disable). */
   lineWidth?: number;
+  /** Include derived catalog/runtime fields like top-level relations and status. */
+  includeDerivedFields?: boolean;
 }
 
 // ─── Single Document ────────────────────────────────────────────────────────────
@@ -30,7 +32,7 @@ export function writeBackstageYaml(
   entity: BackstageEntity,
   options?: WriteOptions,
 ): string {
-  const ordered = prepareEntity(entity);
+  const ordered = prepareEntity(entity, options);
   return stringify(ordered, {
     indent: options?.indent ?? 2,
     lineWidth: options?.lineWidth ?? 120,
@@ -80,10 +82,13 @@ export function writeBackstageFrontmatter(
 
 /**
  * Ensure top-level entity keys come out in canonical Backstage order:
- * apiVersion → kind → metadata → spec → relations → (everything else).
+ * apiVersion → kind → metadata → spec → derived fields → (everything else).
  */
-function prepareEntity(entity: BackstageEntity): Record<string, unknown> {
-  const { apiVersion, kind, metadata, spec, relations, ...rest } =
+function prepareEntity(
+  entity: BackstageEntity,
+  options?: WriteOptions,
+): Record<string, unknown> {
+  const { apiVersion, kind, metadata, spec, relations, status, ...rest } =
     entity as unknown as Record<string, unknown>;
 
   const result: Record<string, unknown> = { apiVersion, kind };
@@ -94,7 +99,10 @@ function prepareEntity(entity: BackstageEntity): Record<string, unknown> {
     );
   }
   if (spec !== undefined) result.spec = spec;
-  if (relations !== undefined) result.relations = relations;
+  if (options?.includeDerivedFields) {
+    if (status !== undefined) result.status = status;
+    if (relations !== undefined) result.relations = relations;
+  }
 
   // Preserve any non-standard top-level keys
   for (const [key, value] of Object.entries(rest)) {

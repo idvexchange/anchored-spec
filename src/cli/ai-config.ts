@@ -39,63 +39,61 @@ function domainList(domains: Record<string, string>, prefix: string): string {
 // ── Generators ──────────────────────────────────────────────────────────────────
 
 export function generateCopilotInstructions(config: AiConfigInput): string {
-  const { rootDir, domains } = config;
+  const { rootDir } = config;
   return `# Anchored Spec — Copilot Instructions
 
 This project uses **anchored-spec**, a spec-as-source enterprise architecture framework.
-Architecture is defined as machine-validated YAML/JSON artifacts, not documentation.
+Architecture is defined as Backstage-aligned entities stored in catalog manifests or markdown frontmatter.
 
 ## Project Structure
 
 - \`.anchored-spec/config.json\` — Framework configuration
-- \`${rootDir}/\` — EA artifact directories organized by domain:
-${domainList(domains, "  - ")}
+- \`catalog-info.yaml\` or \`docs/*.md\` — Entity storage, depending on \`entityMode\`
+- \`${rootDir}/generated/\` — Generated outputs and reports
 - \`SKILL.md\` — Detailed AI agent workflow instructions (READ THIS for comprehensive guidance)
 
 ## Key Commands
 
 | Command | Purpose |
 |---|---|
-| \`npx anchored-spec validate\` | Validate all artifacts against schemas |
-| \`npx anchored-spec create --kind <kind> --title "Name"\` | Create a new artifact |
-| \`npx anchored-spec discover\` | Discover artifacts from code and infrastructure |
+| \`npx anchored-spec validate\` | Validate all entities against schemas |
+| \`npx anchored-spec create <kind> --title "Name"\` | Create a new entity |
+| \`npx anchored-spec discover\` | Discover entities from code and infrastructure |
 | \`npx anchored-spec drift\` | Detect drift between specs and reality |
 | \`npx anchored-spec diff --base main\` | Semantic diff with compatibility checks |
 | \`npx anchored-spec reconcile\` | Full pipeline: generate → validate → drift |
 | \`npx anchored-spec graph\` | Generate dependency graph |
-| \`npx anchored-spec impact <artifact-id>\` | Analyze change impact |
+| \`npx anchored-spec impact <entity-ref>\` | Analyze change impact |
 
-## Artifact Format
+## Entity Format
 
-Every artifact has: \`apiVersion: anchored-spec/ea/v1\`, \`kind\`, \`id\` ({PREFIX}-{slug}),
-\`metadata\` (name, summary, owners, tags, confidence, status), \`relations[]\`.
+Entities use the Backstage catalog shape: \`apiVersion\`, \`kind\`, \`metadata\`, and \`spec\`.
+Anchored-spec metadata lives in \`anchored-spec.dev/*\` annotations and entity-specific \`spec\` fields.
 
 ## Rules
 
-1. Always validate after modifying artifacts: \`npx anchored-spec validate\`
-2. Never set \`confidence: "declared"\` on discovered/inferred artifacts — human must promote
-3. Relations reference artifact IDs, not file paths
+1. Always validate after modifying entities: \`npx anchored-spec validate\`
+2. Keep \`metadata.name\` stable once referenced by other entities or docs
+3. Use project-configured manifest or inline storage; do not invent ad-hoc file layouts
 4. Read \`SKILL.md\` for detailed workflow guidance before complex operations
 `;
 }
 
-export function generateClaudeMd(config: AiConfigInput): string {
-  const { rootDir, domains } = config;
+export function generateClaudeMd(_config: AiConfigInput): string {
   return `# CLAUDE.md — Anchored Spec Project
 
-Spec-as-source EA framework. Architecture = validated YAML/JSON artifacts, not docs.
+Spec-as-source EA framework. Architecture = Backstage-aligned entities, not ad-hoc docs.
 
 ## Read First
 - \`SKILL.md\` — Complete AI agent instruction set (26 sections, 15 workflows). READ THIS.
 - \`.anchored-spec/config.json\` — Project configuration
 
 ## Structure
-\`${rootDir}/\` contains EA artifacts across domains:
-${domainList(domains, "- ")}
+\`catalog-info.yaml\` or \`docs/*.md\` stores the project entities, based on \`.anchored-spec/config.json\`.
 
 ## Commands
-- \`npx anchored-spec validate\` — Validate artifacts
-- \`npx anchored-spec create --kind <kind> --title "Name"\` — Create artifact
+- \`npx anchored-spec validate\` — Validate entities
+- \`npx anchored-spec create <kind> --title "Name"\` — Create entity
 - \`npx anchored-spec discover\` — Discover from code/infra
 - \`npx anchored-spec drift\` — Check drift
 - \`npx anchored-spec diff --base main\` — Semantic diff
@@ -103,16 +101,15 @@ ${domainList(domains, "- ")}
 
 ## Key Rules
 - Always validate after changes
-- Artifacts use \`id: {PREFIX}-{slug}\` format (e.g., APP-todo-web, API-v1)
-- Relations reference artifact IDs, not paths
-- Discovered artifacts are \`draft\` + \`inferred\` — never auto-promote
+- Entities use stable \`metadata.name\` slugs and Backstage-compatible refs
+- Preserve \`anchored-spec.dev/*\` annotations when editing entity YAML/frontmatter
+- Discovered entities stay \`draft\` + \`inferred\` until a human promotes them
 `;
 }
 
 // ── Reusable Prompt Generators ──────────────────────────────────────────────────
 
 export interface AgentPrompts {
-  enrich: string;
   scaffold: string;
   trace: string;
   context: string;
@@ -126,29 +123,6 @@ export interface AgentPrompts {
  * The format is agent-agnostic markdown with $ARGUMENTS placeholder.
  */
 export function generateAgentPrompts(_config: AiConfigInput): AgentPrompts {
-  const enrich = `Analyze the file $ARGUMENTS (or the currently open file) and generate accurate EA frontmatter metadata.
-
-Steps:
-1. Read the document content and identify architectural references (services, APIs, schemas, events, capabilities)
-2. Run \`npx anchored-spec status\` to see existing EA artifacts
-3. Map references to artifact IDs using the correct prefix: SVC- (service), API- (api-contract), SCHEMA- (schema), EVT- (event), CAP- (capability), APP- (application), etc.
-4. Determine the document type (spec, architecture, guide, adr, runbook), audience, and domain
-5. Add or update YAML frontmatter at the top of the file:
-   \`\`\`yaml
-   ---
-   type: spec
-   status: draft
-   audience: developer
-   domain: systems
-   ea-artifacts: [SVC-auth-core, API-auth-v1]
-   last-verified: {today}
-   ---
-   \`\`\`
-6. Run \`npx anchored-spec trace $ARGUMENTS\` to verify the links
-
-Rules: Only list artifact IDs the document genuinely relates to. Preserve existing frontmatter. Use correct EA prefixes from SKILL.md §4.
-`;
-
   const scaffold = `Scaffold EA artifacts from document frontmatter references.
 
 Steps:
@@ -208,7 +182,7 @@ Steps:
 6. Report a go/no-go decision with specific items to fix before implementation
 `;
 
-  return { enrich, scaffold, trace, context, drift, audit };
+  return { scaffold, trace, context, drift, audit };
 }
 
 /**
@@ -218,13 +192,6 @@ export function generateCopilotPrompts(config: AiConfigInput): Array<{ name: str
   const prompts = generateAgentPrompts(config);
 
   return [
-    {
-      name: "ea-enrich",
-      content: `---
-description: "Analyze a spec document and generate EA artifact frontmatter metadata"
----
-${prompts.enrich}`,
-    },
     {
       name: "ea-scaffold",
       content: `---
@@ -270,7 +237,6 @@ export function generateClaudeCommands(config: AiConfigInput): Array<{ name: str
   const prompts = generateAgentPrompts(config);
 
   return [
-    { name: "ea-enrich", content: prompts.enrich },
     { name: "ea-scaffold", content: prompts.scaffold },
     { name: "ea-trace", content: prompts.trace },
     { name: "ea-context", content: prompts.context },
@@ -345,7 +311,6 @@ Each artifact kind has a unique prefix:
 
 export interface KiroHooks {
   validateOnSave: string;
-  enrichOnCreate: string;
   traceOnSave: string;
   driftOnSave: string;
 }
@@ -370,53 +335,6 @@ action: |
   4. If everything is valid, report "✓ Artifact valid" and nothing more.
 
   Be concise — only report problems. A clean artifact needs no explanation.
-`;
-
-  const enrichOnCreate = `name: "Enrich New Spec Document"
-description: "Auto-generate ea-artifacts frontmatter when a new markdown spec is created"
-trigger: onCreate
-pattern: "{docs,specs,doc,documentation}/**/*.md"
-action: |
-  A new markdown document was created. Help the author connect it to the EA model.
-
-  1. Read the new file and analyze its content for architectural references:
-     - Service names → SVC-{name}
-     - API endpoints → API-{name}
-     - Database schemas → SCHEMA-{name}
-     - Business capabilities → CAP-{name}
-     - Any explicit artifact IDs mentioned in the text
-
-  2. Check which EA artifacts currently exist:
-     \`\`\`bash
-     npx anchored-spec status 2>/dev/null
-     \`\`\`
-
-  3. Determine the document metadata:
-     - type: spec | architecture | guide | adr | runbook
-     - audience: agent, developer, architect, or stakeholder
-     - domain: which EA domain(s) — systems, delivery, data, information, business, transitions
-
-  4. Add YAML frontmatter at the top of the file:
-     \`\`\`yaml
-     ---
-     type: spec
-     status: draft
-     audience: developer
-     domain: systems
-     ea-artifacts: [SVC-auth-core, API-auth-v1]
-     ---
-     \`\`\`
-
-  5. If new artifact IDs were referenced that don't exist yet, suggest:
-     \`\`\`bash
-     npx anchored-spec discover --from-docs
-     \`\`\`
-
-  Rules:
-  - Only add artifact IDs that the document genuinely relates to
-  - Use correct EA prefixes (APP, SVC, API, SCHEMA, CAP, etc.)
-  - If the document is clearly non-architectural (e.g. a meeting note), skip enrichment
-  - Preserve any existing frontmatter and merge new fields
 `;
 
   const traceOnSave = `name: "Check Trace Integrity"
@@ -469,14 +387,13 @@ action: |
   4. If no drift is detected, report nothing.
 `;
 
-  return { validateOnSave, enrichOnCreate, traceOnSave, driftOnSave };
+  return { validateOnSave, traceOnSave, driftOnSave };
 }
 
 // ── Spec-Kit Extension Generator ────────────────────────────────────────────────
 
 export interface SpecKitExtension {
   manifest: string;
-  enrichCmd: string;
   scaffoldCmd: string;
   traceCmd: string;
   contextCmd: string;
@@ -505,11 +422,6 @@ requires:
 
 provides:
   commands:
-    - name: "speckit.anchored-spec.enrich"
-      file: "commands/enrich.md"
-      description: "Analyze a spec and auto-generate ea-artifacts YAML frontmatter"
-      aliases: ["speckit.anchored-spec.fm"]
-
     - name: "speckit.anchored-spec.scaffold"
       file: "commands/scaffold.md"
       description: "Scaffold EA artifacts from spec document frontmatter references"
@@ -533,86 +445,6 @@ tags:
   - "traceability"
   - "spec-driven"
   - "frontmatter"
-`;
-
-  const enrichCmd = `---
-description: "Analyze a markdown spec and auto-generate ea-artifacts YAML frontmatter"
----
-
-# Enrich Spec with EA Frontmatter
-
-You are an EA frontmatter enrichment agent. Your job is to analyze a spec document
-and generate accurate YAML frontmatter that links it to EA artifacts.
-
-## User Input
-
-$ARGUMENTS
-
-If no file is specified, operate on the currently open file.
-
-## Steps
-
-### 1. Understand the project's EA model
-
-\`\`\`bash
-npx anchored-spec status 2>/dev/null || echo "No artifacts yet"
-npx anchored-spec trace --summary --json 2>/dev/null || echo "{}"
-\`\`\`
-
-### 2. Read the target spec document
-
-Read the file specified in $ARGUMENTS. Analyze its content for:
-- **Domain**: Which EA domain(s) does this spec relate to? (systems, delivery, data, information, business, transitions)
-- **Type**: Is this a spec, architecture doc, guide, ADR, or runbook?
-- **Audience**: Who is this for? (agent, developer, architect, stakeholder)
-- **Artifact references**: Which EA artifact IDs are mentioned or implied?
-
-### 3. Identify artifact IDs
-
-Look for references to:
-- Service names → \`SVC-{name}\`
-- API endpoints → \`API-{name}\`
-- Database tables/schemas → \`SCHEMA-{name}\` or \`STORE-{name}\`
-- Events/messages → \`EVT-{name}\`
-- Business capabilities → \`CAP-{name}\`
-- Any explicit artifact IDs already in the text
-
-Cross-reference against existing artifacts:
-\`\`\`bash
-npx anchored-spec validate --json 2>/dev/null | head -5
-\`\`\`
-
-### 4. Generate frontmatter
-
-Add or update the YAML frontmatter at the top of the file:
-
-\`\`\`yaml
----
-type: spec          # spec | architecture | guide | adr | runbook
-status: draft       # draft | current | deprecated | superseded
-audience: agent, developer
-domain: systems     # EA domain(s)
-requires: []        # Other docs this depends on (relative paths)
-ea-artifacts: [SVC-auth-core, API-auth-v1]  # EA artifact IDs
-last-verified: {today's date in YYYY-MM-DD}
----
-\`\`\`
-
-### 5. Validate the result
-
-\`\`\`bash
-npx anchored-spec trace $ARGUMENTS 2>/dev/null
-\`\`\`
-
-Report which artifacts exist, which are new, and whether \`discover --from-docs\`
-should be run to scaffold the new ones.
-
-## Rules
-
-- **Be accurate**: Only list artifact IDs that the spec genuinely relates to
-- **Use correct prefixes**: SVC for services, API for APIs, SCHEMA for schemas, etc.
-- **Preserve existing frontmatter**: Merge new fields with any existing frontmatter
-- **Don't invent artifacts**: If unsure whether an artifact exists, list it anyway — \`trace --check\` will catch mismatches
 `;
 
   const scaffoldCmd = `---
@@ -796,7 +628,7 @@ Organize the output into these context blocks for the implementing agent:
 | **Current state** | Status, confidence, evidence | Where we are now |
 `;
 
-  return { manifest, enrichCmd, scaffoldCmd, traceCmd, contextCmd };
+  return { manifest, scaffoldCmd, traceCmd, contextCmd };
 }
 
 // ── Writer ──────────────────────────────────────────────────────────────────────
@@ -866,7 +698,6 @@ export function writeAiConfigFiles(
     const hooksDir = join(".kiro", "hooks");
     filesToWrite.push(
       { rel: join(hooksDir, "validate-artifact.yml"), content: hooks.validateOnSave },
-      { rel: join(hooksDir, "enrich-spec.yml"), content: hooks.enrichOnCreate },
       { rel: join(hooksDir, "trace-integrity.yml"), content: hooks.traceOnSave },
       { rel: join(hooksDir, "drift-detection.yml"), content: hooks.driftOnSave },
     );
@@ -878,7 +709,6 @@ export function writeAiConfigFiles(
     const cmdDir = join(extDir, "commands");
     filesToWrite.push(
       { rel: join(extDir, "extension.yml"), content: sk.manifest },
-      { rel: join(cmdDir, "enrich.md"), content: sk.enrichCmd },
       { rel: join(cmdDir, "scaffold.md"), content: sk.scaffoldCmd },
       { rel: join(cmdDir, "trace.md"), content: sk.traceCmd },
       { rel: join(cmdDir, "context.md"), content: sk.contextCmd },

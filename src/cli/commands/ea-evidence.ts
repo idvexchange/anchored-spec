@@ -9,7 +9,7 @@ import chalk from "chalk";
 import { join } from "node:path";
 import {
   EaRoot,
-  resolveEaConfig,
+  resolveConfigV1,
   createEaEvidenceRecord,
   loadEaEvidence,
   writeEaEvidence,
@@ -19,6 +19,8 @@ import {
   EA_EVIDENCE_KINDS,
 } from "../../ea/index.js";
 import type { EaEvidenceKind, EaEvidenceRecord } from "../../ea/index.js";
+import { getEntityId } from "../../ea/backstage/accessors.js";
+import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
 export function eaEvidenceCommand(): Command {
@@ -27,15 +29,15 @@ export function eaEvidenceCommand(): Command {
 
   cmd
     .command("ingest")
-    .description("Ingest evidence for an EA artifact")
-    .requiredOption("--artifact <id>", "EA artifact ID")
+    .description("Ingest evidence for an entity")
+    .requiredOption("--entity <entity-ref>", "Entity ref")
     .requiredOption("--kind <kind>", `Evidence kind: ${EA_EVIDENCE_KINDS.join(", ")}`)
     .requiredOption("--status <status>", "Evidence status: passed, failed, skipped, error")
     .requiredOption("--source <source>", "Source tool or file that produced this evidence")
     .option("--summary <text>", "Human-readable summary")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--output <path>", "Evidence file path")
-    .action((options) => {
+    .action(async (options) => {
       const kind = options.kind as string;
       if (!EA_EVIDENCE_KINDS.includes(kind as EaEvidenceKind)) {
         throw new CliError(
@@ -53,11 +55,27 @@ export function eaEvidenceCommand(): Command {
       }
 
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
       const evidencePath = options.output ?? join(cwd, eaConfig.rootDir, "evidence", "ea-evidence.json");
+      const entityInput = options.entity as string;
 
+      const root = new EaRoot(cwd, eaConfig);
+      if (!root.isInitialized()) {
+        throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
+      }
+
+      const result = await root.loadEntities();
+      const lookup = buildEntityLookup(result.entities);
+      const entity = lookup.byInput.get(entityInput);
+      if (!entity) {
+        const similar = suggestEntities(entityInput, result.entities);
+        const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
+        throw new CliError(`Entity "${entityInput}" not found.${hint}`, 2);
+      }
+
+      const entityRef = getEntityId(entity);
       const record = createEaEvidenceRecord(
-        options.artifact as string,
+        entityRef,
         kind as EaEvidenceKind,
         status,
         options.source as string,
@@ -68,7 +86,7 @@ export function eaEvidenceCommand(): Command {
       const merged = mergeEaEvidence(existing, [record]);
       writeEaEvidence(merged, evidencePath);
 
-      console.log(chalk.green(`✓ Evidence ingested for ${options.artifact}`));
+      console.log(chalk.green(`✓ Evidence ingested for ${entityRef}`));
       console.log(chalk.dim(`  Kind: ${kind} | Status: ${status}`));
       console.log(chalk.dim(`  Output: ${evidencePath}`));
       console.log(chalk.dim(`  Total records: ${merged.records.length}`));
@@ -82,11 +100,11 @@ export function eaEvidenceCommand(): Command {
     .option("--freshness <days>", "Freshness window in days", "30")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
-        throw new CliError("EA not initialized. Run 'anchored-spec ea init' first.", 2);
+        throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
       }
 
       const evidencePath = options.evidence ?? join(cwd, eaConfig.rootDir, "evidence", "ea-evidence.json");
@@ -96,9 +114,9 @@ export function eaEvidenceCommand(): Command {
         throw new CliError(`Evidence file not found: ${evidencePath}`, 2);
       }
 
-      const result = await root.loadArtifacts();
+      const result = await root.loadEntities();
       const freshnessDays = parseInt(options.freshness as string, 10) || 30;
-      const issues = validateEaEvidence(evidence, result.artifacts, { freshnessWindowDays: freshnessDays });
+      const issues = validateEaEvidence(evidence, result.entities, { freshnessWindowDays: freshnessDays });
 
       console.log(chalk.blue("🔍 Validating EA evidence\n"));
 
@@ -136,11 +154,11 @@ export function eaEvidenceCommand(): Command {
     .option("--format <format>", "Output format: text, json", "text")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
-        throw new CliError("EA not initialized. Run 'anchored-spec ea init' first.", 2);
+        throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
       }
 
       const evidencePath = options.evidence ?? join(cwd, eaConfig.rootDir, "evidence", "ea-evidence.json");
@@ -150,17 +168,17 @@ export function eaEvidenceCommand(): Command {
         throw new CliError(`Evidence file not found: ${evidencePath}`, 2);
       }
 
-      const result = await root.loadArtifacts();
+      const result = await root.loadEntities();
       const freshnessDays = parseInt(options.freshness as string, 10) || 30;
-      const summary = summarizeEaEvidence(evidence, result.artifacts, { freshnessWindowDays: freshnessDays });
+      const summary = summarizeEaEvidence(evidence, result.entities, { freshnessWindowDays: freshnessDays });
 
       if (options.format === "json") {
         process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
       } else {
         console.log(chalk.blue("📊 EA Evidence Summary\n"));
         console.log(`  Total records: ${summary.totalRecords}`);
-        console.log(`  Covered artifacts: ${summary.coveredArtifacts}`);
-        console.log(`  Uncovered artifacts: ${summary.uncoveredArtifacts}`);
+        console.log(`  Covered entities: ${summary.coveredArtifacts}`);
+        console.log(`  Uncovered entities: ${summary.uncoveredArtifacts}`);
         console.log(`  Stale records: ${summary.staleCount}`);
         console.log("");
         console.log("  By kind:");

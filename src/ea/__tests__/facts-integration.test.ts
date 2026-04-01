@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { BackstageEntity } from "../backstage/types.js";
@@ -38,7 +38,6 @@ import type {
   FactManifest,
   FactBlock,
   ExtractedFact,
-  AnnotationSuggestion,
 } from "../facts/index.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -146,13 +145,13 @@ describe("full pipeline: markdown → facts → consistency", () => {
   });
 
   it("suppression annotation in manifest prevents finding", () => {
-    const mdA = `<!-- @ea:suppress ea:docs/value-mismatch reason="Intentional difference" -->
+    const mdA = `<!-- @anchored-spec:suppress ea:docs/value-mismatch reason="Intentional difference" -->
 
 | Event | Trigger |
 |---|---|
 | dossier.success | Internal trigger |
 
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
     const mdB = `| Event | Trigger |
 |---|---|
 | dossier.success | External trigger |`;
@@ -168,7 +167,6 @@ describe("full pipeline: markdown → facts → consistency", () => {
     const suppressions = collectSuppressions([mA, mB]);
     applySuppressions(report.findings, suppressions);
 
-    const unsuppressed = report.findings.filter(f => !f.suppressed);
     const suppressed = report.findings.filter(f => f.suppressed);
     expect(suppressed.length).toBeGreaterThan(0);
   });
@@ -266,7 +264,7 @@ describe("real-world scenarios", () => {
   });
 
   it("reconciles across multiple manifests and artifacts", () => {
-    const annotation = { kind: "events", raw: "<!-- @ea:events -->", line: 1 };
+    const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const eventsManifest = makeManifest("events.md", [
       makeBlock("event-table", [
         makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events.md", line: 5 } }),
@@ -274,7 +272,7 @@ describe("real-world scenarios", () => {
       ], { annotation, source: { file: "events.md", line: 1 } }),
     ]);
 
-    const apiAnnotation = { kind: "endpoints", raw: "<!-- @ea:endpoints -->", line: 1 };
+    const apiAnnotation = { kind: "endpoints", raw: "<!-- @anchored-spec:endpoints -->", line: 1 };
     const apiManifest = makeManifest("api.md", [
       makeBlock("endpoint-table", [
         makeFact({ key: "POST /api/v1/dossiers", kind: "endpoint-table", source: { file: "api.md", line: 5 } }),
@@ -441,7 +439,7 @@ describe("suppression edge cases", () => {
   });
 
   it("handles unclosed suppression (extends to EOF)", () => {
-    const md = `<!-- @ea:suppress ea:docs/value-mismatch reason="wip" -->
+    const md = `<!-- @anchored-spec:suppress ea:docs/value-mismatch reason="wip" -->
 
 | Event | Trigger |
 |---|---|
@@ -454,17 +452,17 @@ describe("suppression edge cases", () => {
   });
 
   it("handles multiple suppressions in same file", () => {
-    const md = `<!-- @ea:suppress ea:docs/value-mismatch reason="first" -->
+    const md = `<!-- @anchored-spec:suppress ea:docs/value-mismatch reason="first" -->
 | Event | Trigger |
 |---|---|
 | e1 | t1 |
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 
-<!-- @ea:suppress ea:docs/naming-inconsistency reason="second" -->
+<!-- @anchored-spec:suppress ea:docs/naming-inconsistency reason="second" -->
 | Status | Code |
 |---|---|
 | active | 1 |
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const doc = parseMarkdown(md, "multi-suppress.md");
     expect(doc.suppressions).toHaveLength(2);
@@ -473,13 +471,13 @@ describe("suppression edge cases", () => {
   });
 
   it("carries suppressions through FactManifest", () => {
-    const md = `<!-- @ea:suppress ea:docs/* reason="WIP document" -->
+    const md = `<!-- @anchored-spec:suppress ea:docs/* reason="WIP document" -->
 
 | Event | Trigger |
 |---|---|
 | e1 | t1 |
 
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const doc = parseMarkdown(md, "carry.md");
     const manifest = buildFactManifest(doc);
@@ -524,18 +522,18 @@ status: draft
     expect(blocks[0]!.facts).toHaveLength(150);
   });
 
-  it("handles nested annotations (@ea:events inside @ea:states)", () => {
-    const md = `<!-- @ea:states -->
+  it("handles nested annotations (@anchored-spec:events inside @anchored-spec:states)", () => {
+    const md = `<!-- @anchored-spec:states -->
 
-<!-- @ea:events -->
+<!-- @anchored-spec:events -->
 
 | Event | Trigger |
 |---|---|
 | e.1 | t |
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const doc = parseMarkdown(md, "nested.md");
     expect(doc.annotations).toHaveLength(2);
@@ -573,37 +571,36 @@ status: draft
   it("handles unicode content in table cells", () => {
     const md = `| Event | Description |
 |---|---|
-| café.événement | Événement créé |`;
+    | café.événement | Événement créé |`;
 
     const doc = parseMarkdown(md, "unicode.md");
-    const blocks = tableExtractor.extract(doc);
     // May or may not classify, but should not crash
     expect(() => buildFactManifest(doc)).not.toThrow();
   });
 
   it("handles annotation with no matching content between markers", () => {
-    const md = `<!-- @ea:events -->\n<!-- @ea:end -->`;
+    const md = `<!-- @anchored-spec:events -->\n<!-- @anchored-spec:end -->`;
     const doc = parseMarkdown(md, "empty-region.md");
     expect(doc.annotations).toHaveLength(1);
   });
 
   it("handles multiple annotation regions in same document", () => {
-    const md = `<!-- @ea:events ev1 -->
+    const md = `<!-- @anchored-spec:events ev1 -->
 
 | Event | Trigger |
 |---|---|
 | e.1 | t |
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 
-<!-- @ea:states s1 -->
+<!-- @anchored-spec:states s1 -->
 
 \`\`\`mermaid
 stateDiagram-v2
   [*] --> open
 \`\`\`
 
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const doc = parseMarkdown(md, "multi-region.md");
     expect(doc.annotations).toHaveLength(2);
@@ -656,13 +653,13 @@ describe("parseMarkdownFile", () => {
 
   it("parses annotations from file", async () => {
     const filePath = join(tmpDir, "annotated.md");
-    writeFileSync(filePath, `<!-- @ea:events -->
+    writeFileSync(filePath, `<!-- @anchored-spec:events -->
 
 | Event | Trigger |
 |---|---|
 | e.1 | t |
 
-<!-- @ea:end -->`);
+<!-- @anchored-spec:end -->`);
 
     const doc = await parseMarkdownFile(filePath, "annotated.md");
     expect(doc.annotations).toHaveLength(1);
@@ -708,8 +705,8 @@ describe("reconciler edge cases", () => {
   });
 
   it("reconciles with artifact having multiple anchor types", () => {
-    const evAnnotation = { kind: "events", raw: "<!-- @ea:events -->", line: 1 };
-    const apiAnnotation = { kind: "endpoints", raw: "<!-- @ea:endpoints -->", line: 1 };
+    const evAnnotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
+    const apiAnnotation = { kind: "endpoints", raw: "<!-- @anchored-spec:endpoints -->", line: 1 };
     const manifest = makeManifest("api-spec.md", [
       makeBlock("event-table", [
         makeFact({ key: "dossier.success", kind: "event-table", source: { file: "api-spec.md", line: 5 } }),
@@ -779,8 +776,8 @@ describe("renderReconcileOutput docs step", () => {
 // ─── Canonical / Derived Markers ────────────────────────────────────
 
 describe("canonical/derived markers", () => {
-  it("parses @ea:canonical marker", () => {
-    const md = `<!-- @ea:canonical -->
+  it("parses @anchored-spec:canonical marker", () => {
+    const md = `<!-- @anchored-spec:canonical -->
 
 | Event | Trigger |
 |---|---|
@@ -791,8 +788,8 @@ describe("canonical/derived markers", () => {
     expect(doc.markers[0]!.type).toBe("canonical");
   });
 
-  it("parses @ea:derived marker with source", () => {
-    const md = `<!-- @ea:derived source="spec.md" -->
+  it("parses @anchored-spec:derived marker with source", () => {
+    const md = `<!-- @anchored-spec:derived source="spec.md" -->
 
 | Event | Trigger |
 |---|---|
@@ -805,7 +802,7 @@ describe("canonical/derived markers", () => {
   });
 
   it("carries markers through FactManifest", () => {
-    const md = `<!-- @ea:canonical -->
+    const md = `<!-- @anchored-spec:canonical -->
 
 | Event | Trigger |
 |---|---|
@@ -818,13 +815,13 @@ describe("canonical/derived markers", () => {
   });
 
   it("enhances value-mismatch message for canonical vs derived conflict", () => {
-    const canonicalMd = `<!-- @ea:canonical -->
+    const canonicalMd = `<!-- @anchored-spec:canonical -->
 
 | Event | Trigger |
 |---|---|
 | dossier.success | Verification passed |`;
 
-    const derivedMd = `<!-- @ea:derived source="canonical.md" -->
+    const derivedMd = `<!-- @anchored-spec:derived source="canonical.md" -->
 
 | Event | Trigger |
 |---|---|
@@ -861,7 +858,7 @@ describe("canonical/derived markers", () => {
 
 describe("extra-entry contradiction", () => {
   it("reports extra-entry error when both docs have unique entries", () => {
-    const annotation = { kind: "events", id: "webhook-events", raw: "<!-- @ea:events webhook-events -->", line: 1 };
+    const annotation = { kind: "events", id: "webhook-events", raw: "<!-- @anchored-spec:events webhook-events -->", line: 1 };
     const mA = makeManifest("events-a.md", [
       makeBlock("event-table", [
         makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events-a.md", line: 5 } }),
@@ -884,7 +881,7 @@ describe("extra-entry contradiction", () => {
   });
 
   it("does NOT report extra-entry when difference is one-directional", () => {
-    const annotation = { kind: "events", id: "events", raw: "<!-- @ea:events events -->", line: 1 };
+    const annotation = { kind: "events", id: "events", raw: "<!-- @anchored-spec:events events -->", line: 1 };
     const mA = makeManifest("events-a.md", [
       makeBlock("event-table", [
         makeFact({ key: "dossier.success", kind: "event-table", source: { file: "events-a.md", line: 5 } }),
@@ -919,17 +916,17 @@ describe("suggestAnnotations", () => {
 
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0]!.kind).toBe("event-table");
-    expect(suggestions[0]!.annotation).toContain("@ea:events");
+    expect(suggestions[0]!.annotation).toContain("@anchored-spec:events");
     expect(suggestions[0]!.confidence).toBe("high"); // 3+ facts
     expect(suggestions[0]!.file).toBe("events.md");
   });
 
   it("skips blocks that already have annotations", () => {
-    const md = `<!-- @ea:events -->
+    const md = `<!-- @anchored-spec:events -->
 | Event | Trigger |
 |---|---|
 | e.1 | t |
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const manifest = buildFactManifest(parseMarkdown(md, "annotated.md"));
     const suggestions = suggestAnnotations([manifest]);
@@ -1039,7 +1036,7 @@ describe("mapping table detection", () => {
 
 describe("status-enum and state-transition reconciliation", () => {
   it("reconciles status-enum facts against artifact statuses anchor", () => {
-    const annotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const annotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const manifest = makeManifest("statuses.md", [
       makeBlock("status-enum", [
         makeFact({ key: "open", kind: "status-enum", source: { file: "statuses.md", line: 5 } }),
@@ -1060,7 +1057,7 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("detects artifact-missing-fact for status-enum not in docs", () => {
-    const annotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const annotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const manifest = makeManifest("statuses.md", [
       makeBlock("status-enum", [
         makeFact({ key: "open", kind: "status-enum", source: { file: "statuses.md", line: 5 } }),
@@ -1081,7 +1078,7 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("detects fact-missing-artifact for status-enum in docs but not in any artifact", () => {
-    const annotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
+    const annotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const manifest = makeManifest("statuses.md", [
       makeBlock("status-enum", [
         makeFact({ key: "open", kind: "status-enum", source: { file: "statuses.md", line: 5 } }),
@@ -1100,7 +1097,7 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("reconciles state-transition facts against artifact transitions anchor", () => {
-    const annotation = { kind: "transitions", raw: "<!-- @ea:transitions -->", line: 1 };
+    const annotation = { kind: "transitions", raw: "<!-- @anchored-spec:transitions -->", line: 1 };
     const manifest = makeManifest("workflow.md", [
       makeBlock("state-transition", [
         makeFact({ key: "open→processing", kind: "state-transition", source: { file: "workflow.md", line: 5 } }),
@@ -1119,7 +1116,7 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("detects artifact-missing-fact for transition in artifact but not in docs", () => {
-    const annotation = { kind: "transitions", raw: "<!-- @ea:transitions -->", line: 1 };
+    const annotation = { kind: "transitions", raw: "<!-- @anchored-spec:transitions -->", line: 1 };
     const manifest = makeManifest("workflow.md", [
       makeBlock("state-transition", [
         makeFact({ key: "open→processing", kind: "state-transition", source: { file: "workflow.md", line: 5 } }),
@@ -1138,8 +1135,8 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("reconciles mixed statuses and transitions on same artifact", () => {
-    const stateAnnotation = { kind: "states", raw: "<!-- @ea:states -->", line: 1 };
-    const transAnnotation = { kind: "transitions", raw: "<!-- @ea:transitions -->", line: 10 };
+    const stateAnnotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
+    const transAnnotation = { kind: "transitions", raw: "<!-- @anchored-spec:transitions -->", line: 10 };
     const manifest = makeManifest("lifecycle.md", [
       makeBlock("status-enum", [
         makeFact({ key: "open", kind: "status-enum", source: { file: "lifecycle.md", line: 3 } }),
@@ -1170,13 +1167,13 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("full pipeline: markdown status table → reconciliation", () => {
-    const md = `<!-- @ea:states lifecycle -->
+    const md = `<!-- @anchored-spec:states lifecycle -->
 | Status | Description |
 |--------|-------------|
 | open | Newly created |
 | processing | Being worked on |
 | closed | Completed |
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const manifest = buildFactManifest(parseMarkdown(md, "lifecycle.md"));
     expect(manifest.blocks.some(b => b.kind === "status-enum")).toBe(true);
@@ -1194,13 +1191,13 @@ describe("status-enum and state-transition reconciliation", () => {
   });
 
   it("full pipeline: mermaid state diagram → transition reconciliation", () => {
-    const md = `<!-- @ea:transitions order-flow -->
+    const md = `<!-- @anchored-spec:transitions order-flow -->
 \`\`\`mermaid
 stateDiagram-v2
   open --> processing : start_work
   processing --> closed : complete
 \`\`\`
-<!-- @ea:end -->`;
+<!-- @anchored-spec:end -->`;
 
     const manifest = buildFactManifest(parseMarkdown(md, "flow.md"));
     expect(manifest.blocks.some(b => b.kind === "state-transition")).toBe(true);

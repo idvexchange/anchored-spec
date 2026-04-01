@@ -12,10 +12,9 @@ import {
   writeEntity,
   deleteEntity,
 } from "../entity-writer.js";
-import { writeBackstageManifest, writeBackstageYaml } from "../writer.js";
-import { parseBackstageYaml, parseFrontmatterEntity, extractMarkdownBody } from "../parser.js";
+import { parseBackstageYaml } from "../parser.js";
 import type { BackstageEntity } from "../types.js";
-import type { AnchoredSpecConfigV1 } from "../../config.js";
+import { resolveConfigV1 } from "../../config.js";
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -221,25 +220,7 @@ describe("writeToFrontmatter", () => {
 // ─── Unified write/delete ───────────────────────────────────────────────────────
 
 describe("writeEntity", () => {
-  const baseConfig: AnchoredSpecConfigV1 = {
-    schemaVersion: "1.0",
-    rootDir: "ea",
-    generatedDir: "ea/generated",
-    domains: {} as any,
-    resolvers: [],
-    generators: [],
-    evidenceSources: [],
-    cache: { dir: ".cache", defaultTTL: 3600 },
-    quality: {
-      requireOwners: true,
-      requireSummary: true,
-      requireRelations: false,
-      requireAnchors: false,
-      strictMode: false,
-      rules: {},
-    },
-    workflowPolicyPath: "ea/workflow-policy.yaml",
-  };
+  const baseConfig = resolveConfigV1({});
 
   it("writes to manifest in manifest mode", async () => {
     const config = { ...baseConfig, entityMode: "manifest" as const };
@@ -261,34 +242,10 @@ describe("writeEntity", () => {
     expect(content).toContain("kind: Component");
   });
 
-  it("throws for artifacts mode", async () => {
-    const config = { ...baseConfig, entityMode: "artifacts" as const };
-    await expect(writeEntity(svcEntity, config, testDir)).rejects.toThrow(
-      "does not support",
-    );
-  });
 });
 
 describe("deleteEntity", () => {
-  const baseConfig: AnchoredSpecConfigV1 = {
-    schemaVersion: "1.0",
-    rootDir: "ea",
-    generatedDir: "ea/generated",
-    domains: {} as any,
-    resolvers: [],
-    generators: [],
-    evidenceSources: [],
-    cache: { dir: ".cache", defaultTTL: 3600 },
-    quality: {
-      requireOwners: true,
-      requireSummary: true,
-      requireRelations: false,
-      requireAnchors: false,
-      strictMode: false,
-      rules: {},
-    },
-    workflowPolicyPath: "ea/workflow-policy.yaml",
-  };
+  const baseConfig = resolveConfigV1({});
 
   it("removes from manifest in manifest mode", async () => {
     const config = { ...baseConfig, entityMode: "manifest" as const };

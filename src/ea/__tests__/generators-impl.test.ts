@@ -3,22 +3,58 @@ import { join } from "node:path";
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { silentLogger } from "../resolvers/types.js";
-import type { EaArtifactBase } from "../types.js";
 import type { EaGeneratorContext } from "../generators/index.js";
 import { openapiGenerator } from "../generators/openapi.js";
 import { jsonSchemaGenerator } from "../generators/jsonschema.js";
 import { runGenerators, getGenerator } from "../generators/index.js";
+import { makeEntity } from "./helpers/make-entity.js";
 
 const TEST_ROOT = join(tmpdir(), `ea-genimpl-test-${Date.now()}`);
 
 function makeCtx(overrides?: Partial<EaGeneratorContext>): EaGeneratorContext {
   return {
     projectRoot: TEST_ROOT,
-    artifacts: [],
+    entities: [],
     outputDir: "generated",
     logger: silentLogger,
     ...overrides,
   };
+}
+
+function makeApiEntity(overrides: Record<string, unknown> = {}) {
+  return makeEntity({
+    id: "systems/API-orders",
+    kind: "api-contract",
+    title: "Orders API",
+    summary: "Order management API",
+    status: "active",
+    owners: ["team-commerce"],
+    anchors: { apis: ["GET /orders", "POST /orders", "GET /orders/{orderId}"] },
+    version: "2.0.0",
+    ...overrides,
+  });
+}
+
+function makeCanonicalEntity(overrides: Record<string, unknown> = {}) {
+  return makeEntity({
+    id: "information/CE-user",
+    kind: "canonical-entity",
+    title: "User",
+    summary: "User entity",
+    status: "active",
+    owners: ["team-data"],
+    anchors: {},
+    attributes: [
+      { name: "id", type: "uuid", required: true, description: "User ID" },
+      { name: "email", type: "email", required: true, description: "Email address" },
+      { name: "name", type: "string", required: false, description: "Full name" },
+      { name: "age", type: "integer", description: "User age" },
+      { name: "score", type: "decimal", description: "User score" },
+      { name: "active", type: "boolean", required: true },
+      { name: "createdAt", type: "datetime", description: "Registration date" },
+    ],
+    ...overrides,
+  });
 }
 
 // ─── OpenAPI Generator ──────────────────────────────────────────────────────────
@@ -31,24 +67,15 @@ describe("openapiGenerator", () => {
   });
 
   it("should generate OpenAPI YAML from api-contract", () => {
-    const artifact = {
-      id: "systems/API-orders",
-      kind: "api-contract",
-      title: "Orders API",
-      summary: "Order management API",
-      status: "active",
-      owners: ["team-commerce"],
-      anchors: { apis: ["GET /orders", "POST /orders", "GET /orders/{orderId}"] },
-      version: "2.0.0",
-    } as EaArtifactBase & { version: string };
+    const entity = makeApiEntity();
 
-    const outputs = openapiGenerator.generate(artifact, makeCtx());
+    const outputs = openapiGenerator.generate(entity, makeCtx());
     expect(outputs.length).toBe(1);
 
     const output = outputs[0]!;
-    expect(output.relativePath).toBe("systems-API-orders.openapi.yaml");
+    expect(output.relativePath).toBe("api-orders.openapi.yaml");
     expect(output.contentType).toBe("yaml");
-    expect(output.sourceArtifactId).toBe("systems/API-orders");
+    expect(output.sourceArtifactId).toBe("api:orders");
     expect(output.overwrite).toBe(true);
 
     // Check content
@@ -56,7 +83,7 @@ describe("openapiGenerator", () => {
     expect(content).toContain('openapi: "3.1.0"');
     expect(content).toContain('title: "Orders API"');
     expect(content).toContain('version: "2.0.0"');
-    expect(content).toContain('x-anchored-spec-artifact: "systems/API-orders"');
+    expect(content).toContain('x-anchored-spec-artifact: "api:orders"');
     expect(content).toContain("paths:");
     expect(content).toContain("  /orders:");
     expect(content).toContain("    get:");
@@ -65,108 +92,83 @@ describe("openapiGenerator", () => {
   });
 
   it("should skip non-REST protocols", () => {
-    const artifact = {
+    const entity = makeApiEntity({
       id: "systems/API-graphql",
-      kind: "api-contract",
       title: "GraphQL API",
-      status: "active",
-      owners: ["team"],
       anchors: {},
       protocol: "graphql",
-    } as EaArtifactBase & { protocol: string };
+    });
 
-    const outputs = openapiGenerator.generate(artifact, makeCtx());
+    const outputs = openapiGenerator.generate(entity, makeCtx());
     expect(outputs.length).toBe(0);
   });
 
   it("should skip non-openapi spec formats", () => {
-    const artifact = {
+    const entity = makeApiEntity({
       id: "systems/API-grpc",
-      kind: "api-contract",
       title: "gRPC API",
-      status: "active",
-      owners: ["team"],
       anchors: {},
       specFormat: "protobuf",
-    } as EaArtifactBase & { specFormat: string };
+    });
 
-    const outputs = openapiGenerator.generate(artifact, makeCtx());
+    const outputs = openapiGenerator.generate(entity, makeCtx());
     expect(outputs.length).toBe(0);
   });
 
   it("should generate empty paths when no apis anchors", () => {
-    const artifact = {
+    const entity = makeApiEntity({
       id: "systems/API-empty",
-      kind: "api-contract",
       title: "Empty API",
-      status: "active",
-      owners: ["team"],
       anchors: {},
-    } as EaArtifactBase;
+    });
 
-    const outputs = openapiGenerator.generate(artifact, makeCtx());
+    const outputs = openapiGenerator.generate(entity, makeCtx());
     expect(outputs.length).toBe(1);
     expect(outputs[0]!.content).toContain("paths: {}");
   });
 
   it("should be idempotent", () => {
-    const artifact = {
+    const entity = makeApiEntity({
       id: "systems/API-test",
-      kind: "api-contract",
       title: "Test API",
-      status: "active",
-      owners: ["team"],
       anchors: { apis: ["GET /users", "POST /users"] },
       version: "1.0.0",
-    } as EaArtifactBase & { version: string };
+    });
 
     const ctx = makeCtx();
-    const output1 = openapiGenerator.generate(artifact, ctx)[0]!.content;
-    const output2 = openapiGenerator.generate(artifact, ctx)[0]!.content;
+    const output1 = openapiGenerator.generate(entity, ctx)[0]!.content;
+    const output2 = openapiGenerator.generate(entity, ctx)[0]!.content;
     expect(output1).toBe(output2);
   });
 
   it("should generate operationIds", () => {
-    const artifact = {
+    const entity = makeApiEntity({
       id: "systems/API-test",
-      kind: "api-contract",
       title: "Test API",
-      status: "active",
-      owners: ["team"],
       anchors: { apis: ["GET /users/{userId}"] },
-    } as EaArtifactBase;
+    });
 
-    const output = openapiGenerator.generate(artifact, makeCtx())[0]!;
+    const output = openapiGenerator.generate(entity, makeCtx())[0]!;
     expect(output.content).toContain("operationId:");
   });
 
   it("should detect drift when content differs", () => {
-    const artifact = {
-      id: "systems/API-orders",
-      kind: "api-contract",
-      title: "Orders API",
-      status: "active",
-      owners: ["team"],
+    const entity = makeApiEntity({
       anchors: { apis: ["GET /orders"] },
-    } as EaArtifactBase;
+    });
 
-    const drifts = openapiGenerator.diff!("manually modified content", artifact, makeCtx());
+    const drifts = openapiGenerator.diff!("manually modified content", entity, makeCtx());
     expect(drifts.length).toBe(1);
     expect(drifts[0]!.suggestion).toBe("review");
   });
 
   it("should report no drift when content matches", () => {
-    const artifact = {
-      id: "systems/API-orders",
-      kind: "api-contract",
-      title: "Orders API",
-      status: "active",
-      owners: ["team"],
+    const entity = makeApiEntity({
       anchors: { apis: ["GET /orders"] },
-    } as EaArtifactBase;
+    });
 
-    const generated = openapiGenerator.generate(artifact, makeCtx())[0]!.content;
-    const drifts = openapiGenerator.diff!(generated, artifact, makeCtx());
+    const generated = openapiGenerator.generate(entity, makeCtx())[0]!.content;
+    const drifts = openapiGenerator.diff!(generated, entity, makeCtx());
     expect(drifts.length).toBe(0);
   });
 });
@@ -181,37 +183,20 @@ describe("jsonSchemaGenerator", () => {
   });
 
   it("should generate JSON Schema from canonical-entity", () => {
-    const artifact = {
-      id: "information/CE-user",
-      kind: "canonical-entity",
-      title: "User",
-      summary: "User entity",
-      status: "active",
-      owners: ["team-data"],
-      anchors: {},
-      attributes: [
-        { name: "id", type: "uuid", required: true, description: "User ID" },
-        { name: "email", type: "email", required: true, description: "Email address" },
-        { name: "name", type: "string", required: false, description: "Full name" },
-        { name: "age", type: "integer", description: "User age" },
-        { name: "score", type: "decimal", description: "User score" },
-        { name: "active", type: "boolean", required: true },
-        { name: "createdAt", type: "datetime", description: "Registration date" },
-      ],
-    } as EaArtifactBase & { attributes: Array<Record<string, unknown>> };
+    const entity = makeCanonicalEntity();
 
-    const outputs = jsonSchemaGenerator.generate(artifact, makeCtx());
+    const outputs = jsonSchemaGenerator.generate(entity, makeCtx());
     expect(outputs.length).toBe(1);
 
     const output = outputs[0]!;
-    expect(output.relativePath).toBe("information-CE-user.schema.json");
+    expect(output.relativePath).toBe("canonicalentity-user.schema.json");
     expect(output.contentType).toBe("json");
 
     const schema = JSON.parse(output.content);
     expect(schema.$schema).toBe("https://json-schema.org/draft/2020-12/schema");
     expect(schema.title).toBe("User");
     expect(schema.type).toBe("object");
-    expect(schema.$comment).toContain("information/CE-user");
+    expect(schema.$comment).toContain("canonicalentity:user");
 
     // Check property types
     expect(schema.properties.id.type).toBe("string");
@@ -229,16 +214,13 @@ describe("jsonSchemaGenerator", () => {
   });
 
   it("should handle entity with no attributes", () => {
-    const artifact = {
+    const entity = makeCanonicalEntity({
       id: "information/CE-empty",
-      kind: "canonical-entity",
       title: "Empty Entity",
-      status: "active",
-      owners: ["team"],
-      anchors: {},
-    } as EaArtifactBase;
+      attributes: undefined,
+    });
 
-    const outputs = jsonSchemaGenerator.generate(artifact, makeCtx());
+    const outputs = jsonSchemaGenerator.generate(entity, makeCtx());
     expect(outputs.length).toBe(1);
     const schema = JSON.parse(outputs[0]!.content);
     expect(schema.properties).toEqual({});
@@ -246,90 +228,66 @@ describe("jsonSchemaGenerator", () => {
   });
 
   it("should map unknown types to string", () => {
-    const artifact = {
+    const entity = makeCanonicalEntity({
       id: "information/CE-custom",
-      kind: "canonical-entity",
       title: "Custom",
-      status: "active",
-      owners: ["team"],
-      anchors: {},
       attributes: [{ name: "custom", type: "my-custom-type" }],
-    } as EaArtifactBase & { attributes: Array<Record<string, unknown>> };
+    });
 
-    const outputs = jsonSchemaGenerator.generate(artifact, makeCtx());
+    const outputs = jsonSchemaGenerator.generate(entity, makeCtx());
     const schema = JSON.parse(outputs[0]!.content);
     expect(schema.properties.custom.type).toBe("string");
   });
 
   it("should be idempotent", () => {
-    const artifact = {
+    const entity = makeCanonicalEntity({
       id: "information/CE-order",
-      kind: "canonical-entity",
       title: "Order",
-      status: "active",
-      owners: ["team"],
-      anchors: {},
       attributes: [
         { name: "id", type: "uuid", required: true },
         { name: "total", type: "decimal" },
       ],
-    } as EaArtifactBase & { attributes: Array<Record<string, unknown>> };
+    });
 
     const ctx = makeCtx();
-    const out1 = jsonSchemaGenerator.generate(artifact, ctx)[0]!.content;
-    const out2 = jsonSchemaGenerator.generate(artifact, ctx)[0]!.content;
+    const out1 = jsonSchemaGenerator.generate(entity, ctx)[0]!.content;
+    const out2 = jsonSchemaGenerator.generate(entity, ctx)[0]!.content;
     expect(out1).toBe(out2);
   });
 
   it("should include x-classification from attribute", () => {
-    const artifact = {
+    const entity = makeCanonicalEntity({
       id: "information/CE-pii",
-      kind: "canonical-entity",
       title: "PII Entity",
-      status: "active",
-      owners: ["team"],
-      anchors: {},
       attributes: [{ name: "ssn", type: "string", classification: "pii" }],
-    } as EaArtifactBase & { attributes: Array<Record<string, unknown>> };
+    });
 
-    const outputs = jsonSchemaGenerator.generate(artifact, makeCtx());
+    const outputs = jsonSchemaGenerator.generate(entity, makeCtx());
     const schema = JSON.parse(outputs[0]!.content);
     expect(schema.properties.ssn["x-classification"]).toBe("pii");
   });
 
   it("should detect drift when properties differ", () => {
-    const artifact = {
-      id: "information/CE-user",
-      kind: "canonical-entity",
-      title: "User",
-      status: "active",
-      owners: ["team"],
-      anchors: {},
+    const entity = makeCanonicalEntity({
       attributes: [{ name: "id", type: "uuid", required: true }],
-    } as EaArtifactBase & { attributes: Array<Record<string, unknown>> };
+    });
 
     const modified = JSON.stringify({
       properties: { id: { type: "string" }, extra: { type: "string" } },
       required: ["id"],
     });
 
-    const drifts = jsonSchemaGenerator.diff!(modified, artifact, makeCtx());
+    const drifts = jsonSchemaGenerator.diff!(modified, entity, makeCtx());
     expect(drifts.length).toBeGreaterThan(0);
   });
 
   it("should report no drift when schema matches", () => {
-    const artifact = {
-      id: "information/CE-user",
-      kind: "canonical-entity",
-      title: "User",
-      status: "active",
-      owners: ["team"],
-      anchors: {},
+    const entity = makeCanonicalEntity({
       attributes: [{ name: "id", type: "uuid", required: true }],
-    } as EaArtifactBase & { attributes: Array<Record<string, unknown>> };
+    });
 
-    const generated = jsonSchemaGenerator.generate(artifact, makeCtx())[0]!.content;
-    const drifts = jsonSchemaGenerator.diff!(generated, artifact, makeCtx());
+    const generated = jsonSchemaGenerator.generate(entity, makeCtx())[0]!.content;
+    const drifts = jsonSchemaGenerator.diff!(generated, entity, makeCtx());
     expect(drifts.length).toBe(0);
   });
 });
@@ -344,28 +302,13 @@ describe("Generator pipeline integration", () => {
   });
 
   it("should run both generators on mixed artifacts", () => {
-    const artifacts = [
-      {
-        id: "systems/API-orders",
-        kind: "api-contract",
-        title: "Orders API",
-        status: "active",
-        owners: ["team"],
-        anchors: { apis: ["GET /orders"] },
-      },
-      {
-        id: "information/CE-user",
-        kind: "canonical-entity",
-        title: "User",
-        status: "active",
-        owners: ["team"],
-        anchors: {},
-        attributes: [{ name: "id", type: "uuid", required: true }],
-      },
-    ] as EaArtifactBase[];
+    const entities = [
+      makeApiEntity({ anchors: { apis: ["GET /orders"] } }),
+      makeCanonicalEntity({ attributes: [{ name: "id", type: "uuid", required: true }] }),
+    ];
 
     const report = runGenerators({
-      artifacts,
+      entities,
       generators: [openapiGenerator, jsonSchemaGenerator],
       generatorConfigs: [{ name: "openapi" }, { name: "jsonschema" }],
       projectRoot: TEST_ROOT,
@@ -382,19 +325,16 @@ describe("Generator pipeline integration", () => {
   it("should write files in generate mode", () => {
     mkdirSync(TEST_ROOT, { recursive: true });
 
-    const artifacts = [
-      {
+    const entities = [
+      makeApiEntity({
         id: "systems/API-test",
-        kind: "api-contract",
         title: "Test API",
-        status: "active",
-        owners: ["team"],
         anchors: { apis: ["GET /test"] },
-      },
-    ] as EaArtifactBase[];
+      }),
+    ];
 
     const report = runGenerators({
-      artifacts,
+      entities,
       generators: [openapiGenerator],
       generatorConfigs: [{ name: "openapi" }],
       projectRoot: TEST_ROOT,
@@ -403,7 +343,7 @@ describe("Generator pipeline integration", () => {
     });
 
     expect(report.summary.filesWritten).toBe(1);
-    const path = join(TEST_ROOT, "generated", "systems-API-test.openapi.yaml");
+    const path = join(TEST_ROOT, "generated", "api-test.openapi.yaml");
     expect(existsSync(path)).toBe(true);
     const content = readFileSync(path, "utf-8");
     expect(content).toContain('openapi: "3.1.0"');
@@ -421,23 +361,20 @@ describe("Generator pipeline integration", () => {
   it("should detect drift in check mode", () => {
     mkdirSync(join(TEST_ROOT, "generated"), { recursive: true });
     writeFileSync(
-      join(TEST_ROOT, "generated", "systems-API-test.openapi.yaml"),
+      join(TEST_ROOT, "generated", "api-test.openapi.yaml"),
       "manually modified",
     );
 
-    const artifacts = [
-      {
+    const entities = [
+      makeApiEntity({
         id: "systems/API-test",
-        kind: "api-contract",
         title: "Test API",
-        status: "active",
-        owners: ["team"],
         anchors: { apis: ["GET /test"] },
-      },
-    ] as EaArtifactBase[];
+      }),
+    ];
 
     const report = runGenerators({
-      artifacts,
+      entities,
       generators: [openapiGenerator],
       generatorConfigs: [{ name: "openapi" }],
       projectRoot: TEST_ROOT,

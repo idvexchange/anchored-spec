@@ -10,19 +10,18 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   EaRoot,
-  resolveEaConfig,
+  resolveConfigV1,
   detectEaDrift,
   EA_DOMAINS,
   createResolverCache,
-  artifactToBackstage,
 } from "../../ea/index.js";
+import { getEntityLegacyKind } from "../../ea/backstage/accessors.js";
 import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
 import { checkConsistency } from "../../ea/facts/consistency.js";
 import type { ConsistencyReport } from "../../ea/facts/consistency.js";
 import { reconcileFactsWithArtifacts } from "../../ea/facts/reconciler.js";
 import type { ReconciliationReport } from "../../ea/facts/reconciler.js";
 import { applySuppressions, collectSuppressions } from "../../ea/facts/suppression.js";
-import type { ExceptionArtifact, EaDomain } from "../../ea/types.js";
 import { CliError } from "../errors.js";
 
 export function eaDriftCommand(): Command {
@@ -41,17 +40,17 @@ export function eaDriftCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2,
         );
       }
 
-      const result = await root.loadArtifacts();
+       const result = await root.loadEntities();
 
       // Validate domain filter
       const domainFilter = options.domain as string | undefined;
@@ -84,7 +83,7 @@ export function eaDriftCommand(): Command {
         // Optionally run artifact reconciliation
         let reconciliationReport: ReconciliationReport | undefined;
         if (options.includeArtifacts) {
-          reconciliationReport = reconcileFactsWithArtifacts(manifests, result.artifacts.map(artifactToBackstage));
+          reconciliationReport = reconcileFactsWithArtifacts(manifests, result.entities);
         }
 
         // Apply suppressions from manifests (carried through from parsing)
@@ -151,9 +150,9 @@ export function eaDriftCommand(): Command {
         return;
       }
 
-      // Collect exceptions
-      const exceptionsLegacy = result.artifacts.filter(
-        (a): a is ExceptionArtifact => a.kind === "exception",
+      // Collect exception entities
+      const exceptionEntities = result.entities.filter(
+        (entity) => getEntityLegacyKind(entity) === "exception",
       );
 
       // Build resolver cache
@@ -176,11 +175,8 @@ export function eaDriftCommand(): Command {
         }
       }
 
-      const entities = result.artifacts.map(artifactToBackstage);
-      const exceptionEntities = exceptionsLegacy.map(artifactToBackstage);
-
       const report = detectEaDrift({
-        artifacts: entities,
+        artifacts: result.entities,
         exceptions: exceptionEntities,
         domains: domainFilter ? [domainFilter] : undefined,
         includeResolverRules: !!options.fromSnapshot || options.cache !== false,

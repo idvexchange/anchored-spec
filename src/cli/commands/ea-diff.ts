@@ -1,14 +1,14 @@
 /**
  * anchored-spec diff
  *
- * Semantic diff between EA artifact states at different git refs.
+ * Semantic diff between entity states at different git refs.
  */
 
 import { Command } from "commander";
 import chalk from "chalk";
 import { writeFileSync } from "node:fs";
 import {
-  resolveEaConfig,
+  resolveConfigV1,
 } from "../../ea/index.js";
 import {
   diffEaGitRefs,
@@ -33,7 +33,7 @@ import { CliError } from "../errors.js";
 
 export function eaDiffCommand(): Command {
   return new Command("diff")
-    .description("Semantic diff of EA artifacts between git refs")
+    .description("Semantic diff of entities between git refs")
     .argument("[ref]", "Base git ref (branch, tag, SHA). Head defaults to working tree.")
     .option("--base <ref>", "Base git ref (alternative to positional argument)")
     .option("--head <ref>", "Head git ref (default: working tree)")
@@ -49,8 +49,7 @@ export function eaDiffCommand(): Command {
     .option("--fail-on <level>", "Exit non-zero if compatibility level met: breaking, ambiguous")
     .action(async (ref, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const eaRoot = eaConfig.rootDir;
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
 
       const baseRef = ref ?? options.base;
       if (!baseRef) {
@@ -62,12 +61,13 @@ export function eaDiffCommand(): Command {
 
       const format = options.json ? "json" : (options.format as string);
 
-      const report = diffEaGitRefs({
+      const diffResult = diffEaGitRefs({
         projectRoot: cwd,
-        eaRoot,
+        config: eaConfig,
         baseRef,
         headRef: options.head,
       });
+      const { report, baseEntities, headEntities } = diffResult;
 
       // Apply domain filter
       if (options.domain) {
@@ -90,7 +90,10 @@ export function eaDiffCommand(): Command {
 
       // Compatibility assessment
       if (options.compat || options.policy) {
-        const compatReport = assessCompatibility(report);
+        const compatReport = assessCompatibility(report, {
+          base: baseEntities,
+          head: headEntities,
+        });
 
         // Policy enforcement (requires compat)
         if (options.policy) {
@@ -108,7 +111,7 @@ export function eaDiffCommand(): Command {
 
           const policyReport = enforceVersionPolicies(
             compatReport,
-            { base: [], head: [] }, // artifacts not available from git ref loading
+            { base: baseEntities, head: headEntities },
             policyConfig,
           );
 

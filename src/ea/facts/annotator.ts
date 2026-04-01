@@ -1,7 +1,7 @@
 /**
  * @module facts/annotator
  *
- * Scans markdown documents for classifiable blocks that lack @ea:*
+ * Scans markdown documents for classifiable blocks that lack @anchored-spec:*
  * annotations and produces suggestions for adding them.
  */
 
@@ -16,7 +16,7 @@ export interface AnnotationSuggestion {
   line: number;
   /** The annotation comment to insert */
   annotation: string;
-  /** Line number AFTER which to insert @ea:end (1-based) */
+  /** Line number AFTER which to insert @anchored-spec:end (1-based) */
   endLine: number;
   /** The end annotation comment */
   endAnnotation: string;
@@ -91,8 +91,8 @@ function buildSuggestion(
     : undefined;
 
   const annotation = blockId
-    ? `<!-- @ea:${annotationName} ${blockId} -->`
-    : `<!-- @ea:${annotationName} -->`;
+    ? `<!-- @anchored-spec:${annotationName} ${blockId} -->`
+    : `<!-- @anchored-spec:${annotationName} -->`;
 
   // Determine confidence based on number of matching facts
   const confidence: "high" | "medium" = block.facts.length >= 3 ? "high" : "medium";
@@ -109,7 +109,7 @@ function buildSuggestion(
     line: startLine,
     endLine,
     annotation,
-    endAnnotation: "<!-- @ea:end -->",
+    endAnnotation: "<!-- @anchored-spec:end -->",
     kind: block.kind,
     confidence,
     reason: `${block.kind} block with ${block.facts.length} fact(s): ${keyPreview}${suffix}`,

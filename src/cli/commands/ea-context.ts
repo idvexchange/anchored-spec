@@ -1,10 +1,10 @@
 /**
  * anchored-spec ea context
  *
- * Assemble a complete AI context package for an artifact by following
+ * Assemble a complete AI context package for an entity by following
  * its trace links and relations.  Reads traced documents in full,
  * follows `requires` in frontmatter for transitive context, collects
- * related artifact metadata, and respects an optional token budget.
+ * related entity metadata, and respects an optional token budget.
  */
 
 import { readFileSync } from "node:fs";
@@ -12,11 +12,24 @@ import { resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
-import type { EaArtifactBase } from "../../ea/types.js";
+import { resolveConfigV1 } from "../../ea/config.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { parseFrontmatter } from "../../ea/docs/frontmatter.js";
+import type { BackstageEntity } from "../../ea/backstage/types.js";
+import {
+  getEntityAnchors,
+  getEntityConfidence,
+  getEntityDescription,
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityOwnerRef,
+  getEntitySpecRelations,
+  getEntityStatus,
+  getEntityTags,
+  getEntityTraceRefs,
+} from "../../ea/backstage/accessors.js";
+import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
 // ─── Constants ────────────────────────────────────────────────────────
@@ -46,8 +59,21 @@ interface RequiredDoc {
   tokens: number;
 }
 
-interface RelatedArtifactInfo {
-  id: string;
+interface EntityContextView {
+  entityRef: string;
+  kind: string;
+  status: string;
+  summary: string;
+  owners: string[];
+  tags: string[];
+  confidence: "declared" | "observed" | "inferred";
+  traceRefs: Array<{ path: string; role?: string }>;
+  relations: Array<{ type: string; target: string }>;
+  anchors?: Record<string, unknown>;
+}
+
+interface RelatedEntityInfo {
+  entityRef: string;
   kind: string;
   status: string;
   summary: string;
@@ -55,10 +81,10 @@ interface RelatedArtifactInfo {
 }
 
 interface ContextResult {
-  artifact: EaArtifactBase;
+  entity: EntityContextView;
   tracedDocs: TracedDoc[];
   requiredDocs: RequiredDoc[];
-  relatedArtifacts: RelatedArtifactInfo[];
+  relatedEntities: RelatedEntityInfo[];
   additionalRefs: string[];
   tokenEstimate: number;
   truncated: boolean;
@@ -102,9 +128,32 @@ function safeReadFile(filePath: string): string | undefined {
  * levels.  Uses a visited set to avoid cycles and excludes the
  * source artifact itself.
  */
+function toEntityContextView(entity: BackstageEntity): EntityContextView {
+  const entityRef = getEntityId(entity);
+  const ownerRef = getEntityOwnerRef(entity);
+
+  return {
+    entityRef,
+    kind: getEntityLegacyKind(entity),
+    status: getEntityStatus(entity),
+    summary: getEntityDescription(entity),
+    owners: ownerRef ? [ownerRef] : [],
+    tags: getEntityTags(entity),
+    confidence: getEntityConfidence(entity),
+    traceRefs: getEntityTraceRefs(entity),
+    relations: getEntitySpecRelations(entity).flatMap((relation) =>
+      relation.targets.map((target) => ({
+        type: relation.legacyType,
+        target,
+      })),
+    ),
+    anchors: getEntityAnchors(entity) as Record<string, unknown> | undefined,
+  };
+}
+
 function collectRelatedIds(
   sourceId: string,
-  artifactMap: Map<string, EaArtifactBase>,
+  entityMap: Map<string, EntityContextView>,
   maxDepth: number,
 ): string[] {
   const visited = new Set<string>([sourceId]);
@@ -113,9 +162,9 @@ function collectRelatedIds(
   for (let depth = 0; depth < maxDepth; depth++) {
     const next: string[] = [];
     for (const id of frontier) {
-      const artifact = artifactMap.get(id);
-      if (!artifact) continue;
-      for (const rel of artifact.relations ?? []) {
+      const entity = entityMap.get(id);
+      if (!entity) continue;
+      for (const rel of entity.relations ?? []) {
         if (!visited.has(rel.target)) {
           visited.add(rel.target);
           next.push(rel.target);
@@ -131,17 +180,17 @@ function collectRelatedIds(
 }
 
 /**
- * Assemble the full context for a single artifact.
+ * Assemble the full context for a single entity.
  */
 function assembleContext(
-  target: EaArtifactBase,
-  artifacts: EaArtifactBase[],
+  target: EntityContextView,
+  entities: EntityContextView[],
   docs: ScannedDoc[],
   cwd: string,
   maxDepth: number,
 ): ContextResult {
-  const artifactMap = new Map<string, EaArtifactBase>();
-  for (const a of artifacts) artifactMap.set(a.id, a);
+  const entityMap = new Map<string, EntityContextView>();
+  for (const entity of entities) entityMap.set(entity.entityRef, entity);
 
   // ── 1. Traced documents ───────────────────────────────────────────
   const tracedDocs: TracedDoc[] = [];
@@ -183,25 +232,25 @@ function assembleContext(
     }
   }
 
-  // ── 3. Related artifacts ──────────────────────────────────────────
-  const relatedIds = collectRelatedIds(target.id, artifactMap, maxDepth);
-  const relatedArtifacts: RelatedArtifactInfo[] = [];
+  // ── 3. Related entities ───────────────────────────────────────────
+  const relatedIds = collectRelatedIds(target.entityRef, entityMap, maxDepth);
+  const relatedEntities: RelatedEntityInfo[] = [];
 
-  for (const rid of relatedIds) {
-    const ra = artifactMap.get(rid);
-    if (!ra) continue;
-    relatedArtifacts.push({
-      id: ra.id,
-      kind: ra.kind,
-      status: ra.status,
-      summary: ra.summary,
-      owners: ra.owners,
+  for (const relatedId of relatedIds) {
+    const relatedEntity = entityMap.get(relatedId);
+    if (!relatedEntity) continue;
+    relatedEntities.push({
+      entityRef: relatedEntity.entityRef,
+      kind: relatedEntity.kind,
+      status: relatedEntity.status,
+      summary: relatedEntity.summary,
+      owners: relatedEntity.owners,
     });
   }
 
-  // ── 4. Additional doc references (doc frontmatter → artifact) ─────
+  // ── 4. Additional doc references (doc frontmatter → entity) ───────
   const docIndex = buildDocIndex(docs);
-  const referencingDocs = docIndex.get(target.id) ?? [];
+  const referencingDocs = docIndex.get(target.entityRef) ?? [];
   const tracedPaths = new Set(tracedDocs.map((d) => d.path));
   const additionalRefs: string[] = [];
 
@@ -215,13 +264,15 @@ function assembleContext(
   let tokenEstimate = estimateTokens(JSON.stringify(target));
   for (const td of tracedDocs) tokenEstimate += td.tokens;
   for (const rd of requiredDocs) tokenEstimate += rd.tokens;
-  for (const ra of relatedArtifacts) tokenEstimate += estimateTokens(JSON.stringify(ra));
+  for (const relatedEntity of relatedEntities) {
+    tokenEstimate += estimateTokens(JSON.stringify(relatedEntity));
+  }
 
   return {
-    artifact: target,
+    entity: target,
     tracedDocs,
     requiredDocs,
-    relatedArtifacts,
+    relatedEntities,
     additionalRefs,
     tokenEstimate,
     truncated: false,
@@ -235,10 +286,10 @@ function assembleContext(
 function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResult {
   let remaining = maxTokens;
 
-  // Always include the artifact spec itself
-  remaining -= estimateTokens(JSON.stringify(result.artifact));
+  // Always include the entity spec itself
+  remaining -= estimateTokens(JSON.stringify(result.entity));
   if (remaining <= 0) {
-    return { ...result, tracedDocs: [], requiredDocs: [], relatedArtifacts: [], additionalRefs: [], tokenEstimate: maxTokens, truncated: true };
+    return { ...result, tracedDocs: [], requiredDocs: [], relatedEntities: [], additionalRefs: [], tokenEstimate: maxTokens, truncated: true };
   }
 
   // Traced docs in priority order (already sorted)
@@ -259,15 +310,15 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
   }
   const requiredTruncated = keptRequired.length < result.requiredDocs.length;
 
-  // Related artifacts (metadata only — cheap)
-  const keptRelated: RelatedArtifactInfo[] = [];
-  for (const ra of result.relatedArtifacts) {
-    const cost = estimateTokens(JSON.stringify(ra));
+  // Related entities (metadata only — cheap)
+  const keptRelated: RelatedEntityInfo[] = [];
+  for (const relatedEntity of result.relatedEntities) {
+    const cost = estimateTokens(JSON.stringify(relatedEntity));
     if (remaining - cost < 0) break;
     remaining -= cost;
-    keptRelated.push(ra);
+    keptRelated.push(relatedEntity);
   }
-  const relatedTruncated = keptRelated.length < result.relatedArtifacts.length;
+  const relatedTruncated = keptRelated.length < result.relatedEntities.length;
 
   const truncated = tracedTruncated || requiredTruncated || relatedTruncated;
   const tokenEstimate = maxTokens - remaining;
@@ -276,7 +327,7 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
     ...result,
     tracedDocs: keptTraced,
     requiredDocs: keptRequired,
-    relatedArtifacts: keptRelated,
+    relatedEntities: keptRelated,
     tokenEstimate,
     truncated,
   };
@@ -285,20 +336,20 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
 // ─── Render helpers (human-readable) ──────────────────────────────────
 
 /** Format anchors for display. */
-function formatAnchors(artifact: EaArtifactBase): string[] {
-  const anchors = artifact.anchors;
+function formatAnchors(entity: EntityContextView): string[] {
+  const anchors = entity.anchors as Record<string, string[] | Record<string, string[]> | undefined> | undefined;
   if (!anchors) return [];
 
   const lines: string[] = [];
   const fields: [string, string[] | undefined][] = [
-    ["symbols", anchors.symbols],
-    ["apis", anchors.apis],
-    ["events", anchors.events],
-    ["schemas", anchors.schemas],
-    ["infra", anchors.infra],
-    ["catalogRefs", anchors.catalogRefs],
-    ["iam", anchors.iam],
-    ["network", anchors.network],
+    ["symbols", anchors.symbols as string[] | undefined],
+    ["apis", anchors.apis as string[] | undefined],
+    ["events", anchors.events as string[] | undefined],
+    ["schemas", anchors.schemas as string[] | undefined],
+    ["infra", anchors.infra as string[] | undefined],
+    ["catalogRefs", anchors.catalogRefs as string[] | undefined],
+    ["iam", anchors.iam as string[] | undefined],
+    ["network", anchors.network as string[] | undefined],
   ];
 
   for (const [name, values] of fields) {
@@ -307,8 +358,10 @@ function formatAnchors(artifact: EaArtifactBase): string[] {
     }
   }
 
-  if (anchors.other) {
-    for (const [name, values] of Object.entries(anchors.other)) {
+  if (anchors.other && typeof anchors.other === "object") {
+    for (const [name, values] of Object.entries(
+      anchors.other as Record<string, string[]>,
+    )) {
       if (values && values.length > 0) {
         lines.push(`- ${name}: ${values.join(", ")}`);
       }
@@ -319,25 +372,25 @@ function formatAnchors(artifact: EaArtifactBase): string[] {
 }
 
 function renderMarkdown(result: ContextResult): string {
-  const { artifact, tracedDocs, requiredDocs, relatedArtifacts, additionalRefs, tokenEstimate, truncated } = result;
+  const { entity, tracedDocs, requiredDocs, relatedEntities, additionalRefs, tokenEstimate, truncated } = result;
   const lines: string[] = [];
 
-  // ── Artifact Specification ────────────────────────────────────────
-  lines.push(`# Context: ${artifact.id}`);
+  // ── Entity Specification ──────────────────────────────────────────
+  lines.push(`# Context: ${entity.entityRef}`);
   lines.push("");
-  lines.push("## Artifact Specification");
-  lines.push(`- ${chalk.bold("ID")}: ${artifact.id}`);
-  lines.push(`- ${chalk.bold("Kind")}: ${artifact.kind}`);
-  lines.push(`- ${chalk.bold("Status")}: ${artifact.status}`);
-  lines.push(`- ${chalk.bold("Summary")}: ${artifact.summary}`);
-  lines.push(`- ${chalk.bold("Owners")}: ${artifact.owners.join(", ")}`);
-  if (artifact.tags && artifact.tags.length > 0) {
-    lines.push(`- ${chalk.bold("Tags")}: ${artifact.tags.join(", ")}`);
+  lines.push("## Entity Specification");
+  lines.push(`- ${chalk.bold("Entity Ref")}: ${entity.entityRef}`);
+  lines.push(`- ${chalk.bold("Kind")}: ${entity.kind}`);
+  lines.push(`- ${chalk.bold("Status")}: ${entity.status}`);
+  lines.push(`- ${chalk.bold("Summary")}: ${entity.summary}`);
+  lines.push(`- ${chalk.bold("Owners")}: ${entity.owners.join(", ")}`);
+  if (entity.tags.length > 0) {
+    lines.push(`- ${chalk.bold("Tags")}: ${entity.tags.join(", ")}`);
   }
-  lines.push(`- ${chalk.bold("Confidence")}: ${artifact.confidence}`);
+  lines.push(`- ${chalk.bold("Confidence")}: ${entity.confidence}`);
 
   // Relations
-  const relations = artifact.relations ?? [];
+  const relations = entity.relations ?? [];
   if (relations.length > 0) {
     lines.push("");
     lines.push("### Relations");
@@ -347,7 +400,7 @@ function renderMarkdown(result: ContextResult): string {
   }
 
   // Anchors
-  const anchorLines = formatAnchors(artifact);
+  const anchorLines = formatAnchors(entity);
   if (anchorLines.length > 0) {
     lines.push("");
     lines.push("### Anchors");
@@ -381,17 +434,17 @@ function renderMarkdown(result: ContextResult): string {
     }
   }
 
-  // ── Related Artifacts ─────────────────────────────────────────────
-  if (relatedArtifacts.length > 0) {
+  // ── Related Entities ──────────────────────────────────────────────
+  if (relatedEntities.length > 0) {
     lines.push("");
     lines.push("---");
     lines.push("");
-    lines.push("## Related Artifacts");
-    for (const ra of relatedArtifacts) {
+    lines.push("## Related Entities");
+    for (const relatedEntity of relatedEntities) {
       lines.push("");
-      lines.push(`### ${ra.id} (${ra.kind}, ${ra.status})`);
-      lines.push(`- ${chalk.bold("Summary")}: ${ra.summary}`);
-      lines.push(`- ${chalk.bold("Owners")}: ${ra.owners.join(", ")}`);
+      lines.push(`### ${relatedEntity.entityRef} (${relatedEntity.kind}, ${relatedEntity.status})`);
+      lines.push(`- ${chalk.bold("Summary")}: ${relatedEntity.summary}`);
+      lines.push(`- ${chalk.bold("Owners")}: ${relatedEntity.owners.join(", ")}`);
     }
   }
 
@@ -403,7 +456,7 @@ function renderMarkdown(result: ContextResult): string {
     lines.push("## Additional References (from doc frontmatter)");
     lines.push("");
     for (const ref of additionalRefs) {
-      lines.push(`- ${ref} (references this artifact)`);
+      lines.push(`- ${ref} (references this entity)`);
     }
   }
 
@@ -419,14 +472,14 @@ function renderMarkdown(result: ContextResult): string {
 
 function buildJsonOutput(result: ContextResult): Record<string, unknown> {
   return {
-    artifact: {
-      id: result.artifact.id,
-      kind: result.artifact.kind,
-      status: result.artifact.status,
-      summary: result.artifact.summary,
-      owners: result.artifact.owners,
-      tags: result.artifact.tags,
-      confidence: result.artifact.confidence,
+    entity: {
+      entityRef: result.entity.entityRef,
+      kind: result.entity.kind,
+      status: result.entity.status,
+      summary: result.entity.summary,
+      owners: result.entity.owners,
+      tags: result.entity.tags,
+      confidence: result.entity.confidence,
     },
     tracedDocs: result.tracedDocs.map((td) => ({
       path: td.path,
@@ -439,11 +492,11 @@ function buildJsonOutput(result: ContextResult): Record<string, unknown> {
       content: rd.content,
       tokens: rd.tokens,
     })),
-    relatedArtifacts: result.relatedArtifacts.map((ra) => ({
-      id: ra.id,
-      kind: ra.kind,
-      status: ra.status,
-      summary: ra.summary,
+    relatedEntities: result.relatedEntities.map((relatedEntity) => ({
+      entityRef: relatedEntity.entityRef,
+      kind: relatedEntity.kind,
+      status: relatedEntity.status,
+      summary: relatedEntity.summary,
     })),
     additionalRefs: result.additionalRefs,
     tokenEstimate: result.tokenEstimate,
@@ -455,34 +508,43 @@ function buildJsonOutput(result: ContextResult): Record<string, unknown> {
 
 export function eaContextCommand(): Command {
   return new Command("context")
-    .description("Assemble a complete AI context package for an artifact")
-    .argument("<artifact-id>", "Artifact ID to assemble context for")
+    .description("Assemble a complete AI context package for an entity")
+    .argument("<entity-ref>", "Entity ref to assemble context for")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
     .option("--max-tokens <n>", "Maximum estimated tokens for the output")
     .option("--depth <n>", "Maximum depth to follow relations", "1")
     .option("--json", "Output as JSON")
-    .action(async (artifactId: string, options) => {
+    .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
-        throw new CliError("EA not initialized. Run 'anchored-spec ea init' first.", 2);
+        throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
       }
 
-      const loadResult = await root.loadArtifacts();
-      const { artifacts } = loadResult;
+      const loadResult = await root.loadEntities();
+      const lookup = buildEntityLookup(loadResult.entities);
+      const entities = loadResult.entities.map((entity) => {
+        return toEntityContextView(entity);
+      });
 
-      // Find target artifact
-      const target = artifacts.find((a) => a.id === artifactId);
+      // Find target entity
+      const resolvedEntity = lookup.byInput.get(entityInput);
+      const resolvedId = resolvedEntity ? getEntityId(resolvedEntity) : entityInput;
+      const target = entities.find(
+        (entity) => entity.entityRef === resolvedId,
+      );
       if (!target) {
-        throw new CliError(`Artifact not found: ${artifactId}`, 1);
+        const similar = suggestEntities(entityInput, loadResult.entities);
+        const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
+        throw new CliError(`Entity "${entityInput}" not found.${hint}`, 1);
       }
 
       // Scan docs
       const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
-      const scanResult = scanDocs(cwd, { dirs: docDirs });
+      const normalizedDocs = scanDocs(cwd, { dirs: docDirs }).docs;
 
       // Depth
       const depth = parseInt(options.depth as string, 10);
@@ -491,7 +553,7 @@ export function eaContextCommand(): Command {
       }
 
       // Assemble context
-      let result = assembleContext(target, artifacts, scanResult.docs, cwd, depth);
+      let result = assembleContext(target, entities, normalizedDocs, cwd, depth);
 
       // Apply token budget
       if (options.maxTokens != null) {

@@ -40,7 +40,7 @@ export interface FactSource {
   endLine?: number;
   /** Stable block ID from @ea annotation */
   blockId?: string;
-  /** Annotation kind (@ea:events, @ea:states, etc.) */
+  /** Annotation kind (@anchored-spec:events, @anchored-spec:states, etc.) */
   annotationKind?: string;
 }
 
@@ -65,7 +65,7 @@ export interface ExtractedFact {
 // ─── Annotations ────────────────────────────────────────────────────
 
 /**
- * Parsed @ea:* annotation metadata.
+ * Parsed @anchored-spec:* annotation metadata.
  */
 export interface FactAnnotation {
   /** Annotation kind: events, states, endpoints, entities, enums, schema, transitions */
@@ -76,12 +76,12 @@ export interface FactAnnotation {
   raw: string;
   /** Start line of the annotation comment (1-based) */
   line: number;
-  /** End line of the @ea:end comment (1-based), if present */
+  /** End line of the @anchored-spec:end comment (1-based), if present */
   endLine?: number;
 }
 
 /**
- * Parsed @ea:suppress annotation.
+ * Parsed @anchored-spec:suppress annotation.
  */
 export interface SuppressionAnnotation {
   /** Rule ID or glob pattern to suppress */
@@ -219,8 +219,8 @@ export interface MarkdownDocument {
 }
 
 /**
- * A region of the document annotated with @ea:{kind}.
- * Contains the AST nodes between @ea:{kind} and @ea:end.
+ * A region of the document annotated with @anchored-spec:{kind}.
+ * Contains the AST nodes between @anchored-spec:{kind} and @anchored-spec:end.
  */
 export interface AnnotatedRegion {
   /** Annotation metadata */

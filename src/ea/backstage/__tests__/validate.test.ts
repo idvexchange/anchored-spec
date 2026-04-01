@@ -56,14 +56,16 @@ function makeRequirement(overrides: Partial<BackstageEntity> = {}): BackstageEnt
 // ─── Schema Lookup ──────────────────────────────────────────────────────────────
 
 describe("schema lookup", () => {
-  it("getBackstageSchemaNames returns all 19 schema names", () => {
+  it("getBackstageSchemaNames returns all supported schema names", () => {
     const names = getBackstageSchemaNames();
     expect(names).toContain("entity-envelope");
     expect(names).toContain("component");
     expect(names).toContain("api");
+    expect(names).toContain("user");
+    expect(names).toContain("location");
     expect(names).toContain("requirement");
     expect(names).toContain("canonical-entity");
-    expect(names.length).toBe(19);
+    expect(names.length).toBe(21);
   });
 
   it("getBackstageSchemaForKind maps PascalCase kinds", () => {
@@ -83,41 +85,41 @@ describe("schema lookup", () => {
 // ─── validateBackstageEntity ────────────────────────────────────────────────────
 
 describe("validateBackstageEntity", () => {
-  it("validates a valid Component entity", () => {
-    const result = validateBackstageEntity(makeComponent());
+  it("validates a valid Component entity", async () => {
+    const result = await validateBackstageEntity(makeComponent());
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
-  it("validates a valid Requirement entity", () => {
-    const result = validateBackstageEntity(makeRequirement());
+  it("validates a valid Requirement entity", async () => {
+    const result = await validateBackstageEntity(makeRequirement());
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
-  it("rejects entity missing apiVersion", () => {
+  it("rejects entity missing apiVersion", async () => {
     const entity = makeComponent();
     delete (entity as Record<string, unknown>).apiVersion;
-    const result = validateBackstageEntity(entity);
+    const result = await validateBackstageEntity(entity);
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
-  it("rejects entity missing kind", () => {
+  it("rejects entity missing kind", async () => {
     const entity = makeComponent();
     delete (entity as Record<string, unknown>).kind;
-    const result = validateBackstageEntity(entity);
+    const result = await validateBackstageEntity(entity);
     expect(result.valid).toBe(false);
   });
 
-  it("rejects entity missing metadata.name", () => {
+  it("rejects entity missing metadata.name", async () => {
     const entity = makeComponent();
     delete (entity.metadata as Record<string, unknown>).name;
-    const result = validateBackstageEntity(entity);
+    const result = await validateBackstageEntity(entity);
     expect(result.valid).toBe(false);
   });
 
-  it("falls back to entity-envelope for unknown kinds", () => {
+  it("falls back to entity-envelope for unknown kinds", async () => {
     const entity: BackstageEntity = {
       apiVersion: "backstage.io/v1alpha1",
       kind: "UnknownKind",
@@ -125,17 +127,17 @@ describe("validateBackstageEntity", () => {
       spec: {},
     };
     // Unknown kind falls back to envelope validation — apiVersion/kind/metadata present
-    const result = validateBackstageEntity(entity, "entity-envelope");
+    const result = await validateBackstageEntity(entity, "entity-envelope");
     expect(result.valid).toBe(true);
   });
 
-  it("validates with explicit schema name", () => {
+  it("validates with explicit schema name", async () => {
     const entity = makeComponent();
-    const result = validateBackstageEntity(entity, "component");
+    const result = await validateBackstageEntity(entity, "component");
     expect(result.valid).toBe(true);
   });
 
-  it("validates all built-in kinds", () => {
+  it("validates all built-in kinds", async () => {
     const entities: BackstageEntity[] = [
       makeComponent(),
       {
@@ -171,12 +173,12 @@ describe("validateBackstageEntity", () => {
     ];
 
     for (const entity of entities) {
-      const result = validateBackstageEntity(entity);
+      const result = await validateBackstageEntity(entity);
       expect(result.valid, `${entity.kind} should be valid`).toBe(true);
     }
   });
 
-  it("validates all custom kinds", () => {
+  it("validates all custom kinds", async () => {
     const customEntities: BackstageEntity[] = [
       makeRequirement(),
       {
@@ -248,7 +250,7 @@ describe("validateBackstageEntity", () => {
     ];
 
     for (const entity of customEntities) {
-      const result = validateBackstageEntity(entity);
+      const result = await validateBackstageEntity(entity);
       expect(result.valid, `${entity.kind} should be valid`).toBe(true);
     }
   });

@@ -12,7 +12,7 @@ import {
 import type { DocFrontmatter } from "../docs/frontmatter.js";
 import { scanDocs, buildDocIndex, discoverFromDocs } from "../docs/scanner.js";
 import type { ScannedDoc } from "../docs/scanner.js";
-import type { EaArtifactBase } from "../types.js";
+import { makeEntity } from "./helpers/make-entity.js";
 
 describe("Document Traceability", () => {
   // ─── parseFrontmatter ─────────────────────────────────────────────
@@ -397,19 +397,6 @@ describe("Document Traceability", () => {
   // ─── discoverFromDocs ───────────────────────────────────────────
 
   describe("discoverFromDocs", () => {
-    function makeArtifact(id: string, kind: string): EaArtifactBase {
-      return {
-        id,
-        kind,
-        schemaVersion: "1.0",
-        title: id,
-        status: "active",
-        summary: "test",
-        owners: ["test"],
-        confidence: "declared",
-      };
-    }
-
     function makeDoc(relativePath: string, artifactIds: string[], type?: string): ScannedDoc {
       return {
         path: `/project/${relativePath}`,
@@ -425,7 +412,7 @@ describe("Document Traceability", () => {
 
     it("scaffolds drafts for missing artifacts", () => {
       const docs = [makeDoc("docs/auth.md", ["SVC-auth-core", "API-auth-v1"])];
-      const existing: EaArtifactBase[] = [];
+      const existing = [];
 
       const result = discoverFromDocs(docs, existing);
 
@@ -439,19 +426,19 @@ describe("Document Traceability", () => {
     });
 
     it("skips existing artifacts", () => {
-      const docs = [makeDoc("docs/arch.md", ["SVC-auth-core", "APP-web"])];
-      const existing = [makeArtifact("SVC-auth-core", "service")];
+      const docs = [makeDoc("docs/arch.md", ["component:auth-core", "api:auth-v1"])];
+      const existing = [makeEntity({ id: "component:auth-core", kind: "service" })];
 
       const result = discoverFromDocs(docs, existing);
 
       expect(result.drafts).toHaveLength(1);
-      expect(result.drafts[0]!.suggestedId).toBe("APP-web");
-      expect(result.alreadyExists).toEqual(["SVC-auth-core"]);
+      expect(result.drafts[0]!.suggestedId).toBe("api:auth-v1");
+      expect(result.alreadyExists).toEqual(["component:auth-core"]);
     });
 
     it("reports unknown prefixes", () => {
       const docs = [makeDoc("docs/misc.md", ["UNKNOWN-thing", "SVC-real"])];
-      const existing: EaArtifactBase[] = [];
+      const existing = [];
 
       const result = discoverFromDocs(docs, existing);
 
@@ -462,32 +449,32 @@ describe("Document Traceability", () => {
 
     it("deduplicates across multiple docs", () => {
       const docs = [
-        makeDoc("docs/a.md", ["SVC-shared"]),
-        makeDoc("docs/b.md", ["SVC-shared"]),
+        makeDoc("docs/a.md", ["api:shared"]),
+        makeDoc("docs/b.md", ["api:shared"]),
       ];
-      const existing: EaArtifactBase[] = [];
+      const existing = [];
 
       const result = discoverFromDocs(docs, existing);
 
       expect(result.drafts).toHaveLength(1);
-      expect(result.drafts[0]!.suggestedId).toBe("SVC-shared");
+      expect(result.drafts[0]!.suggestedId).toBe("api:shared");
     });
 
     it("preserves the exact artifact ID from frontmatter", () => {
-      const docs = [makeDoc("docs/api.md", ["API-orders-v2"])];
-      const existing: EaArtifactBase[] = [];
+      const docs = [makeDoc("docs/api.md", ["api:orders-v2"])];
+      const existing = [];
 
       const result = discoverFromDocs(docs, existing);
 
       // The ID should be exactly what the user wrote, not auto-generated
-      expect(result.drafts[0]!.suggestedId).toBe("API-orders-v2");
+      expect(result.drafts[0]!.suggestedId).toBe("api:orders-v2");
       expect(result.drafts[0]!.kind).toBe("api-contract");
       expect(result.drafts[0]!.title).toBe("Orders V2");
     });
 
     it("includes doc path in draft summary and anchors", () => {
-      const docs = [makeDoc("docs/security/auth-contracts.md", ["SREQ-auth-pkce"], "spec")];
-      const existing: EaArtifactBase[] = [];
+      const docs = [makeDoc("docs/security/auth-contracts.md", ["decision:auth-pkce"], "spec")];
+      const existing = [];
 
       const result = discoverFromDocs(docs, existing);
 
@@ -498,7 +485,7 @@ describe("Document Traceability", () => {
 
     it("handles IDs without valid prefix format", () => {
       const docs = [makeDoc("docs/misc.md", ["lowercase-thing", "nohyphen"])];
-      const existing: EaArtifactBase[] = [];
+      const existing = [];
 
       const result = discoverFromDocs(docs, existing);
 

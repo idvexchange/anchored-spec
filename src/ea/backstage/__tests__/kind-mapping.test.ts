@@ -14,26 +14,17 @@ import {
   entityNameToLegacyId,
 } from "../kind-mapping.js";
 import { BACKSTAGE_API_VERSION, ANCHORED_SPEC_API_VERSION } from "../types.js";
-import { EA_KIND_REGISTRY } from "../../types.js";
 
 // ─── Registry Coverage ──────────────────────────────────────────────────────────
 
 describe("BACKSTAGE_KIND_REGISTRY", () => {
-  it("covers all 48 legacy kinds from EA_KIND_REGISTRY", () => {
-    const legacyKinds = EA_KIND_REGISTRY.map((e) => e.kind);
-    const mappedKinds = BACKSTAGE_KIND_REGISTRY.map((e) => e.legacyKind);
-
-    for (const kind of legacyKinds) {
-      expect(mappedKinds).toContain(kind);
-    }
+  it("contains the full 48-kind legacy mapping set", () => {
+    expect(BACKSTAGE_KIND_REGISTRY).toHaveLength(48);
   });
 
-  it("covers all legacy prefixes from EA_KIND_REGISTRY", () => {
-    const legacyPrefixes = EA_KIND_REGISTRY.map((e) => e.prefix);
-    const mappedPrefixes = BACKSTAGE_KIND_REGISTRY.map((e) => e.legacyPrefix);
-
-    for (const prefix of legacyPrefixes) {
-      expect(mappedPrefixes).toContain(prefix);
+  it("carries domain metadata for every mapping", () => {
+    for (const entry of BACKSTAGE_KIND_REGISTRY) {
+      expect(entry.domain).toBeTruthy();
     }
   });
 

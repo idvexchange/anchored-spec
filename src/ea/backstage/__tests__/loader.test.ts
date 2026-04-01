@@ -11,6 +11,7 @@ import {
 } from "../loader.js";
 import { writeBackstageManifest, writeBackstageYaml } from "../writer.js";
 import type { BackstageEntity } from "../types.js";
+import { resolveConfigV1 } from "../../config.js";
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -85,9 +86,9 @@ describe("loadManifestFile", () => {
     const result = await loadManifestFile(manifestPath, testDir);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.artifacts).toHaveLength(2);
-    expect(result.artifacts[0].kind).toBe("service");
-    expect(result.artifacts[1].kind).toBe("api-contract");
+    expect(result.entities).toHaveLength(2);
+    expect(result.entities[0].kind).toBe("Component");
+    expect(result.entities[1].kind).toBe("API");
   });
 
   it("returns error for missing manifest file", async () => {
@@ -96,7 +97,7 @@ describe("loadManifestFile", () => {
       testDir,
     );
 
-    expect(result.artifacts).toHaveLength(0);
+    expect(result.entities).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].rule).toBe("ea:backstage:manifest-not-found");
   });
@@ -107,11 +108,11 @@ describe("loadManifestFile", () => {
 
     const result = await loadManifestFile(join(testDir, "mixed.yaml"), testDir);
 
-    expect(result.artifacts).toHaveLength(2);
+    expect(result.entities).toHaveLength(2);
     expect(result.errors.length).toBeGreaterThan(0);
   });
 
-  it("populates detail records with entity and artifact", async () => {
+  it("populates detail records with runtime and authored entities", async () => {
     const manifest = writeBackstageManifest([componentEntity]);
     writeFileSync(join(testDir, "catalog.yaml"), manifest);
 
@@ -119,7 +120,7 @@ describe("loadManifestFile", () => {
 
     expect(result.details).toHaveLength(1);
     expect(result.details[0].entity).toBeDefined();
-    expect(result.details[0].artifact).toBeDefined();
+    expect(result.details[0].authoredEntity).toBeDefined();
     expect(result.details[0].relativePath).toBe("catalog.yaml");
   });
 
@@ -130,6 +131,105 @@ describe("loadManifestFile", () => {
     const result = await loadManifestFile(join(testDir, "catalog.yaml"), testDir);
 
     expect(result.details[0].domain).toBeDefined();
+  });
+
+  it("resolves local $text substitutions while preserving authored entity shape", async () => {
+    mkdirSync(join(testDir, "specs"));
+    writeFileSync(
+      join(testDir, "specs", "openapi.yaml"),
+      'openapi: "3.1.0"\ninfo:\n  title: Users API\n',
+    );
+
+    const manifestPath = join(testDir, "catalog.yaml");
+    writeFileSync(
+      manifestPath,
+      writeBackstageManifest([{
+        ...apiEntity,
+        spec: {
+          ...apiEntity.spec,
+          definition: { $text: "./specs/openapi.yaml" },
+        },
+      }]),
+    );
+
+    const result = await loadManifestFile(manifestPath, testDir);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.entities).toHaveLength(1);
+    expect(result.details[0].authoredEntity?.spec.definition).toEqual({
+      $text: "./specs/openapi.yaml",
+    });
+    expect(result.details[0].entity?.spec.definition).toContain('openapi: "3.1.0"');
+  });
+
+  it("resolves local $json and $yaml substitutions", async () => {
+    writeFileSync(join(testDir, "tags.json"), '["typescript","platform"]');
+    writeFileSync(join(testDir, "deps.yaml"), "- resource:default/users-db\n");
+
+    const manifestPath = join(testDir, "catalog.yaml");
+    writeFileSync(
+      manifestPath,
+      writeBackstageManifest([{
+        ...componentEntity,
+        metadata: {
+          ...componentEntity.metadata,
+          tags: { $json: "./tags.json" } as unknown as string[],
+        },
+        spec: {
+          ...componentEntity.spec,
+          dependsOn: { $yaml: "./deps.yaml" } as unknown as string[],
+        },
+      }]),
+    );
+
+    const result = await loadManifestFile(manifestPath, testDir);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.details[0].entity?.metadata.tags).toEqual([
+      "typescript",
+      "platform",
+    ]);
+    expect(result.details[0].entity?.spec.dependsOn).toEqual([
+      "resource:default/users-db",
+    ]);
+  });
+
+  it("reports remote substitutions as errors", async () => {
+    const manifestPath = join(testDir, "catalog.yaml");
+    writeFileSync(
+      manifestPath,
+      writeBackstageManifest([{
+        ...apiEntity,
+        spec: {
+          ...apiEntity.spec,
+          definition: { $text: "https://example.com/openapi.yaml" },
+        },
+      }]),
+    );
+
+    const result = await loadManifestFile(manifestPath, testDir);
+
+    expect(result.entities).toHaveLength(1);
+    expect(result.errors.some((error) => error.rule === "ea:backstage:substitution-error")).toBe(true);
+  });
+
+  it("reports missing substitution files as errors", async () => {
+    const manifestPath = join(testDir, "catalog.yaml");
+    writeFileSync(
+      manifestPath,
+      writeBackstageManifest([{
+        ...apiEntity,
+        spec: {
+          ...apiEntity.spec,
+          definition: { $text: "./missing-openapi.yaml" },
+        },
+      }]),
+    );
+
+    const result = await loadManifestFile(manifestPath, testDir);
+
+    expect(result.entities).toHaveLength(1);
+    expect(result.errors.some((error) => error.rule === "ea:backstage:substitution-error")).toBe(true);
   });
 });
 
@@ -152,7 +252,7 @@ describe("loadCatalogDirectory", () => {
     const result = await loadCatalogDirectory(catalogDir, testDir);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.artifacts).toHaveLength(2);
+    expect(result.entities).toHaveLength(2);
   });
 
   it("recursively loads from subdirectories", async () => {
@@ -166,8 +266,8 @@ describe("loadCatalogDirectory", () => {
 
     const result = await loadCatalogDirectory(join(testDir, "catalog"), testDir);
 
-    expect(result.artifacts).toHaveLength(1);
-    expect(result.artifacts[0].kind).toBe("api-contract");
+    expect(result.entities).toHaveLength(1);
+    expect(result.entities[0].kind).toBe("API");
   });
 
   it("returns empty result for non-existent directory", async () => {
@@ -176,7 +276,7 @@ describe("loadCatalogDirectory", () => {
       testDir,
     );
 
-    expect(result.artifacts).toHaveLength(0);
+    expect(result.entities).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
   });
 
@@ -192,7 +292,7 @@ describe("loadCatalogDirectory", () => {
 
     const result = await loadCatalogDirectory(catalogDir, testDir);
 
-    expect(result.artifacts).toHaveLength(1);
+    expect(result.entities).toHaveLength(1);
   });
 });
 
@@ -209,8 +309,8 @@ describe("loadInlineEntities", () => {
     const result = await loadInlineEntities(["docs"], testDir);
 
     expect(result.errors).toHaveLength(0);
-    expect(result.artifacts).toHaveLength(1);
-    expect(result.artifacts[0].kind).toBe("service");
+    expect(result.entities).toHaveLength(1);
+    expect(result.entities[0].kind).toBe("Component");
   });
 
   it("skips markdown files without apiVersion in frontmatter", async () => {
@@ -224,7 +324,7 @@ describe("loadInlineEntities", () => {
 
     const result = await loadInlineEntities(["docs"], testDir);
 
-    expect(result.artifacts).toHaveLength(0);
+    expect(result.entities).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
   });
 
@@ -239,13 +339,13 @@ describe("loadInlineEntities", () => {
 
     const result = await loadInlineEntities(["docs", "specs"], testDir);
 
-    expect(result.artifacts).toHaveLength(2);
+    expect(result.entities).toHaveLength(2);
   });
 
   it("handles non-existent doc directories gracefully", async () => {
     const result = await loadInlineEntities(["nonexistent"], testDir);
 
-    expect(result.artifacts).toHaveLength(0);
+    expect(result.entities).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
   });
 });
@@ -253,59 +353,25 @@ describe("loadInlineEntities", () => {
 // ─── loadBackstageEntities ──────────────────────────────────────────────────────
 
 describe("loadBackstageEntities", () => {
-  it("returns empty for artifacts mode", async () => {
+  it("rejects unsupported entity modes", async () => {
     const config = {
-      schemaVersion: "1.0" as const,
-      rootDir: "ea",
-      generatedDir: "ea/generated",
-      domains: {} as any,
-      resolvers: [],
-      generators: [],
-      evidenceSources: [],
-      cache: { dir: ".cache", defaultTTL: 3600 },
-      quality: {
-        requireOwners: true,
-        requireSummary: true,
-        requireRelations: false,
-        requireAnchors: false,
-        strictMode: false,
-        rules: {},
-      },
-      workflowPolicyPath: "ea/workflow-policy.yaml",
-      entityMode: "artifacts" as const,
-    };
+      ...resolveConfigV1({}),
+      entityMode: "artifacts",
+    } as unknown as Parameters<typeof loadBackstageEntities>[0];
 
-    const result = await loadBackstageEntities(config, testDir);
-    expect(result.artifacts).toHaveLength(0);
+    await expect(loadBackstageEntities(config, testDir)).rejects.toThrow(
+      "Unsupported entity mode: artifacts",
+    );
   });
 
   it("loads from manifest mode", async () => {
     const manifest = writeBackstageManifest([componentEntity]);
     writeFileSync(join(testDir, "catalog-info.yaml"), manifest);
 
-    const config = {
-      schemaVersion: "1.0" as const,
-      rootDir: "ea",
-      generatedDir: "ea/generated",
-      domains: {} as any,
-      resolvers: [],
-      generators: [],
-      evidenceSources: [],
-      cache: { dir: ".cache", defaultTTL: 3600 },
-      quality: {
-        requireOwners: true,
-        requireSummary: true,
-        requireRelations: false,
-        requireAnchors: false,
-        strictMode: false,
-        rules: {},
-      },
-      workflowPolicyPath: "ea/workflow-policy.yaml",
-      entityMode: "manifest" as const,
-    };
+    const config = resolveConfigV1({ entityMode: "manifest" });
 
     const result = await loadBackstageEntities(config, testDir);
-    expect(result.artifacts).toHaveLength(1);
+    expect(result.entities).toHaveLength(1);
   });
 
   it("loads from inline mode", async () => {
@@ -313,30 +379,13 @@ describe("loadBackstageEntities", () => {
     const md = `---\n${writeBackstageYaml(componentEntity)}---\n\n# Docs\n`;
     writeFileSync(join(testDir, "docs", "svc.md"), md);
 
-    const config = {
-      schemaVersion: "1.0" as const,
-      rootDir: "ea",
-      generatedDir: "ea/generated",
-      domains: {} as any,
-      resolvers: [],
-      generators: [],
-      evidenceSources: [],
-      cache: { dir: ".cache", defaultTTL: 3600 },
-      quality: {
-        requireOwners: true,
-        requireSummary: true,
-        requireRelations: false,
-        requireAnchors: false,
-        strictMode: false,
-        rules: {},
-      },
-      workflowPolicyPath: "ea/workflow-policy.yaml",
-      entityMode: "inline" as const,
+    const config = resolveConfigV1({
+      entityMode: "inline",
       inlineDocDirs: ["docs"],
-    };
+    });
 
     const result = await loadBackstageEntities(config, testDir);
-    expect(result.artifacts).toHaveLength(1);
+    expect(result.entities).toHaveLength(1);
   });
 
   it("loads manifest + catalog directory together", async () => {
@@ -352,29 +401,12 @@ describe("loadBackstageEntities", () => {
       writeBackstageYaml(apiEntity),
     );
 
-    const config = {
-      schemaVersion: "1.0" as const,
-      rootDir: "ea",
-      generatedDir: "ea/generated",
-      domains: {} as any,
-      resolvers: [],
-      generators: [],
-      evidenceSources: [],
-      cache: { dir: ".cache", defaultTTL: 3600 },
-      quality: {
-        requireOwners: true,
-        requireSummary: true,
-        requireRelations: false,
-        requireAnchors: false,
-        strictMode: false,
-        rules: {},
-      },
-      workflowPolicyPath: "ea/workflow-policy.yaml",
-      entityMode: "manifest" as const,
+    const config = resolveConfigV1({
+      entityMode: "manifest",
       catalogDir: "catalog",
-    };
+    });
 
     const result = await loadBackstageEntities(config, testDir);
-    expect(result.artifacts).toHaveLength(2);
+    expect(result.entities).toHaveLength(2);
   });
 });

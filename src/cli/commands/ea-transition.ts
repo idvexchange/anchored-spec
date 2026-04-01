@@ -12,8 +12,24 @@ import chalk from "chalk";
 import { writeFileSync, readFileSync } from "node:fs";
 import { relative } from "node:path";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
-import type { EaArtifactBase, ArtifactStatus } from "../../ea/types.js";
+import {
+  getEntityDescription,
+  extractMarkdownBody,
+  getEntityId,
+  getEntityOwners,
+  getEntitySpecRelations,
+  getEntityStatus,
+  parseBackstageYaml,
+  parseFrontmatterEntity,
+  resolveConfigV1,
+  writeBackstageFrontmatter,
+  writeBackstageManifest,
+  writeBackstageYaml,
+} from "../../ea/index.js";
+import type { ArtifactStatus } from "../../ea/types.js";
+import type { BackstageEntity } from "../../ea/index.js";
+import { BACKSTAGE_API_VERSION } from "../../ea/index.js";
+import { buildEntityLookup, formatEntityDisplay, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
 const STATUS_ORDER: ArtifactStatus[] = [
@@ -32,12 +48,13 @@ function getNextStatus(current: ArtifactStatus): ArtifactStatus | null {
 }
 
 function validateTransition(
-  artifact: EaArtifactBase,
+  entity: BackstageEntity,
   targetStatus: ArtifactStatus,
   _eaRoot: EaRoot,
 ): string[] {
   const errors: string[] = [];
-  const currentIndex = STATUS_ORDER.indexOf(artifact.status);
+  const currentStatus = getEntityStatus(entity);
+  const currentIndex = STATUS_ORDER.indexOf(currentStatus);
   const targetIndex = STATUS_ORDER.indexOf(targetStatus);
 
   if (targetIndex === -1) {
@@ -46,71 +63,168 @@ function validateTransition(
   }
 
   if (targetIndex <= currentIndex && targetStatus !== "deprecated" && targetStatus !== "retired") {
-    errors.push(`Cannot move backward from "${artifact.status}" to "${targetStatus}".`);
+    errors.push(`Cannot move backward from "${currentStatus}" to "${targetStatus}".`);
     return errors;
   }
 
   // Gate: active requires owner
   if (targetStatus === "active") {
-    if (!artifact.owners || artifact.owners.length === 0) {
-      errors.push("Cannot activate: artifact has no owners.");
+    if (getEntityOwners(entity).length === 0) {
+      errors.push("Cannot activate: entity has no owners.");
     }
-    if (!artifact.summary || artifact.summary.trim().length < 10) {
-      errors.push("Cannot activate: artifact needs a meaningful summary (≥10 chars).");
+    if (getEntityDescription(entity).trim().length < 10) {
+      errors.push("Cannot activate: entity needs a meaningful description (>=10 chars).");
     }
   }
 
   // Gate: shipped requires at least one relation
   if (targetStatus === "shipped") {
-    if (!artifact.relations || artifact.relations.length === 0) {
-      errors.push("Cannot ship: artifact has no relations. Link it to other artifacts first.");
+    const relationCount = getEntitySpecRelations(entity).reduce(
+      (count, relation) => count + relation.targets.length,
+      0,
+    );
+    if (relationCount === 0) {
+      errors.push("Cannot ship: entity has no relations. Link it to other entities first.");
     }
   }
 
   return errors;
 }
 
+function mapStatusToLifecycle(status: ArtifactStatus): string {
+  const map: Record<ArtifactStatus, string> = {
+    draft: "experimental",
+    planned: "development",
+    active: "production",
+    shipped: "production",
+    deprecated: "deprecated",
+    retired: "retired",
+    deferred: "experimental",
+  };
+  return map[status] ?? "production";
+}
+
+function sameEntityRef(left: BackstageEntity, right: BackstageEntity): boolean {
+  return left.kind === right.kind &&
+    left.metadata.name === right.metadata.name &&
+    (left.metadata.namespace ?? "default") === (right.metadata.namespace ?? "default");
+}
+
+function updateAuthoredStatus(
+  entity: BackstageEntity,
+  targetStatus: ArtifactStatus,
+): BackstageEntity {
+  const spec = entity.spec && typeof entity.spec === "object" && !Array.isArray(entity.spec)
+    ? { ...entity.spec }
+    : {};
+
+  if (entity.apiVersion === BACKSTAGE_API_VERSION) {
+    spec.lifecycle = mapStatusToLifecycle(targetStatus);
+    delete spec.status;
+  } else {
+    spec.status = targetStatus;
+  }
+
+  return { ...entity, spec };
+}
+
+function persistUpdatedEntity(
+  filePath: string,
+  raw: string,
+  originalEntity: BackstageEntity,
+  updatedEntity: BackstageEntity,
+): void {
+  if (filePath.endsWith(".md") || filePath.endsWith(".mdx")) {
+    const parseResult = parseFrontmatterEntity(raw, filePath);
+    const parsedEntity = parseResult.entities[0]?.entity;
+    if (!parsedEntity || !sameEntityRef(parsedEntity, originalEntity)) {
+      throw new CliError(`Could not match the source entity in ${filePath}.`, 1);
+    }
+    writeFileSync(filePath, writeBackstageFrontmatter(updatedEntity, extractMarkdownBody(raw)), "utf-8");
+    return;
+  }
+
+  if (filePath.endsWith(".yaml") || filePath.endsWith(".yml")) {
+    const parseResult = parseBackstageYaml(raw, filePath);
+    const entities = parseResult.entities.map(({ entity }) =>
+      sameEntityRef(entity, originalEntity) ? updatedEntity : entity,
+    );
+
+    if (!entities.some((entity) => sameEntityRef(entity, updatedEntity))) {
+      throw new CliError(`Could not match the source entity in ${filePath}.`, 1);
+    }
+
+    const output = entities.length > 1 || raw.trimStart().startsWith("---")
+      ? writeBackstageManifest(entities)
+      : writeBackstageYaml(entities[0]!);
+    writeFileSync(filePath, output, "utf-8");
+    return;
+  }
+
+  if (filePath.endsWith(".json")) {
+    const parsed = JSON.parse(raw) as BackstageEntity;
+    if (!sameEntityRef(parsed, originalEntity)) {
+      throw new CliError(`Could not match the source entity in ${filePath}.`, 1);
+    }
+    writeFileSync(filePath, JSON.stringify(updatedEntity, null, 2) + "\n");
+    return;
+  }
+
+  throw new CliError(`Unsupported entity file type: ${filePath}`, 1);
+}
+
 export function eaTransitionCommand(): Command {
   return new Command("transition")
-    .description("Advance an EA artifact to a new lifecycle status")
-    .argument("<artifact-id>", "EA artifact ID")
+    .description("Advance an entity to a new lifecycle status")
+    .argument("<entity-ref>", "Entity ref to transition")
     .option("--to <status>", "Target status (default: next in lifecycle)")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--force", "Skip gate validation")
     .option("--dry-run", "Show what would happen without writing")
-    .action(async (artifactId: string, options) => {
+    .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const eaRoot = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaRoot = new EaRoot(cwd, eaConfig);
 
       if (!eaRoot.isInitialized()) {
-        throw new CliError("Error: EA not initialized. Run 'anchored-spec ea init' first.");
+        throw new CliError("Error: EA not initialized. Run 'anchored-spec init' first.");
       }
 
-      const loadResult = await eaRoot.loadArtifacts();
-      const detail = loadResult.details.find((d) => d.artifact?.id === artifactId);
+      const loadResult = await eaRoot.loadEntities();
+      const lookup = buildEntityLookup(loadResult.entities);
+      const targetEntity = lookup.byInput.get(entityInput);
+      const resolvedEntityRef = targetEntity ? getEntityId(targetEntity) : undefined;
+      const detail = loadResult.details.find((d) => {
+        const entity = d.entity ?? d.authoredEntity;
+        if (!entity) return false;
+        return getEntityId(entity) === resolvedEntityRef;
+      });
 
-      if (!detail?.artifact) {
-        const similar = loadResult.artifacts
-          .filter((a) => a.id.includes(artifactId.split("-").pop() ?? ""))
-          .map((a) => a.id);
+      if (!detail?.entity && !detail?.authoredEntity) {
+        const similar = suggestEntities(entityInput, loadResult.entities);
         const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
-        throw new CliError(`Error: Artifact "${artifactId}" not found.${hint}`);
+        throw new CliError(`Error: Entity "${entityInput}" not found.${hint}`);
       }
 
-      const artifact = detail.artifact;
-      const targetStatus = (options.to as ArtifactStatus) ?? getNextStatus(artifact.status);
+      const runtimeEntity = detail.entity ?? detail.authoredEntity!;
+      const displayId = targetEntity
+        ? formatEntityDisplay(targetEntity)
+        : detail.entity
+          ? getEntityId(detail.entity)
+          : entityInput;
+      const currentStatus = getEntityStatus(runtimeEntity);
+      const targetStatus = (options.to as ArtifactStatus) ?? getNextStatus(currentStatus);
 
       if (!targetStatus) {
-        console.log(chalk.yellow(`Artifact "${artifactId}" is already at terminal status "${artifact.status}".`));
+        console.log(chalk.yellow(`Entity "${displayId}" is already at terminal status "${currentStatus}".`));
         return;
       }
 
-      console.log(chalk.blue(`🔄 Transition: ${artifactId}`));
-      console.log(chalk.dim(`  ${artifact.status} → ${targetStatus}`));
+      console.log(chalk.blue(`🔄 Transition: ${displayId}`));
+      console.log(chalk.dim(`  ${currentStatus} → ${targetStatus}`));
 
       if (!options.force) {
-        const errors = validateTransition(artifact, targetStatus, eaRoot);
+        const errors = validateTransition(runtimeEntity, targetStatus, eaRoot);
         if (errors.length > 0) {
           console.log(chalk.red("\n  ✗ Gate validation failed:"));
           for (const err of errors) {
@@ -126,32 +240,26 @@ export function eaTransitionCommand(): Command {
         return;
       }
 
+      const authoredSourceEntity = detail.authoredEntity ?? detail.entity;
+      if (!authoredSourceEntity) {
+        throw new CliError(`Entity "${entityInput}" could not be resolved for editing.`, 1);
+      }
+
+      const updatedEntity = updateAuthoredStatus(authoredSourceEntity, targetStatus);
+
       // Read, update, and write the file
       const filePath = detail.filePath;
       const content = readFileSync(filePath, "utf-8");
-      const ext = filePath.toLowerCase();
+      persistUpdatedEntity(filePath, content, authoredSourceEntity, updatedEntity);
 
-      if (ext.endsWith(".json")) {
-        const data = JSON.parse(content);
-        data.status = targetStatus;
-        writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
-      } else if (ext.endsWith(".yaml") || ext.endsWith(".yml")) {
-        // Simple YAML status replacement
-        const updated = content.replace(
-          /(\s+status:\s+)(\S+)/,
-          `$1${targetStatus}`,
-        );
-        writeFileSync(filePath, updated);
-      }
-
-      console.log(chalk.green(`\n  ✓ Status updated: ${artifact.status} → ${targetStatus}`));
+      console.log(chalk.green(`\n  ✓ Status updated: ${currentStatus} → ${targetStatus}`));
       console.log(chalk.dim(`  File: ${relative(cwd, filePath)}`));
 
       const next = getNextStatus(targetStatus);
       if (next) {
         console.log(chalk.dim(`\n  Next status: ${next}`));
       } else {
-        console.log(chalk.dim(`\n  This artifact is now at terminal status.`));
+        console.log(chalk.dim(`\n  This entity is now at terminal status.`));
       }
     });
 }

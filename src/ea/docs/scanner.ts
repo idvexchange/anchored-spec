@@ -9,10 +9,12 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, extname } from "node:path";
 import { parseFrontmatter, extractArtifactIds } from "./frontmatter.js";
 import type { DocFrontmatter } from "./frontmatter.js";
-import { EA_KIND_REGISTRY } from "../types.js";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { parseEntityRef } from "../backstage/types.js";
+import { getEntityId } from "../backstage/accessors.js";
 import type { EaArtifactDraft } from "../discovery.js";
 import { createDraft } from "../discovery.js";
+import { BACKSTAGE_KIND_REGISTRY } from "../backstage/kind-mapping.js";
 
 // ─── Constants ────────────────────────────────────────────────────────
 
@@ -204,8 +206,21 @@ export function buildDocIndex(docs: ScannedDoc[]): Map<string, ScannedDoc[]> {
 
 /** Reverse lookup: uppercase prefix → kind entry. Built once, cached. */
 const PREFIX_TO_KIND = new Map(
-  EA_KIND_REGISTRY.map((e) => [e.prefix, e]),
+  BACKSTAGE_KIND_REGISTRY.map((entry) => [entry.legacyPrefix, entry]),
 );
+
+const DEFAULT_DISCOVERY_KIND_BY_BACKSTAGE_KIND: Record<string, string> = {
+  api: "api-contract",
+  component: "service",
+  resource: "data-store",
+  requirement: "requirement",
+  canonicalentity: "canonical-entity",
+  exchange: "information-exchange",
+  decision: "decision",
+  valuestream: "value-stream",
+  mission: "mission",
+  transitionplan: "transition-plan",
+};
 
 /**
  * Parse a frontmatter artifact ID into its prefix and slug components.
@@ -260,9 +275,9 @@ export interface DocDiscoveryResult {
  */
 export function discoverFromDocs(
   docs: ScannedDoc[],
-  existingArtifacts: EaArtifactBase[],
+  existingArtifacts: BackstageEntity[],
 ): DocDiscoveryResult {
-  const existingIds = new Set(existingArtifacts.map((a) => a.id));
+  const existingIds = new Set(existingArtifacts.map((entity) => getEntityId(entity)));
   const alreadyExists: string[] = [];
   const unknownPrefix: string[] = [];
   const drafts: EaArtifactDraft[] = [];
@@ -281,14 +296,8 @@ export function discoverFromDocs(
       }
 
       // Parse prefix to determine kind
-      const parsed = parseArtifactId(id);
-      if (!parsed) {
-        unknownPrefix.push(id);
-        continue;
-      }
-
-      const kindEntry = PREFIX_TO_KIND.get(parsed.prefix);
-      if (!kindEntry) {
+      const resolved = resolveDraftKind(id);
+      if (!resolved) {
         unknownPrefix.push(id);
         continue;
       }
@@ -300,7 +309,7 @@ export function discoverFromDocs(
       const summary =
         `Referenced in ${docType}${domainHint}: ${doc.relativePath}`;
 
-      const draft = createDraft(kindEntry.kind, slugToTitle(parsed.slug), "doc-frontmatter", {
+      const draft = createDraft(resolved.legacyKind, slugToTitle(resolved.slug), "doc-frontmatter", {
         confidence: "inferred",
         summary,
         anchors: { docs: [doc.relativePath] },
@@ -315,4 +324,30 @@ export function discoverFromDocs(
   }
 
   return { drafts, alreadyExists, unknownPrefix };
+}
+
+function resolveDraftKind(id: string): { legacyKind: string; slug: string } | null {
+  try {
+    const parsed = parseEntityRef(id);
+    if (parsed.kind) {
+      const matches = BACKSTAGE_KIND_REGISTRY.filter(
+        (entry) => entry.backstageKind.toLowerCase() === parsed.kind,
+      );
+      if (matches.length === 1) {
+        return { legacyKind: matches[0]!.legacyKind, slug: parsed.name };
+      }
+      const defaultKind = DEFAULT_DISCOVERY_KIND_BY_BACKSTAGE_KIND[parsed.kind];
+      if (defaultKind) {
+        return { legacyKind: defaultKind, slug: parsed.name };
+      }
+    }
+  } catch {
+    // Fall back to legacy ID parsing below.
+  }
+
+  const parsed = parseArtifactId(id);
+  if (!parsed) return null;
+  const kindEntry = PREFIX_TO_KIND.get(parsed.prefix);
+  if (!kindEntry) return null;
+  return { legacyKind: kindEntry.legacyKind, slug: parsed.slug };
 }

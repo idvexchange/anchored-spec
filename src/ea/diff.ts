@@ -11,10 +11,10 @@
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityId,
+  getEntityKindMapping,
   getEntityLegacyKind,
   getEntitySpecRelations,
 } from "./backstage/accessors.js";
-import { getDomainForKind } from "./types.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ export function getFieldSemantic(field: string): FieldSemantic {
  * diffing.  Metadata fields are lifted to the top level (title, description,
  * tags, …) and spec fields are spread (lifecycle, owner, anchors, …).
  * This preserves the same flat key structure the diff engine relied on with
- * EaArtifactBase, so existing sub-diff handlers (tags, anchors, traceRefs)
+ * BackstageEntity, so existing sub-diff handlers (tags, anchors, traceRefs)
  * continue to work unmodified.
  */
 function entityToDiffRecord(entity: BackstageEntity): Record<string, unknown> {
@@ -225,7 +225,7 @@ export function diffEaArtifacts(
       diffs.push({
         artifactId: id,
         kind: legacyKind,
-        domain: getDomainForKind(legacyKind) ?? "unknown",
+        domain: getEntityKindMapping(artifact)?.domain ?? "unknown",
         changeType: "added",
         fieldChanges: [],
         relationChanges: [],
@@ -240,7 +240,7 @@ export function diffEaArtifacts(
       diffs.push({
         artifactId: id,
         kind: legacyKind,
-        domain: getDomainForKind(legacyKind) ?? "unknown",
+        domain: getEntityKindMapping(artifact)?.domain ?? "unknown",
         changeType: "removed",
         fieldChanges: [],
         relationChanges: [],
@@ -268,7 +268,7 @@ export function diffEaArtifacts(
     diffs.push({
       artifactId: id,
       kind: legacyKind,
-      domain: getDomainForKind(legacyKind) ?? "unknown",
+      domain: getEntityKindMapping(headArtifact)?.domain ?? "unknown",
       changeType,
       fieldChanges,
       relationChanges,

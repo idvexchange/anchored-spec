@@ -11,6 +11,7 @@
 import type { BackstageEntity } from "./backstage/types.js";
 import type { EntityStatus } from "./backstage/accessors.js";
 import {
+  getEntityKindMapping,
   getEntityId,
   getEntityTitle,
   getEntityStatus,
@@ -18,7 +19,6 @@ import {
   getEntityLegacyKind,
   getEntitySpecRelations,
 } from "./backstage/accessors.js";
-import { getDomainForKind } from "./types.js";
 import type { EaDomain } from "./types.js";
 import type { RelationRegistry } from "./relation-registry.js";
 
@@ -315,7 +315,7 @@ export function buildRelationGraph(
     graph.addNode({
       id: nodeId,
       kind: legacyKind,
-      domain: getDomainForKind(legacyKind) ?? "unknown",
+      domain: getEntityKindMapping(entity)?.domain ?? "unknown",
       status: getEntityStatus(entity),
       title: getEntityTitle(entity),
       confidence: getEntityConfidence(entity),

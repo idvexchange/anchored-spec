@@ -1,452 +1,147 @@
-/**
- * Tests for the EA Reconcile Pipeline
- */
+import { afterEach, describe, expect, it } from "vitest";
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { stringify as yamlStringify } from "yaml";
 import { reconcileEaProject, renderReconcileOutput } from "../reconcile.js";
+import {
+  cleanupTestWorkspace,
+  createTestWorkspace,
+  makeArtifact,
+  writeTextFile,
+  writeManifestProject,
+} from "../../test-helpers/workspace.js";
 
-// ─── Temp Directory Helpers ────────────────────────────────────────────────────
+const workspaces: string[] = [];
 
-let tempDir: string;
-
-function createTempProject(): string {
-  tempDir = join(tmpdir(), `ea-reconcile-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  mkdirSync(tempDir, { recursive: true });
-
-  // Create .anchored-spec/config.json
-  const configDir = join(tempDir, ".anchored-spec");
-  mkdirSync(configDir, { recursive: true });
-  writeFileSync(
-    join(configDir, "config.json"),
-    JSON.stringify({
-      schemaVersion: "1.0.0",
-      rootDir: "ea",
-      generatedDir: "ea/generated",
-      domains: {
-        systems: "ea/systems",
-        delivery: "ea/delivery",
-        data: "ea/data",
-        information: "ea/information",
-        business: "ea/business",
-        transitions: "ea/transitions",
-      },
-    }),
-  );
-
-  // Create domain directories
-  for (const domain of ["systems", "delivery", "data", "information", "business", "transitions"]) {
-    mkdirSync(join(tempDir, "ea", domain), { recursive: true });
-  }
-  mkdirSync(join(tempDir, "ea", "generated"), { recursive: true });
-  mkdirSync(join(tempDir, "ea", "schemas"), { recursive: true });
-
-  return tempDir;
+function makeWorkspace(prefix: string): string {
+  const dir = createTestWorkspace(prefix);
+  workspaces.push(dir);
+  return dir;
 }
-
-function writeArtifact(dir: string, filename: string, content: Record<string, unknown>): void {
-  writeFileSync(join(dir, filename), yamlStringify(content));
-}
-
-beforeEach(() => {
-  createTempProject();
-});
 
 afterEach(() => {
-  if (tempDir && existsSync(tempDir)) {
-    rmSync(tempDir, { recursive: true, force: true });
+  for (const dir of workspaces.splice(0)) {
+    cleanupTestWorkspace(dir);
   }
 });
 
-// ─── Tests ──────────────────────────────────────────────────────────────────────
-
 describe("reconcileEaProject", () => {
-  it("passes with no artifacts", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    expect(report.passed).toBe(true);
-    expect(report.steps.length).toBeGreaterThanOrEqual(1);
-    expect(report.summary.totalErrors).toBe(0);
-  });
-
-  it("passes with valid artifacts", async () => {
-    writeArtifact(join(tempDir, "ea", "systems"), "APP-test.yaml", {
-      id: "APP-test",
-      schemaVersion: "1.0.0",
-      kind: "application",
-      title: "Test App",
-      status: "active",
-      summary: "A test application",
-      owners: ["team-a"],
-      confidence: "declared",
-    });
+  it("can validate a manifest project while skipping legacy generation expectations", async () => {
+    const dir = makeWorkspace("reconcile-validate");
+    writeManifestProject(dir, [
+      makeArtifact({ id: "SVC-auth", kind: "service" }),
+    ]);
 
     const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    expect(report.passed).toBe(true);
-    expect(report.summary.validationErrors).toBe(0);
-  });
-
-  it("detects validation errors", async () => {
-    writeArtifact(join(tempDir, "ea", "systems"), "APP-bad.yaml", {
-      id: "APP-bad",
-      schemaVersion: "1.0.0",
-      kind: "application",
-      title: "Bad App",
-      status: "active",
-      summary: "Test",
-      owners: [],  // empty owners on active → error
-      confidence: "declared",
-    });
-
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
+      projectRoot: dir,
       skipGenerate: true,
       skipDrift: true,
     });
-
-    expect(report.summary.validationErrors).toBeGreaterThan(0);
+    expect(report.passed).toBe(true);
+    expect(report.steps.map((step) => step.step)).toEqual(["validate"]);
+    expect(renderReconcileOutput(report)).toContain("Validate");
   });
 
-  it("skip-generate omits generation step", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    expect(report.steps.find((s) => s.step === "generate")).toBeUndefined();
-  });
-
-  it("skip-drift omits drift step", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-      skipDrift: true,
-    });
-
-    expect(report.steps.find((s) => s.step === "drift")).toBeUndefined();
-  });
-
-  it("fail-fast stops at first failure", async () => {
-    writeArtifact(join(tempDir, "ea", "systems"), "APP-bad.yaml", {
-      id: "APP-bad",
-      schemaVersion: "1.0.0",
-      kind: "application",
-      title: "Bad App",
-      status: "active",
-      summary: "Test",
-      owners: [],
-      confidence: "declared",
-    });
+  it("stops early when failFast is enabled and validation fails", async () => {
+    const dir = makeWorkspace("reconcile-failfast");
+    writeManifestProject(dir, [
+      makeArtifact({
+        id: "SVC-auth",
+        kind: "service",
+        owners: [],
+        summary: "short",
+      }),
+    ]);
 
     const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
+      projectRoot: dir,
       skipGenerate: true,
       failFast: true,
     });
-
-    // Should have validate step but drift should be skipped due to fail-fast
-    const valStep = report.steps.find((s) => s.step === "validate");
-    expect(valStep).toBeDefined();
-
-    // If validate failed, drift should not have run
-    if (valStep && !valStep.passed) {
-      expect(report.steps.find((s) => s.step === "drift")).toBeUndefined();
-    }
+    expect(report.passed).toBe(false);
+    expect(report.steps).toHaveLength(1);
+    expect(report.steps[0]?.step).toBe("validate");
+    expect(report.steps[0]?.errors).toBeGreaterThanOrEqual(1);
   });
 
-  it("includes sub-reports in output", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
+  it("includes the trace step for entity traceRefs and can skip it explicitly", async () => {
+    const dir = makeWorkspace("reconcile-trace");
+    writeManifestProject(dir, [
+      makeArtifact({
+        id: "SVC-auth",
+        kind: "service",
+        traceRefs: [{ path: "docs/missing.md", role: "context" }],
+      }),
+    ]);
 
-    expect(report.validationResult).toBeDefined();
-    expect(report.driftReport).toBeDefined();
-  });
-
-  it("runs generation step when not skipped", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-    });
-
-    expect(report.steps.find((s) => s.step === "generate")).toBeDefined();
-    expect(report.generationReport).toBeDefined();
-  });
-});
-
-// ─── renderReconcileOutput ──────────────────────────────────────────────────────
-
-describe("renderReconcileOutput", () => {
-  it("renders passing report", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    const output = renderReconcileOutput(report);
-    expect(output).toContain("✓");
-    expect(output).toContain("PASSED");
-  });
-
-  it("renders failing report with error details", async () => {
-    writeArtifact(join(tempDir, "ea", "systems"), "APP-bad.yaml", {
-      id: "APP-bad",
-      schemaVersion: "1.0.0",
-      kind: "application",
-      title: "Bad App",
-      status: "active",
-      summary: "Test",
-      owners: [],
-      confidence: "declared",
-    });
-
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-      skipDrift: true,
-    });
-
-    const output = renderReconcileOutput(report);
-    expect(output).toContain("✗");
-  });
-
-  it("includes step-by-step output", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    const output = renderReconcileOutput(report);
-    expect(output).toContain("Validate");
-    expect(output).toContain("Drift");
-  });
-});
-
-// ─── Trace step (--include-trace) ──────────────────────────────────────────────
-
-describe("reconcile --include-trace", () => {
-  it("does not run trace step by default", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    expect(report.steps.find((s) => s.step === "trace")).toBeUndefined();
-    expect(report.traceReport).toBeUndefined();
-  });
-
-  it("runs trace step when includeTrace is set", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-      includeTrace: true,
-    });
-
-    const traceStep = report.steps.find((s) => s.step === "trace");
-    expect(traceStep).toBeDefined();
-    expect(traceStep!.step).toBe("trace");
-    expect(report.traceReport).toBeDefined();
-  });
-
-  it("detects broken traceRefs as errors", async () => {
-    mkdirSync(join(tempDir, "docs"), { recursive: true });
-
-    writeArtifact(join(tempDir, "ea", "systems"), "SVC-broken.yaml", {
-      apiVersion: "anchored-spec/ea/v1",
-      kind: "service",
-      id: "SVC-broken",
-      metadata: {
-        name: "Broken Service",
-        summary: "Has stale traceRef",
-        owners: ["team-a"],
-        tags: ["test"],
-        confidence: "declared",
-        status: "active",
-        schemaVersion: "1.0.0",
-      },
-      relations: [],
-      traceRefs: [
-        { path: "docs/deleted-file.md", role: "context" },
-      ],
-    });
-
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
+    const withTrace = await reconcileEaProject({
+      projectRoot: dir,
       skipGenerate: true,
       skipDrift: true,
       includeTrace: true,
-      docDirs: ["docs"],
     });
-
-    const traceStep = report.steps.find((s) => s.step === "trace");
-    expect(traceStep).toBeDefined();
-    expect(traceStep!.errors).toBeGreaterThan(0);
-    expect(traceStep!.passed).toBe(false);
-    expect(report.traceReport!.brokenTraceRefs).toHaveLength(1);
-  });
-
-  it("passes trace step when all refs are valid and bidirectional", async () => {
-    mkdirSync(join(tempDir, "docs"), { recursive: true });
-
-    writeArtifact(join(tempDir, "ea", "systems"), "SVC-ok.yaml", {
-      apiVersion: "anchored-spec/ea/v1",
-      kind: "service",
-      id: "SVC-ok",
-      metadata: {
-        name: "OK Service",
-        summary: "All refs valid",
-        owners: ["team-a"],
-        tags: ["test"],
-        confidence: "declared",
-        status: "active",
-        schemaVersion: "1.0.0",
-      },
-      relations: [],
-      traceRefs: [
-        { path: "docs/design.md", role: "context" },
-      ],
-    });
-
-    writeFileSync(
-      join(tempDir, "docs", "design.md"),
-      "---\nea-artifacts: [SVC-ok]\n---\n# Design\n",
+    expect(withTrace.steps.map((step) => step.step)).toEqual([
+      "validate",
+      "trace",
+    ]);
+    expect(withTrace.traceReport?.brokenTraceRefs[0]?.path).toBe(
+      "docs/missing.md",
+    );
+    expect(renderReconcileOutput(withTrace)).toContain(
+      'traceRef "docs/missing.md"',
     );
 
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
+    const skippedTrace = await reconcileEaProject({
+      projectRoot: dir,
       skipGenerate: true,
       skipDrift: true,
-      includeTrace: true,
-      docDirs: ["docs"],
-    });
-
-    const traceStep = report.steps.find((s) => s.step === "trace");
-    expect(traceStep).toBeDefined();
-    expect(traceStep!.errors).toBe(0);
-    expect(traceStep!.passed).toBe(true);
-  });
-
-  it("skipTrace skips the trace step even when includeTrace is set", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
       includeTrace: true,
       skipTrace: true,
     });
-
-    expect(report.steps.find((s) => s.step === "trace")).toBeUndefined();
+    expect(skippedTrace.steps.map((step) => step.step)).toEqual(["validate"]);
   });
 
-  it("renders trace step in output", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-      includeTrace: true,
-    });
-
-    const output = renderReconcileOutput(report);
-    expect(output).toContain("Trace");
-  });
-});
-
-// ─── VCS warnings (.gitignore) ─────────────────────────────────────────────────
-
-describe("reconcile VCS warnings", () => {
-  it("does not warn in check-only mode (default)", async () => {
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      skipGenerate: true,
-    });
-
-    expect(report.vcsWarnings).toEqual([]);
-  });
-
-  it("warns when generated dir is not in .gitignore and writing", async () => {
-    // Create a .git dir so it looks like a repo
-    mkdirSync(join(tempDir, ".git"), { recursive: true });
-    // Do NOT create .gitignore
-
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      checkOnly: false,
-      skipGenerate: true,
-    });
-
-    expect(report.vcsWarnings).toHaveLength(1);
-    expect(report.vcsWarnings[0]).toContain("ea/generated");
-    expect(report.vcsWarnings[0]).toContain(".gitignore");
-  });
-
-  it("does not warn when .gitignore covers the generated dir", async () => {
-    mkdirSync(join(tempDir, ".git"), { recursive: true });
-    writeFileSync(
-      join(tempDir, ".gitignore"),
-      "# Anchored Spec\nea/generated/\n.anchored-spec/cache/\n",
+  it("fails validation when entity loading reports parse errors", async () => {
+    const dir = makeWorkspace("reconcile-load-errors");
+    writeTextFile(
+      dir,
+      ".anchored-spec/config.json",
+      JSON.stringify({
+        schemaVersion: "1.0",
+        entityMode: "manifest",
+        manifestPath: "catalog-info.yaml",
+      }, null, 2) + "\n",
+    );
+    writeTextFile(
+      dir,
+      "catalog-info.yaml",
+      [
+        "---",
+        "apiVersion: backstage.io/v1alpha1",
+        "kind: Component",
+        "metadata:",
+        "  name: broken",
+        "spec:",
+        "  type: service",
+        "  owner: group:default/platform",
+        "  lifecycle: production",
+        "    badlyIndented: true",
+        "",
+      ].join("\n"),
     );
 
     const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      checkOnly: false,
+      projectRoot: dir,
       skipGenerate: true,
+      skipDrift: true,
     });
 
-    expect(report.vcsWarnings).toEqual([]);
-  });
-
-  it("does not warn when not a git repo", async () => {
-    // No .git directory
-
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      checkOnly: false,
-      skipGenerate: true,
-    });
-
-    expect(report.vcsWarnings).toEqual([]);
-  });
-
-  it("renders VCS warnings in output", async () => {
-    mkdirSync(join(tempDir, ".git"), { recursive: true });
-
-    const report = await reconcileEaProject({
-      projectRoot: tempDir,
-      eaRoot: "ea",
-      checkOnly: false,
-      skipGenerate: true,
-    });
-
-    const output = renderReconcileOutput(report);
-    expect(output).toContain("ea/generated");
+    expect(report.passed).toBe(false);
+    expect(report.steps).toHaveLength(1);
+    expect(report.steps[0]?.step).toBe("validate");
+    expect(report.steps[0]?.errors).toBeGreaterThan(0);
+    expect(
+      report.validationResult?.errors.some(
+        (error) => error.rule === "ea:backstage:parse-error",
+      ),
+    ).toBe(true);
   });
 });

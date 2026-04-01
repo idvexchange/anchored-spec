@@ -420,7 +420,7 @@ describe("Phase 2A: Drift Rules", () => {
         makeEntity({
           id: "API-orders-v2",
           kind: "api-contract",
-          extensions: { schemaVersion: "2.0.0" },
+          schemaVersion: "2.0.0",
         } as any),
       ];
       const result = evaluateEaDrift(artifacts);

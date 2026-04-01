@@ -9,7 +9,8 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
-import type { EaArtifactBase } from "../types.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { getEntityAnchors, getEntityId, getEntityTraceRefs } from "../backstage/accessors.js";
 
 // ─── Evidence Adapter Interface ─────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ export interface EaEvidenceAdapterResult {
  */
 export interface EvidenceAdapter {
   name: string;
-  parse(reportPath: string, artifacts: EaArtifactBase[]): EaTestRecord[];
+  parse(reportPath: string, entities: BackstageEntity[]): EaTestRecord[];
 }
 
 // ─── Vitest Adapter ─────────────────────────────────────────────────────────────
@@ -64,27 +65,26 @@ interface VitestReport {
  * Uses EA artifact anchors (symbols, apis) and traceRefs as keys.
  */
 function buildTestToArtifactMap(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
 ): Map<string, Array<{ artifactId: string; kind: string }>> {
   const map = new Map<string, Array<{ artifactId: string; kind: string }>>();
 
-  for (const artifact of artifacts) {
+  for (const entity of entities) {
     // Map from traceRefs if present
-    if (artifact.traceRefs) {
-      for (const ref of artifact.traceRefs) {
+    for (const ref of getEntityTraceRefs(entity)) {
         if (ref.role === "implementation" || ref.path.includes("test")) {
           const existing = map.get(ref.path) ?? [];
-          existing.push({ artifactId: artifact.id, kind: "unit" });
+          existing.push({ artifactId: getEntityId(entity), kind: "unit" });
           map.set(ref.path, existing);
         }
-      }
     }
 
     // Map from anchors.symbols
-    if (artifact.anchors?.symbols) {
-      for (const sym of artifact.anchors.symbols) {
+    const anchors = getEntityAnchors(entity);
+    if (anchors?.symbols) {
+      for (const sym of anchors.symbols) {
         const existing = map.get(sym) ?? [];
-        existing.push({ artifactId: artifact.id, kind: "unit" });
+        existing.push({ artifactId: getEntityId(entity), kind: "unit" });
         map.set(sym, existing);
       }
     }
@@ -101,14 +101,14 @@ function buildTestToArtifactMap(
 export class VitestEaAdapter implements EvidenceAdapter {
   name = "vitest";
 
-  parse(reportPath: string, artifacts: EaArtifactBase[]): EaTestRecord[] {
+  parse(reportPath: string, entities: BackstageEntity[]): EaTestRecord[] {
     if (!existsSync(reportPath)) {
       throw new Error(`Vitest report not found: ${reportPath}`);
     }
 
     const raw = readFileSync(reportPath, "utf-8");
     const report: VitestReport = JSON.parse(raw);
-    const testToArtifact = buildTestToArtifactMap(artifacts);
+    const testToArtifact = buildTestToArtifactMap(entities);
     const records: EaTestRecord[] = [];
     const now = new Date().toISOString();
 
@@ -158,7 +158,7 @@ const ADAPTERS: Record<string, EvidenceAdapter> = {
 export function collectEaTestEvidence(
   reportPath: string,
   format: string,
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   customAdapter?: EvidenceAdapter,
 ): EaEvidenceAdapterResult {
   const adapter = customAdapter ?? ADAPTERS[format];
@@ -168,7 +168,7 @@ export function collectEaTestEvidence(
     );
   }
 
-  const records = adapter.parse(reportPath, artifacts);
+  const records = adapter.parse(reportPath, entities);
 
   return {
     source: format,

@@ -14,7 +14,6 @@ export function eaReconcileCommand(): Command {
   return new Command("reconcile")
     .description("Run full SDD pipeline: generate → validate → drift")
     .option("--write", "Write generated files (default: check-only)")
-    .option("--fix", "Auto-fix validation issues before validating")
     .option("--strict", "Promote warnings to errors")
     .option("--fail-on <level>", "Exit threshold: error (default), warning", "error")
     .option("--skip-generate", "Skip generation step")
@@ -35,7 +34,6 @@ export function eaReconcileCommand(): Command {
         projectRoot: process.cwd(),
         eaRoot: options.rootDir,
         checkOnly: !options.write,
-        fix: options.fix,
         strict: options.strict,
         failOn: options.failOn,
         skipGenerate: options.skipGenerate,

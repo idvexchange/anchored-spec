@@ -8,15 +8,16 @@
 
 import type { BackstageEntity } from "./backstage/types.js";
 import {
+  getEntityDomain,
   getEntityId,
   getEntityLegacyKind,
+  getEntitySpecRelations,
   getEntityStatus,
   getEntityTitle,
   getEntityDescription,
   getEntityTraceRefs,
 } from "./backstage/accessors.js";
 import type { EaDomain } from "./types.js";
-import { getDomainForKind } from "./types.js";
 import type { EaValidationError } from "./validate.js";
 
 // ─── Drift Rule Types ───────────────────────────────────────────────────────────
@@ -64,6 +65,45 @@ export interface EaDriftResult {
   warnings: EaValidationError[];
   rulesEvaluated: number;
   rulesSkipped: number;
+}
+
+interface LegacyRelationRecord {
+  type: string;
+  target: string;
+}
+
+function getLegacyRelations(entity: BackstageEntity): LegacyRelationRecord[] {
+  const relations = new Map<string, LegacyRelationRecord>();
+
+  for (const { legacyType, targets } of getEntitySpecRelations(entity)) {
+    for (const target of targets) {
+      relations.set(`${legacyType}::${target}`, { type: legacyType, target });
+    }
+  }
+
+  const specRelations = entity.spec?.relations;
+  if (Array.isArray(specRelations)) {
+    for (const relation of specRelations) {
+      if (
+        relation &&
+        typeof relation === "object" &&
+        typeof (relation as { type?: unknown }).type === "string" &&
+        typeof (relation as { target?: unknown }).target === "string"
+      ) {
+        const legacyRelation = relation as { type: string; target: string };
+        relations.set(`${legacyRelation.type}::${legacyRelation.target}`, legacyRelation);
+      }
+    }
+  }
+
+  for (const relation of entity.relations ?? []) {
+    relations.set(`${relation.type}::${relation.targetRef}`, {
+      type: relation.type,
+      target: relation.targetRef,
+    });
+  }
+
+  return [...relations.values()];
 }
 
 // ─── Static-Analysis Drift Rules ────────────────────────────────────────────────
@@ -340,18 +380,14 @@ const orphanStore: EaDriftRule = {
     // Build set of all artifacts that are relation targets
     const allTargets = new Set<string>();
     for (const a of ctx.artifacts) {
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
-      if (specRelations) {
-        for (const r of specRelations) {
-          allTargets.add(r.target);
-        }
+      for (const r of getLegacyRelations(a).filter((relation) => relation.type !== "owns")) {
+        allTargets.add(r.target);
       }
     }
 
     for (const a of ctx.artifacts) {
       if (getEntityLegacyKind(a) !== "data-store") continue;
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
-      const hasOwnRelations = (specRelations?.length ?? 0) > 0;
+      const hasOwnRelations = getLegacyRelations(a).some((relation) => relation.type !== "owns");
       const isTargeted = allTargets.has(getEntityId(a));
 
       // Also check if any lineage references this store
@@ -400,11 +436,8 @@ const sharedStoreNoSteward: EaDriftRule = {
       const goldenSource = spec?.goldenSource as string | undefined;
       if (goldenSource) stewardedStores.add(goldenSource);
       // Also check relations targeting data stores
-      const specRelations = spec?.relations as Array<{ type: string; target: string }> | undefined;
-      if (specRelations) {
-        for (const r of specRelations) {
-          stewardedStores.add(r.target);
-        }
+      for (const r of getLegacyRelations(a)) {
+        stewardedStores.add(r.target);
       }
     }
 
@@ -504,13 +537,13 @@ const entityMissingImplementation: EaDriftRule = {
 
     for (const a of ctx.artifacts) {
       if (getEntityLegacyKind(a) !== "canonical-entity") continue;
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const specRelations = getLegacyRelations(a);
       const hasImpl = specRelations?.some((r) => r.type === "implementedBy") ?? false;
       // Also check if any artifact has an implements relation targeting this entity
       const entityId = getEntityId(a);
       const isImplemented = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => r.type === "implementedBy" && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => r.type === "implementedBy" && r.target === entityId);
       });
       if (!hasImpl && !isImplemented) {
         results.push({
@@ -545,7 +578,7 @@ const exchangeMissingContract: EaDriftRule = {
       const implementingContracts = spec?.implementingContracts as string[] | undefined;
       const hasContracts = (implementingContracts?.length ?? 0) > 0;
       // Check for implementedBy relations from the exchange to contracts
-      const specRelations = spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const specRelations = getLegacyRelations(a);
       const hasImplementedBy = specRelations?.some(
         (r) =>
           r.type === "implementedBy" &&
@@ -558,8 +591,8 @@ const exchangeMissingContract: EaDriftRule = {
       // Check for exchangedVia relations from entities pointing to this exchange
       const entityId = getEntityId(a);
       const hasExchangedVia = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => r.type === "exchangedVia" && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => r.type === "exchangedVia" && r.target === entityId);
       });
       if (!hasContracts && !hasImplementedBy && !hasExchangedVia) {
         results.push({
@@ -593,7 +626,7 @@ const classificationNotPropagated: EaDriftRule = {
       if (getEntityLegacyKind(a) !== "canonical-entity") continue;
 
       // Find all classifications this entity has
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const specRelations = getLegacyRelations(a);
       const entityClassifications = (specRelations ?? [])
         .filter((r) => r.type === "classifiedAs")
         .map((r) => r.target);
@@ -609,12 +642,10 @@ const classificationNotPropagated: EaDriftRule = {
       // Also check stores that reference this entity via stores relation
       const entityId = getEntityId(a);
       for (const other of ctx.artifacts) {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        if (otherRels) {
-          for (const r of otherRels) {
-            if (r.type === "stores" && r.target === entityId) {
-              implementors.push(getEntityId(other));
-            }
+        const otherRels = getLegacyRelations(other);
+        for (const r of otherRels) {
+          if (r.type === "stores" && r.target === entityId) {
+            implementors.push(getEntityId(other));
           }
         }
       }
@@ -624,7 +655,7 @@ const classificationNotPropagated: EaDriftRule = {
         const implArtifact = ctx.artifactMap.get(implId);
         if (!implArtifact) continue;
 
-        const implRels = implArtifact.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        const implRels = getLegacyRelations(implArtifact);
         const implClassifications = new Set(
           (implRels ?? [])
             .filter((r) => r.type === "classifiedAs")
@@ -673,10 +704,8 @@ const retentionNotEnforced: EaDriftRule = {
 
         // Check if target has a retainedUnder relation pointing back to this policy
         const entityId = getEntityId(a);
-        const targetRels = target.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        const hasRetainedUnder = targetRels?.some(
-          (r) => r.type === "retainedUnder" && r.target === entityId
-        ) ?? false;
+        const targetRels = getLegacyRelations(target);
+        const hasRetainedUnder = targetRels.some((r) => r.type === "retainedUnder" && r.target === entityId);
 
         // Check if the disposal has automation
         const hasAutomation = !!disposal?.automatedBy;
@@ -712,7 +741,7 @@ const conceptNotMaterialized: EaDriftRule = {
     for (const a of ctx.artifacts) {
       if (getEntityLegacyKind(a) !== "information-concept") continue;
 
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const specRelations = getLegacyRelations(a);
       const hasImplementedBy = specRelations?.some((r) => r.type === "implementedBy") ?? false;
       // Check if any CE or LDM references this concept
       const entityId = getEntityId(a);
@@ -721,8 +750,8 @@ const conceptNotMaterialized: EaDriftRule = {
           const conceptRef = other.spec?.conceptRef as string | undefined;
           return conceptRef === entityId;
         }
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => r.type === "implementedBy" && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => r.type === "implementedBy" && r.target === entityId);
       });
 
       if (!hasImplementedBy && !isReferenced) {
@@ -755,12 +784,9 @@ const orphanClassification: EaDriftRule = {
     // Build set of all classification targets
     const referencedClassifications = new Set<string>();
     for (const a of ctx.artifacts) {
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
-      if (specRelations) {
-        for (const r of specRelations) {
-          if (r.type === "classifiedAs") {
-            referencedClassifications.add(r.target);
-          }
+      for (const r of getLegacyRelations(a)) {
+        if (r.type === "classifiedAs") {
+          referencedClassifications.add(r.target);
         }
       }
       // Also check classificationLevel on information-exchange
@@ -866,7 +892,7 @@ const exchangeClassificationMismatch: EaDriftRule = {
         const entity = ctx.artifactMap.get(entityId);
         if (!entity) continue;
 
-        const entityRels = entity.spec?.relations as Array<{ type: string; target: string }> | undefined;
+        const entityRels = getLegacyRelations(entity);
         const entityClassifications = (entityRels ?? [])
           .filter((r) => r.type === "classifiedAs")
           .map((r) => r.target);
@@ -909,10 +935,10 @@ const noRealizingSystems: EaDriftRule = {
       // Check if any artifact has realizes/supports → this capability
       const entityId = getEntityId(a);
       const isRealized = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some(
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some(
           (r) => (r.type === "realizes" || r.type === "supports") && r.target === entityId
-        ) ?? false;
+        );
       });
 
       if (!isRealized) {
@@ -947,13 +973,13 @@ const processMissingOwner: EaDriftRule = {
 
       const processOwner = a.spec?.processOwner as string | undefined;
       const hasProcessOwner = !!processOwner;
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
+      const specRelations = getLegacyRelations(a);
       const hasPerformedBy = specRelations?.some((r) => r.type === "performedBy") ?? false;
       // Check if any org-unit owns this process
       const entityId = getEntityId(a);
       const isOwned = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => r.type === "owns" && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => r.type === "owns" && r.target === entityId);
       });
 
       if (!hasProcessOwner && !hasPerformedBy && !isOwned) {
@@ -1022,8 +1048,7 @@ const retiredSystemDependency: EaDriftRule = {
       // Find all systems that realize this capability
       const entityId = getEntityId(a);
       for (const other of ctx.artifacts) {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        if (!otherRels) continue;
+        const otherRels = getLegacyRelations(other);
         for (const r of otherRels) {
           if ((r.type === "realizes" || r.type === "supports") && r.target === entityId) {
             if (getEntityStatus(other) === "retired") {
@@ -1068,8 +1093,8 @@ const orphanCapability: EaDriftRule = {
         (other) => getEntityLegacyKind(other) === "capability" && (other.spec?.parentCapability as string | undefined) === entityId
       );
       const isRealized = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => (r.type === "realizes" || r.type === "supports") && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => (r.type === "realizes" || r.type === "supports") && r.target === entityId);
       });
 
       if (!hasParent && !hasChildren && !isRealized) {
@@ -1104,8 +1129,8 @@ const missionNoCapabilities: EaDriftRule = {
 
       const entityId = getEntityId(a);
       const hasSupport = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => (r.type === "supports" || r.type === "realizes") && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => (r.type === "supports" || r.type === "realizes") && r.target === entityId);
       });
 
       if (!hasSupport) {
@@ -1142,8 +1167,8 @@ const policyNoControls: EaDriftRule = {
       const hasEnforcedBy = (enforcedBy?.length ?? 0) > 0;
       const entityId = getEntityId(a);
       const hasGovernedBy = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => r.type === "governedBy" && r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => r.type === "governedBy" && r.target === entityId);
       });
 
       if (!hasEnforcedBy && !hasGovernedBy) {
@@ -1274,12 +1299,12 @@ const unownedCriticalSystem: EaDriftRule = {
       if (getEntityStatus(a) !== "active" && getEntityStatus(a) !== "shipped") continue;
 
       // Check if this system has significant relations (>= 3) indicating criticality
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
-      const relationCount = (specRelations?.length ?? 0);
+      const specRelations = getLegacyRelations(a);
+      const relationCount = specRelations.length;
       const entityId = getEntityId(a);
       const isTargeted = ctx.artifacts.some((other) => {
-        const otherRels = other.spec?.relations as Array<{ type: string; target: string }> | undefined;
-        return otherRels?.some((r) => r.target === entityId) ?? false;
+        const otherRels = getLegacyRelations(other);
+        return otherRels.some((r) => r.target === entityId);
       });
 
       if ((relationCount >= 3 || isTargeted) && !ownedArtifacts.has(entityId)) {
@@ -2094,7 +2119,7 @@ function validationErrorToFinding(
 function inferDomainFromArtifact(artifactId: string, artifacts: BackstageEntity[]): string {
   const artifact = artifacts.find((a) => getEntityId(a) === artifactId);
   if (!artifact) return "unknown";
-  return getDomainForKind(getEntityLegacyKind(artifact)) ?? "unknown";
+  return getEntityDomain(artifact) ?? "unknown";
 }
 
 /**

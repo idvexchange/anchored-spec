@@ -1,19 +1,13 @@
 /**
  * Backstage Entity Accessors
  *
- * Convenience functions for reading fields from BackstageEntity in a way
- * that parallels EaArtifactBase field access. These accessors encapsulate
- * the mapping between the Backstage envelope structure and the flat field
- * access patterns used throughout the codebase.
- *
- * Designed to make module-by-module migration (Phase B) tractable — each module
- * can switch from `artifact.field` to `getEntityField(entity)` without needing
- * to understand the Backstage envelope structure.
+ * Convenience functions for reading fields from Backstage entities without
+ * spreading envelope-shape knowledge throughout the codebase.
  */
 
 import type { BackstageEntity, EntityRelation } from "./types.js";
 import { ANNOTATION_KEYS, formatEntityRef } from "./types.js";
-import { mapBackstageKind } from "./kind-mapping.js";
+import { mapBackstageKind, mapLegacyKind } from "./kind-mapping.js";
 import type { KindMappingEntry } from "./kind-mapping.js";
 import { extractRelationsFromSpec } from "./relation-mapping.js";
 import type { EaAnchors } from "../types.js";
@@ -22,7 +16,7 @@ import type { EaAnchors } from "../types.js";
 
 /**
  * Get the entity reference string: `[kind:][namespace/]name`
- * This is the Backstage-native equivalent of EaArtifactBase.id.
+ * This is the canonical entity reference.
  */
 export function getEntityId(entity: BackstageEntity): string {
   return formatEntityRef(entity.kind, entity.metadata.namespace, entity.metadata.name);
@@ -46,7 +40,7 @@ export function getEntityNamespace(entity: BackstageEntity): string {
 
 /**
  * Get the human-readable title. Falls back to metadata.name.
- * Equivalent to EaArtifactBase.title.
+ * Returns the human-readable title.
  */
 export function getEntityTitle(entity: BackstageEntity): string {
   return entity.metadata.title ?? entity.metadata.name;
@@ -54,7 +48,7 @@ export function getEntityTitle(entity: BackstageEntity): string {
 
 /**
  * Get the human-readable description.
- * Equivalent to EaArtifactBase.summary.
+ * Returns the human-readable description.
  */
 export function getEntityDescription(entity: BackstageEntity): string {
   return entity.metadata.description ?? "";
@@ -67,6 +61,8 @@ export function getEntityDescription(entity: BackstageEntity): string {
  * Uses the kind mapping registry to reverse-map from Backstage kind + spec.type.
  */
 export function getEntityLegacyKind(entity: BackstageEntity): string {
+  const annotated = getAnnotation(entity, ANNOTATION_KEYS.LEGACY_KIND);
+  if (annotated) return annotated;
   const specType = typeof entity.spec?.type === "string" ? entity.spec.type : undefined;
   const mapping = mapBackstageKind(entity.apiVersion, entity.kind, specType);
   return mapping?.legacyKind ?? entity.kind.toLowerCase();
@@ -77,7 +73,10 @@ export function getEntityLegacyKind(entity: BackstageEntity): string {
  */
 export function getEntityKindMapping(entity: BackstageEntity): KindMappingEntry | undefined {
   const specType = typeof entity.spec?.type === "string" ? entity.spec.type : undefined;
-  return mapBackstageKind(entity.apiVersion, entity.kind, specType);
+  return (
+    mapBackstageKind(entity.apiVersion, entity.kind, specType) ??
+    mapLegacyKind(getAnnotation(entity, ANNOTATION_KEYS.LEGACY_KIND) ?? entity.kind)
+  );
 }
 
 /**
@@ -89,16 +88,16 @@ export function getEntitySpecType(entity: BackstageEntity): string | undefined {
 
 // ─── Lifecycle ──────────────────────────────────────────────────────────────────
 
-/** Status values aligned with EaArtifactBase.status. */
+/** Anchored-spec lifecycle status values. */
 export type EntityStatus = "draft" | "planned" | "active" | "shipped" | "deprecated" | "retired" | "deferred";
 
 /**
- * Get the lifecycle status mapped to EaArtifactBase-compatible status values.
+ * Get the lifecycle status for an entity.
  *
  * Reads from `spec.status` first (custom kinds like Requirement, Decision),
  * then `spec.lifecycle` (Backstage convention).
  *
- * Equivalent to EaArtifactBase.status.
+ * Returns the normalized anchored-spec lifecycle status.
  */
 export function getEntityStatus(entity: BackstageEntity): EntityStatus {
   const spec = entity.spec ?? {};
@@ -145,7 +144,7 @@ export function getEntityLifecycle(entity: BackstageEntity): string | undefined 
 /**
  * Get the entity owners as an array of strings.
  * Parses the entity ref in spec.owner.
- * Equivalent to EaArtifactBase.owners.
+ * Returns the entity owners as an array.
  */
 export function getEntityOwners(entity: BackstageEntity): string[] {
   const owner = entity.spec?.owner;
@@ -165,7 +164,7 @@ export function getEntityOwnerRef(entity: BackstageEntity): string | undefined {
 
 /**
  * Get the entity's tags.
- * Equivalent to EaArtifactBase.tags.
+ * Returns the entity tags.
  */
 export function getEntityTags(entity: BackstageEntity): string[] {
   return entity.metadata.tags ?? [];
@@ -189,7 +188,7 @@ export function getAnnotations(entity: BackstageEntity): Record<string, string> 
 
 /**
  * Get the confidence level from the anchored-spec annotation.
- * Equivalent to EaArtifactBase.confidence.
+ * Returns the anchored-spec confidence level.
  */
 export function getEntityConfidence(entity: BackstageEntity): "declared" | "observed" | "inferred" {
   const value = getAnnotation(entity, ANNOTATION_KEYS.CONFIDENCE);
@@ -276,13 +275,6 @@ export function getEntitySuppressions(entity: BackstageEntity): string[] {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-/**
- * Get the legacy artifact ID preserved during bridge conversion.
- */
-export function getEntityLegacyId(entity: BackstageEntity): string | undefined {
-  return getAnnotation(entity, ANNOTATION_KEYS.LEGACY_ID);
-}
-
 // ─── Labels ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -304,8 +296,7 @@ export function getLabels(entity: BackstageEntity): Record<string, string> {
 /**
  * Get entity relations extracted from spec fields.
  *
- * Returns relations in the legacy format: `{ legacyType, targets }[]`.
- * Use this when migrating modules that consume `EaArtifactBase.relations`.
+ * Returns spec-derived relations as `{ legacyType, targets }[]`.
  */
 export function getEntitySpecRelations(entity: BackstageEntity): Array<{ legacyType: string; targets: string[] }> {
   return extractRelationsFromSpec(entity.spec ?? {});
@@ -363,13 +354,7 @@ export function getEntityDomain(entity: BackstageEntity): string | undefined {
 
   // Via kind mapping
   const mapping = getEntityKindMapping(entity);
-  if (mapping) {
-    // Legacy kinds carry domain in the mapping entry's prefix structure
-    // We need to look up from the legacy kind → EA_KIND_REGISTRY for domain
-    // For now, return undefined; the kind mapping doesn't carry domain
-  }
-
-  return undefined;
+  return mapping?.domain;
 }
 
 // ─── Links ──────────────────────────────────────────────────────────────────────

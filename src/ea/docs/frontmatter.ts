@@ -30,7 +30,7 @@ export interface DocFrontmatter {
   domain?: string[];
   /** Relative paths to other documents this one depends on. */
   requires?: string[];
-  /** EA artifact IDs this document relates to. */
+  /** Canonical entity refs this document relates to. */
   eaArtifacts?: string[];
   /** Estimated token count for AI context budgeting. */
   tokens?: number;
@@ -166,7 +166,7 @@ export function parseFrontmatter(content: string): ParsedDoc {
 }
 
 /**
- * Extract EA artifact IDs from parsed frontmatter.
+ * Extract canonical entity refs from parsed frontmatter.
  *
  * Looks for the merged `eaArtifacts` field (which already combines
  * `ea-artifacts` and `anchored-spec` sources during parsing).

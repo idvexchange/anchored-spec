@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { EA_KIND_REGISTRY } from "../ea/types.js";
+import { BACKSTAGE_KIND_REGISTRY } from "../ea/backstage/kind-mapping.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -17,10 +17,10 @@ export function generateVscodeSettings(_config: {
 }): object {
   const yamlSchemas: Record<string, string[]> = {};
 
-  for (const entry of EA_KIND_REGISTRY) {
-    yamlSchemas[schemaPath(entry.kind)] = [
-      `**/${entry.prefix}-*.yaml`,
-      `**/${entry.prefix}-*.yml`,
+  for (const entry of BACKSTAGE_KIND_REGISTRY) {
+    yamlSchemas[schemaPath(entry.legacyKind)] = [
+      `**/${entry.legacyPrefix}-*.yaml`,
+      `**/${entry.legacyPrefix}-*.yml`,
     ];
   }
 
@@ -75,25 +75,22 @@ function titleCase(kind: string): string {
     .join(" ");
 }
 
-function snippetBody(kind: string, prefix: string): string[] {
+function snippetBody(kind: string): string[] {
+  const entry = BACKSTAGE_KIND_REGISTRY.find((candidate) => candidate.legacyKind === kind);
+  if (!entry) return [];
   return [
-    "apiVersion: anchored-spec/ea/v1",
-    `kind: ${kind}`,
-    `id: ${prefix}-\${1:slug}`,
-    "",
+    `apiVersion: ${entry.apiVersion}`,
+    `kind: ${entry.backstageKind}`,
     "metadata:",
-    "  name: ${2:Name}",
-    "  summary: >",
-    "    ${3:Brief description}",
-    "  owners:",
-    "    - ${4:team-name}",
+    "  name: ${1:slug}",
+    `  title: ${"${2:"}${titleCase(kind)}}`,
+    "  description: ${3:Brief description}",
     "  tags:",
-    "    - ${5:tag}",
-    "  confidence: declared",
-    "  status: draft",
-    '  schemaVersion: "1.0.0"',
-    "",
-    "relations: []",
+    "    - ${4:tag}",
+    "spec:",
+    ...(entry.specType ? [`  type: ${entry.specType}`] : []),
+    "  owner: ${5:group:default/team-name}",
+    "  lifecycle: experimental",
   ];
 }
 
@@ -101,14 +98,14 @@ export function generateVscodeSnippets(): object {
   const snippets: Record<string, object> = {};
 
   for (const kind of SNIPPET_KINDS) {
-    const entry = EA_KIND_REGISTRY.find((e) => e.kind === kind);
+    const entry = BACKSTAGE_KIND_REGISTRY.find((e) => e.legacyKind === kind);
     if (!entry) continue;
 
     snippets[`EA: ${titleCase(kind)}`] = {
       prefix: `ea-${kind}`,
       scope: "yaml",
-      body: snippetBody(kind, entry.prefix),
-      description: `Create a new ${kind} artifact`,
+      body: snippetBody(kind),
+      description: `Create a new ${entry.backstageKind} entity for ${kind}`,
     };
   }
 

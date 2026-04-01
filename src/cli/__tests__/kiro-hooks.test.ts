@@ -25,13 +25,6 @@ describe("Kiro Hooks", () => {
       expect(hooks.validateOnSave).toContain("throttle:");
     });
 
-    it("generates enrich-on-create hook for markdown files", () => {
-      expect(hooks.enrichOnCreate).toContain("trigger: onCreate");
-      expect(hooks.enrichOnCreate).toContain("**/*.md");
-      expect(hooks.enrichOnCreate).toContain("ea-artifacts");
-      expect(hooks.enrichOnCreate).toContain("discover --from-docs");
-    });
-
     it("generates trace-on-save hook for spec documents", () => {
       expect(hooks.traceOnSave).toContain("trigger: onSave");
       expect(hooks.traceOnSave).toContain("**/*.md");
@@ -53,7 +46,7 @@ describe("Kiro Hooks", () => {
     });
 
     it("all hooks have required YAML fields", () => {
-      for (const hook of [hooks.validateOnSave, hooks.enrichOnCreate, hooks.traceOnSave, hooks.driftOnSave]) {
+      for (const hook of [hooks.validateOnSave, hooks.traceOnSave, hooks.driftOnSave]) {
         expect(hook).toContain("name:");
         expect(hook).toContain("description:");
         expect(hook).toContain("trigger:");
@@ -90,12 +83,11 @@ describe("Kiro Hooks", () => {
       // Hook files (new)
       const hooksDir = join(tempDir, ".kiro", "hooks");
       expect(existsSync(join(hooksDir, "validate-artifact.yml"))).toBe(true);
-      expect(existsSync(join(hooksDir, "enrich-spec.yml"))).toBe(true);
       expect(existsSync(join(hooksDir, "trace-integrity.yml"))).toBe(true);
       expect(existsSync(join(hooksDir, "drift-detection.yml"))).toBe(true);
 
-      // 3 steering + 4 hooks = 7 files
-      expect(result.created).toHaveLength(7);
+      // 3 steering + 3 hooks = 6 files
+      expect(result.created).toHaveLength(6);
     });
 
     it("hook files contain valid YAML structure", () => {
@@ -107,12 +99,8 @@ describe("Kiro Hooks", () => {
 
       const hooksDir = join(tempDir, ".kiro", "hooks");
       const validate = readFileSync(join(hooksDir, "validate-artifact.yml"), "utf-8");
-      const enrich = readFileSync(join(hooksDir, "enrich-spec.yml"), "utf-8");
-
       expect(validate).toContain("trigger: onSave");
       expect(validate).toContain("ea/**/*.{yaml,yml,json}");
-      expect(enrich).toContain("trigger: onCreate");
-      expect(enrich).toContain("ea-artifacts");
     });
 
     it("skips existing hook files on second write", () => {
@@ -120,7 +108,7 @@ describe("Kiro Hooks", () => {
       const result2 = writeAiConfigFiles(tempDir, { rootDir: "ea", domains: {} }, ["kiro"]);
 
       expect(result2.created).toHaveLength(0);
-      expect(result2.skipped).toHaveLength(7);
+      expect(result2.skipped).toHaveLength(6);
     });
   });
 });

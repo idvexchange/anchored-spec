@@ -12,66 +12,54 @@ import {
   renderPolicyMarkdown,
 } from "../version-policy.js";
 import type { VersionPolicyConfig } from "../version-policy.js";
-import type { EaArtifactBase } from "../types.js";
-import { artifactToBackstage } from "../backstage/bridge.js";
-import { getEntityId } from "../backstage/accessors.js";
+import type { BackstageEntity } from "../backstage/types.js";
+import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function makeArtifact(overrides: Partial<EaArtifactBase> & { id: string; kind: string }): EaArtifactBase {
-  return {
-    schemaVersion: "1.0.0",
+function makePolicyEntity(
+  overrides: Parameters<typeof makeEntity>[0],
+): BackstageEntity {
+  return makeEntity({
     title: overrides.id,
     status: "active",
     summary: "Test artifact",
     owners: ["team-a"],
     confidence: "declared",
     ...overrides,
-  } as EaArtifactBase;
+  });
 }
 
-/**
- * Build a policy enforcement report from legacy artifact arrays.
- * Converts to BackstageEntity for the diff (which now expects entities),
- * then patches legacy artifact IDs to match entity refs so the compat
- * and version-policy lookups find the right artifacts.
- */
 function enforceWith(
-  base: EaArtifactBase[],
-  head: EaArtifactBase[],
+  base: BackstageEntity[],
+  head: BackstageEntity[],
   config?: VersionPolicyConfig,
 ) {
-  const baseEntities = base.map((a) => artifactToBackstage(a));
-  const headEntities = head.map((a) => artifactToBackstage(a));
-  const diff = diffEaArtifacts(baseEntities, headEntities);
-
-  const patchedBase = base.map((a, i) => ({ ...a, id: getEntityId(baseEntities[i]!) }));
-  const patchedHead = head.map((a, i) => ({ ...a, id: getEntityId(headEntities[i]!) }));
-
-  const compat = assessCompatibility(diff, { base: patchedBase, head: patchedHead });
-  return enforceVersionPolicies(compat, { base: patchedBase, head: patchedHead }, config);
+  const diff = diffEaArtifacts(base, head);
+  const compat = assessCompatibility(diff, { base, head });
+  return enforceVersionPolicies(compat, { base, head }, config);
 }
 
 // ─── resolveVersionPolicy ───────────────────────────────────────────────────────
 
 describe("resolveVersionPolicy", () => {
   it("returns breaking-allowed by default (no config)", () => {
-    const artifact = makeArtifact({ id: "APP-a", kind: "application" });
-    const policy = resolveVersionPolicy(artifact);
+    const entity = makePolicyEntity({ id: "APP-a", kind: "application" });
+    const policy = resolveVersionPolicy(entity);
     expect(policy.compatibility).toBe("breaking-allowed");
   });
 
   it("uses global default from config", () => {
-    const artifact = makeArtifact({ id: "APP-a", kind: "application" });
-    const policy = resolveVersionPolicy(artifact, {
+    const entity = makePolicyEntity({ id: "APP-a", kind: "application" });
+    const policy = resolveVersionPolicy(entity, {
       defaultCompatibility: "backward-only",
     });
     expect(policy.compatibility).toBe("backward-only");
   });
 
   it("kind-level overrides global default", () => {
-    const artifact = makeArtifact({ id: "API-a", kind: "api-contract" });
-    const policy = resolveVersionPolicy(artifact, {
+    const entity = makePolicyEntity({ id: "API-a", kind: "api-contract" });
+    const policy = resolveVersionPolicy(entity, {
       defaultCompatibility: "breaking-allowed",
       perKind: { "api-contract": { compatibility: "backward-only" } },
     });
@@ -79,8 +67,8 @@ describe("resolveVersionPolicy", () => {
   });
 
   it("domain-level overrides global default", () => {
-    const artifact = makeArtifact({ id: "APP-a", kind: "application" });
-    const policy = resolveVersionPolicy(artifact, {
+    const entity = makePolicyEntity({ id: "APP-a", kind: "application" });
+    const policy = resolveVersionPolicy(entity, {
       defaultCompatibility: "breaking-allowed",
       perDomain: { systems: { compatibility: "full" } },
     });
@@ -88,8 +76,8 @@ describe("resolveVersionPolicy", () => {
   });
 
   it("kind-level overrides domain-level", () => {
-    const artifact = makeArtifact({ id: "API-a", kind: "api-contract" });
-    const policy = resolveVersionPolicy(artifact, {
+    const entity = makePolicyEntity({ id: "API-a", kind: "api-contract" });
+    const policy = resolveVersionPolicy(entity, {
       perDomain: { systems: { compatibility: "breaking-allowed" } },
       perKind: { "api-contract": { compatibility: "frozen" } },
     });
@@ -97,14 +85,12 @@ describe("resolveVersionPolicy", () => {
   });
 
   it("artifact-level (extensions.versionPolicy) overrides everything", () => {
-    const artifact = makeArtifact({
+    const entity = makePolicyEntity({
       id: "API-a",
       kind: "api-contract",
-      extensions: {
-        versionPolicy: { compatibility: "frozen" },
-      },
+      versionPolicy: { compatibility: "frozen" },
     });
-    const policy = resolveVersionPolicy(artifact, {
+    const policy = resolveVersionPolicy(entity, {
       defaultCompatibility: "breaking-allowed",
       perKind: { "api-contract": { compatibility: "backward-only" } },
     });
@@ -112,8 +98,8 @@ describe("resolveVersionPolicy", () => {
   });
 
   it("includes deprecationWindow from config", () => {
-    const artifact = makeArtifact({ id: "API-a", kind: "api-contract" });
-    const policy = resolveVersionPolicy(artifact, {
+    const entity = makePolicyEntity({ id: "API-a", kind: "api-contract" });
+    const policy = resolveVersionPolicy(entity, {
       perKind: { "api-contract": { compatibility: "backward-only", deprecationWindow: "90d" } },
     });
     expect(policy.deprecationWindow).toBe("90d");
@@ -130,13 +116,13 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("passes when policy is breaking-allowed", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makePolicyEntity({ id: "APP-a", kind: "application", status: "active" })];
     const report = enforceWith(base, []); // removal → breaking, but no policy
     expect(report.passed).toBe(true);
   });
 
   it("fails when backward-only policy detects breaking change", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makePolicyEntity({ id: "APP-a", kind: "application", status: "active" })];
     const report = enforceWith(base, [], {
       defaultCompatibility: "backward-only",
     });
@@ -147,8 +133,8 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("passes when backward-only policy sees additive change", () => {
-    const base: EaArtifactBase[] = [];
-    const head = [makeArtifact({ id: "APP-new", kind: "application" })];
+    const base: BackstageEntity[] = [];
+    const head = [makePolicyEntity({ id: "APP-new", kind: "application" })];
     const report = enforceWith(base, head, {
       defaultCompatibility: "backward-only",
     });
@@ -159,8 +145,8 @@ describe("enforceVersionPolicies", () => {
     // A contractual spec field modification is classified as "ambiguous" by the compat engine.
     // With entity-based diffing, kind-specific properties are carried into spec and treated
     // as contractual fields when they're not in the base field semantic map.
-    const base = [makeArtifact({ id: "APP-a", kind: "application", contractSpec: "v1" } as never)];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", contractSpec: "v2" } as never)];
+    const base = [makePolicyEntity({ id: "APP-a", kind: "application", contractSpec: "v1" } as never)];
+    const head = [makePolicyEntity({ id: "APP-a", kind: "application", contractSpec: "v2" } as never)];
     const report = enforceWith(base, head, {
       defaultCompatibility: "full",
     });
@@ -169,8 +155,8 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("fails when frozen policy detects any change", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", title: "Old" })];
-    const head = [makeArtifact({ id: "APP-a", kind: "application", title: "New" })];
+    const base = [makePolicyEntity({ id: "APP-a", kind: "application", title: "Old" })];
+    const head = [makePolicyEntity({ id: "APP-a", kind: "application", title: "New" })];
     const report = enforceWith(base, head, {
       defaultCompatibility: "frozen",
     });
@@ -178,7 +164,7 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("passes when frozen policy sees no changes", () => {
-    const artifacts = [makeArtifact({ id: "APP-a", kind: "application" })];
+    const artifacts = [makePolicyEntity({ id: "APP-a", kind: "application" })];
     const report = enforceWith(artifacts, [...artifacts], {
       defaultCompatibility: "frozen",
     });
@@ -186,8 +172,8 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("uses per-kind policy", () => {
-    const base = [makeArtifact({ id: "API-a", kind: "api-contract", status: "active" })];
-    const head: EaArtifactBase[] = []; // removal → breaking
+    const base = [makePolicyEntity({ id: "API-a", kind: "api-contract", status: "active" })];
+    const head: BackstageEntity[] = []; // removal → breaking
     const report = enforceWith(base, head, {
       defaultCompatibility: "breaking-allowed",
       perKind: { "api-contract": { compatibility: "backward-only" } },
@@ -197,13 +183,13 @@ describe("enforceVersionPolicies", () => {
   });
 
   it("uses artifact-level policy from extensions", () => {
-    const base = [makeArtifact({
+    const base = [makePolicyEntity({
       id: "APP-a",
       kind: "application",
       status: "active",
-      extensions: { versionPolicy: { compatibility: "backward-only" } },
+      versionPolicy: { compatibility: "backward-only" },
     })];
-    const head: EaArtifactBase[] = [];
+    const head: BackstageEntity[] = [];
     const report = enforceWith(base, head, {
       defaultCompatibility: "breaking-allowed",
     });
@@ -212,11 +198,11 @@ describe("enforceVersionPolicies", () => {
 
   it("summary counts by policy", () => {
     const base = [
-      makeArtifact({ id: "APP-a", kind: "application", status: "active" }),
-      makeArtifact({ id: "API-b", kind: "api-contract", status: "active" }),
+        makePolicyEntity({ id: "APP-a", kind: "application", status: "active" }),
+        makePolicyEntity({ id: "API-b", kind: "api-contract", status: "active" }),
     ];
     const head = [
-      makeArtifact({ id: "APP-a", kind: "application", title: "Updated" }),
+        makePolicyEntity({ id: "APP-a", kind: "application", title: "Updated" }),
     ];
     const report = enforceWith(base, head, {
       perKind: { "api-contract": { compatibility: "backward-only" } },
@@ -242,7 +228,7 @@ describe("renderPolicySummary", () => {
   });
 
   it("shows FAILED for violations", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makePolicyEntity({ id: "APP-a", kind: "application", status: "active" })];
     const report = enforceWith(base, [], { defaultCompatibility: "backward-only" });
     expect(renderPolicySummary(report)).toContain("FAILED");
   });
@@ -258,7 +244,7 @@ describe("renderPolicyMarkdown", () => {
   });
 
   it("renders violations table", () => {
-    const base = [makeArtifact({ id: "APP-a", kind: "application", status: "active" })];
+    const base = [makePolicyEntity({ id: "APP-a", kind: "application", status: "active" })];
     const report = enforceWith(base, [], { defaultCompatibility: "backward-only" });
     const md = renderPolicyMarkdown(report);
     expect(md).toContain("Violations");

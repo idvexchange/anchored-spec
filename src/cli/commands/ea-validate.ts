@@ -1,11 +1,10 @@
 /**
  * anchored-spec ea validate
  *
- * Load all EA artifacts, run schema + quality rule + relation validation,
+ * Load all EA entities, run schema + quality rule + relation validation,
  * and print findings.
  */
 
-import { artifactToBackstage } from "../../ea/backstage/bridge.js";
 import { Command } from "commander";
 import chalk from "chalk";
 import {
@@ -13,53 +12,36 @@ import {
   validateEaArtifacts,
   validateEaRelations,
   createDefaultRegistry,
-  resolveEaConfig,
+  resolveConfigV1,
 } from "../../ea/index.js";
 import type { EaValidationError, EaDomain } from "../../ea/index.js";
-import { autoFixArtifacts } from "../../ea/auto-fix.js";
 import { CliError } from "../errors.js";
 
 export function eaValidateCommand(): Command {
   return new Command("validate")
-    .description("Validate EA artifacts (schema + quality rules + relations)")
+    .description("Validate EA entities (schema + quality rules + relations)")
     .option("--domain <domain>", "Validate only a specific domain")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--strict", "Treat warnings as errors")
-    .option("--fix", "Auto-fix common validation issues before validating")
     .option("--json", "Output structured JSON")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2
         );
       }
 
-      // Auto-fix before validation if requested
-      if (options.fix) {
-        const fixResults = autoFixArtifacts(cwd, eaConfig.domains);
-        if (fixResults.length > 0) {
-          console.log(chalk.blue("🔧 Auto-fix applied:\n"));
-          for (const r of fixResults) {
-            console.log(chalk.green(`  ✓ ${r.relativePath}`));
-            for (const fix of r.fixes) {
-              console.log(chalk.dim(`    ${fix}`));
-            }
-          }
-          console.log("");
-        }
-      }
-
-      // Load artifacts
+      // Load entities
       let result;
       if (options.domain) {
-        result = await root.loadDomain(options.domain as EaDomain);
+        result = await root.loadEntityDomain(options.domain as EaDomain);
       } else {
-        result = await root.loadArtifacts();
+        result = await root.loadEntities();
       }
 
       // Schema errors from loading
@@ -67,7 +49,7 @@ export function eaValidateCommand(): Command {
       const allWarnings: EaValidationError[] = [];
 
       // Quality rules
-      const qualityResult = validateEaArtifacts(result.artifacts.map(artifactToBackstage), {
+      const qualityResult = validateEaArtifacts(result.entities, {
         quality: { strictMode: options.strict },
       });
       allErrors.push(...qualityResult.errors);
@@ -75,7 +57,7 @@ export function eaValidateCommand(): Command {
 
       // Relation validation
       const registry = createDefaultRegistry();
-      const relationResult = validateEaRelations(result.artifacts.map(artifactToBackstage), registry, {
+      const relationResult = validateEaRelations(result.entities, registry, {
         quality: { strictMode: options.strict },
       });
       allErrors.push(...relationResult.errors);
@@ -89,14 +71,14 @@ export function eaValidateCommand(): Command {
       if (options.json) {
         const output = {
           valid: allErrors.length === 0,
-          artifactsLoaded: result.artifacts.length,
+          entitiesLoaded: result.entities.length,
           errors: allErrors,
           warnings: allWarnings,
           summary: root.getSummary(),
         };
         process.stdout.write(JSON.stringify(output, null, 2) + "\n");
       } else {
-        printHumanOutput(result.artifacts.length, allErrors, allWarnings);
+        printHumanOutput(result.entities.length, allErrors, allWarnings);
       }
 
       if (allErrors.length > 0) {
@@ -106,7 +88,7 @@ export function eaValidateCommand(): Command {
 }
 
 function printHumanOutput(
-  artifactCount: number,
+  entityCount: number,
   errors: EaValidationError[],
   warnings: EaValidationError[]
 ): void {
@@ -130,7 +112,7 @@ function printHumanOutput(
 
   console.log(
     chalk.dim(
-      `\n  ${artifactCount} artifacts | ${errors.length} errors | ${warnings.length} warnings`
+      `\n  ${entityCount} entities | ${errors.length} errors | ${warnings.length} warnings`
     )
   );
 

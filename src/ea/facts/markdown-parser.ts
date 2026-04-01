@@ -22,9 +22,9 @@ const processor = unified()
   .use(remarkFrontmatter, ["yaml"]);
 
 // ─── Annotation Patterns ────────────────────────────────────────────
-// Recognise both legacy @ea: and new @anchored-spec: decorator prefixes.
+// Recognise the canonical @anchored-spec: decorator prefix.
 
-const PREFIX = `@(?:ea|anchored-spec):`;
+const PREFIX = "@anchored-spec:";
 
 const ANNOTATION_RE = new RegExp(`^<!--\\s*${PREFIX}(\\S+)(?:\\s+(\\S+))?\\s*-->$`);
 const END_RE = new RegExp(`^<!--\\s*${PREFIX}end\\s*-->$`);
@@ -37,7 +37,7 @@ const DERIVED_RE = new RegExp(`^<!--\\s*${PREFIX}derived\\s+source="([^"]+)"\\s*
 // ─── Public API ─────────────────────────────────────────────────────
 
 /**
- * Parse markdown content into a typed mdast AST and extract `@ea:*` annotations.
+ * Parse markdown content into a typed mdast AST and extract `@anchored-spec:*` annotations.
  */
 export function parseMarkdown(
   content: string,
@@ -89,20 +89,20 @@ function extractAnnotations(tree: Root): {
     const raw = html.value.trim();
     const line = html.position?.start.line ?? 0;
 
-    // Check for @ea:canonical
+    // Check for @anchored-spec:canonical
     if (CANONICAL_RE.test(raw)) {
       markers.push({ type: "canonical", raw, line });
       continue;
     }
 
-    // Check for @ea:derived
+    // Check for @anchored-spec:derived
     const derivedMatch = DERIVED_RE.exec(raw);
     if (derivedMatch) {
       markers.push({ type: "derived", derivedFrom: derivedMatch[1]!, raw, line });
       continue;
     }
 
-    // Check for @ea:end — closes the most recent open region OR suppression
+    // Check for @anchored-spec:end — closes the most recent open region OR suppression
     if (END_RE.test(raw)) {
       const endLine = html.position?.end.line ?? line;
 
@@ -122,7 +122,7 @@ function extractAnnotations(tree: Root): {
       continue;
     }
 
-    // Check for @ea:suppress
+    // Check for @anchored-spec:suppress
     const suppressMatch = SUPPRESS_RE.exec(raw);
     if (suppressMatch) {
       openSuppressions.push({
@@ -137,7 +137,7 @@ function extractAnnotations(tree: Root): {
       continue;
     }
 
-    // Check for @ea:{kind}
+    // Check for @anchored-spec:{kind}
     const annotationMatch = ANNOTATION_RE.exec(raw);
     if (annotationMatch) {
       const kind = annotationMatch[1]!;

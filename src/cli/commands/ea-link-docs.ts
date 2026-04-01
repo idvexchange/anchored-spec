@@ -2,34 +2,38 @@
  * anchored-spec ea link-docs
  *
  * Auto-sync trace links between markdown documents (frontmatter `ea-artifacts`)
- * and EA artifacts (`traceRefs`).
+ * and entities (`traceRefs`).
  *
- * - Doc → Artifact: adds missing traceRefs to artifact files when a doc
- *   references the artifact in its frontmatter.
- * - Artifact → Doc (--bidirectional): adds missing artifact IDs to doc
- *   frontmatter when an artifact has a traceRef pointing at the doc.
+ * - Doc → Entity: adds missing traceRefs to entity files when a doc
+ *   references the entity in its frontmatter.
+ * - Entity → Doc (--bidirectional): adds missing entity refs to doc
+ *   frontmatter when an entity has a traceRef pointing at the doc.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { Command } from "commander";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
+import { resolveConfigV1 } from "../../ea/config.js";
 import type { EaTraceRef } from "../../ea/types.js";
+import {
+  getEntityId,
+  getEntityTraceRefs,
+} from "../../ea/backstage/accessors.js";
 import { scanDocs } from "../../ea/docs/scanner.js";
 import { parseFrontmatter, serializeFrontmatter } from "../../ea/docs/frontmatter.js";
 import { CliError } from "../errors.js";
 import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
 import { suggestAnnotations } from "../../ea/facts/annotator.js";
 import type { AnnotationSuggestion } from "../../ea/facts/annotator.js";
+import { appendTraceRefs } from "./trace-ref-writer.js";
 
-/** A traceRef that was added to an artifact file. */
+/** A traceRef that was added to an entity file. */
 interface AddedTraceRef {
   artifactId: string;
   docPath: string;
-  role: string;
+  role: NonNullable<EaTraceRef["role"]>;
 }
 
 /** A frontmatter ref that was added to a doc. */
@@ -41,7 +45,7 @@ interface AddedFrontmatterRef {
 export function eaLinkDocsCommand(): Command {
   return new Command("link-docs")
     .description(
-      "Auto-sync trace links between docs and EA artifacts"
+      "Auto-sync trace links between docs and entities"
     )
     .option("--root-dir <path>", "EA root directory", "ea")
     .option(
@@ -52,28 +56,24 @@ export function eaLinkDocsCommand(): Command {
     .option("--dry-run", "Show what would change without writing files")
     .option(
       "--bidirectional",
-      "Also add missing artifact IDs to doc frontmatter"
+      "Also add missing entity refs to doc frontmatter"
     )
     .option("--role <role>", "Role for new traceRefs", "context")
     .option("--json", "Output structured JSON")
-    .option("--annotate", "Suggest or insert @ea:* annotation hints for classifiable blocks")
+    .option("--annotate", "Suggest or insert @anchored-spec:* annotation hints for classifiable blocks")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, {
-        specDir: "specs",
-        outputDir: "output",
-        ea: eaConfig,
-      } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2
         );
       }
 
-      const loadResult = await root.loadArtifacts();
+      const loadResult = await root.loadEntities();
 
       // ── Annotation suggestions (--annotate) ─────────────────────────
       if (options.annotate) {
@@ -84,7 +84,7 @@ export function eaLinkDocsCommand(): Command {
           process.stdout.write(JSON.stringify({ suggestions, summary: { total: suggestions.length } }, null, 2) + "\n");
         } else {
           if (suggestions.length === 0) {
-            console.log(chalk.green("\n✓ All classifiable blocks already have @ea:* annotations."));
+            console.log(chalk.green("\n✓ All classifiable blocks already have @anchored-spec:* annotations."));
           } else {
             console.log(chalk.blue("Annotation Suggestions\n"));
             if (options.dryRun) {
@@ -120,16 +120,20 @@ export function eaLinkDocsCommand(): Command {
       // ── Doc → Artifact: discover missing traceRefs ──────────────────
       const scanResult = scanDocs(cwd, { dirs: docDirs });
 
-      /** Map from artifact ID to its loaded detail (for filePath lookup). */
+      /** Map from entity ID/ref to its loaded detail (for filePath lookup). */
       const detailById = new Map(
-        loadResult.details
-          .filter((d) => d.artifact)
-          .map((d) => [d.artifact!.id, d])
+        loadResult.details.flatMap((detail) => {
+          const entity = detail.entity ?? detail.authoredEntity;
+          if (!entity) return [];
+          return [[getEntityId(entity), detail] as const];
+        }),
       );
 
-      /** Map from artifact ID to the artifact object itself. */
-      const artifactById = new Map(
-        loadResult.artifacts.map((a) => [a.id, a])
+      /** Map from canonical entity ref to the loaded entity. */
+      const entityById = new Map(
+        loadResult.entities.flatMap((entity) => {
+          return [[getEntityId(entity), entity] as const];
+        }),
       );
 
       const addedTraceRefs: AddedTraceRef[] = [];
@@ -138,16 +142,16 @@ export function eaLinkDocsCommand(): Command {
       // artifact has a traceRef pointing back at the doc.
       for (const doc of scanResult.docs) {
         for (const artifactId of doc.artifactIds) {
-          const artifact = artifactById.get(artifactId);
-          if (!artifact) continue;
+          const entity = entityById.get(artifactId);
+          if (!entity) continue;
 
-          const existing = (artifact.traceRefs ?? []).some(
+          const existing = getEntityTraceRefs(entity).some(
             (ref) => ref.path === doc.relativePath
           );
           if (existing) continue;
 
           addedTraceRefs.push({
-            artifactId,
+            artifactId: getEntityId(entity),
             docPath: doc.relativePath,
             role: options.role ?? "context",
           });
@@ -176,10 +180,10 @@ export function eaLinkDocsCommand(): Command {
       const addedFrontmatterRefs: AddedFrontmatterRef[] = [];
 
       if (options.bidirectional) {
-        for (const artifact of loadResult.artifacts) {
-          if (!artifact.traceRefs) continue;
+        for (const entity of loadResult.entities) {
+          const artifactId = getEntityId(entity);
 
-          for (const ref of artifact.traceRefs) {
+          for (const ref of getEntityTraceRefs(entity)) {
             // Skip URLs — only handle local file paths.
             if (/^https?:\/\//.test(ref.path)) continue;
 
@@ -198,17 +202,17 @@ export function eaLinkDocsCommand(): Command {
 
             const parsed = parseFrontmatter(content);
             const existingIds = parsed.frontmatter.eaArtifacts ?? [];
-            if (existingIds.includes(artifact.id)) continue;
+            if (existingIds.includes(artifactId)) continue;
 
             addedFrontmatterRefs.push({
               docPath: ref.path,
-              artifactId: artifact.id,
+              artifactId,
             });
 
             if (!options.dryRun) {
               const updatedFm = {
                 ...parsed.frontmatter,
-                eaArtifacts: [...existingIds, artifact.id],
+                eaArtifacts: [...existingIds, artifactId],
               };
               const serialized = serializeFrontmatter(updatedFm);
               writeFileSync(absPath, serialized + "\n" + parsed.body, "utf-8");
@@ -264,39 +268,14 @@ export function eaLinkDocsCommand(): Command {
  * Read an artifact file, append new traceRef entries, and write it back
  * in the same format (JSON or YAML).
  */
-function writeArtifactTraceRefs(
-  filePath: string,
-  refs: AddedTraceRef[]
-): void {
-  const raw = readFileSync(filePath, "utf-8");
-  const isJson = filePath.endsWith(".json");
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let data: any;
-  if (isJson) {
-    data = JSON.parse(raw);
-  } else {
-    data = parseYaml(raw);
-  }
-
-  if (!Array.isArray(data.traceRefs)) {
-    data.traceRefs = [];
-  }
-
-  for (const ref of refs) {
-    const alreadyPresent = (data.traceRefs as EaTraceRef[]).some(
-      (existing) => existing.path === ref.docPath
-    );
-    if (alreadyPresent) continue;
-
-    data.traceRefs.push({ path: ref.docPath, role: ref.role });
-  }
-
-  if (isJson) {
-    writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
-  } else {
-    writeFileSync(filePath, stringifyYaml(data), "utf-8");
-  }
+function writeArtifactTraceRefs(filePath: string, refs: AddedTraceRef[]): void {
+  appendTraceRefs(
+    filePath,
+    refs.map((ref) => ({
+      path: ref.docPath,
+      role: ref.role,
+    })),
+  );
 }
 
 /** Group frontmatter ref additions by doc path for JSON output. */
@@ -410,7 +389,7 @@ function writeAnnotations(cwd: string, suggestions: AnnotationSuggestion[]): num
     const sorted = [...fileSuggestions].sort((a, b) => b.line - a.line);
 
     for (const s of sorted) {
-      // Insert @ea:end after the end line
+      // Insert @anchored-spec:end after the end line
       const endIdx = Math.min(s.endLine, lines.length);
       lines.splice(endIdx, 0, "", s.endAnnotation);
 

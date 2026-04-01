@@ -24,17 +24,9 @@ describe("Spec-Kit Extension", () => {
       expect(ext.manifest).toContain("commands:");
       expect(ext.manifest).toContain("hooks:");
       expect(ext.manifest).toContain("after_tasks:");
-      expect(ext.manifest).toContain("commands/enrich.md");
       expect(ext.manifest).toContain("commands/scaffold.md");
       expect(ext.manifest).toContain("commands/trace.md");
       expect(ext.manifest).toContain("commands/context.md");
-    });
-
-    it("generates enrich command with $ARGUMENTS placeholder", () => {
-      expect(ext.enrichCmd).toContain("$ARGUMENTS");
-      expect(ext.enrichCmd).toContain("ea-artifacts");
-      expect(ext.enrichCmd).toContain("npx anchored-spec");
-      expect(ext.enrichCmd).toContain("frontmatter");
     });
 
     it("generates scaffold command referencing discover --from-docs", () => {
@@ -80,12 +72,11 @@ describe("Spec-Kit Extension", () => {
 
       const extDir = join(tempDir, ".specify", "extensions", "anchored-spec");
       expect(existsSync(join(extDir, "extension.yml"))).toBe(true);
-      expect(existsSync(join(extDir, "commands", "enrich.md"))).toBe(true);
       expect(existsSync(join(extDir, "commands", "scaffold.md"))).toBe(true);
       expect(existsSync(join(extDir, "commands", "trace.md"))).toBe(true);
       expect(existsSync(join(extDir, "commands", "context.md"))).toBe(true);
 
-      expect(result.created).toHaveLength(5);
+      expect(result.created).toHaveLength(4);
       expect(result.skipped).toHaveLength(0);
     });
 
@@ -105,7 +96,7 @@ describe("Spec-Kit Extension", () => {
       );
 
       expect(result2.created).toHaveLength(0);
-      expect(result2.skipped).toHaveLength(5);
+      expect(result2.skipped).toHaveLength(4);
     });
 
     it("includes speckit when target is 'all'", () => {

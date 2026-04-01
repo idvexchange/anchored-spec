@@ -242,13 +242,8 @@
     },
     "entityMode": {
       "type": "string",
-      "enum": ["artifacts", "manifest", "inline"],
-      "description": "Entity storage mode: 'artifacts' (legacy per-file), 'manifest' (multi-doc Backstage YAML), or 'inline' (Backstage YAML frontmatter in markdown)."
-    },
-    "entityFormat": {
-      "type": "string",
-      "enum": ["backstage", "legacy"],
-      "description": "Entity format for manifest/inline modes: 'backstage' (Backstage Software Catalog) or 'legacy' (anchored-spec artifact format)."
+      "enum": ["manifest", "inline"],
+      "description": "Entity storage mode: 'manifest' (multi-doc Backstage YAML) or 'inline' (Backstage YAML frontmatter in markdown)."
     },
     "manifestPath": {
       "type": "string",

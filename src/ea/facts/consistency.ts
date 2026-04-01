@@ -6,7 +6,7 @@
  * compares field values, and reports contradictions.
  */
 
-import type { ExtractedFact, FactManifest, DocumentMarker } from "./types.js";
+import type { ExtractedFact, FactManifest } from "./types.js";
 
 // ─── Finding Types ──────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ export interface ConsistencyFinding {
   locations: FactLocation[];
   /** Optional suggestion for resolution */
   suggestion?: string;
-  /** Whether this finding is suppressed by an @ea:suppress annotation */
+  /** Whether this finding is suppressed by an @anchored-spec:suppress annotation */
   suppressed?: boolean;
   /** The suppression annotation that suppressed this finding */
   suppressedBy?: { file: string; reason: string };
@@ -394,7 +394,7 @@ function checkNamingInconsistencies(
                   { file: locB.file, line: locB.line, value: b },
                 ],
                 suggestion: isMapped
-                  ? `Mapping table confirms "${a}" ↔ "${b}" is intentional — suppress with @ea:suppress if desired`
+                  ? `Mapping table confirms "${a}" ↔ "${b}" is intentional — suppress with @anchored-spec:suppress if desired`
                   : `Verify whether "${a}" and "${b}" refer to the same concept`,
               });
             }

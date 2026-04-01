@@ -19,10 +19,8 @@ import {
 import { RelationGraph, buildRelationGraph } from "../graph.js";
 import { validateEaRelations } from "../validate.js";
 import { EaRoot } from "../loader.js";
+import { resolveConfigV1 } from "../config.js";
 import type { BackstageEntity } from "../backstage/types.js";
-
-/** Minimal v0.x config shape for test backward-compat. */
-type LegacyConfig = { specRoot?: string; ea?: { enabled: boolean; rootDir: string } } & Record<string, unknown>;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -726,14 +724,11 @@ describe("Integration: graph from examples/ea/", () => {
 
   it("builds a graph from example artifacts", async () => {
     const root = new EaRoot(projectRoot, {
-      specDir: "specs",
-      outputDir: "output",
-      ea: { enabled: true, rootDir: "examples/ea" },
-    } as LegacyConfig);
+      ...resolveConfigV1(),
+      manifestPath: "examples/backstage-manifest/catalog-info.yaml",
+    });
 
-    const { artifacts } = await root.loadArtifacts();
-    const { artifactToBackstage } = await import("../backstage/bridge.js");
-    const entities = artifacts.map(artifactToBackstage);
+    const { entities } = await root.loadEntities();
     const registry = createDefaultRegistry();
     const graph = buildRelationGraph(entities, registry);
 
@@ -743,14 +738,11 @@ describe("Integration: graph from examples/ea/", () => {
 
   it("generates valid Mermaid output from examples", async () => {
     const root = new EaRoot(projectRoot, {
-      specDir: "specs",
-      outputDir: "output",
-      ea: { enabled: true, rootDir: "examples/ea" },
-    } as LegacyConfig);
+      ...resolveConfigV1(),
+      manifestPath: "examples/backstage-manifest/catalog-info.yaml",
+    });
 
-    const { artifacts } = await root.loadArtifacts();
-    const { artifactToBackstage } = await import("../backstage/bridge.js");
-    const entities = artifacts.map(artifactToBackstage);
+    const { entities } = await root.loadEntities();
     const registry = createDefaultRegistry();
     const graph = buildRelationGraph(entities, registry);
     const mermaid = graph.toMermaid();
@@ -761,14 +753,11 @@ describe("Integration: graph from examples/ea/", () => {
 
   it("generates valid DOT output from examples", async () => {
     const root = new EaRoot(projectRoot, {
-      specDir: "specs",
-      outputDir: "output",
-      ea: { enabled: true, rootDir: "examples/ea" },
-    } as LegacyConfig);
+      ...resolveConfigV1(),
+      manifestPath: "examples/backstage-manifest/catalog-info.yaml",
+    });
 
-    const { artifacts } = await root.loadArtifacts();
-    const { artifactToBackstage } = await import("../backstage/bridge.js");
-    const entities = artifacts.map(artifactToBackstage);
+    const { entities } = await root.loadEntities();
     const registry = createDefaultRegistry();
     const graph = buildRelationGraph(entities, registry);
     const dot = graph.toDot();

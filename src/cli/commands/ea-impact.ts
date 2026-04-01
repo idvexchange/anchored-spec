@@ -1,8 +1,8 @@
 /**
  * anchored-spec ea impact
  *
- * Compute transitive impact analysis for an EA artifact.
- * Shows all artifacts that would be affected by changes to the target.
+ * Compute transitive impact analysis for an entity.
+ * Shows all downstream entities that would be affected by changes to the target.
  */
 
 import { Command } from "commander";
@@ -12,62 +12,56 @@ import {
   EaRoot,
   createDefaultRegistry,
   buildRelationGraph,
-  resolveEaConfig,
+  resolveConfigV1,
   analyzeImpact,
   renderImpactReportMarkdown,
-  artifactToBackstage,
 } from "../../ea/index.js";
-import { ANNOTATION_KEYS, getEntityId } from "../../ea/backstage/index.js";
+import { getEntityId } from "../../ea/backstage/index.js";
+import { buildEntityLookup, formatEntityDisplay, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
 export function eaImpactCommand(): Command {
   return new Command("impact")
-    .description("Analyze transitive impact of an EA artifact")
-    .argument("<artifact-id>", "ID of the artifact to analyze")
+    .description("Analyze transitive impact of an entity")
+    .argument("<entity-ref>", "Entity ref to analyze")
     .option("--format <format>", "Output format: markdown, json", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--max-depth <n>", "Maximum traversal depth")
     .option("--root-dir <path>", "EA root directory", "ea")
-    .action(async (artifactId: string, options) => {
+    .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError(
-          "EA not initialized. Run 'anchored-spec ea init' first.",
+          "EA not initialized. Run 'anchored-spec init' first.",
           2,
         );
       }
 
-      const result = await root.loadArtifacts();
+      const result = await root.loadEntities();
 
-      if (result.artifacts.length === 0) {
-        console.log(chalk.yellow("No artifacts found."));
+      if (result.entities.length === 0) {
+        console.log(chalk.yellow("No entities found."));
         return;
       }
 
       // Build graph
       const registry = createDefaultRegistry();
-      const entities = result.artifacts.map(artifactToBackstage);
+      const entities = result.entities;
       const graph = buildRelationGraph(entities, registry);
 
-      // Resolve artifact ID: try as entity ref first, then as legacy ID
-      let resolvedId = artifactId;
-      if (!graph.node(resolvedId)) {
-        // Try to find by legacy ID annotation
-        const match = entities.find(
-          (e) => e.metadata.annotations?.[ANNOTATION_KEYS.LEGACY_ID] === artifactId,
-        );
-        if (match) {
-          resolvedId = getEntityId(match);
-        }
-      }
+      const lookup = buildEntityLookup(entities);
+      const targetEntity = lookup.byInput.get(entityInput);
+      const resolvedId = targetEntity ? getEntityId(targetEntity) : entityInput;
 
-      // Verify artifact exists
+      // Verify entity exists
       if (!graph.node(resolvedId)) {
+        const similar = suggestEntities(entityInput, entities);
+        const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
         throw new CliError(
-          `Artifact "${artifactId}" not found. Use 'ea validate' to list artifacts.`,
+          `Entity "${entityInput}" not found.${hint}`,
           2,
         );
       }
@@ -91,11 +85,15 @@ export function eaImpactCommand(): Command {
         process.stdout.write(output);
       }
 
+      if (targetEntity) {
+        console.error(chalk.dim(`Target: ${formatEntityDisplay(targetEntity)}`));
+      }
+
       // Summary line
       if (report.totalImpacted > 0) {
         console.error(
           chalk.yellow(
-            `⚠ ${report.totalImpacted} artifact(s) impacted across ${report.byDomain.length} domain(s)`,
+            `⚠ ${report.totalImpacted} entit${report.totalImpacted === 1 ? "y" : "ies"} impacted across ${report.byDomain.length} domain(s)`,
           ),
         );
       } else {

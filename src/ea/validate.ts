@@ -282,7 +282,7 @@ export function getEaSchemaNames(): readonly EaSchemaName[] {
  * If no `quality` is provided, sensible defaults apply.
  */
 export interface EaValidationOptions {
-  /** Quality rule settings. When omitted, defaults from `resolveEaConfig()` apply. */
+  /** Quality rule settings. When omitted, defaults from `resolveConfigV1()` apply. */
   quality?: Partial<EaQualityConfig>;
 }
 
@@ -508,7 +508,7 @@ export function validateEaArtifacts(
     }
     {
       const orphanSev = ruleSeverity("ea:quality:orphan-artifact", "warning", q);
-      const specRels = getEntitySpecRelations(a);
+      const specRels = getEntitySpecRelations(a).filter((r) => r.legacyType !== "owns");
       const compRels = a.relations ?? [];
       const hasOwn = specRels.some(r => r.targets.length > 0) || compRels.length > 0;
       const isTargeted = allTargets.has(entityId);
@@ -560,6 +560,7 @@ function extractFlatRelations(entity: BackstageEntity): Array<{ type: string; ta
   const result: Array<{ type: string; target: string }> = [];
   for (const { legacyType, targets } of getEntitySpecRelations(entity)) {
     for (const target of targets) {
+      if (legacyType === "owns" && !target.includes(":") && !target.includes("/")) continue;
       result.push({ type: legacyType, target });
     }
   }

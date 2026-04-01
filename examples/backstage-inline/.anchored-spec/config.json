@@ -3,6 +3,5 @@
   "rootDir": "ea",
   "generatedDir": "ea/generated",
   "entityMode": "inline",
-  "entityFormat": "backstage",
   "inlineDocDirs": ["docs"]
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { validateEaSchema, resetEaAjv, getSchemaForKind, getEaSchemaNames } from "../validate.js";
-import { EA_KIND_REGISTRY } from "../types.js";
+import { BACKSTAGE_KIND_REGISTRY } from "../backstage/kind-mapping.js";
 
 beforeEach(() => {
   resetEaAjv();
@@ -556,10 +556,10 @@ describe("schema auto-resolution from kind", () => {
 // ─── Every registered kind has a schema ─────────────────────────────────────────
 
 describe("schema coverage", () => {
-  it("every kind in EA_KIND_REGISTRY has a matching schema", () => {
+  it("every mapped legacy kind has a matching schema", () => {
     const schemaNames = getEaSchemaNames();
-    for (const entry of EA_KIND_REGISTRY) {
-      expect(schemaNames).toContain(entry.kind);
+    for (const entry of BACKSTAGE_KIND_REGISTRY) {
+      expect(schemaNames).toContain(entry.legacyKind);
     }
   });
 });

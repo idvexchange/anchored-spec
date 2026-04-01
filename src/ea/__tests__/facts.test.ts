@@ -12,7 +12,7 @@
  *  6. Frontmatter extractor — ea-artifacts, domain, status
  *  7. Orchestrator — buildFactManifest, extractFacts
  *  8. Consistency engine — cross-document value mismatch, naming, state conflicts
- *  9. Suppression engine — inline @ea:suppress matching
+ *  9. Suppression engine — inline @anchored-spec:suppress matching
  * 10. Reconciler — fact↔artifact anchor reconciliation
  */
 
@@ -110,14 +110,14 @@ describe("parseMarkdown", () => {
     expect(doc.filePath).toBe("test.md");
   });
 
-  it("extracts @ea:events annotation", () => {
-    const md = `<!-- @ea:events webhook-events -->
+  it("extracts @anchored-spec:events annotation", () => {
+    const md = `<!-- @anchored-spec:events webhook-events -->
 
 | Event | Trigger |
 | :--- | :--- |
 | dossier.success | Verified |
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 `;
     const doc = parseMarkdown(md, "events.md");
     expect(doc.annotations).toHaveLength(1);
@@ -125,12 +125,12 @@ describe("parseMarkdown", () => {
     expect(doc.annotations[0]!.annotation.id).toBe("webhook-events");
   });
 
-  it("extracts @ea:suppress annotation", () => {
-    const md = `<!-- @ea:suppress ea:docs/value-mismatch reason="known divergence" -->
+  it("extracts @anchored-spec:suppress annotation", () => {
+    const md = `<!-- @anchored-spec:suppress ea:docs/value-mismatch reason="known divergence" -->
 
 Some content
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 `;
     const doc = parseMarkdown(md, "suppress.md");
     expect(doc.suppressions).toHaveLength(1);
@@ -138,23 +138,23 @@ Some content
     expect(doc.suppressions[0]!.reason).toBe("known divergence");
   });
 
-  it("extracts @ea:end closing annotation", () => {
-    const md = `<!-- @ea:events -->
+  it("extracts @anchored-spec:end closing annotation", () => {
+    const md = `<!-- @anchored-spec:events -->
 
 | Event | Trigger |
 | :--- | :--- |
 | ev.one | desc |
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 `;
     const doc = parseMarkdown(md, "test.md");
     expect(doc.annotations).toHaveLength(1);
-    // endOffset should be set from @ea:end
+    // endOffset should be set from @anchored-spec:end
     expect(doc.annotations[0]!.endOffset).toBeGreaterThan(doc.annotations[0]!.startOffset);
   });
 
   it("unclosed annotations extend to EOF", () => {
-    const md = `<!-- @ea:events -->
+    const md = `<!-- @anchored-spec:events -->
 
 | Event | Trigger |
 | :--- | :--- |
@@ -169,16 +169,16 @@ Some content
   it("ignores malformed HTML comments", () => {
     const md = `<!-- not an ea annotation -->
 
-<!-- @ea:events -->
+<!-- @anchored-spec:events -->
 
 | Event | Trigger |
 | :--- | :--- |
 | ev.one | desc |
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 `;
     const doc = parseMarkdown(md, "test.md");
-    // Only the valid @ea:events should be captured
+    // Only the valid @anchored-spec:events should be captured
     expect(doc.annotations).toHaveLength(1);
     expect(doc.annotations[0]!.annotation.kind).toBe("events");
   });
@@ -228,14 +228,14 @@ describe("tableExtractor", () => {
     expect(blocks[0]!.facts).toHaveLength(2);
   });
 
-  it("uses @ea:events annotation override", () => {
-    const md = `<!-- @ea:events custom-events -->
+  it("uses @anchored-spec:events annotation override", () => {
+    const md = `<!-- @anchored-spec:events custom-events -->
 
 | Name | Info |
 | :--- | :--- |
 | my.event | Something happened |
 
-<!-- @ea:end -->
+<!-- @anchored-spec:end -->
 `;
     const doc = parseMarkdown(md, "annotated.md");
     const blocks = tableExtractor.extract(doc);
@@ -711,7 +711,7 @@ describe("checkConsistency", () => {
   });
 
   it("reports missing-entry when annotated blocks share blockId but differ in keys", () => {
-    const annotation = { kind: "events", id: "webhook-events", raw: "<!-- @ea:events webhook-events -->", line: 1 };
+    const annotation = { kind: "events", id: "webhook-events", raw: "<!-- @anchored-spec:events webhook-events -->", line: 1 };
     const m1 = makeManifest("doc-a.md", [
       makeBlock("event-table", [
         makeFact({ key: "ev.one", kind: "event-table", source: { file: "doc-a.md", line: 2 } }),
@@ -830,7 +830,7 @@ describe("applySuppressions", () => {
           {
             ruleId: "ea:docs/value-mismatch",
             reason: "known issue",
-            raw: '<!-- @ea:suppress ea:docs/value-mismatch reason="known issue" -->',
+            raw: '<!-- @anchored-spec:suppress ea:docs/value-mismatch reason="known issue" -->',
             line: 1,
             endLine: 50,
           },
@@ -862,7 +862,7 @@ describe("applySuppressions", () => {
           {
             ruleId: "ea:docs/naming-inconsistency",
             reason: "not relevant",
-            raw: '<!-- @ea:suppress ea:docs/naming-inconsistency reason="not relevant" -->',
+            raw: '<!-- @anchored-spec:suppress ea:docs/naming-inconsistency reason="not relevant" -->',
             line: 1,
             endLine: 50,
           },
@@ -890,7 +890,7 @@ describe("applySuppressions", () => {
           {
             ruleId: "ea:docs/*",
             reason: "suppress all doc rules",
-            raw: '<!-- @ea:suppress ea:docs/* reason="suppress all doc rules" -->',
+            raw: '<!-- @anchored-spec:suppress ea:docs/* reason="suppress all doc rules" -->',
             line: 1,
             endLine: 50,
           },
@@ -929,7 +929,7 @@ describe("collectSuppressions", () => {
 
 describe("reconcileFactsWithArtifacts", () => {
   it("reports no findings when artifact anchor matches doc fact", () => {
-    const annotation = { kind: "events", raw: "<!-- @ea:events -->", line: 1 };
+    const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const manifest = makeManifest("events.md", [
       makeBlock(
         "event-table",
@@ -978,7 +978,7 @@ describe("reconcileFactsWithArtifacts", () => {
   });
 
   it("reports fact-missing-artifact when annotated doc fact has no artifact anchor", () => {
-    const annotation = { kind: "events", raw: "<!-- @ea:events -->", line: 1 };
+    const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const manifest = makeManifest("events.md", [
       makeBlock(
         "event-table",
@@ -1007,7 +1007,7 @@ describe("reconcileFactsWithArtifacts", () => {
   });
 
   it("reports artifact-mismatch for near-miss (same prefix, different suffix)", () => {
-    const annotation = { kind: "events", raw: "<!-- @ea:events -->", line: 1 };
+    const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const manifest = makeManifest("events.md", [
       makeBlock(
         "event-table",

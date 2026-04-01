@@ -10,17 +10,18 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { EaArtifactBase } from "./types.js";
-import { artifactToBackstage } from "./backstage/bridge.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import type { EaValidationError } from "./validate.js";
+import { getEntityKindMapping } from "./backstage/accessors.js";
+import { validateBackstageEntity, validateBackstageEntities } from "./backstage/validate.js";
 import type { EaValidationResult } from "./validate.js";
-import { validateEaSchema, validateEaArtifacts } from "./validate.js";
 import type { EaDriftReport } from "./drift.js";
 import { detectEaDrift } from "./drift.js";
 import type { GenerationReport } from "./generators/index.js";
 import { runGenerators, listGenerators, getGenerator } from "./generators/index.js";
 import { silentLogger } from "./resolvers/index.js";
 import { EaRoot } from "./loader.js";
-import { resolveEaConfig } from "./config.js";
+import { resolveConfigV1 } from "./config.js";
 import { buildTraceLinks, buildTraceCheckReport } from "./trace-analysis.js";
 import type { TraceCheckReport } from "./trace-analysis.js";
 import { scanDocs } from "./docs/scanner.js";
@@ -37,8 +38,6 @@ export interface ReconcileOptions {
   generatedDir?: string;
   /** Promote warnings to errors. */
   strict?: boolean;
-  /** Auto-fix validation issues before validating. */
-  fix?: boolean;
   /** Don't write generated files, just check for drift. */
   checkOnly?: boolean;
   /** Exit threshold: "error" or "warning". */
@@ -98,33 +97,28 @@ export async function reconcileEaProject(
   options: ReconcileOptions = {},
 ): Promise<ReconcileReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
-  const eaConfig = resolveEaConfig({ rootDir: options.eaRoot ?? "ea" });
-  const root = new EaRoot(projectRoot, {
-    specDir: "specs",
-    outputDir: "output",
-    ea: eaConfig,
-  } as never);
+  const eaConfig = resolveConfigV1({ rootDir: options.eaRoot ?? "ea" });
+  const root = new EaRoot(projectRoot, eaConfig);
 
   const steps: ReconcileStepResult[] = [];
   let generationReport: GenerationReport | undefined;
   let driftReport: EaDriftReport | undefined;
   let traceReport: TraceCheckReport | undefined;
 
-  // Load artifacts
-  const loadResult = await root.loadArtifacts();
-  let artifacts: EaArtifactBase[] = loadResult.artifacts;
+  // Load entities
+  const loadResult = await root.loadEntities();
+  let entities: BackstageEntity[] = loadResult.entities;
 
   // Apply domain filter
   if (options.domains && options.domains.length > 0) {
-    const { getDomainForKind } = await import("./types.js");
-    artifacts = artifacts.filter((a) =>
-      options.domains!.includes(getDomainForKind(a.kind) ?? ""),
+    entities = entities.filter((entity) =>
+      options.domains!.includes(getEntityKindMapping(entity)?.domain ?? ""),
     );
   }
 
   // ── Step 1: Generate ───────────────────────────────────────────────────
   if (!options.skipGenerate) {
-    const genResult = runGenerateStep(artifacts, projectRoot, eaConfig, options);
+    const genResult = runGenerateStep(entities, projectRoot, eaConfig, options);
     steps.push(genResult.step);
     generationReport = genResult.report;
 
@@ -134,7 +128,7 @@ export async function reconcileEaProject(
   }
 
   // ── Step 2: Validate ───────────────────────────────────────────────────
-  const valResult = runValidateStep(artifacts, loadResult, options);
+  const valResult = await runValidateStep(entities, loadResult.errors, options);
   steps.push(valResult.step);
   const validationResult = valResult.result;
 
@@ -144,7 +138,7 @@ export async function reconcileEaProject(
 
   // ── Step 3: Drift ─────────────────────────────────────────────────────
   if (!options.skipDrift) {
-    const driftResult = runDriftStep(artifacts, options);
+    const driftResult = runDriftStep(entities, options);
     steps.push(driftResult.step);
     driftReport = driftResult.report;
 
@@ -155,14 +149,14 @@ export async function reconcileEaProject(
 
   // ── Step 4: Trace (opt-in) ────────────────────────────────────────────
   if (options.includeTrace && !options.skipTrace) {
-    const traceResult = runTraceStep(artifacts, projectRoot, options);
+    const traceResult = runTraceStep(entities, projectRoot, options);
     steps.push(traceResult.step);
     traceReport = traceResult.report;
   }
 
   // ── Step 5: Doc Consistency (opt-in) ─────────────────────────────────
   if (options.includeDocs) {
-    const docResult = await runDocConsistencyStep(artifacts, projectRoot);
+    const docResult = await runDocConsistencyStep(entities, projectRoot);
     steps.push(docResult.step);
   }
 
@@ -185,9 +179,9 @@ interface GenerateStepOutput {
 }
 
 function runGenerateStep(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   projectRoot: string,
-  eaConfig: ReturnType<typeof resolveEaConfig>,
+  eaConfig: ReturnType<typeof resolveConfigV1>,
   options: ReconcileOptions,
 ): GenerateStepOutput {
   const generatorNames = listGenerators();
@@ -201,7 +195,7 @@ function runGenerateStep(
   }));
 
   const report = runGenerators({
-    artifacts,
+    entities,
     generators,
     generatorConfigs,
     projectRoot,
@@ -233,28 +227,30 @@ interface ValidateStepOutput {
   result: EaValidationResult;
 }
 
-function runValidateStep(
-  artifacts: EaArtifactBase[],
-  _loadResult: { errors: Array<{ path: string; message: string }> },
+async function runValidateStep(
+  entities: BackstageEntity[],
+  loadErrors: EaValidationError[],
   options: ReconcileOptions,
-): ValidateStepOutput {
-  // Schema validation on each artifact
+): Promise<ValidateStepOutput> {
+  // Schema validation on each entity
   const schemaErrors: Array<{ path: string; message: string; severity: "error" | "warning"; rule: string }> = [];
-  for (const artifact of artifacts) {
-    const schemaResult = validateEaSchema(artifact);
+  for (const entity of entities) {
+    const schemaResult = await validateBackstageEntity(entity);
     schemaErrors.push(...schemaResult.errors, ...schemaResult.warnings);
   }
 
   // Quality rules
-  const qualityResult = validateEaArtifacts(artifacts.map(artifactToBackstage), {
+  const qualityResult = validateBackstageEntities(entities, {
     quality: options.strict ? { strictMode: true } : undefined,
   });
 
   const allErrors = [
+    ...loadErrors.filter((e) => e.severity === "error"),
     ...schemaErrors.filter((e) => e.severity === "error"),
     ...qualityResult.errors,
   ];
   const allWarnings = [
+    ...loadErrors.filter((e) => e.severity === "warning"),
     ...schemaErrors.filter((e) => e.severity === "warning"),
     ...qualityResult.warnings,
   ];
@@ -275,7 +271,7 @@ function runValidateStep(
       errors: allErrors.length,
       warnings: allWarnings.length,
       details: passed
-        ? `${artifacts.length} artifacts validated — ${allErrors.length} errors, ${allWarnings.length} warnings`
+        ? `${entities.length} artifacts validated — ${allErrors.length} errors, ${allWarnings.length} warnings`
         : `${allErrors.length} errors, ${allWarnings.length} warnings`,
     },
     result,
@@ -288,11 +284,11 @@ interface DriftStepOutput {
 }
 
 function runDriftStep(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   options: ReconcileOptions,
 ): DriftStepOutput {
   const report = detectEaDrift({
-    artifacts: artifacts.map(artifactToBackstage),
+    artifacts: entities,
     domains: options.domains,
   });
 
@@ -323,7 +319,7 @@ interface TraceStepOutput {
 }
 
 function runTraceStep(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   projectRoot: string,
   options: ReconcileOptions,
 ): TraceStepOutput {
@@ -348,7 +344,7 @@ function runTraceStep(
     }
   } catch { /* ignore config read errors */ }
 
-  const links = buildTraceLinks(artifacts.map(artifactToBackstage), docs, projectRoot);
+  const links = buildTraceLinks(entities, docs, projectRoot);
   const report = buildTraceCheckReport(links);
 
   const brokenFiles = report.brokenTraceRefs.filter(
@@ -384,7 +380,7 @@ interface DocConsistencyStepOutput {
 }
 
 async function runDocConsistencyStep(
-  artifacts: EaArtifactBase[],
+  entities: BackstageEntity[],
   projectRoot: string,
 ): Promise<DocConsistencyStepOutput> {
   const { extractFactsFromDocs } = await import("./resolvers/markdown.js");
@@ -394,7 +390,7 @@ async function runDocConsistencyStep(
 
   const manifests = await extractFactsFromDocs(projectRoot);
   const consistency = checkConsistency(manifests);
-  const reconciliation = reconcileFactsWithArtifacts(manifests, artifacts.map(artifactToBackstage));
+  const reconciliation = reconcileFactsWithArtifacts(manifests, entities);
 
   // Apply suppressions from manifests
   const suppressions = collectSuppressions(manifests);
@@ -522,7 +518,7 @@ export function renderReconcileOutput(report: ReconcileReport): string {
         }
       }
       if (step.step === "docs") {
-        lines.push(`    → Run "anchored-spec ea drift --domain docs" for detailed findings.`);
+        lines.push(`    → Run "anchored-spec drift --domain docs" for detailed findings.`);
       }
     }
   }

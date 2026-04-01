@@ -1,35 +1,43 @@
 /**
  * anchored-spec ea status
  *
- * Show EA artifact health dashboard — counts by domain, kind, status.
+ * Show EA entity health dashboard — counts by domain, kind, status.
  * EA replacement for the core `status` command.
  */
 
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
-import { getDomainForKind, EA_DOMAINS } from "../../ea/types.js";
+import { resolveConfigV1 } from "../../ea/config.js";
+import { EA_DOMAINS } from "../../ea/types.js";
 import type { EaDomain } from "../../ea/types.js";
+import {
+  getEntityAnchors,
+  getEntityConfidence,
+  getEntityDomain,
+  getEntityLegacyKind,
+  getEntitySpecRelations,
+  getEntityStatus,
+} from "../../ea/backstage/accessors.js";
 import { CliError } from "../errors.js";
 
 export function eaStatusCommand(): Command {
   return new Command("status")
-    .description("Show EA artifact health dashboard")
+    .description("Show EA entity health dashboard")
     .option("--json", "Output as JSON")
     .option("--domain <domain>", "Filter by domain")
     .option("--root-dir <path>", "EA root directory", "ea")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const eaRoot = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaRoot = new EaRoot(cwd, eaConfig);
 
       if (!eaRoot.isInitialized()) {
-        throw new CliError("Error: EA not initialized. Run 'anchored-spec ea init' first.");
+        throw new CliError("Error: EA not initialized. Run 'anchored-spec init' first.");
       }
 
-      const loadResult = await eaRoot.loadArtifacts();
-      let artifacts = loadResult.artifacts;
+      const loadResult = await eaRoot.loadEntities();
+      let entities = loadResult.entities;
 
       // Filter by domain
       if (options.domain) {
@@ -37,7 +45,7 @@ export function eaStatusCommand(): Command {
         if (!EA_DOMAINS.includes(domain as EaDomain)) {
           throw new CliError(`Invalid domain "${domain}". Valid: ${EA_DOMAINS.join(", ")}`);
         }
-        artifacts = artifacts.filter((a) => getDomainForKind(a.kind) === domain);
+        entities = entities.filter((entity) => getEntityDomain(entity) === domain);
       }
 
       // Group by various dimensions
@@ -48,19 +56,25 @@ export function eaStatusCommand(): Command {
       let relationCount = 0;
       let anchoredCount = 0;
 
-      for (const a of artifacts) {
-        const domain = getDomainForKind(a.kind) ?? "unknown";
+      for (const entity of entities) {
+        const kind = getEntityLegacyKind(entity);
+        const domain = getEntityDomain(entity) ?? "unknown";
         byDomain[domain] = (byDomain[domain] ?? 0) + 1;
-        byKind[a.kind] = (byKind[a.kind] ?? 0) + 1;
-        byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
-        byConfidence[a.confidence] = (byConfidence[a.confidence] ?? 0) + 1;
-        relationCount += a.relations?.length ?? 0;
-        if (a.anchors && Object.keys(a.anchors).length > 0) anchoredCount++;
+        byKind[kind] = (byKind[kind] ?? 0) + 1;
+        const status = getEntityStatus(entity);
+        byStatus[status] = (byStatus[status] ?? 0) + 1;
+        const confidence = getEntityConfidence(entity);
+        byConfidence[confidence] = (byConfidence[confidence] ?? 0) + 1;
+        relationCount += getEntitySpecRelations(entity).reduce((count, relation) => {
+          return count + relation.targets.length;
+        }, 0);
+        const anchors = getEntityAnchors(entity);
+        if (anchors && Object.keys(anchors).length > 0) anchoredCount++;
       }
 
       if (options.json) {
         console.log(JSON.stringify({
-          total: artifacts.length,
+          total: entities.length,
           byDomain,
           byKind,
           byStatus,
@@ -73,19 +87,19 @@ export function eaStatusCommand(): Command {
       }
 
       // Human-readable output
-      console.log(chalk.blue("📊 Anchored Spec — EA Status Dashboard\n"));
+      console.log(chalk.blue("📊 Anchored Spec — Entity Status Dashboard\n"));
 
-      if (artifacts.length === 0) {
-        console.log(chalk.dim("  No artifacts found."));
+      if (entities.length === 0) {
+        console.log(chalk.dim("  No entities found."));
         return;
       }
 
       // Domain breakdown
-      console.log(chalk.bold("Artifacts by Domain"));
+      console.log(chalk.bold("Entities by Domain"));
       for (const [domain, count] of Object.entries(byDomain).sort((a, b) => b[1] - a[1])) {
         console.log(`  ${domain}: ${count}`);
       }
-      console.log(`  ${chalk.bold("Total")}: ${artifacts.length}`);
+      console.log(`  ${chalk.bold("Total")}: ${entities.length}`);
 
       console.log("");
 
@@ -109,7 +123,7 @@ export function eaStatusCommand(): Command {
       // Relations and anchors
       console.log(chalk.bold("Connectivity"));
       console.log(`  Relations: ${relationCount}`);
-      console.log(`  Anchored artifacts: ${anchoredCount}/${artifacts.length}`);
+      console.log(`  Anchored entities: ${anchoredCount}/${entities.length}`);
 
       if (loadResult.errors.length > 0) {
         console.log(chalk.red(`\n  ⚠ ${loadResult.errors.length} loading error(s)`));

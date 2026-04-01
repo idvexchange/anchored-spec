@@ -2,7 +2,7 @@
  * @module facts/suppression
  *
  * Inline suppression engine (Phase 4).
- * Matches consistency findings to @ea:suppress annotations
+ * Matches consistency findings to @anchored-spec:suppress annotations
  * and marks matched findings as suppressed.
  */
 

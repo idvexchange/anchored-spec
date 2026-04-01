@@ -52,9 +52,15 @@
     "test": "vitest run",
     "verify": "tsc && vitest run && eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "prepublishOnly": "pnpm verify"
+    "prepublishOnly": "pnpm verify",
+    "spec:validate": "anchored-spec validate",
+    "spec:verify": "anchored-spec verify",
+    "spec:graph": "anchored-spec graph --format mermaid",
+    "spec:drift": "anchored-spec drift",
+    "spec:report": "anchored-spec report"
   },
   "dependencies": {
+    "@backstage/catalog-model": "^1.7.7",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "chalk": "^5.4.1",

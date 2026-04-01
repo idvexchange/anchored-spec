@@ -9,8 +9,9 @@
  */
 
 import { minimatch } from "minimatch";
-import type { EaArtifactBase } from "./types.js";
 import type { EaRoot } from "./loader.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import { getEntityStatus, getSpecField } from "./backstage/accessors.js";
 
 // ─── Policy Types ───────────────────────────────────────────────────────────────
 
@@ -148,15 +149,19 @@ export function evaluateEaPolicy(
 /** Check if a path is covered by an active change artifact's scope. */
 export function isPathCoveredByChangeArtifact(
   path: string,
-  artifact: EaArtifactBase,
+  entity: BackstageEntity,
 ): boolean {
-  const scope = (artifact as unknown as Record<string, unknown>).scope as
+  const scope = getSpecField<{
+    include?: string[];
+    exclude?: string[];
+  }>(entity, "scope");
+  const typedScope = scope as
     | { include?: string[]; exclude?: string[] }
     | undefined;
-  if (!scope?.include) return false;
+  if (!typedScope?.include) return false;
 
-  const included = matchesAny(path, scope.include);
-  const excluded = scope.exclude ? matchesAny(path, scope.exclude) : false;
+  const included = matchesAny(path, typedScope.include);
+  const excluded = typedScope.exclude ? matchesAny(path, typedScope.exclude) : false;
   return included && !excluded;
 }
 
@@ -166,7 +171,7 @@ export function isPathCoveredByChangeArtifact(
 export function checkEaPaths(
   changedPaths: string[],
   policy: EaWorkflowPolicy,
-  activeChanges: EaArtifactBase[],
+  activeChanges: BackstageEntity[],
 ): EaCheckResult {
   const evaluation = evaluateEaPolicy(changedPaths, policy);
   const uncoveredPaths: string[] = [];
@@ -174,7 +179,7 @@ export function checkEaPaths(
   for (const result of evaluation.paths) {
     if (!result.requiresChange) continue;
     const covered = activeChanges.some(
-      (a) => a.status === "active" && isPathCoveredByChangeArtifact(result.path, a),
+      (entity) => getEntityStatus(entity) === "active" && isPathCoveredByChangeArtifact(result.path, entity),
     );
     if (!covered) {
       uncoveredPaths.push(result.path);

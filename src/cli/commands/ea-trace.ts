@@ -1,8 +1,8 @@
 /**
  * anchored-spec ea trace
  *
- * Show the traceability web between EA artifacts (`traceRefs`) and
- * markdown documents (frontmatter `ea-artifacts`).  Supports single-target
+ * Show the traceability web between entities (`traceRefs`) and
+ * markdown documents (frontmatter `ea-artifacts`). Supports single-target
  * lookup, orphan detection, full bidirectional integrity checks, and
  * summary statistics.
  */
@@ -13,27 +13,35 @@ import { Command } from "commander";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveEaConfig } from "../../ea/config.js";
-import type { EaArtifactBase } from "../../ea/types.js";
-import { artifactToBackstage } from "../../ea/backstage/bridge.js";
+import { resolveConfigV1 } from "../../ea/config.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { buildTraceLinks, buildTraceCheckReport, isUrl } from "../../ea/trace-analysis.js";
 import type { TraceLink, TraceCheckReport } from "../../ea/trace-analysis.js";
 import { scanSourceAnnotations } from "../../ea/source-scanner.js";
 import type { AnchoredSpecConfigV1 } from "../../ea/config.js";
+import type { BackstageEntity } from "../../ea/backstage/types.js";
+import {
+  getEntityId,
+  getEntityLegacyKind,
+  getEntityStatus,
+  getEntityTraceRefs,
+} from "../../ea/backstage/accessors.js";
+import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-/** Heuristic: artifact IDs contain uppercase + hyphens and no `/` or `\`. */
-function looksLikeArtifactId(value: string): boolean {
-  return /[A-Z]/.test(value) && value.includes("-") && !/[/\\]/.test(value);
+interface TraceEntityView {
+  entityRef: string;
+  kind: string;
+  status: string;
+  traceRefs: Array<{ path: string; role?: string }>;
 }
 
 interface SummaryReport {
-  artifactsWithTraceRefs: number;
-  totalArtifacts: number;
+  entitiesWithTraceRefs: number;
+  totalEntities: number;
   docsWithEaArtifacts: number;
   totalDocsScanned: number;
   totalTraceLinks: number;
@@ -43,21 +51,21 @@ interface SummaryReport {
 }
 
 function buildSummaryReport(
-  artifacts: EaArtifactBase[],
+  entities: TraceEntityView[],
   docs: ScannedDoc[],
   totalScanned: number,
   links: TraceLink[],
 ): SummaryReport {
   const check = buildTraceCheckReport(links);
-  const artifactsWithRefs = new Set(
-    artifacts.filter((a) => (a.traceRefs?.length ?? 0) > 0).map((a) => a.id),
+  const entitiesWithRefs = new Set(
+    entities.filter((entity) => (entity.traceRefs?.length ?? 0) > 0).map((entity) => entity.entityRef),
   ).size;
   const totalTraceLinks = links.filter((l) => l.artifactToDoc).length;
   const totalFmRefs = links.filter((l) => l.docToArtifact).length;
 
   return {
-    artifactsWithTraceRefs: artifactsWithRefs,
-    totalArtifacts: artifacts.length,
+    entitiesWithTraceRefs: entitiesWithRefs,
+    totalEntities: entities.length,
     docsWithEaArtifacts: docs.length,
     totalDocsScanned: totalScanned,
     totalTraceLinks,
@@ -70,22 +78,22 @@ function buildSummaryReport(
 
 // ─── Render helpers (human-readable) ──────────────────────────────────
 
-function renderTargetArtifact(
-  artifact: EaArtifactBase,
+function renderTargetEntity(
+  entity: TraceEntityView,
   docs: ScannedDoc[],
   cwd: string,
 ): string {
   const lines: string[] = [];
   const docIndex = buildDocIndex(docs);
-  const referencingDocs = docIndex.get(artifact.id) ?? [];
+  const referencingDocs = docIndex.get(entity.entityRef) ?? [];
 
   lines.push(
-    chalk.bold(`${artifact.id}`) +
-      chalk.dim(` (${artifact.kind}, ${artifact.status})`),
+    chalk.bold(`${entity.entityRef}`) +
+      chalk.dim(` (${entity.kind}, ${entity.status})`),
   );
 
   // traceRefs
-  const refs = artifact.traceRefs ?? [];
+  const refs = entity.traceRefs ?? [];
   if (refs.length > 0) {
     lines.push("  traceRefs:");
     for (const ref of refs) {
@@ -147,7 +155,7 @@ function renderTargetArtifact(
 
 function renderTargetDoc(
   doc: ScannedDoc,
-  artifactMap: Map<string, EaArtifactBase>,
+  entityMap: Map<string, TraceEntityView>,
 ): string {
   const lines: string[] = [];
   const fm = doc.frontmatter;
@@ -173,21 +181,22 @@ function renderTargetDoc(
   if (doc.artifactIds.length > 0) {
     lines.push("  ea-artifacts:");
     for (const aid of doc.artifactIds) {
-      const artifact = artifactMap.get(aid);
-      if (!artifact) {
-        lines.push(`    → ${aid} ${chalk.red("❌ (artifact not found)")}`);
+      const entity = entityMap.get(aid);
+      if (!entity) {
+        lines.push(`    → ${aid} ${chalk.red("❌ (entity not found)")}`);
         continue;
       }
-      const hasTraceBack = (artifact.traceRefs ?? []).some(
+      const label = entity.entityRef;
+      const hasTraceBack = (entity.traceRefs ?? []).some(
         (r) => r.path === doc.relativePath,
       );
       if (hasTraceBack) {
         lines.push(
-          `    → ${aid} ${chalk.green("✅ (exists, has traceRef back)")}`,
+          `    → ${label} ${chalk.green("✅ (exists, has traceRef back)")}`,
         );
       } else {
         lines.push(
-          `    → ${aid} ${chalk.yellow("⚠ (exists, NO traceRef back)")}`,
+          `    → ${label} ${chalk.yellow("⚠ (exists, NO traceRef back)")}`,
         );
       }
     }
@@ -198,7 +207,7 @@ function renderTargetDoc(
 
 function renderOrphans(
   docs: ScannedDoc[],
-  artifactMap: Map<string, EaArtifactBase>,
+  entityMap: Map<string, TraceEntityView>,
 ): string {
   const lines: string[] = [];
   let orphanDocs = 0;
@@ -206,9 +215,9 @@ function renderOrphans(
 
   for (const doc of docs) {
     const orphanIds = doc.artifactIds.filter((aid) => {
-      const a = artifactMap.get(aid);
-      if (!a) return false; // artifact doesn't exist — different issue
-      return !(a.traceRefs ?? []).some((r) => r.path === doc.relativePath);
+      const entity = entityMap.get(aid);
+      if (!entity) return false; // entity doesn't exist — different issue
+      return !(entity.traceRefs ?? []).some((r) => r.path === doc.relativePath);
     });
     if (orphanIds.length === 0) continue;
 
@@ -227,7 +236,7 @@ function renderOrphans(
 
   const header =
     chalk.bold(
-      "Orphaned documents (frontmatter → artifact, but no traceRef back):",
+      "Orphaned documents (frontmatter → entity, but no traceRef back):",
     ) + "\n";
   const footer = `${orphanDocs} document${orphanDocs === 1 ? "" : "s"}, ${missingLinks} missing backlink${missingLinks === 1 ? "" : "s"}`;
 
@@ -240,14 +249,14 @@ function renderCheck(report: TraceCheckReport): string {
 
   // Broken traceRefs
   if (report.brokenTraceRefs.length > 0) {
-    lines.push("  Artifacts with broken traceRefs:");
+    lines.push("  Entities with broken traceRefs:");
     for (const b of report.brokenTraceRefs) {
       lines.push(`    ${chalk.red("❌")} ${b.artifactId} → ${b.path} (${b.reason})`);
     }
     lines.push("");
   }
 
-  // One-way artifact → doc
+  // One-way entity → doc
   if (report.oneWayArtifactToDoc.length > 0) {
     const actionable = report.oneWayArtifactToDoc.filter(
       (o) => o.severity === "warning",
@@ -257,14 +266,14 @@ function renderCheck(report: TraceCheckReport): string {
     );
 
     if (actionable.length > 0) {
-      lines.push("  Artifacts with one-way traceRefs (actionable — missing frontmatter):");
+      lines.push("  Entities with one-way traceRefs (actionable — missing frontmatter):");
       for (const o of actionable) {
         lines.push(`    ${chalk.yellow("⚠")} ${o.artifactId} → ${o.path} (${o.reason})`);
       }
       lines.push("");
     }
     if (structural.length > 0) {
-      lines.push("  Artifacts with one-way traceRefs (structural — non-markdown files):");
+      lines.push("  Entities with one-way traceRefs (structural — non-markdown files):");
       for (const o of structural) {
         lines.push(`    ${chalk.blue("ℹ")} ${o.artifactId} → ${o.path} (${o.reason})`);
       }
@@ -272,11 +281,11 @@ function renderCheck(report: TraceCheckReport): string {
     }
   }
 
-  // One-way doc → artifact
+  // One-way doc → entity
   if (report.oneWayDocToArtifact.length > 0) {
     lines.push("  Docs with one-way frontmatter (no traceRef back):");
     for (const o of report.oneWayDocToArtifact) {
-      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.artifactId} (no traceRef in artifact)`);
+      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.artifactId} (no traceRef in entity)`);
     }
     lines.push("");
   }
@@ -294,9 +303,9 @@ function renderCheck(report: TraceCheckReport): string {
     report.brokenTraceRefs.length;
 
   lines.push(`  Fully bidirectional links: ${report.bidirectionalCount} ${chalk.green("✅")}`);
-  lines.push(`  One-way artifact→doc (actionable): ${actionableOneWay} ${chalk.yellow("⚠")}`);
-  lines.push(`  One-way artifact→doc (structural): ${structuralOneWay} ${chalk.blue("ℹ")}`);
-  lines.push(`  One-way doc→artifact: ${report.oneWayDocToArtifact.length} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way entity→doc (actionable): ${actionableOneWay} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way entity→doc (structural): ${structuralOneWay} ${chalk.blue("ℹ")}`);
+  lines.push(`  One-way doc→entity: ${report.oneWayDocToArtifact.length} ${chalk.yellow("⚠")}`);
   lines.push(`  Broken references: ${report.brokenTraceRefs.length} ${chalk.red("❌")}`);
   lines.push("");
 
@@ -314,21 +323,30 @@ function renderCheck(report: TraceCheckReport): string {
 function renderSummary(report: SummaryReport): string {
   const lines: string[] = [];
   lines.push(chalk.bold("Trace Summary:"));
-  lines.push(`  Artifacts with traceRefs: ${report.artifactsWithTraceRefs} / ${report.totalArtifacts}`);
+  lines.push(`  Entities with traceRefs: ${report.entitiesWithTraceRefs} / ${report.totalEntities}`);
   lines.push(`  Documents with ea-artifacts: ${report.docsWithEaArtifacts} / ${report.totalDocsScanned} scanned`);
-  lines.push(`  Total trace links (artifact→doc): ${report.totalTraceLinks}`);
-  lines.push(`  Total frontmatter refs (doc→artifact): ${report.totalFrontmatterRefs}`);
+  lines.push(`  Total trace links (entity→doc): ${report.totalTraceLinks}`);
+  lines.push(`  Total frontmatter refs (doc→entity): ${report.totalFrontmatterRefs}`);
   lines.push(`  Bidirectional pairs: ${report.bidirectionalPairs}`);
   lines.push(`  One-way pairs: ${report.oneWayPairs}`);
   return lines.join("\n");
+}
+
+function toTraceEntityView(entity: BackstageEntity): TraceEntityView {
+  return {
+    entityRef: getEntityId(entity),
+    kind: getEntityLegacyKind(entity),
+    status: getEntityStatus(entity),
+    traceRefs: getEntityTraceRefs(entity),
+  };
 }
 
 // ─── Command ──────────────────────────────────────────────────────────
 
 export function eaTraceCommand(): Command {
   return new Command("trace")
-    .description("Show traceability web between EA artifacts and documents")
-    .argument("[target]", "Artifact ID or document path to inspect")
+    .description("Show traceability web between entities and documents")
+    .argument("[target]", "Entity ref or document path to inspect")
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
     .option("--orphans", "Show orphaned docs (frontmatter refs with no traceRef back)")
@@ -340,11 +358,11 @@ export function eaTraceCommand(): Command {
     .option("--json", "Output as JSON")
     .action(async (target: string | undefined, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const root = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
-        throw new CliError("EA not initialized. Run 'anchored-spec ea init' first.", 2);
+        throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
       }
 
       // Load v1 config for sourceAnnotations settings
@@ -357,8 +375,9 @@ export function eaTraceCommand(): Command {
         }
       } catch { /* ignore config read errors */ }
 
-      const loadResult = await root.loadArtifacts();
-      const { artifacts } = loadResult;
+      const loadResult = await root.loadEntities();
+      const entities = loadResult.entities;
+      const lookup = buildEntityLookup(entities);
 
       const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
       const scanResult = scanDocs(cwd, { dirs: docDirs });
@@ -379,36 +398,16 @@ export function eaTraceCommand(): Command {
         docs.push(...srcResult.sources);
       }
 
-      const artifactMap = new Map<string, EaArtifactBase>();
-      for (const a of artifacts) artifactMap.set(a.id, a);
-
-      const entities = artifacts.map(artifactToBackstage);
-
-      // Build legacy ID → entity ref map for normalizing doc artifact IDs
-      const { getEntityId: _getEntityId } = await import("../../ea/backstage/accessors.js");
-      const { ANNOTATION_KEYS: _KEYS } = await import("../../ea/backstage/types.js");
-      const legacyIdToEntityRef = new Map<string, string>();
-      const entityRefToLegacyId = new Map<string, string>();
-      for (const e of entities) {
-        const ref = _getEntityId(e);
-        const legacyId = e.metadata.annotations?.[_KEYS.LEGACY_ID] ?? ref;
-        legacyIdToEntityRef.set(legacyId, ref);
-        entityRefToLegacyId.set(ref, legacyId);
+      const traceEntities = entities.map(toTraceEntityView);
+      const entityMap = new Map<string, TraceEntityView>();
+      for (const entity of traceEntities) {
+        entityMap.set(entity.entityRef, entity);
       }
 
-      // Normalize doc artifactIds from legacy IDs to entity refs so trace links match
-      const normalizedDocs = docs.map((d) => ({
-        ...d,
-        artifactIds: d.artifactIds.map((aid) => legacyIdToEntityRef.get(aid) ?? aid),
-      }));
+      const normalizedDocs = docs;
 
       const rawLinks = buildTraceLinks(entities, normalizedDocs, cwd);
-
-      // Remap trace link artifact IDs back to legacy IDs for downstream CLI logic
-      const links = rawLinks.map((l) => ({
-        ...l,
-        artifactId: entityRefToLegacyId.get(l.artifactId) ?? l.artifactId,
-      }));
+      const links = rawLinks;
 
       // ── --fix-broken ──────────────────────────────────────────────
       if (options.fixBroken) {
@@ -420,7 +419,7 @@ export function eaTraceCommand(): Command {
         if (toRemove.length === 0) {
           if (options.json) {
             process.stdout.write(
-              JSON.stringify({ removed: [], artifactsModified: 0 }, null, 2) + "\n",
+              JSON.stringify({ removed: [], entitiesModified: 0 }, null, 2) + "\n",
             );
           } else {
             console.log(
@@ -430,27 +429,30 @@ export function eaTraceCommand(): Command {
           return;
         }
 
-        // Group broken refs by artifact ID
-        const brokenByArtifact = new Map<string, string[]>();
+        // Group broken refs by entity ref
+        const brokenByEntity = new Map<string, string[]>();
         for (const b of toRemove) {
-          const list = brokenByArtifact.get(b.artifactId) ?? [];
+          const list = brokenByEntity.get(b.artifactId) ?? [];
           list.push(b.path);
-          brokenByArtifact.set(b.artifactId, list);
+          brokenByEntity.set(b.artifactId, list);
         }
 
         const removed: { artifactId: string; path: string }[] = [];
 
         if (!options.dryRun) {
-          for (const [artifactId, paths] of brokenByArtifact) {
+          for (const [entityRef, paths] of brokenByEntity) {
             const detail = loadResult.details.find(
-              (d) => d.artifact?.id === artifactId,
+              (d) => {
+                const detailEntity = d.entity ?? d.authoredEntity;
+                return detailEntity ? getEntityId(detailEntity) === entityRef : false;
+              },
             );
             if (!detail) continue;
 
             const pathSet = new Set(paths);
             removeBrokenTraceRefs(detail.filePath, pathSet);
             for (const p of paths) {
-              removed.push({ artifactId, path: p });
+              removed.push({ artifactId: entityRef, path: p });
             }
           }
         } else {
@@ -465,7 +467,7 @@ export function eaTraceCommand(): Command {
               {
                 dryRun: !!options.dryRun,
                 removed,
-                artifactsModified: brokenByArtifact.size,
+                 entitiesModified: brokenByEntity.size,
               },
               null,
               2,
@@ -477,7 +479,7 @@ export function eaTraceCommand(): Command {
           }
           console.log(
             chalk.bold(
-              `Removing ${toRemove.length} broken traceRef${toRemove.length === 1 ? "" : "s"} from ${brokenByArtifact.size} artifact${brokenByArtifact.size === 1 ? "" : "s"}:\n`,
+               `Removing ${toRemove.length} broken traceRef${toRemove.length === 1 ? "" : "s"} from ${brokenByEntity.size} entit${brokenByEntity.size === 1 ? "y" : "ies"}:\n`,
             ),
           );
           for (const r of removed) {
@@ -512,9 +514,9 @@ export function eaTraceCommand(): Command {
       if (options.orphans) {
         if (options.json) {
           const orphanData: { docPath: string; missingBacklinks: string[] }[] = [];
-          for (const doc of docs) {
+          for (const doc of normalizedDocs) {
             const orphanIds = doc.artifactIds.filter((aid) => {
-              const a = artifactMap.get(aid);
+              const a = entityMap.get(aid);
               if (!a) return false;
               return !(a.traceRefs ?? []).some((r) => r.path === doc.relativePath);
             });
@@ -524,14 +526,14 @@ export function eaTraceCommand(): Command {
           }
           process.stdout.write(JSON.stringify(orphanData, null, 2) + "\n");
         } else {
-          process.stdout.write(renderOrphans(docs, artifactMap) + "\n");
+          process.stdout.write(renderOrphans(normalizedDocs, entityMap) + "\n");
         }
         return;
       }
 
       // ── --summary ─────────────────────────────────────────────────
       if (options.summary) {
-        const report = buildSummaryReport(artifacts, docs, totalScanned, links);
+          const report = buildSummaryReport(traceEntities, normalizedDocs, totalScanned, links);
         if (options.json) {
           process.stdout.write(JSON.stringify(report, null, 2) + "\n");
         } else {
@@ -542,30 +544,37 @@ export function eaTraceCommand(): Command {
 
       // ── target lookup ─────────────────────────────────────────────
       if (target) {
-        if (looksLikeArtifactId(target)) {
-          const artifact = artifactMap.get(target);
-          if (!artifact) {
-            throw new CliError(`Artifact "${target}" not found.`, 1);
+        const doc = normalizedDocs.find(
+          (d) => d.relativePath === target || d.path === target,
+        );
+        if (!doc) {
+          const resolvedTarget = lookup.byInput.get(target);
+          const resolvedRef = resolvedTarget ? getEntityId(resolvedTarget) : target;
+          const entity = entityMap.get(resolvedRef);
+          if (!entity) {
+            const similar = suggestEntities(target, entities);
+            const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
+            throw new CliError(`Entity "${target}" not found.${hint}`, 1);
           }
           if (options.json) {
-            const docIndex = buildDocIndex(docs);
+            const docIndex = buildDocIndex(normalizedDocs);
             process.stdout.write(
               JSON.stringify(
                 {
-                  artifact: {
-                    id: artifact.id,
-                    kind: artifact.kind,
-                    status: artifact.status,
+                  entity: {
+                    entityRef: entity.entityRef,
+                    kind: entity.kind,
+                    status: entity.status,
                   },
-                  traceRefs: (artifact.traceRefs ?? []).map((r) => ({
+                  traceRefs: (entity.traceRefs ?? []).map((r) => ({
                     path: r.path,
                     role: r.role ?? null,
                     isUrl: isUrl(r.path),
                     fileExists: isUrl(r.path) ? null : existsSync(resolve(cwd, r.path)),
                   })),
-                  referencedBy: (docIndex.get(artifact.id) ?? []).map((d) => ({
+                  referencedBy: (docIndex.get(entity.entityRef) ?? []).map((d) => ({
                     path: d.relativePath,
-                    bidirectional: (artifact.traceRefs ?? []).some(
+                    bidirectional: (entity.traceRefs ?? []).some(
                       (r) => r.path === d.relativePath,
                     ),
                   })),
@@ -575,20 +584,9 @@ export function eaTraceCommand(): Command {
               ) + "\n",
             );
           } else {
-            process.stdout.write(renderTargetArtifact(artifact, docs, cwd) + "\n");
+            process.stdout.write(renderTargetEntity(entity, normalizedDocs, cwd) + "\n");
           }
           return;
-        }
-
-        // Looks like a doc path
-        const doc = docs.find(
-          (d) => d.relativePath === target || d.path === target,
-        );
-        if (!doc) {
-          throw new CliError(
-            `Document "${target}" not found in scanned docs. Searched: ${docDirs.join(", ")}`,
-            1,
-          );
         }
         if (options.json) {
           process.stdout.write(
@@ -598,8 +596,8 @@ export function eaTraceCommand(): Command {
                   path: doc.relativePath,
                   frontmatter: doc.frontmatter,
                 },
-                eaArtifacts: doc.artifactIds.map((aid) => {
-                  const a = artifactMap.get(aid);
+                linkedEntities: doc.artifactIds.map((aid) => {
+                  const a = entityMap.get(aid);
                   if (!a) return { id: aid, found: false, hasTraceBack: false };
                   const hasBack = (a.traceRefs ?? []).some(
                     (r) => r.path === doc.relativePath,
@@ -612,13 +610,13 @@ export function eaTraceCommand(): Command {
             ) + "\n",
           );
         } else {
-          process.stdout.write(renderTargetDoc(doc, artifactMap) + "\n");
+          process.stdout.write(renderTargetDoc(doc, entityMap) + "\n");
         }
         return;
       }
 
       // ── No target, no flag — show summary as default ──────────────
-      const report = buildSummaryReport(artifacts, docs, totalScanned, links);
+      const report = buildSummaryReport(traceEntities, normalizedDocs, totalScanned, links);
       if (options.json) {
         process.stdout.write(JSON.stringify(report, null, 2) + "\n");
       } else {

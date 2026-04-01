@@ -1,10 +1,7 @@
 /**
  * Anchored Spec — EA Configuration
  *
- * Defines both the v0.x nested EaConfig and the v1.0 flattened
- * AnchoredSpecConfigV1 where EA fields are promoted to top-level.
- *
- * Design reference: docs/ea-implementation-guide.md
+ * Defines the current v1.0 Anchored Spec configuration.
  */
 
 import type { EaDomain } from "./types.js";
@@ -78,56 +75,8 @@ export interface EaTestMetadataConfig {
   requirementPattern?: string | string[];
 }
 
-// ─── v0.x EA Configuration (nested under AnchoredSpecConfig.ea) ─────────────────
-
 /**
- * v0.x EA configuration shape (nested inside `AnchoredSpecConfig.ea`).
- * Retained for backward compatibility with v0.x config files.
- */
-export interface EaConfig {
-  /** Whether EA features are enabled. Default: false. */
-  enabled: boolean;
-
-  /** Root directory for EA artifacts. Default: "ea". */
-  rootDir: string;
-
-  /** Directory for generated output files. Default: "ea/generated". */
-  generatedDir: string;
-
-  /** Optional organizational prefix for IDs (e.g., "acme"). */
-  idPrefix?: string | null;
-
-  /** Per-domain subdirectory paths, relative to rootDir. */
-  domains: Record<EaDomain, string>;
-
-  /** Configured resolver plugins. */
-  resolvers: EaResolverConfig[];
-
-  /** Configured generator plugins. */
-  generators: EaGeneratorConfig[];
-
-  /** Evidence source paths. */
-  evidenceSources: string[];
-
-  /** Resolver cache settings. */
-  cache: EaCacheConfig;
-
-  /** Quality rule settings. */
-  quality: EaQualityConfig;
-}
-
-// ─── v1.0 Configuration (EA fields promoted to top-level) ───────────────────────
-
-/**
- * v1.0 unified configuration — EA-only, no legacy dual-mode.
- *
- * Breaking changes from v0.x `AnchoredSpecConfig`:
- * - `ea.enabled` removed (always on)
- * - `ea.*` fields promoted to top-level
- * - `specRoot`, `requirementsDir`, `changesDir`, `decisionsDir` removed
- *   (requirements live under `domains.business`, changes/decisions under `domains.transitions`)
- * - `workflowPolicyPath` moved to top-level (default: "ea/workflow-policy.yaml")
- * - `sourceRoots`, `sourceGlobs`, `hooks`, `testMetadata` moved to top-level
+ * Current Anchored Spec configuration.
  */
 export interface AnchoredSpecConfigV1 {
   /** Config format version. Must be "1.0". */
@@ -139,7 +88,7 @@ export interface AnchoredSpecConfigV1 {
   /** Directory for generated output files. Default: "ea/generated". */
   generatedDir: string;
 
-  /** Optional organizational prefix for artifact IDs (e.g., "acme"). */
+  /** Optional organizational prefix for entity IDs (e.g., "acme"). */
   idPrefix?: string | null;
 
   /** Per-domain subdirectory paths. */
@@ -183,7 +132,7 @@ export interface AnchoredSpecConfigV1 {
   /** Plugin module paths. */
   plugins?: string[];
 
-  /** Glob patterns for files to exclude from artifact loading. */
+  /** Glob patterns for files to exclude from entity loading. */
   exclude?: string[];
 
   /** Pluggable drift resolver module paths. */
@@ -201,22 +150,12 @@ export interface AnchoredSpecConfigV1 {
   /** Custom change types beyond built-in types. */
   customChangeTypes?: string[];
 
-  // ─── Backstage Entity Mode (v1.1+) ─────────────────────────────────────────
-
   /**
    * Entity storage mode.
-   * - `"artifacts"` — legacy per-file YAML/JSON artifacts in domain dirs (default)
    * - `"manifest"` — single or multi-doc Backstage YAML catalog file
    * - `"inline"`   — Backstage YAML frontmatter in markdown docs
    */
-  entityMode?: "artifacts" | "manifest" | "inline";
-
-  /**
-   * Entity format for non-artifacts modes.
-   * - `"backstage"` — Backstage Software Catalog entity format (default for manifest/inline)
-   * - `"legacy"`    — current anchored-spec artifact format
-   */
-  entityFormat?: "backstage" | "legacy";
+  entityMode?: "manifest" | "inline";
 
   /**
    * Path to the manifest file (relative to project root).
@@ -239,68 +178,6 @@ export interface AnchoredSpecConfigV1 {
    * Default: `["docs"]`.
    */
   inlineDocDirs?: string[];
-}
-
-// ─── v0.x Defaults & Resolution ─────────────────────────────────────────────────
-
-function buildEaDefaults(rootDir: string): EaConfig {
-  return {
-    enabled: false,
-    rootDir,
-    generatedDir: `${rootDir}/generated`,
-    idPrefix: null,
-    domains: {
-      systems: `${rootDir}/systems`,
-      delivery: `${rootDir}/delivery`,
-      data: `${rootDir}/data`,
-      information: `${rootDir}/information`,
-      business: `${rootDir}/business`,
-      transitions: `${rootDir}/transitions`,
-    },
-    resolvers: [],
-    generators: [],
-    evidenceSources: [],
-    cache: {
-      dir: ".anchored-spec/cache/ea",
-      defaultTTL: 3600,
-    },
-    quality: {
-      requireOwners: true,
-      requireSummary: true,
-      requireRelations: false,
-      requireAnchors: false,
-      strictMode: false,
-      rules: {},
-    },
-  };
-}
-
-/**
- * Resolve a complete `EaConfig` from a partial user-provided config.
- *
- * Merges user overrides onto defaults. Nested objects (`domains`, `cache`,
- * `quality`) are shallow-merged individually so partial overrides work.
- */
-export function resolveEaConfig(
-  partial?: Partial<EaConfig> | null
-): EaConfig {
-  const rootDir = partial?.rootDir ?? "ea";
-  const defaults = buildEaDefaults(rootDir);
-
-  if (!partial) return defaults;
-
-  return {
-    enabled: partial.enabled ?? defaults.enabled,
-    rootDir,
-    generatedDir: partial.generatedDir ?? defaults.generatedDir,
-    idPrefix: partial.idPrefix ?? defaults.idPrefix,
-    domains: { ...defaults.domains, ...partial.domains },
-    resolvers: partial.resolvers ?? defaults.resolvers,
-    generators: partial.generators ?? defaults.generators,
-    evidenceSources: partial.evidenceSources ?? defaults.evidenceSources,
-    cache: { ...defaults.cache, ...partial.cache },
-    quality: { ...defaults.quality, ...partial.quality },
-  };
 }
 
 // ─── v1.0 Defaults & Resolution ─────────────────────────────────────────────────
@@ -335,6 +212,8 @@ function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1 {
       rules: {},
     },
     workflowPolicyPath: `${rootDir}/workflow-policy.yaml`,
+    entityMode: "manifest",
+    manifestPath: "catalog-info.yaml",
   };
 }
 
@@ -371,120 +250,9 @@ export function resolveConfigV1(
     testMetadata: partial.testMetadata,
     workflowPolicyPath: partial.workflowPolicyPath ?? defaults.workflowPolicyPath,
     customChangeTypes: partial.customChangeTypes,
-    entityMode: partial.entityMode,
-    entityFormat: partial.entityFormat,
-    manifestPath: partial.manifestPath,
+    entityMode: partial.entityMode ?? defaults.entityMode,
+    manifestPath: partial.manifestPath ?? defaults.manifestPath,
     catalogDir: partial.catalogDir,
     inlineDocDirs: partial.inlineDocDirs,
-  };
-}
-
-// ─── Config Migration (v0.x → v1.0) ────────────────────────────────────────────
-
-/** Input type for the v0.x config migration — the raw JSON object from config.json. */
-export interface LegacyConfigInput {
-  specRoot?: string;
-  schemasDir?: string;
-  requirementsDir?: string;
-  changesDir?: string;
-  decisionsDir?: string;
-  workflowPolicyPath?: string;
-  generatedDir?: string;
-  sourceRoots?: string[];
-  sourceGlobs?: string[];
-  plugins?: string[];
-  exclude?: string[];
-  driftResolvers?: string[];
-  hooks?: Array<{ event: string; run: string }>;
-  testMetadata?: { testGlobs?: string[]; requirementPattern?: string | string[] };
-  customChangeTypes?: string[];
-  quality?: { validateFilePaths?: boolean; rules?: Record<string, string> };
-  ea?: Partial<EaConfig>;
-}
-
-/**
- * Migrate a v0.x `AnchoredSpecConfig` (with nested `ea?`) to v1.0 flat format.
- *
- * Strategy:
- * - EA fields from `ea.*` are promoted to top-level
- * - Core fields (`sourceRoots`, `sourceGlobs`, `hooks`, `testMetadata`, etc.)
- *   are hoisted to top-level
- * - Legacy dir fields (`specRoot`, `requirementsDir`, `changesDir`, `decisionsDir`)
- *   are dropped — requirements go to `business`, changes/decisions go to `transitions`
- * - `ea.enabled` is dropped (always on in v1.0)
- */
-export function migrateConfigV0ToV1(legacy: LegacyConfigInput): AnchoredSpecConfigV1 {
-  const ea = legacy.ea ?? {};
-  const rootDir = ea.rootDir ?? "ea";
-
-  const v1: AnchoredSpecConfigV1 = {
-    schemaVersion: "1.0",
-    rootDir,
-    generatedDir: ea.generatedDir ?? `${rootDir}/generated`,
-    idPrefix: ea.idPrefix ?? null,
-    domains: {
-      systems: `${rootDir}/systems`,
-      delivery: `${rootDir}/delivery`,
-      data: `${rootDir}/data`,
-      information: `${rootDir}/information`,
-      business: `${rootDir}/business`,
-      transitions: `${rootDir}/transitions`,
-      ...ea.domains,
-    },
-    resolvers: ea.resolvers ?? [],
-    generators: ea.generators ?? [],
-    evidenceSources: ea.evidenceSources ?? [],
-    cache: {
-      dir: ea.cache?.dir ?? ".anchored-spec/cache",
-      defaultTTL: ea.cache?.defaultTTL ?? 3600,
-    },
-    quality: {
-      requireOwners: ea.quality?.requireOwners ?? true,
-      requireSummary: ea.quality?.requireSummary ?? true,
-      requireRelations: ea.quality?.requireRelations ?? false,
-      requireAnchors: ea.quality?.requireAnchors ?? false,
-      strictMode: ea.quality?.strictMode ?? false,
-      rules: ea.quality?.rules ?? {},
-    },
-    workflowPolicyPath: legacy.workflowPolicyPath ?? `${rootDir}/workflow-policy.yaml`,
-  };
-
-  // Hoist core fields that still apply
-  if (legacy.sourceRoots) v1.sourceRoots = legacy.sourceRoots;
-  if (legacy.sourceGlobs) v1.sourceGlobs = legacy.sourceGlobs;
-  if (legacy.plugins) v1.plugins = legacy.plugins;
-  if (legacy.exclude) v1.exclude = legacy.exclude;
-  if (legacy.driftResolvers) v1.driftResolvers = legacy.driftResolvers;
-  if (legacy.hooks) v1.hooks = legacy.hooks as EaHookDefinition[];
-  if (legacy.testMetadata) v1.testMetadata = legacy.testMetadata;
-  if (legacy.customChangeTypes) v1.customChangeTypes = legacy.customChangeTypes;
-
-  return v1;
-}
-
-/**
- * Detect which config version a raw JSON object represents.
- */
-export function detectConfigVersion(raw: Record<string, unknown>): "1.0" | "0.x" {
-  if (raw.schemaVersion === "1.0") return "1.0";
-  return "0.x";
-}
-
-/**
- * Convert an `AnchoredSpecConfigV1` to the `EaConfig` shape used internally
- * by EaRoot. This bridges v1 config files with the existing EA engine.
- */
-export function v1ConfigToEaConfig(v1: AnchoredSpecConfigV1): EaConfig {
-  return {
-    enabled: true,
-    rootDir: v1.rootDir,
-    generatedDir: v1.generatedDir,
-    idPrefix: v1.idPrefix,
-    domains: { ...v1.domains },
-    resolvers: [...v1.resolvers],
-    generators: [...v1.generators],
-    evidenceSources: [...v1.evidenceSources],
-    cache: { ...v1.cache },
-    quality: { ...v1.quality },
   };
 }

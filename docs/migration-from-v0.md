@@ -1,140 +1,115 @@
-# Migration from v0.x (Spec-Anchored) to v1.0 (Spec-as-Source)
+# Migration from v0.x
 
-> This guide covers upgrading from anchored-spec v0.x (REQ/CHG/ADR workflow) to v1.0 (EA enterprise architecture).
+This guide explains how to move an older anchored-spec repository onto the current entity-native framework.
 
-## What Changed
+## What changed in the current framework
 
-v1.0 removes the legacy "spec-anchored" core entirely. The EA module—previously an extension—is now the sole implementation.
+Current anchored-spec projects use:
 
-| v0.x | v1.0 |
-| --- | --- |
-| `src/core/` (loader, drift, verify, generate) | Removed |
-| `anchored-spec create requirement` | `anchored-spec create --kind requirement` |
-| `anchored-spec verify` | `anchored-spec validate` |
-| `anchored-spec drift` | `anchored-spec drift` (EA engine) |
-| `specs/requirements/*.json` | `ea/legacy/REQ-*.json` (EA artifact format) |
-| `specs/changes/*.json` | `ea/legacy/CHG-*.json` (EA artifact format) |
-| `specs/decisions/*.json` | `ea/legacy/ADR-*.json` (EA artifact format) |
-| `.anchored-spec/config.json` (v0.x) | `.anchored-spec/config.json` (v1.0, `schemaVersion: "1.0"`) |
-| `import { SpecRoot } from "anchored-spec"` | `import { EaRoot } from "anchored-spec"` |
-| `import "anchored-spec/schemas/*"` | `import "anchored-spec/schemas/*"` (now EA schemas) |
+- Backstage-aligned entities
+- manifest or inline Markdown authoring
+- canonical entity refs in CLI and runtime workflows
+- current commands such as `validate`, `drift`, `diff`, `reconcile`, `trace`, and `context`
 
-## Migration Steps
+Older repositories may still contain:
 
-### 1. Update Config File
+- spec-anchored JSON layouts
+- older artifact identifiers such as `REQ-*`, `CHG-*`, or `SVC-*`
+- migration-era assumptions that are no longer part of the active CLI
 
-**v0.x config** (`.anchored-spec/config.json`):
-```json
-{
-  "specRoot": "specs",
-  "schemasDir": ".anchored-spec/schemas",
-  "requirementsDir": "specs/requirements",
-  "changesDir": "specs/changes",
-  "decisionsDir": "specs/decisions",
-  "sourceRoots": ["src"],
-  "ea": {
-    "enabled": true,
-    "rootDir": "ea"
-  }
-}
+## Migration goal
+
+The goal is not to preserve the old storage contract forever. The goal is to land on the current framework cleanly.
+
+A finished migration should result in:
+
+- `.anchored-spec/config.json` with `schemaVersion: "1.0"`
+- `entityMode: "manifest"` or `entityMode: "inline"`
+- Backstage-style entities as the authored source of truth
+- current command usage throughout docs, CI, and contributor workflows
+
+## Recommended migration path
+
+### 1. Upgrade the configuration
+
+Create or replace `.anchored-spec/config.json` with a current v1 config.
+
+### 2. Convert old architecture records into entities
+
+Rewrite old records into Backstage-aligned entities.
+
+Typical destination choices:
+
+- services and applications → `Component`
+- contracts and event surfaces → `API`
+- stores and infrastructure → `Resource`
+- teams → `Group`
+- high-level landscape → `System` and `Domain`
+- architecture governance concepts → anchored-spec custom kinds
+
+### 3. Choose a storage mode
+
+Pick one supported source layout:
+
+- `catalog-info.yaml` manifest mode
+- Markdown frontmatter inline mode
+
+### 4. Update references
+
+Replace old ID usage in automation and docs with canonical entity refs.
+
+Examples:
+
+- `SVC-auth` → `component:default/auth`
+- `API-orders-v2` → `api:default/orders-v2`
+- `REQ-mfa` → `requirement:default/req-mfa`
+
+### 5. Update workflow commands
+
+Move docs, scripts, and contributor guidance to the current CLI commands.
+
+Common current workflows:
+
+```bash
+npx anchored-spec validate
+npx anchored-spec drift
+npx anchored-spec diff --base main --compat --policy
+npx anchored-spec reconcile --include-trace --include-docs
 ```
 
-**v1.0 config**:
-```json
-{
-  "schemaVersion": "1.0",
-  "rootDir": "ea",
-  "domains": ["systems", "delivery", "data", "information", "business", "transitions", "legacy"],
-  "sourceRoots": ["src"]
-}
+### 6. Rebuild traceability
+
+If older docs referenced legacy IDs directly, rebuild the trace graph around:
+
+- entity refs
+- `traceRefs`
+- linked docs created or synced with `create-doc` and `link-docs`
+
+### 7. Re-validate the whole repository
+
+```bash
+npx anchored-spec validate
+npx anchored-spec drift
+npx anchored-spec trace --summary
 ```
 
-Run `anchored-spec init --migrate` to auto-migrate your config.
+## What not to carry forward
 
-### 2. Convert Legacy Artifacts
+Do not preserve migration-only assumptions in the finished repo.
 
-Legacy REQ/CHG/ADR artifacts should be converted to EA format. The `legacy` domain in EA subsumes all three:
+Examples:
 
-| Legacy Kind | EA Kind | EA Domain |
-| --- | --- | --- |
-| Requirement | `requirement` | `legacy` |
-| Change | `change` | `legacy` |
-| Decision | `decision` | `legacy` |
+- old artifact IDs as the primary runtime identifier
+- removed migration commands in contributor documentation
+- old storage layouts as an equal alternative to manifest or inline entity authoring
+- docs that still describe the framework as being mid-cutover
 
-**Before (v0.x requirement):**
-```json
-{
-  "id": "REQ-auth",
-  "title": "User Authentication",
-  "status": "active",
-  "category": "functional",
-  "priority": "must",
-  "summary": "Users must authenticate via OAuth2",
-  "semanticRefs": { "interfaces": ["AuthService"], "routes": ["/api/auth"] }
-}
-```
+## Practical advice
 
-**After (v1.0 EA artifact):**
-```json
-{
-  "id": "REQ-auth",
-  "schemaVersion": "1.0.0",
-  "kind": "requirement",
-  "title": "User Authentication",
-  "status": "active",
-  "summary": "Users must authenticate via OAuth2",
-  "owners": ["platform-team"],
-  "confidence": "declared",
-  "anchors": { "symbols": ["AuthService"], "apis": ["/api/auth"] }
-}
-```
+If a v0.x repository is large, migrate in slices:
 
-Place converted artifacts in `ea/legacy/`.
-
-### 3. Update Programmatic Usage
-
-```typescript
-// v0.x
-import { SpecRoot, detectDrift, verifyAll } from "anchored-spec";
-const root = new SpecRoot(projectRoot, config);
-const reqs = root.loadRequirements();
-
-// v1.0
-import { EaRoot } from "anchored-spec";
-const root = await EaRoot.fromDirectory(projectRoot);
-const { artifacts } = await root.loadArtifacts();
-```
-
-### 4. Update CI Pipelines
-
-Replace legacy commands in your CI config:
-
-```yaml
-# v0.x
-- run: npx anchored-spec verify
-- run: npx anchored-spec drift
-
-# v1.0
-- run: npx anchored-spec validate
-- run: npx anchored-spec drift
-- run: npx anchored-spec evidence check
-```
-
-## Removed Features
-
-The following v0.x features have no direct v1.0 equivalent:
-
-- **Lifecycle hooks** (`hooks` config) — use EA plugins instead
-- **Test linking** (`testMetadata` config) — use EA evidence adapters
-- **Integrity checks** — replaced by EA schema validation
-- **Custom change types** — EA uses a fixed kind taxonomy with 44 artifact kinds
-
-## New Capabilities in v1.0
-
-- **44 artifact kinds** across 7 architecture domains
-- **27 typed relations** with graph visualization
-- **5 resolvers** (OpenAPI, Kubernetes, Terraform, SQL DDL, dbt)
-- **42 drift rules** with domain-specific detection
-- **Transition planning** with baselines, targets, and migration waves
-- **Evidence pipeline** with adapter framework
-- **Impact analysis** across the full dependency graph
+1. establish current config and storage mode
+2. convert high-value runtime entities first
+3. restore docs and traceability
+4. reintroduce discovery, drift, and reconcile gates
+5. clean up residual old terminology once the new model is in place

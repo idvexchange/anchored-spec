@@ -14,20 +14,19 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  getKindEntry,
-  getKindsByDomain,
   createDefaultRegistry,
   validateEaArtifacts,
   validateEaRelations,
   validateEaSchema,
   evaluateEaDrift,
 } from "../index.js";
+import { BACKSTAGE_KIND_REGISTRY, mapLegacyKind } from "../backstage/kind-mapping.js";
 import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 
 describe("Phase 2D: Business Layer Kinds", () => {
-  const bizKinds = getKindsByDomain("business");
+  const bizKinds = BACKSTAGE_KIND_REGISTRY.filter((entry) => entry.domain === "business");
 
   it("registers 9 business-layer kinds", () => {
     expect(bizKinds).toHaveLength(9);
@@ -43,9 +42,9 @@ describe("Phase 2D: Business Layer Kinds", () => {
     ["business-service", "BSVC"],
     ["control", "CTRL"],
   ])("registers %s with prefix %s", (kind, prefix) => {
-    const entry = getKindEntry(kind);
+    const entry = mapLegacyKind(kind);
     expect(entry).toBeDefined();
-    expect(entry!.prefix).toBe(prefix);
+    expect(entry!.legacyPrefix).toBe(prefix);
     expect(entry!.domain).toBe("business");
   });
 });
@@ -99,7 +98,7 @@ describe("Phase 2D: Schema Validation", () => {
         owners: ["team-ops"],
         confidence: "declared",
         level: 2,
-        parentCapability: "CAP-commerce",
+        parentCapability: "capability:commerce",
         maturity: "managed",
         strategicImportance: "core",
         investmentProfile: "invest",
@@ -790,14 +789,14 @@ describe("Phase 2D: Capability Map Report", () => {
   it("builds hierarchy from parentCapability", () => {
     const artifacts = [
       makeEntity({ id: "CAP-commerce", kind: "capability", level: 1 } as any),
-      makeEntity({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
-      makeEntity({ id: "CAP-payments", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "capability:commerce" } as any),
+      makeEntity({ id: "CAP-payments", kind: "capability", level: 2, parentCapability: "capability:commerce" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.summary.capabilityCount).toBe(3);
     // All unmapped since no mission
     expect(report.unmappedCapabilities).toHaveLength(1);
-    expect(report.unmappedCapabilities[0].id).toBe("CAP-commerce");
+    expect(report.unmappedCapabilities[0].id).toBe("capability:commerce");
     expect(report.unmappedCapabilities[0].children).toHaveLength(2);
   });
 
@@ -810,13 +809,13 @@ describe("Phase 2D: Capability Map Report", () => {
         level: 1,
         relations: [{ type: "supports", target: "MISSION-digital" }],
       } as any),
-      makeEntity({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "CAP-commerce" } as any),
+      makeEntity({ id: "CAP-orders", kind: "capability", level: 2, parentCapability: "capability:commerce" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.missions).toHaveLength(1);
-    expect(report.missions[0].id).toBe("MISSION-digital");
+    expect(report.missions[0].id).toBe("mission:digital");
     expect(report.missions[0].capabilities).toHaveLength(1);
-    expect(report.missions[0].capabilities[0].id).toBe("CAP-commerce");
+    expect(report.missions[0].capabilities[0].id).toBe("capability:commerce");
     expect(report.missions[0].capabilities[0].children).toHaveLength(1);
     expect(report.unmappedCapabilities).toHaveLength(0);
   });
@@ -832,7 +831,7 @@ describe("Phase 2D: Capability Map Report", () => {
     ];
     const report = buildCapabilityMap(artifacts);
     const cap = report.unmappedCapabilities[0];
-    expect(cap.realizingSystems).toEqual(["APP-orders"]);
+    expect(cap.realizingSystems).toEqual(["component:orders"]);
     expect(report.summary.realizingSystemCount).toBe(1);
   });
 
@@ -846,7 +845,7 @@ describe("Phase 2D: Capability Map Report", () => {
       }),
     ];
     const report = buildCapabilityMap(artifacts);
-    expect(report.unmappedCapabilities[0].processes).toEqual(["PROC-order-processing"]);
+    expect(report.unmappedCapabilities[0].processes).toEqual(["valuestream:order-processing"]);
   });
 
   it("enriches capabilities with controls via governedBy", () => {
@@ -866,7 +865,7 @@ describe("Phase 2D: Capability Map Report", () => {
       } as any),
     ];
     const report = buildCapabilityMap(artifacts);
-    expect(report.unmappedCapabilities[0].controls).toEqual(["CTRL-latency"]);
+    expect(report.unmappedCapabilities[0].controls).toEqual(["control:latency"]);
   });
 
   it("enriches capabilities with owning org via owns", () => {
@@ -879,7 +878,7 @@ describe("Phase 2D: Capability Map Report", () => {
       }),
     ];
     const report = buildCapabilityMap(artifacts);
-    expect(report.unmappedCapabilities[0].owningOrg).toBe("ORG-eng");
+    expect(report.unmappedCapabilities[0].owningOrg).toBe("group:eng");
   });
 
   it("includes heatMap and maturity metadata", () => {
@@ -916,8 +915,8 @@ describe("Phase 2D: Capability Map Report", () => {
   it("computes maxDepth correctly", () => {
     const artifacts = [
       makeEntity({ id: "CAP-l1", kind: "capability", level: 1 } as any),
-      makeEntity({ id: "CAP-l2", kind: "capability", level: 2, parentCapability: "CAP-l1" } as any),
-      makeEntity({ id: "CAP-l3", kind: "capability", level: 3, parentCapability: "CAP-l2" } as any),
+      makeEntity({ id: "CAP-l2", kind: "capability", level: 2, parentCapability: "capability:l1" } as any),
+      makeEntity({ id: "CAP-l3", kind: "capability", level: 3, parentCapability: "capability:l2" } as any),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.summary.maxDepth).toBe(3);
@@ -947,7 +946,7 @@ describe("Phase 2D: Capability Map Report", () => {
           id: "CAP-orders",
           kind: "capability",
           level: 2,
-          parentCapability: "CAP-commerce",
+          parentCapability: "capability:commerce",
         } as any),
         makeEntity({
           id: "APP-orders",
@@ -962,7 +961,7 @@ describe("Phase 2D: Capability Map Report", () => {
       expect(md).toContain("**L1: CAP-commerce**");
       expect(md).toContain("core, invest, maturity: managed");
       expect(md).toContain("Realized by:");
-      expect(md).toContain("`APP-orders`");
+      expect(md).toContain("`component:orders`");
       expect(md).toContain("## Summary");
     });
 

@@ -12,7 +12,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { resolveEaConfig } from "../../ea/config.js";
+import { resolveConfigV1 } from "../../ea/config.js";
 import { EaRoot } from "../../ea/loader.js";
 import { runEaVerification } from "../../ea/verify.js";
 import type { EaVerificationResult } from "../../ea/verify.js";
@@ -27,8 +27,8 @@ export function verifyCommand(): Command {
     .option("--json", "Output structured JSON to stdout")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveEaConfig({ rootDir: options.rootDir });
-      const eaRoot = new EaRoot(cwd, { specDir: "specs", outputDir: "output", ea: eaConfig } as never);
+      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaRoot = new EaRoot(cwd, eaConfig);
 
       if (!eaRoot.isInitialized()) {
         throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);

@@ -10,9 +10,6 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  EA_KIND_REGISTRY,
-  getKindEntry,
-  getKindsByDomain,
   createDefaultRegistry,
   validateEaArtifacts,
   validateEaRelations,
@@ -22,6 +19,7 @@ import {
   buildGapAnalysis,
   renderGapAnalysisMarkdown,
 } from "../index.js";
+import { BACKSTAGE_KIND_REGISTRY, mapLegacyKind } from "../backstage/kind-mapping.js";
 import { makeEntity } from "./helpers/make-entity.js";
 
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
@@ -30,13 +28,13 @@ describe("Phase 2E: Transition Layer Kinds", () => {
   const TRANSITION_KINDS = ["baseline", "target", "transition-plan", "migration-wave", "exception"];
 
   it("has 48 total kinds after Phase 2E", () => {
-    expect(EA_KIND_REGISTRY).toHaveLength(48);
+    expect(BACKSTAGE_KIND_REGISTRY).toHaveLength(48);
   });
 
   it("has 7 kinds in transitions domain", () => {
-    const kinds = getKindsByDomain("transitions");
+    const kinds = BACKSTAGE_KIND_REGISTRY.filter((entry) => entry.domain === "transitions");
     expect(kinds).toHaveLength(7);
-    const kindNames = kinds.map((k) => k.kind);
+    const kindNames = kinds.map((k) => k.legacyKind);
     for (const k of TRANSITION_KINDS) {
       expect(kindNames).toContain(k);
     }
@@ -49,9 +47,9 @@ describe("Phase 2E: Transition Layer Kinds", () => {
     ["migration-wave", "WAVE"],
     ["exception", "EXCEPT"],
   ])("kind %s has prefix %s", (kind, prefix) => {
-    const entry = getKindEntry(kind);
+    const entry = mapLegacyKind(kind);
     expect(entry).toBeDefined();
-    expect(entry!.prefix).toBe(prefix);
+    expect(entry!.legacyPrefix).toBe(prefix);
     expect(entry!.domain).toBe("transitions");
   });
 });
@@ -426,6 +424,11 @@ describe("Phase 2E: Transition Drift Rules", () => {
           scope: { description: "test" },
           capturedAt: new Date().toISOString(),
           artifactRefs: ["component:orders"],
+        } as any),
+        makeEntity({ id: "APP-orders", kind: "application" }),
+      ];
+      const result = evaluateEaDrift(artifacts);
+      expect(result.warnings.find((w) => w.rule === "ea:transition/baseline-missing-artifacts")).toBeUndefined();
     });
   });
 
@@ -567,6 +570,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
           transitionPlan: "transitionplan:migration",
           milestones: [],
         } as any),
+        makeEntity({
+          id: "PLAN-migration",
+          kind: "transition-plan",
+          baseline: "transitionplan:q1",
+          target: "transitionplan:q4",
+          milestones: [],
+        } as any),
       ];
       const result = evaluateEaDrift(artifacts);
       expect(result.warnings.find((w) => w.rule === "ea:transition/orphan-wave")).toBeUndefined();
@@ -635,9 +645,9 @@ describe("Phase 2E: Transition Drift Rules", () => {
 
 // ─── Phase 2E: Gap Analysis Report ──────────────────────────────────────────────
 
-describe("Phase 2E: Gap Analysis Report", () => {
+  describe("Phase 2E: Gap Analysis Report", () => {
   it("returns empty report when baseline not found", () => {
-    const report = buildGapAnalysis([], { baselineId: "BASELINE-x", targetId: "TARGET-x" });
+    const report = buildGapAnalysis([], { baselineId: "transitionplan:x", targetId: "transitionplan:y" });
     expect(report.summary.newWork).toBe(0);
     expect(report.summary.retirements).toBe(0);
   });
@@ -802,42 +812,42 @@ describe("Phase 2E: Gap Analysis Report", () => {
         kind: "target",
         scope: { description: "test" },
         effectiveBy: "2026-12-31",
-        artifactRefs: ["APP-payments"],
+        artifactRefs: ["component:payments"],
       } as any),
       makeEntity({
         id: "PLAN-migration",
         kind: "transition-plan",
-        baseline: "BASELINE-q1",
-        target: "TARGET-q4",
-        milestones: [{ id: "m1", title: "Wave 1", deliverables: ["APP-payments"] }],
+        baseline: "baseline:q1",
+        target: "target:q4",
+        milestones: [{ id: "m1", title: "Wave 1", deliverables: ["component:payments"] }],
       } as any),
       makeEntity({
         id: "WAVE-1",
         kind: "migration-wave",
-        transitionPlan: "PLAN-migration",
+        transitionPlan: "transitionplan:migration",
         milestones: ["m1"],
         sequenceOrder: 1,
-        scope: { create: ["APP-payments"], modify: [], retire: [] },
+        scope: { create: ["component:payments"], modify: [], retire: [] },
       } as any),
       makeEntity({ id: "APP-payments", kind: "application", status: "draft" }),
     ];
     const report = buildGapAnalysis(artifacts, {
-      baselineId: "BASELINE-q1",
-      targetId: "TARGET-q4",
-      planId: "PLAN-migration",
+      baselineId: "transitionplan:q1",
+      targetId: "transitionplan:q4",
+      planId: "transitionplan:migration",
     });
-    expect(report.newWork[0].wave).toBe("WAVE-1");
+    expect(report.newWork[0].wave).toBe("transitionplan:1");
     expect(report.newWork[0].milestone).toBe("m1");
     expect(report.summary.unplannedGaps).toBe(0);
   });
 
   describe("renderGapAnalysisMarkdown", () => {
     it("renders empty report", () => {
-      const report = buildGapAnalysis([], { baselineId: "BASELINE-x", targetId: "TARGET-x" });
+      const report = buildGapAnalysis([], { baselineId: "transitionplan:x", targetId: "transitionplan:y" });
       const md = renderGapAnalysisMarkdown(report);
       expect(md).toContain("# Target Gap Analysis");
-      expect(md).toContain("BASELINE-x");
-      expect(md).toContain("TARGET-x");
+      expect(md).toContain("transitionplan:x");
+      expect(md).toContain("transitionplan:y");
     });
 
     it("renders full report with all sections", () => {
@@ -847,26 +857,26 @@ describe("Phase 2E: Gap Analysis Report", () => {
           kind: "baseline",
           scope: { description: "test" },
           capturedAt: "2026-01-15",
-          artifactRefs: ["APP-orders", "APP-legacy"],
+          artifactRefs: ["component:orders", "component:legacy"],
         } as any),
         makeEntity({
           id: "TARGET-q4",
           kind: "target",
           scope: { description: "test" },
           effectiveBy: "2026-12-31",
-          artifactRefs: ["APP-orders", "APP-payments"],
+          artifactRefs: ["component:orders", "component:payments"],
           successMetrics: [{ id: "sm1", metric: "Uptime", target: "99.9%", currentValue: "99.5%" }],
         } as any),
         makeEntity({ id: "APP-orders", kind: "application" }),
         makeEntity({ id: "APP-legacy", kind: "application" }),
         makeEntity({ id: "APP-payments", kind: "application", status: "draft" }),
       ];
-      const report = buildGapAnalysis(artifacts, { baselineId: "BASELINE-q1", targetId: "TARGET-q4" });
+      const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
       const md = renderGapAnalysisMarkdown(report);
       expect(md).toContain("## New Work");
-      expect(md).toContain("APP-payments");
+      expect(md).toContain("component:payments");
       expect(md).toContain("## Retirements");
-      expect(md).toContain("APP-legacy");
+      expect(md).toContain("component:legacy");
       expect(md).toContain("## Success Metrics");
       expect(md).toContain("Uptime");
     });

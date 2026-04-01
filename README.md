@@ -4,187 +4,182 @@
 [![npm version](https://img.shields.io/npm/v/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Spec-as-source enterprise architecture framework — architecture models as living code.
+> Backstage-aligned, spec-as-source architecture for repositories that want entities, relations, drift detection, and traceability in version control.
 
-**Anchored Spec** turns your repository into a living architecture model. Define services, APIs, deployments, data stores, and business capabilities as machine-validated JSON/YAML artifacts. The framework validates schemas, detects drift between specs and reality, discovers infrastructure and doc/prose facts via resolvers, and generates documentation — all from the spec files in your repo.
+Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in either `catalog-info.yaml` or Markdown frontmatter, then use the CLI to validate them, visualize the graph, discover missing model coverage, detect drift against code and infrastructure, reconcile docs, and assemble context for humans and AI agents.
 
-## Key Features
+## What it does
 
-| Feature | Description |
-|---|---|
-| **48 artifact kinds** | Services, APIs, deployments, data stores, business capabilities, and more across 6 domains |
-| **27 typed relations** | `dependsOn`, `implementedBy`, `consumesApi`, `deployedTo`, etc. with graph visualization |
-| **8 resolvers** | Auto-discover from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter (code analysis), Markdown (prose facts), and Anchors (code symbols) |
-| **52 drift rules** | Domain-specific drift detection between declared specs and observed reality |
-| **Transition planning** | Baselines, targets, migration waves, and gap analysis |
-| **Evidence pipeline** | Link test results to artifacts via Vitest/Jest/JUnit adapters |
-| **Schema validation** | 55 JSON Schemas with quality rules and confidence tracking |
-| **Graph & reports** | Mermaid, DOT, and JSON graph output; 6 built-in report views |
-| **IDE integration** | VS Code autocomplete, validation, and snippets via `init --ide`; AI config with reusable slash commands for Copilot and Claude, event-driven hooks for Kiro, and Spec-Kit extension via `init --ai` |
-| **Document traceability** | Bidirectional trace links between markdown docs and artifacts; context assembly for AI agents; auto-sync via `link-docs` |
-| **Doc consistency** | Extract facts from markdown tables, code blocks, and Mermaid diagrams — detect cross-document contradictions |
-| **Backstage alignment** | Optional Backstage Software Catalog entity format with manifest and inline frontmatter storage modes |
-| **SchemaStore integration** | Catalog entries for config, workflow-policy, and EA artifact schemas — automatic validation in any editor that supports [SchemaStore](https://www.schemastore.org/) |
+- Author architecture as **Backstage-aligned entities**.
+- Support both **manifest** and **inline Markdown** storage modes.
+- Use **canonical entity refs** such as `component:default/orders-api` everywhere in runtime workflows.
+- Validate schema, ownership, lifecycle, relations, and traceability.
+- Discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter, anchors, and Markdown.
+- Detect architectural drift across systems, data, information, business, transitions, docs, and exceptions.
+- Generate OpenAPI and JSON Schema outputs from authored entities.
+- Link documentation and entities with bidirectional trace references.
+- Produce reports, graph exports, compatibility diffs, and full reconcile runs.
 
-## Quick Start
+## Authoring model
+
+Anchored Spec uses the Backstage entity envelope:
+
+```yaml
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: orders-service
+  title: Orders Service
+  description: Handles order placement and orchestration.
+  annotations:
+    anchored-spec.dev/confidence: declared
+    anchored-spec.dev/source: src/orders/
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/platform-team
+  system: commerce-platform
+  providesApis:
+    - api:default/orders-api
+  dependsOn:
+    - resource:default/orders-db
+```
+
+Use Backstage built-in kinds where they fit:
+
+- `Component`
+- `API`
+- `Resource`
+- `Group`
+- `System`
+- `Domain`
+
+Use anchored-spec custom kinds when you need architecture concepts that Backstage does not model directly:
+
+- `Requirement`
+- `Decision`
+- `CanonicalEntity`
+- `Exchange`
+- `Capability`
+- `ValueStream`
+- `Mission`
+- `Technology`
+- `SystemInterface`
+- `Control`
+- `TransitionPlan`
+- `Exception`
+
+## Storage modes
+
+### Manifest mode
+
+Store entities in a multi-document `catalog-info.yaml` file.
 
 ```bash
-# Install
-npm install --save-dev anchored-spec
+npx anchored-spec init --mode manifest --with-examples
+```
 
-# Initialize EA project
-npx anchored-spec init
+### Inline mode
 
-# Set up VS Code autocomplete, snippets, and validation
-npx anchored-spec init --ide
+Store entities as YAML frontmatter inside Markdown files.
 
-# Generate AI assistant config files (Copilot, Claude, Kiro, Spec-Kit)
-npx anchored-spec init --ai all
+```bash
+npx anchored-spec init --mode inline --with-examples
+```
 
-# Generate CI workflow and pre-commit hook
-npx anchored-spec init --ci
+## Quick start
 
-# Create your first artifact
-npx anchored-spec create --kind service --id SVC-auth-api
-
-# Or use the interactive wizard
-npx anchored-spec create --interactive
-
-# Initialize with Backstage entity format (optional)
-npx anchored-spec init --format backstage --mode manifest --with-examples
-
-# Validate all artifacts
+```bash
+pnpm add -D anchored-spec
+npx anchored-spec init --mode manifest
+npx anchored-spec create application --title "Orders Service"
 npx anchored-spec validate
-
-# View architecture graph
 npx anchored-spec graph --format mermaid
-
-# Run drift detection
 npx anchored-spec drift
-
-# Show traceability between artifacts and docs
-npx anchored-spec trace --summary
-
-# Assemble AI context for an artifact
-npx anchored-spec context SVC-auth-api
-
-# Check project status
-npx anchored-spec status
+npx anchored-spec report --view traceability-index
+npx anchored-spec context component:default/orders-service
 ```
 
-## Project Structure
+## CLI commands
 
-```
-your-repo/
+| Command | Purpose |
+|---|---|
+| `init` | Scaffold config, storage mode, examples, AI files, IDE files, and CI helpers |
+| `create` | Create a new entity in the project storage mode |
+| `validate` | Validate entities, relations, and quality rules |
+| `verify` | Run broader project verification checks |
+| `graph` | Export architecture graphs in Mermaid, DOT, or JSON |
+| `report` | Generate report views or a full report set |
+| `discover` | Discover draft entities from configured or explicit resolvers |
+| `drift` | Compare authored architecture to observed reality |
+| `generate` | Run OpenAPI and JSON Schema generators |
+| `evidence` | Ingest, validate, and summarize evidence records |
+| `impact` | Calculate downstream impact for an entity |
+| `status` | Summarize lifecycle, domain, and confidence status |
+| `transition` | Advance lifecycle state with policy gates |
+| `diff` | Compare git revisions with semantic compatibility checks |
+| `reconcile` | Run generate, validate, drift, trace, and docs checks together |
+| `trace` | Show traceability between entities and docs |
+| `link-docs` | Sync doc frontmatter refs and entity trace refs |
+| `context` | Build context bundles for AI or human review |
+| `create-doc` | Create pre-linked architecture documentation |
+| `link` | Add a relation between two entities |
+| `search` | Search entities by ref, kind, domain, status, tags, and text |
+| `batch-update` | Bulk-update entity `status` or `confidence` |
+
+## Project layout
+
+```text
+.
 ├── .anchored-spec/
-│   └── config.json          # v1.0 configuration
-├── ea/
-│   ├── systems/             # Services, applications, APIs, integrations
-│   ├── delivery/            # Deployments, platforms, cloud resources
-│   ├── data/                # Data stores, models, lineage
-│   ├── information/         # Entities, classifications, exchanges
-│   ├── business/            # Capabilities, processes, controls
-│   ├── transitions/         # Baselines, targets, migration plans
-│   └── legacy/              # Migrated REQ/CHG/ADR artifacts
+│   └── config.json
+├── catalog-info.yaml
+├── docs/
+│   └── architecture/*.md
 └── package.json
 ```
 
-## CLI Commands
+A project usually uses either manifest mode or inline mode as its primary authoring style. Manifest mode can also load additional YAML files from a `catalogDir`, and inline mode reads Markdown frontmatter from configured doc directories.
 
-| Command | Description |
-|---|---|
-| `init` | Initialize project with v1.0 config (`--ide`, `--ai`, `--ci`) |
-| `create` | Create a new EA artifact (`--interactive` / `-i` for step-by-step wizard) |
-| `validate` | Validate artifacts against schemas and quality rules |
-| `graph` | Generate architecture dependency graph |
-| `report` | Generate architecture reports |
-| `drift` | Detect drift between specs and source |
-| `discover` | Auto-discover artifacts from resolvers (including markdown prose) |
-| `generate` | Run code generators from specs |
-| `evidence` | Manage test evidence and traceability |
-| `impact` | Analyze impact of changes across dependencies |
-| `status` | Show artifact lifecycle status |
-| `transition` | Manage artifact status transitions |
-| `diff` | Semantic spec diff with compatibility and policy checks |
-| `reconcile` | Full SDD pipeline: generate → validate → drift |
-| `trace` | Show traceability web between artifacts and docs |
-| `link-docs` | Auto-sync trace links between docs and artifacts |
-| `context` | Assemble AI context package from trace graph |
-| `link` | Create a relation between two artifacts (`--type`, `--dry-run`) |
-| `search` | Search artifacts by ID, name, kind, summary, tags (`--kind`, `--domain`, `--json`) |
-| `create-doc` | Create markdown doc pre-linked to artifacts |
+## Documentation map
 
-## Documentation
+Start here:
 
-Full documentation is in the [`docs/`](docs/) directory:
+- [Backstage alignment](docs/ea-backstage-alignment.md)
+- [Design overview](docs/ea-design-overview.md)
+- [Implementation guide](docs/ea-implementation-guide.md)
+- [Drift, resolvers, and generators](docs/ea-drift-resolvers-generators.md)
+- [Governed evolution](docs/ea-governed-evolution.md)
+- [Testing guide](docs/ea-testing-guide.md)
+- [Examples](examples/backstage-manifest/README.md)
 
-### Getting Started
-- **[Design Overview](docs/ea-design-overview.md)** — Architecture, key concepts, and module layout
-- **[Adoption Playbook](docs/ea-adoption-playbook.md)** — Practical brownfield adoption guide
-- **[Implementation Guide](docs/ea-implementation-guide.md)** — Step-by-step implementation reference
+## AI agent workflow
 
-### Core Model
-- **[Unified Artifact Model](docs/ea-unified-artifact-model.md)** — 48 artifact kinds across 6 domains
-- **[Relationship Model](docs/ea-relationship-model.md)** — 27 typed relations between artifacts
-- **[Transitions & Evidence](docs/ea-transitions-evidence-reporting.md)** — Baselines, targets, and migration planning
+Anchored Spec ships with [SKILL.md](SKILL.md), an agent-facing operating guide for repositories that use this framework.
 
-### Tooling
-- **[Drift, Resolvers & Generators](docs/ea-drift-resolvers-generators.md)** — Drift detection, resolvers, and code generation
-- **[Visualization](docs/ea-visualization.md)** — Architecture graph rendering and export
-- **[CI Integration](docs/ea-ci-integration.md)** — CI pipeline setup for validation and drift
-- **[Governed Evolution](docs/ea-governed-evolution.md)** — Spec diffing, compatibility checks, reconcile pipeline, version policies
+Useful prompts:
 
-### Reference
-- **[Schema Evolution](docs/ea-schema-evolution.md)** — Schema versioning and migration
-- **[Glossary](docs/ea-glossary.md)** — NIST/TOGAF term mapping and definitions
-- **[Migration from v0.x](docs/migration-from-v0.md)** — Upgrading from legacy spec-anchored model
-- **[Contributing](docs/contributing.md)** — Development setup and guidelines
+```text
+Add a new API and the component that provides it. Keep the model and docs in sync.
 
-## AI Agent Skill
+Audit this repo's architecture coverage and tell me what entities are missing.
 
-Anchored Spec ships with **[SKILL.md](SKILL.md)** — an agent-agnostic instruction set (27 sections, 16 workflows) that teaches AI coding agents to work with the EA framework. It works with GitHub Copilot, Cursor, Cline, Windsurf, Aider, and any agent that reads project-root markdown.
+Run a semantic diff against main and explain any breaking changes.
 
-```
-Read and follow the rules in SKILL.md for all code changes in this repository.
-```
-
-**Day-to-day workflow prompts** you can use with any AI agent:
-
-```
-# Spec-first implementation
-Add a new payment gateway service. Follow the spec-first workflow in SKILL.md.
-
-# Explain changes before merging
-What changed in this branch compared to main? Walk me through the impact.
-
-# Pre-implementation audit
-I need to modify the order entity. Audit the relevant specs before I start coding.
-
-# Architecture onboarding
-I'm new to this codebase. Give me an architecture overview using the EA model.
-
-# Confidence audit
-Run a confidence audit — find artifacts that are decaying or missing coverage.
-
-# Impact assessment
-What would break if we retired SVC-legacy-auth? Show me the full dependency chain.
-
-# Compatibility check
-Is this PR safe to merge? Check for breaking changes against main.
+Trace every document and source path connected to component:default/orders-service.
 ```
 
 ## Development
 
 ```bash
 pnpm install
-pnpm build          # Dual CJS + ESM build via tsup
-pnpm test           # Run all tests (Vitest)
-pnpm check-types    # TypeScript type-check
-pnpm lint           # ESLint
-pnpm verify         # All of the above
+pnpm run build
+pnpm run test
+pnpm run lint
+pnpm run verify
 ```
 
-See [Contributing](docs/contributing.md) for the full development guide.
+See [docs/contributing.md](docs/contributing.md) for repository development guidance.
 
 ## License
 

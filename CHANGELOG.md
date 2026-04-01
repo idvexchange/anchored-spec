@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed `anchored-spec/schemas/*` core schemas** — The `./schemas/*` export now points to EA schemas. Import from `anchored-spec/ea/schemas/*` or `anchored-spec/schemas/*`.
 - **Changed public API** — `import { SpecRoot } from "anchored-spec"` is no longer available. Use `import { EaRoot } from "anchored-spec"`.
 - **Removed `migrate-legacy` command** — Use v0.1.0 to migrate artifacts before upgrading to v1.0.
-- **Config format change** — `.anchored-spec/config.json` now requires `"schemaVersion": "1.0"`. Run `anchored-spec migrate-config` to convert v0.x configs.
+- **Config format change** — `.anchored-spec/config.json` now requires `"schemaVersion": "1.0"`. Legacy config migration tooling has since been removed; update old configs manually before upgrading.
 
 ### Added
 
@@ -82,11 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **EA verification engine** — 7 check categories for comprehensive validation
 - **Evidence adapter framework** — Vitest adapter with extensible registry
 - **EA status and transition commands** — Manage artifact lifecycle
-- **Config migration tool** — `anchored-spec migrate-config` converts v0.x configs to v1.0
+- **Config migration tool** — initially shipped for v0.x → v1.0 upgrades, but removed in the later v2 cleanup.
 - **51 JSON schemas** — Full validation coverage including governance schemas
 - **v1.0 configuration format** — Flat config with `schemaVersion: "1.0"`, domain paths, source roots
 - **Top-level CLI commands** — All EA commands promoted to top level (no `ea` prefix needed)
-- **Deprecated `ea` alias group** — `anchored-spec ea <cmd>` still works with deprecation warning
+- **Deprecated `ea` alias group** — initially retained for compatibility, but removed in the later v2 cleanup.
 
 ### Changed
 

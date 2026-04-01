@@ -7,3 +7,7 @@ coverage
 .env
 .env.*
 npm-debug.log*
+
+# Anchored Spec
+ea/generated/
+.anchored-spec/cache/

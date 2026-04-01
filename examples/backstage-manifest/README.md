@@ -1,32 +1,52 @@
-# Backstage Manifest Mode Example
+# Backstage Manifest Example
 
-This example shows anchored-spec with Backstage entity format in **manifest mode** — all entities in a single `catalog-info.yaml` file.
+This example shows the recommended manifest-based authoring flow in anchored-spec.
 
-## Structure
+## What this example demonstrates
 
+- Backstage-aligned entities stored in `catalog-info.yaml`
+- built-in kinds such as `Domain`, `System`, `Component`, `API`, `Resource`, and `Group`
+- anchored-spec custom kinds such as `Requirement` and `Decision`
+- canonical entity refs across relations
+- entity-native metadata through `anchored-spec.dev/*` annotations
+
+## Files
+
+```text
+examples/backstage-manifest/
+├── .anchored-spec/config.json
+└── catalog-info.yaml
 ```
-.anchored-spec/config.json   # Config with entityMode: "manifest"
-catalog-info.yaml             # Multi-document YAML with all entities
-```
 
-## Entities
+## Included entities
 
-| Kind | Name | Description |
-|---|---|---|
-| Domain | identity | Identity verification domain |
-| System | idv-platform | Core IDV platform |
-| Component | auth-service | Authentication microservice |
-| API | auth-api | OpenAPI authentication endpoint |
-| Resource | users-db | PostgreSQL user database |
-| Group | platform-team | Owner team |
-| Requirement | req-mfa-enforcement | MFA security requirement |
-| Decision | adr-001-grpc-internal | Architecture decision record |
+This example models a small identity platform with:
 
-## Usage
+- a domain
+- a system
+- a service component
+- an API
+- a database resource
+- a team
+- a requirement
+- a decision
+
+## Try it
+
+From the repository root:
 
 ```bash
-cd examples/backstage-manifest
-npx anchored-spec validate
-npx anchored-spec graph
-npx anchored-spec report
+npx anchored-spec --cwd examples/backstage-manifest validate
+npx anchored-spec --cwd examples/backstage-manifest graph --format mermaid
+npx anchored-spec --cwd examples/backstage-manifest report --view traceability-index
+npx anchored-spec --cwd examples/backstage-manifest diff --base main
 ```
+
+## Why manifest mode is useful
+
+Manifest mode works well when a team wants:
+
+- a single architecture catalog file
+- explicit YAML review in pull requests
+- easy export into Backstage-compatible descriptor flows
+- a clean split between architecture data and prose documentation

@@ -1,7 +1,7 @@
 /** Anchored Spec — Table Fact Extractor
  *
  * Walks mdast trees for GFM table nodes and extracts structured facts.
- * Tables inside `@ea:*` annotated regions use the annotation's kind;
+ * Tables inside `@anchored-spec:*` annotated regions use the annotation's kind;
  * otherwise a heuristic based on column names classifies the table.
  */
 

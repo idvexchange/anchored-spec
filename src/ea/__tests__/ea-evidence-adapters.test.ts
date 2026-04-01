@@ -20,7 +20,7 @@ import {
   getAvailableAdapters,
   type EvidenceAdapter,
 } from "../evidence-adapters/index.js";
-import type { EaArtifactBase } from "../types.js";
+import { makeEntity } from "./helpers/make-entity.js";
 
 let tempDir: string;
 
@@ -34,8 +34,8 @@ afterEach(() => {
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────
 
-function makeArtifact(id: string, anchors?: Record<string, string[]>, traceRefs?: Array<{ path: string; role: string }>): EaArtifactBase {
-  return {
+function makeEvidenceEntity(id: string, anchors?: Record<string, string[]>, traceRefs?: Array<{ path: string; role: string }>) {
+  return makeEntity({
     id,
     kind: "service",
     name: id,
@@ -44,7 +44,7 @@ function makeArtifact(id: string, anchors?: Record<string, string[]>, traceRefs?
     relations: [],
     anchors,
     traceRefs,
-  };
+  });
 }
 
 function writeVitestReport(records: Array<{ name: string; status: string }>): string {
@@ -68,15 +68,15 @@ describe("VitestEaAdapter", () => {
       { name: "src/auth.test.ts", status: "passed" },
     ]);
 
-    const artifacts = [
-      makeArtifact("svc-auth", { symbols: ["auth.test"] }),
+    const entities = [
+      makeEvidenceEntity("svc-auth", { symbols: ["auth.test"] }),
     ];
 
     const adapter = new VitestEaAdapter();
-    const records = adapter.parse(reportPath, artifacts);
+    const records = adapter.parse(reportPath, entities);
 
     expect(records).toHaveLength(1);
-    expect(records[0]!.artifactId).toBe("svc-auth");
+    expect(records[0]!.artifactId).toBe("component:svc-auth");
     expect(records[0]!.status).toBe("passed");
     expect(records[0]!.testFile).toBe("src/auth.test.ts");
   });
@@ -86,12 +86,12 @@ describe("VitestEaAdapter", () => {
       { name: "src/broken.test.ts", status: "failed" },
     ]);
 
-    const artifacts = [
-      makeArtifact("svc-broken", { symbols: ["broken.test"] }),
+    const entities = [
+      makeEvidenceEntity("svc-broken", { symbols: ["broken.test"] }),
     ];
 
     const adapter = new VitestEaAdapter();
-    const records = adapter.parse(reportPath, artifacts);
+    const records = adapter.parse(reportPath, entities);
 
     expect(records).toHaveLength(1);
     expect(records[0]!.status).toBe("failed");
@@ -102,17 +102,17 @@ describe("VitestEaAdapter", () => {
       { name: "src/user.test.ts", status: "passed" },
     ]);
 
-    const artifacts = [
-      makeArtifact("svc-user", undefined, [
+    const entities = [
+      makeEvidenceEntity("svc-user", undefined, [
         { path: "src/user.test.ts", role: "implementation" },
       ]),
     ];
 
     const adapter = new VitestEaAdapter();
-    const records = adapter.parse(reportPath, artifacts);
+    const records = adapter.parse(reportPath, entities);
 
     expect(records).toHaveLength(1);
-    expect(records[0]!.artifactId).toBe("svc-user");
+    expect(records[0]!.artifactId).toBe("component:svc-user");
   });
 
   it("skips tests that don't match any artifact", () => {
@@ -137,12 +137,12 @@ describe("VitestEaAdapter", () => {
       { name: "src/skip.test.ts", status: "pending" },
     ]);
 
-    const artifacts = [
-      makeArtifact("svc-skip", { symbols: ["skip.test"] }),
+    const entities = [
+      makeEvidenceEntity("svc-skip", { symbols: ["skip.test"] }),
     ];
 
     const adapter = new VitestEaAdapter();
-    const records = adapter.parse(reportPath, artifacts);
+    const records = adapter.parse(reportPath, entities);
     expect(records[0]!.status).toBe("skipped");
   });
 });
@@ -155,8 +155,8 @@ describe("collectEaTestEvidence", () => {
       { name: "src/check.test.ts", status: "passed" },
     ]);
 
-    const artifacts = [makeArtifact("svc-check", { symbols: ["check.test"] })];
-    const result = collectEaTestEvidence(reportPath, "vitest", artifacts);
+    const entities = [makeEvidenceEntity("svc-check", { symbols: ["check.test"] })];
+    const result = collectEaTestEvidence(reportPath, "vitest", entities);
 
     expect(result.source).toBe("vitest");
     expect(result.records).toHaveLength(1);

@@ -6,13 +6,11 @@
  */
 
 import type { BackstageEntity } from "./backstage/types.js";
-import { getEntityId, getEntityLegacyKind, getEntityTitle, getEntityStatus, getEntitySpecRelations, getEntityTraceRefs, getSpecField } from "./backstage/accessors.js";
-import { getDomainForKind, EA_DOMAINS } from "./types.js";
-import type { ExceptionArtifact } from "./types.js";
+import { getEntityDomain, getEntityId, getEntityLegacyKind, getEntityTitle, getEntityStatus, getEntitySpecRelations, getEntityTraceRefs, getSpecField } from "./backstage/accessors.js";
+import { EA_DOMAINS } from "./types.js";
 import { evaluateEaDrift } from "./drift.js";
 import type { DomainDriftSummary } from "./drift.js";
 import { detectEaDrift } from "./drift.js";
-import { backstageToArtifact } from "./backstage/bridge.js";
 
 function getFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
   return getEntitySpecRelations(entity).flatMap((r) =>
@@ -1347,7 +1345,7 @@ export type ReportView = (typeof REPORT_VIEWS)[number];
 export function buildReportIndex(entities: BackstageEntity[]): ReportIndex {
   const byDomain: Record<string, number> = {};
   for (const a of entities) {
-    const domain = getDomainForKind(getEntityLegacyKind(a)) ?? "unknown";
+    const domain = getEntityDomain(a) ?? "unknown";
     byDomain[domain] = (byDomain[domain] ?? 0) + 1;
   }
 
@@ -1581,7 +1579,7 @@ export function buildTraceabilityIndex(
       const entry: TraceabilityIndexEntry = {
         artifactId: getEntityId(a),
         kind: getEntityLegacyKind(a),
-        domain: getDomainForKind(getEntityLegacyKind(a)) ?? "unknown",
+        domain: getEntityDomain(a) ?? "unknown",
         role: ref.role ?? "context",
         label: (ref as Record<string, unknown>).label as string | null ?? null,
       };

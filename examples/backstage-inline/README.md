@@ -1,27 +1,40 @@
-# Backstage Inline Mode Example
+# Backstage Inline Example
 
-This example shows anchored-spec with Backstage entity format in **inline mode** — entities are embedded as YAML frontmatter in markdown documentation files.
+This example shows the recommended inline authoring flow in anchored-spec.
 
-## Structure
+## What this example demonstrates
 
+- Backstage-aligned entities in Markdown frontmatter
+- architecture prose and the entity definition in the same file
+- fact decorators such as `@anchored-spec:events` and `@anchored-spec:endpoints`
+- traceability-friendly docs that are ready for `trace`, `link-docs`, and docs drift checks
+
+## Files
+
+```text
+examples/backstage-inline/
+├── .anchored-spec/config.json
+└── docs/
+    ├── payment-service.md
+    └── payments-api.md
 ```
-.anchored-spec/config.json       # Config with entityMode: "inline"
-docs/
-  payment-service.md              # Component entity + documentation
-  payments-api.md                 # API entity + endpoint docs
-```
 
-## Benefits of Inline Mode
+## Try it
 
-- **Documentation lives with the entity** — no separate files to keep in sync
-- **`@anchored-spec:` decorators** work naturally in the markdown body
-- **Backstage-compatible** frontmatter can be read by Backstage's catalog
-
-## Usage
+From the repository root:
 
 ```bash
-cd examples/backstage-inline
-npx anchored-spec validate
-npx anchored-spec facts docs/
-npx anchored-spec reconcile
+npx anchored-spec --cwd examples/backstage-inline validate
+npx anchored-spec --cwd examples/backstage-inline trace --summary
+npx anchored-spec --cwd examples/backstage-inline drift --domain docs
+npx anchored-spec --cwd examples/backstage-inline reconcile --include-trace --include-docs
 ```
+
+## Why inline mode is useful
+
+Inline mode is a strong fit when:
+
+- the team already maintains architecture docs in Markdown
+- entity metadata should live directly beside narrative docs
+- doc facts should be checked for consistency
+- AI or human readers need one file that contains both structure and explanation

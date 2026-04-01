@@ -3,6 +3,5 @@
   "rootDir": "ea",
   "generatedDir": "ea/generated",
   "entityMode": "manifest",
-  "entityFormat": "backstage",
   "manifestPath": "catalog-info.yaml"
 }

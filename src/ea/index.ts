@@ -14,89 +14,30 @@ export type {
   EaTraceRef,
   EaRiskAssessment,
   EaComplianceMetadata,
-  EaArtifactBase,
-  ApplicationArtifact,
-  ServiceArtifact,
-  ApiContractArtifact,
-  EventContractArtifact,
-  IntegrationArtifact,
-  SystemInterfaceArtifact,
-  ConsumerArtifact,
-  PlatformArtifact,
-  DeploymentArtifact,
-  RuntimeClusterArtifact,
-  NetworkZoneArtifact,
-  IdentityBoundaryArtifact,
-  CloudResourceArtifact,
-  EnvironmentArtifact,
-  TechnologyStandardArtifact,
-  LogicalDataModelArtifact,
-  PhysicalSchemaArtifact,
-  DataStoreArtifact,
-  LineageArtifact,
-  MasterDataDomainArtifact,
-  DataQualityRuleArtifact,
-  DataProductArtifact,
-  InformationConceptArtifact,
-  CanonicalEntityArtifact,
-  InformationExchangeArtifact,
-  ClassificationArtifact,
-  RetentionPolicyArtifact,
-  GlossaryTermArtifact,
-  MissionArtifact,
-  CapabilityArtifact,
-  ValueStreamArtifact,
-  ProcessArtifact,
-  OrgUnitArtifact,
-  PolicyObjectiveArtifact,
-  BusinessServiceArtifact,
-  ControlArtifact,
-  BaselineArtifact,
-  TargetArtifact,
-  TransitionPlanArtifact,
   TransitionMilestone,
   TransitionRisk,
-  MigrationWaveArtifact,
-  ExceptionArtifact,
-  RequirementArtifact,
-  ChangeArtifact,
-  DecisionArtifact,
   EaBehaviorStatement,
-  EaArtifact,
-  EaKindEntry,
 } from "./types.js";
 
 // Values — kind registry and helpers
 export {
   EA_DOMAINS,
-  EA_KIND_REGISTRY,
-  getKindEntry,
-  getKindsByDomain,
-  getKindPrefix,
-  getDomainForKind,
-  isValidEaId,
 } from "./types.js";
 
 // Config
 export type {
-  EaConfig,
   EaResolverConfig,
   EaGeneratorConfig,
   EaQualityConfig,
   EaCacheConfig,
   AnchoredSpecConfigV1,
-  LegacyConfigInput,
   EaHookEvent,
   EaHookDefinition,
   EaTestMetadataConfig,
 } from "./config.js";
 
 export {
-  resolveEaConfig,
   resolveConfigV1,
-  migrateConfigV0ToV1,
-  detectConfigVersion,
-  v1ConfigToEaConfig,
 } from "./config.js";
 
 // Validation
@@ -104,8 +45,8 @@ export type { EaSchemaName, EaValidationError, EaValidationResult, EaValidationO
 export { validateEaSchema, validateEaArtifacts, validateEaRelations, getSchemaForKind, getEaSchemaNames } from "./validate.js";
 
 // Loader
-export type { EaLoadedArtifact, EaLoadResult, EaSummary } from "./loader.js";
-export { EaRoot, normalizeArtifact } from "./loader.js";
+export type { EaLoadedEntity, EaEntityLoadResult, EaEntitySummary } from "./loader.js";
+export { EaRoot } from "./loader.js";
 
 // Relation Registry
 export type { RelationRegistryEntry } from "./relation-registry.js";
@@ -292,9 +233,6 @@ export {
   extractRelationsFromSpec,
 } from "./backstage/relation-mapping.js";
 
-// Bridge (retained for backward compatibility)
-export { backstageToArtifact, artifactToBackstage } from "./backstage/bridge.js";
-
 // Accessors
 export type { EntityStatus } from "./backstage/accessors.js";
 
@@ -321,7 +259,6 @@ export {
   getEntityTraceRefs,
   getEntityExpectAnchors,
   getEntitySuppressions,
-  getEntityLegacyId,
   getLabel,
   getLabels,
   getEntitySpecRelations,
@@ -357,8 +294,8 @@ export {
 } from "./backstage/writer.js";
 
 export type {
-  BackstageLoadedEntity,
-  BackstageLoadResult,
+  BackstageEntityLoadDetail,
+  BackstageEntityLoadResult,
 } from "./backstage/loader.js";
 
 export {

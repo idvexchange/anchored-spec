@@ -25,7 +25,6 @@ import {
   getEntitySource,
   getEntityExpectAnchors,
   getEntitySuppressions,
-  getEntityLegacyId,
   getLabel,
   getLabels,
   getEntitySpecRelations,
@@ -58,8 +57,6 @@ const component: BackstageEntity = {
       [ANNOTATION_KEYS.COMPLIANCE]: "SOC2,ISO27001",
       [ANNOTATION_KEYS.EXPECT_ANCHORS]: "VerifierService,ProcessDocument",
       [ANNOTATION_KEYS.SUPPRESS]: "drift:naming-convention",
-      [ANNOTATION_KEYS.LEGACY_ID]: "SVC-verifier-core",
-      [ANNOTATION_KEYS.LEGACY_KIND]: "service",
     },
     links: [
       { url: "https://grafana.example.com/d/verifier", title: "Dashboard", type: "dashboard" },
@@ -348,13 +345,6 @@ describe("annotation accessors", () => {
     expect(getEntitySuppressions(component)).toEqual(["drift:naming-convention"]);
   });
 
-  it("getEntityLegacyId returns preserved legacy ID", () => {
-    expect(getEntityLegacyId(component)).toBe("SVC-verifier-core");
-  });
-
-  it("getEntityLegacyId returns undefined when not set", () => {
-    expect(getEntityLegacyId(minimal)).toBeUndefined();
-  });
 });
 
 // ─── Labels ─────────────────────────────────────────────────────────────────────
@@ -463,8 +453,8 @@ describe("system and domain accessors", () => {
     expect(getEntityDomain(system)).toBe("payments");
   });
 
-  it("getEntityDomain returns undefined when no domain", () => {
-    expect(getEntityDomain(component)).toBeUndefined();
+  it("getEntityDomain falls back to kind mapping when no explicit domain is set", () => {
+    expect(getEntityDomain(component)).toBe("systems");
   });
 });
 

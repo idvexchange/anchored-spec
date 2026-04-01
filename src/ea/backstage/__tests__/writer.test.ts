@@ -139,6 +139,52 @@ describe("writeBackstageYaml", () => {
     const yaml = writeBackstageYaml(entity);
     expect(yaml).toContain("customField: custom-value");
   });
+
+  it("preserves authored substitution objects instead of inlining them", () => {
+    const entity: BackstageEntity = {
+      ...apiEntity,
+      spec: {
+        ...apiEntity.spec,
+        definition: { $text: "./specs/openapi.yaml" },
+      },
+    };
+
+    const yaml = writeBackstageYaml(entity);
+
+    expect(yaml).toContain("definition:");
+    expect(yaml).toContain("$text: ./specs/openapi.yaml");
+    expect(yaml).not.toContain('openapi: "3.1.0"');
+  });
+
+  it("omits derived top-level relations and status by default", () => {
+    const entity = {
+      ...componentEntity,
+      relations: [{ type: "dependsOn", targetRef: "resource:default/my-database" }],
+      status: {
+        items: [{ type: "anchored-spec", level: "info", message: "derived" }],
+      },
+    } as BackstageEntity;
+
+    const yaml = writeBackstageYaml(entity);
+
+    expect(yaml).not.toContain("\nrelations:");
+    expect(yaml).not.toContain("\nstatus:");
+  });
+
+  it("can include derived top-level relations and status when requested", () => {
+    const entity = {
+      ...componentEntity,
+      relations: [{ type: "dependsOn", targetRef: "resource:default/my-database" }],
+      status: {
+        items: [{ type: "anchored-spec", level: "info", message: "derived" }],
+      },
+    } as BackstageEntity;
+
+    const yaml = writeBackstageYaml(entity, { includeDerivedFields: true });
+
+    expect(yaml).toContain("\nrelations:");
+    expect(yaml).toContain("\nstatus:");
+  });
 });
 
 // ─── writeBackstageManifest ─────────────────────────────────────────────────────
@@ -275,5 +321,23 @@ describe("round-trips", () => {
     expect(result2.entities).toHaveLength(1);
 
     expect(result2.entities[0].entity).toEqual(result1.entities[0].entity);
+  });
+
+  it("round-trips authored substitution objects unchanged", () => {
+    const entity: BackstageEntity = {
+      ...apiEntity,
+      spec: {
+        ...apiEntity.spec,
+        definition: { $text: "./specs/openapi.yaml" },
+      },
+    };
+
+    const yaml = writeBackstageYaml(entity);
+    const result = parseBackstageYaml(yaml);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.entities[0].entity.spec.definition).toEqual({
+      $text: "./specs/openapi.yaml",
+    });
   });
 });

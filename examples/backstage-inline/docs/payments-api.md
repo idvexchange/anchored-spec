@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: API
 metadata:
   name: payments-api
-  description: RESTful API for payment processing.
+  description: REST API for creating, querying, and refunding payments.
   annotations:
     anchored-spec.dev/confidence: "0.9"
 spec:
@@ -27,15 +27,26 @@ spec:
 
 # Payments API
 
-The Payments API provides RESTful endpoints for creating, querying, and managing payments.
+This document represents the API contract in inline mode. The descriptor in frontmatter is the source of truth for the entity, while the body captures human-readable contract notes and fact blocks that anchored-spec can analyze.
+
+## Responsibilities
+
+The API supports:
+
+- payment creation
+- payment lookup
+- refund initiation
+- filtered list views for operational workflows
 
 <!-- @anchored-spec:endpoints payments-endpoints -->
-
 | Method | Path | Description |
 |---|---|---|
 | POST | /payments | Create a new payment |
-| GET | /payments/{id} | Get payment by ID |
-| POST | /payments/{id}/refund | Refund a payment |
+| GET | /payments/{id} | Fetch the state of a payment |
+| POST | /payments/{id}/refund | Start a refund |
 | GET | /payments?status={status} | List payments by status |
-
 <!-- @anchored-spec:end -->
+
+## Usage notes
+
+In a real project, the `definition` field would usually reference a local OpenAPI file through `$text`, or contain a fuller embedded contract body.

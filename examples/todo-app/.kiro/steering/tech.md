@@ -1,14 +1,18 @@
-# Technology Context
+# Technical Steering
 
-## Stack
-- **Framework**: anchored-spec (npm package)
-- **Artifact format**: YAML and JSON with JSON Schema validation
-- **CLI**: `npx anchored-spec <command>`
-- **8 resolvers**: OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter, Markdown, Anchors
-- **51 drift rules** across 7 domains
+This example uses anchored-spec as the architecture workflow layer around a modern web application.
 
-## Conventions
-- Artifact IDs: `{PREFIX}-{slug}` (e.g., APP-todo-web)
-- File naming: `{PREFIX}-{slug}.yaml` in domain directories
-- Relations: typed edges between artifacts (27 relation types)
-- Confidence levels: declared > observed > inferred
+## Technical expectations
+
+- use the current anchored-spec command surface
+- prefer entity-native terminology in explanations
+- keep docs truthful to the shipped framework
+- treat historical fixture data as example input, not as the default recommendation for new projects
+
+## Common workflows
+
+```bash
+npx anchored-spec --cwd examples/todo-app validate
+npx anchored-spec --cwd examples/todo-app drift
+npx anchored-spec --cwd examples/todo-app report --view traceability-index
+```

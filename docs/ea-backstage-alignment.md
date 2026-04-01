@@ -1,189 +1,168 @@
-# Backstage Entity Model Alignment
+# Backstage Alignment
 
-Anchored-spec supports the [Backstage Software Catalog Entity Model](https://backstage.io/docs/features/software-catalog/descriptor-format/) as an entity format, enabling seamless integration with Backstage catalogs while retaining all anchored-spec analysis capabilities.
+Anchored Spec uses the Backstage entity envelope as its authoring contract. That gives teams a familiar model, keeps architecture descriptors compatible with the broader ecosystem, and avoids inventing a second metadata format for the same repository.
 
-## Quick Start
+## Core contract
 
-Initialize a project in Backstage manifest mode:
-
-```bash
-npx anchored-spec init --format backstage --mode manifest --with-examples
-```
-
-Or inline frontmatter mode:
-
-```bash
-npx anchored-spec init --format backstage --mode inline --with-examples
-```
-
-## Storage Modes
-
-### Manifest Mode (`--mode manifest`)
-
-Entities are stored in a multi-document YAML file (default: `catalog-info.yaml`):
+Every authored entity uses the Backstage descriptor shape:
 
 ```yaml
----
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: my-service
-  description: Main service
+  name: payments-service
+  title: Payments Service
+  description: Handles charge creation, settlement, and refunds.
   annotations:
-    anchored-spec.dev/confidence: "0.9"
-    anchored-spec.dev/source: src/main.ts
+    anchored-spec.dev/confidence: declared
+    anchored-spec.dev/source: src/payments/
 spec:
   type: service
   lifecycle: production
-  owner: team-platform
-  system: core-platform
+  owner: group:default/payments-team
+  system: billing-platform
+  providesApis:
+    - api:default/payments-api
   dependsOn:
-    - resource:default/my-database
----
-apiVersion: backstage.io/v1alpha1
-kind: API
-metadata:
-  name: users-api
-spec:
-  type: openapi
-  lifecycle: production
-  owner: team-platform
-  definition: |
-    openapi: "3.1.0"
+    - resource:default/ledger-db
 ```
 
-### Inline Mode (`--mode inline`)
+Anchored-spec adds analysis-specific semantics through:
 
-Each entity is embedded as YAML frontmatter in a markdown documentation file:
+- `anchored-spec.dev/*` annotations
+- custom `anchored-spec.dev/v1alpha1` kinds
+- derived relations and runtime status used by analysis commands
 
-```markdown
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: my-service
-  description: Main service
-spec:
-  type: service
-  lifecycle: production
-  owner: team-platform
----
+## Supported storage modes
 
-# My Service
+### Manifest mode
 
-Architecture documentation lives here alongside the entity definition.
+Use a `catalog-info.yaml` manifest as the main source file.
+
+```bash
+npx anchored-spec init --mode manifest --with-examples
 ```
 
-### Legacy Artifacts Mode (default)
+Manifest mode can also load additional entity YAML files from a configured `catalogDir`.
 
-The original per-file YAML/JSON artifacts in domain directories. This mode is unchanged and remains the default.
+### Inline mode
 
-## Configuration
+Embed entities as YAML frontmatter in Markdown files.
 
-Add these fields to `.anchored-spec/config.json`:
-
-```json
-{
-  "schemaVersion": "1.0",
-  "entityMode": "manifest",
-  "entityFormat": "backstage",
-  "manifestPath": "catalog-info.yaml",
-  "catalogDir": "catalog",
-  "rootDir": "ea",
-  "generatedDir": "ea/generated"
-}
+```bash
+npx anchored-spec init --mode inline --with-examples
 ```
 
-| Field | Values | Description |
-|---|---|---|
-| `entityMode` | `artifacts`, `manifest`, `inline` | How entities are stored on disk |
-| `entityFormat` | `backstage`, `legacy` | Entity format |
-| `manifestPath` | string | Path to manifest file (manifest mode) |
-| `catalogDir` | string | Directory with individual entity YAML files |
-| `inlineDocDirs` | string[] | Directories with markdown entity files |
+Inline mode is ideal when architecture documentation and entity metadata should live in the same file.
 
-## Kind Mapping
+## Canonical entity refs
 
-Anchored-spec's 48 legacy kinds map to ~16 Backstage-aligned kinds across two tiers.
+Runtime and CLI workflows use Backstage-style entity refs.
 
-### Tier 1 — Backstage Built-in Kinds (`backstage.io/v1alpha1`)
+Accepted shapes include:
 
-| Kind | `spec.type` | Legacy Kinds |
-|---|---|---|
-| `Component` | `service`, `library`, `website`, `worker`, `data-pipeline` | `service`, `application`, `consumer`, `platform` |
-| `API` | `openapi`, `asyncapi`, `grpc`, `graphql` | `api-contract`, `event-contract` |
-| `Resource` | `database`, `s3-bucket`, `queue`, `cache`, etc. | `cloud-resource`, `physical-schema`, `data-store`, `data-product`, `runtime-cluster`, `network-zone` |
-| `System` | — | Groups components |
-| `Domain` | — | Groups systems |
-| `Group` | `team`, `department`, `org` | `org-unit` |
+- `orders-service`
+- `component:orders-service`
+- `default/orders-service`
+- `component:default/orders-service`
 
-### Tier 2 — Custom Kinds (`anchored-spec.dev/v1alpha1`)
+Use the full form when you want documentation and automation to be explicit.
 
-| Kind | Legacy Kinds |
-|---|---|
-| `Requirement` | `requirement`, `security-requirement`, `data-requirement`, `technical-requirement`, `information-requirement` |
-| `Decision` | `decision` |
-| `CanonicalEntity` | `canonical-entity`, `information-concept`, `glossary-term`, `master-data-domain` |
-| `Exchange` | `information-exchange`, `integration` |
-| `Capability` | `capability` |
-| `ValueStream` | `value-stream`, `process` |
-| `Mission` | `mission`, `policy-objective` |
-| `Technology` | `technology-standard` |
-| `SystemInterface` | `system-interface`, `identity-boundary` |
-| `Control` | `control` |
-| `TransitionPlan` | `transition-plan`, `migration-wave` |
-| `Exception` | `exception` |
+## Built-in and custom kinds
 
-Kind discrimination uses `spec.type` — e.g., a Component with `spec.type: service` maps to the legacy `service` kind.
+### Prefer built-in kinds
 
-## Relation Mapping
+Use standard Backstage kinds whenever possible:
 
-Relations are stored in `spec` fields following Backstage conventions:
+- `Component`
+- `API`
+- `Resource`
+- `Group`
+- `System`
+- `Domain`
 
-| Spec Field | Backstage Relation | Legacy Relation |
-|---|---|---|
-| `spec.dependsOn` | `dependsOn` | `depends-on` |
-| `spec.owner` (+ `ownedBy`) | `ownerOf` / `ownedBy` | `owns` |
-| `spec.providesApis` | `providesApi` | `exposes` |
-| `spec.consumesApis` | `consumesApi` | `consumes` |
-| `spec.system` | `partOf` | `part-of` |
+### Use custom kinds for EA-only concepts
 
-Custom anchored-spec relations (e.g., `implementedBy`, `supports`, `realizes`) are stored as custom spec fields.
+Anchored Spec ships custom kinds for concepts that do not map cleanly to Backstage built-ins:
 
-## Annotations
+- `Requirement`
+- `Decision`
+- `CanonicalEntity`
+- `Exchange`
+- `Capability`
+- `ValueStream`
+- `Mission`
+- `Technology`
+- `SystemInterface`
+- `Control`
+- `TransitionPlan`
+- `Exception`
 
-Anchored-spec uses the `anchored-spec.dev/` annotation namespace:
+## Authored fields vs derived output
+
+Backstage-authored fields stay in the descriptor when Backstage already has a home for them.
+
+Examples:
+
+- `spec.owner`
+- `spec.dependsOn`
+- `spec.providesApis`
+- `spec.consumesApis`
+- `spec.system`
+- `spec.domain`
+- `spec.lifecycle`
+
+Derived runtime `relations` are analysis output. Anchored Spec computes them for graphing, drift, diff, impact, and report workflows instead of requiring authors to persist a giant top-level relation array.
+
+## Anchored-spec annotations
+
+Common annotation keys:
 
 | Annotation | Purpose |
 |---|---|
-| `anchored-spec.dev/source` | Source file path for anchor resolution |
-| `anchored-spec.dev/confidence` | Confidence score (0.0–1.0) |
-| `anchored-spec.dev/expect-anchors` | Expected anchor types (comma-separated) |
-| `anchored-spec.dev/compliance` | Compliance frameworks (comma-separated) |
-| `anchored-spec.dev/risk` | Risk assessment (low, moderate, high, critical) |
-| `anchored-spec.dev/suppress` | Suppressed validation rules |
+| `anchored-spec.dev/source` | Source path used for anchor or trace workflows |
+| `anchored-spec.dev/confidence` | Confidence level such as `declared`, `observed`, or `inferred` |
+| `anchored-spec.dev/expect-anchors` | Expected anchor categories for validation |
+| `anchored-spec.dev/compliance` | Compliance labels |
+| `anchored-spec.dev/risk` | Risk metadata |
+| `anchored-spec.dev/suppress` | Targeted rule suppressions |
 
-## Markdown Decorators
+## Descriptor substitutions
 
-Both `@ea:` and `@anchored-spec:` decorator prefixes are supported:
+Anchored Spec supports local file substitutions in descriptor values:
+
+- `$text`
+- `$json`
+- `$yaml`
+
+Example:
+
+```yaml
+spec:
+  definition:
+    $text: ./specs/payments-openapi.yaml
+```
+
+Only local filesystem substitutions are supported by default.
+
+## Markdown decorators
+
+Inline docs and architecture docs can use anchored-spec fact decorators:
 
 ```html
-<!-- @anchored-spec:events webhook-events -->
-| Event | Payload | Description |
+<!-- @anchored-spec:endpoints payments-endpoints -->
+| Method | Path | Description |
 |---|---|---|
-| user.created | UserPayload | New user registered |
+| POST | /payments | Create a payment |
 <!-- @anchored-spec:end -->
 ```
 
-## Backstage Integration
+These decorators feed doc-consistency and fact-extraction workflows.
 
-Entities authored in anchored-spec's Backstage format are directly consumable by Backstage's Software Catalog. Point your Backstage `app-config.yaml` at the manifest:
+## Why this alignment matters
 
-```yaml
-catalog:
-  locations:
-    - type: file
-      target: ../../catalog-info.yaml
-```
+Backstage alignment gives anchored-spec three practical advantages:
 
-Custom `anchored-spec.dev/v1alpha1` kinds require a [Custom Processor](https://backstage.io/docs/features/software-catalog/extending-the-model/) in your Backstage instance to be fully rendered, but they will still appear as unresolved entities without one.
+1. the descriptors are understandable outside this tool
+2. a repo can graduate into a Backstage deployment later without rewriting its model
+3. architecture metadata stays in one portable, inspectable format

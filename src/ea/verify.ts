@@ -13,12 +13,12 @@
  *   6. Plugin checks (if configured)
  */
 
-import type { EaArtifactBase } from "./types.js";
-import { artifactToBackstage } from "./backstage/bridge.js";
-import { getDomainForKind } from "./types.js";
-import { validateEaArtifacts, type EaValidationError, type EaValidationOptions } from "./validate.js";
+import { type EaValidationError, type EaValidationOptions } from "./validate.js";
 import type { EaRoot } from "./loader.js";
 import { loadEaPlugins, runEaPluginChecks, type EaPlugin } from "./plugins.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import { getEntityId, getEntityKindMapping, getEntitySpecRelations, getEntityStatus } from "./backstage/accessors.js";
+import { validateBackstageEntities } from "./backstage/validate.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -48,17 +48,18 @@ export interface EaVerificationResult {
 // ─── Cross-Reference Checks ─────────────────────────────────────────────────────
 
 /** Check that all relation targets point to existing artifact IDs. */
-function checkRelationTargets(artifacts: EaArtifactBase[]): EaValidationError[] {
+function checkRelationTargets(entities: BackstageEntity[]): EaValidationError[] {
   const errors: EaValidationError[] = [];
-  const knownIds = new Set(artifacts.map((a) => a.id));
+  const knownIds = new Set(entities.map((entity) => getEntityId(entity)));
 
-  for (const artifact of artifacts) {
-    if (!artifact.relations) continue;
-    for (const rel of artifact.relations) {
-      if (!knownIds.has(rel.target)) {
+  for (const entity of entities) {
+    for (const rel of getEntitySpecRelations(entity)) {
+      for (const target of rel.targets) {
+        if (!target.includes(":") && !target.includes("/")) continue;
+        if (knownIds.has(target)) continue;
         errors.push({
-          path: artifact.id,
-          message: `Relation target "${rel.target}" from "${artifact.id}" does not match any known artifact ID`,
+          path: getEntityId(entity),
+          message: `Relation target "${target}" from "${getEntityId(entity)}" does not match any known artifact ID`,
           severity: "error",
           rule: "ea:verify:broken-relation-target",
         });
@@ -70,26 +71,28 @@ function checkRelationTargets(artifacts: EaArtifactBase[]): EaValidationError[] 
 }
 
 /** Check for orphaned artifacts with no incoming or outgoing relations. */
-function checkOrphanArtifacts(artifacts: EaArtifactBase[]): EaValidationError[] {
+function checkOrphanArtifacts(entities: BackstageEntity[]): EaValidationError[] {
   const warnings: EaValidationError[] = [];
   const referencedIds = new Set<string>();
 
-  for (const artifact of artifacts) {
-    if (artifact.relations) {
-      for (const rel of artifact.relations) {
-        referencedIds.add(rel.target);
+  for (const entity of entities) {
+    for (const rel of getEntitySpecRelations(entity)) {
+      for (const target of rel.targets) {
+        referencedIds.add(target);
       }
     }
   }
 
-  for (const artifact of artifacts) {
-    if (artifact.status === "draft" || artifact.status === "deprecated" || artifact.status === "retired") continue;
-    const hasOutgoing = (artifact.relations?.length ?? 0) > 0;
-    const hasIncoming = referencedIds.has(artifact.id);
+  for (const entity of entities) {
+    const status = getEntityStatus(entity);
+    if (status === "draft" || status === "deprecated" || status === "retired") continue;
+    const entityId = getEntityId(entity);
+    const hasOutgoing = getEntitySpecRelations(entity).some((rel) => rel.targets.length > 0);
+    const hasIncoming = referencedIds.has(entityId);
     if (!hasOutgoing && !hasIncoming) {
       warnings.push({
-        path: artifact.id,
-        message: `Artifact "${artifact.id}" has no relations (orphaned)`,
+        path: entityId,
+        message: `Artifact "${entityId}" has no relations (orphaned)`,
         severity: "warning",
         rule: "ea:verify:orphan-artifact",
       });
@@ -100,17 +103,19 @@ function checkOrphanArtifacts(artifacts: EaArtifactBase[]): EaValidationError[] 
 }
 
 /** Check lifecycle consistency — deprecated must have reason, active must have owner, etc. */
-function checkLifecycleConsistency(artifacts: EaArtifactBase[]): EaValidationError[] {
+function checkLifecycleConsistency(entities: BackstageEntity[]): EaValidationError[] {
   const errors: EaValidationError[] = [];
 
-  for (const artifact of artifacts) {
+  for (const entity of entities) {
+    const entityId = getEntityId(entity);
+    const status = getEntityStatus(entity);
     // Deprecated artifacts should indicate why
-    if (artifact.status === "deprecated") {
-      if (!artifact.summary?.toLowerCase().includes("deprecated") &&
-          !artifact.tags?.includes("deprecated")) {
+    if (status === "deprecated") {
+      if (!entity.metadata.description?.toLowerCase().includes("deprecated") &&
+          !entity.metadata.tags?.includes("deprecated")) {
         errors.push({
-          path: artifact.id,
-          message: `Deprecated artifact "${artifact.id}" should explain why it is deprecated in its summary or tags`,
+          path: entityId,
+          message: `Deprecated artifact "${entityId}" should explain why it is deprecated in its summary or tags`,
           severity: "warning",
           rule: "ea:verify:deprecated-needs-reason",
         });
@@ -118,12 +123,12 @@ function checkLifecycleConsistency(artifacts: EaArtifactBase[]): EaValidationErr
     }
 
     // Active artifacts in transitions domain must have a target date or link
-    if (artifact.status === "active" && getDomainForKind(artifact.kind) === "transitions") {
-      const hasTarget = artifact.relations?.some((r) => r.type === "targets" || r.type === "implementedBy");
+    if (status === "active" && getEntityKindMapping(entity)?.domain === "transitions") {
+      const hasTarget = getEntitySpecRelations(entity).some((rel) => rel.legacyType === "targets" || rel.legacyType === "implementedBy");
       if (!hasTarget) {
         errors.push({
-          path: artifact.id,
-          message: `Active transition artifact "${artifact.id}" should have a "targets" or "implementedBy" relation`,
+          path: entityId,
+          message: `Active transition artifact "${entityId}" should have a "targets" or "implementedBy" relation`,
           severity: "warning",
           rule: "ea:verify:transition-needs-target",
         });
@@ -171,8 +176,8 @@ export async function runEaVerification(
   const strict = options?.strict ?? false;
   const ruleOverrides = options?.ruleOverrides ?? {};
 
-  const loadResult = await eaRoot.loadArtifacts();
-  const artifacts = loadResult.artifacts;
+  const loadResult = await eaRoot.loadEntities();
+  const entities = loadResult.entities;
 
   let totalChecks = 0;
   let passedChecks = 0;
@@ -188,7 +193,7 @@ export async function runEaVerification(
 
   // 2. Quality rules
   totalChecks++;
-  const qualityResult = validateEaArtifacts(artifacts.map(artifactToBackstage), options);
+  const qualityResult = validateBackstageEntities(entities, options);
   if (qualityResult.errors.length === 0 && qualityResult.warnings.length === 0) {
     passedChecks++;
   }
@@ -197,7 +202,7 @@ export async function runEaVerification(
 
   // 3. Relation target integrity
   totalChecks++;
-  const relationErrors = checkRelationTargets(artifacts);
+  const relationErrors = checkRelationTargets(entities);
   if (relationErrors.length === 0) {
     passedChecks++;
   } else {
@@ -206,7 +211,7 @@ export async function runEaVerification(
 
   // 4. Orphan artifacts
   totalChecks++;
-  const orphanWarnings = checkOrphanArtifacts(artifacts);
+  const orphanWarnings = checkOrphanArtifacts(entities);
   if (orphanWarnings.length === 0) {
     passedChecks++;
   } else {
@@ -215,7 +220,7 @@ export async function runEaVerification(
 
   // 5. Lifecycle consistency
   totalChecks++;
-  const lifecycleErrors = checkLifecycleConsistency(artifacts);
+  const lifecycleErrors = checkLifecycleConsistency(entities);
   if (lifecycleErrors.length === 0) {
     passedChecks++;
   } else {
@@ -228,7 +233,7 @@ export async function runEaVerification(
     plugins = await loadEaPlugins(options.plugins, eaRoot.projectRoot);
     totalChecks++;
     const pluginFindings = runEaPluginChecks(plugins, {
-      artifacts,
+      entities,
       projectRoot: eaRoot.projectRoot,
       config: eaRoot.v1Config as unknown as Record<string, unknown> ?? {},
     });
@@ -245,7 +250,7 @@ export async function runEaVerification(
     totalChecks++;
     try {
       const hookFindings = await plugin.hooks.onValidate({
-        artifacts,
+        entities,
         builtinFindings: [...allFindings],
       });
       const prefixed = hookFindings.map((f) => ({
@@ -275,8 +280,8 @@ export async function runEaVerification(
 
   // Build domain counts
   const byDomain: Record<string, number> = {};
-  for (const a of artifacts) {
-    const domain = getDomainForKind(a.kind) ?? "unknown";
+  for (const entity of entities) {
+    const domain = getEntityKindMapping(entity)?.domain ?? "unknown";
     byDomain[domain] = (byDomain[domain] ?? 0) + 1;
   }
 
@@ -288,7 +293,7 @@ export async function runEaVerification(
       warnings: warnings.length,
       errors: errors.length,
       artifacts: {
-        total: artifacts.length,
+        total: entities.length,
         byDomain,
       },
     },

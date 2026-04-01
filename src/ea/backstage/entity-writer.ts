@@ -1,12 +1,12 @@
 /**
  * Backstage Entity Writer Service
  *
- * CRUD operations for Backstage entities in all three storage modes.
+ * CRUD operations for Backstage entities in supported storage modes.
  * This service handles the filesystem I/O for creating, updating, and
  * deleting entities regardless of storage mode.
  */
 
-import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
+import { readFile, writeFile, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 
@@ -19,7 +19,6 @@ import {
 } from "./writer.js";
 import {
   parseBackstageYaml,
-  parseFrontmatterEntity,
   extractMarkdownBody,
 } from "./parser.js";
 
@@ -211,7 +210,7 @@ export async function writeEntity(
   config: AnchoredSpecConfigV1,
   projectRoot: string,
 ): Promise<EntityWriteResult> {
-  const mode = config.entityMode ?? "artifacts";
+  const mode = config.entityMode ?? "manifest";
 
   switch (mode) {
     case "manifest": {
@@ -231,10 +230,7 @@ export async function writeEntity(
     }
 
     default:
-      throw new Error(
-        `writeEntity does not support '${mode}' mode. ` +
-          "Use the legacy artifact writer for artifacts mode.",
-      );
+      throw new Error(`Unsupported entity mode: ${mode}`);
   }
 }
 
@@ -248,7 +244,7 @@ export async function deleteEntity(
   projectRoot: string,
   namespace: string = "default",
 ): Promise<EntityDeleteResult> {
-  const mode = config.entityMode ?? "artifacts";
+  const mode = config.entityMode ?? "manifest";
 
   switch (mode) {
     case "manifest": {
@@ -271,9 +267,6 @@ export async function deleteEntity(
     }
 
     default:
-      throw new Error(
-        `deleteEntity does not support '${mode}' mode. ` +
-          "Use the legacy artifact writer for artifacts mode.",
-      );
+      throw new Error(`Unsupported entity mode: ${mode}`);
   }
 }

@@ -9,7 +9,8 @@
  */
 
 import type { EaDiffReport, ArtifactDiff, FieldChange } from "./diff.js";
-import type { EaArtifactBase } from "./types.js";
+import type { BackstageEntity } from "./backstage/types.js";
+import { getEntityId, getEntityStatus } from "./backstage/accessors.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -60,8 +61,8 @@ interface CompatibilityRule {
 }
 
 interface RuleContext {
-  baseArtifact?: EaArtifactBase;
-  headArtifact?: EaArtifactBase;
+  baseEntity?: BackstageEntity;
+  headEntity?: BackstageEntity;
 }
 
 /**
@@ -75,7 +76,7 @@ const COMPAT_RULES: CompatibilityRule[] = [
     id: "compat:artifact-removed",
     evaluate(diff, ctx) {
       if (diff.changeType !== "removed") return [];
-      const status = ctx.baseArtifact?.status ?? "unknown";
+      const status = ctx.baseEntity ? getEntityStatus(ctx.baseEntity) : "unknown";
       if (LIVE_STATUSES.has(status)) {
         return [{
           rule: "compat:artifact-removed",
@@ -91,7 +92,7 @@ const COMPAT_RULES: CompatibilityRule[] = [
     id: "compat:artifact-removed-deprecated",
     evaluate(diff, ctx) {
       if (diff.changeType !== "removed") return [];
-      if (ctx.baseArtifact?.status === "deprecated") {
+      if (ctx.baseEntity && getEntityStatus(ctx.baseEntity) === "deprecated") {
         return [{
           rule: "compat:artifact-removed-deprecated",
           level: "compatible",
@@ -313,10 +314,10 @@ const COMPAT_RULES: CompatibilityRule[] = [
  */
 export function assessCompatibility(
   diffReport: EaDiffReport,
-  artifacts?: { base: EaArtifactBase[]; head: EaArtifactBase[] },
+  entities?: { base: BackstageEntity[]; head: BackstageEntity[] },
 ): CompatibilityReport {
-  const baseMap = new Map((artifacts?.base ?? []).map((a) => [a.id, a]));
-  const headMap = new Map((artifacts?.head ?? []).map((a) => [a.id, a]));
+  const baseMap = new Map((entities?.base ?? []).map((entity) => [getEntityId(entity), entity]));
+  const headMap = new Map((entities?.head ?? []).map((entity) => [getEntityId(entity), entity]));
 
   const assessments: CompatibilityAssessment[] = [];
 
@@ -324,8 +325,8 @@ export function assessCompatibility(
     if (diff.changeType === "unchanged") continue;
 
     const ctx: RuleContext = {
-      baseArtifact: baseMap.get(diff.artifactId),
-      headArtifact: headMap.get(diff.artifactId),
+      baseEntity: baseMap.get(diff.artifactId),
+      headEntity: headMap.get(diff.artifactId),
     };
 
     const reasons: CompatibilityReason[] = [];
