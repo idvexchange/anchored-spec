@@ -32,7 +32,7 @@ export function eaImpactCommand(): Command {
     .option("--format <format>", "Output format: markdown, json", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--max-depth <n>", "Maximum traversal depth")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--from-file <path>", "Resolve file to entity refs, then analyze impact")
     .option("--from-diff [ref]", "Resolve git diff to entity refs, then analyze impact")
     .option("--staged", "Use staged changes with --from-diff")

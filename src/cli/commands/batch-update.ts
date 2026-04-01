@@ -189,7 +189,7 @@ export function batchUpdateCommand(): Command {
       "Fields to set (e.g., confidence=declared)",
     )
     .option("--domain <domain>", "Filter to a specific EA domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--dry-run", "Show what would change without writing files")
     .option("--json", "Output as JSON")
     .action(async (options) => {

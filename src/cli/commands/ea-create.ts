@@ -24,7 +24,7 @@ export function eaCreateCommand(): Command {
     .option("--title <title>", "Human-readable title")
     .option("--id <id>", "Entity name slug")
     .option("--owner <owner>", "Owner team or person", "your-team")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("-i, --interactive", "Interactive wizard — prompts for kind, title, owner, and relations")
     .action(async (kind: string | undefined, options) => {
       if (options.interactive) {
@@ -53,7 +53,7 @@ interface CreateOptions {
 
 function createArtifact(kind: string, title: string, options: CreateOptions): void {
   const cwd = process.cwd();
-  const rootDir = (options.rootDir as string) ?? "ea";
+  const rootDir = (options.rootDir as string) ?? "docs";
   const v1Config = loadProjectConfig(cwd, rootDir);
   createBackstageEntity(kind, title, options, v1Config, cwd);
 }

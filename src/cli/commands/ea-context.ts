@@ -881,7 +881,7 @@ export function eaContextCommand(): Command {
   return new Command("context")
     .description("Assemble a complete AI context package for an entity")
     .argument("<entity-ref>", "Entity ref to assemble context for")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
     .option("--max-tokens <n>", "Maximum estimated tokens for the output")
     .option("--depth <n>", "Maximum depth to follow relations")

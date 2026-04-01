@@ -36,7 +36,7 @@ afterEach(() => {
 describe("evidence helpers", () => {
   it("creates, merges, writes, and reloads EA evidence records", () => {
     const dir = makeWorkspace("evidence-io");
-    const outputPath = join(dir, "ea", "evidence", "ea-evidence.json");
+    const outputPath = join(dir, "docs", "evidence", "ea-evidence.json");
 
     const initial = createEaEvidenceRecord(
       "SVC-auth",
@@ -161,7 +161,7 @@ describe("evidence CLI", () => {
       makeArtifact({ id: "SVC-auth", kind: "service" }),
     ]);
 
-    const evidencePath = join(dir, "ea", "evidence", "ea-evidence.json");
+    const evidencePath = join(dir, "docs", "evidence", "ea-evidence.json");
     writeEaEvidence(
       {
         generatedAt: new Date().toISOString(),

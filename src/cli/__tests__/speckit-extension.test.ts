@@ -11,7 +11,7 @@ import {
 describe("Spec-Kit Extension", () => {
   // ─── generateSpecKitExtension ────────────────────────────────────
   describe("generateSpecKitExtension", () => {
-    const config = { rootDir: "ea", domains: { systems: "ea/systems" } };
+    const config = { rootDir: "docs", domains: { systems: "docs/systems" } };
     let ext: ReturnType<typeof generateSpecKitExtension>;
 
     beforeEach(() => {
@@ -66,7 +66,7 @@ describe("Spec-Kit Extension", () => {
     it("writes extension files to .specify/extensions/anchored-spec/", () => {
       const result = writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: { systems: "ea/systems" } },
+        { rootDir: "docs", domains: { systems: "docs/systems" } },
         ["speckit"],
       );
 
@@ -84,14 +84,14 @@ describe("Spec-Kit Extension", () => {
       // First write
       writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: {} },
+        { rootDir: "docs", domains: {} },
         ["speckit"],
       );
 
       // Second write
       const result2 = writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: {} },
+        { rootDir: "docs", domains: {} },
         ["speckit"],
       );
 
@@ -102,7 +102,7 @@ describe("Spec-Kit Extension", () => {
     it("includes speckit when target is 'all'", () => {
       const result = writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: { systems: "ea/systems" } },
+        { rootDir: "docs", domains: { systems: "docs/systems" } },
         ["all"],
       );
 
@@ -118,7 +118,7 @@ describe("Spec-Kit Extension", () => {
     it("manifest is valid YAML-like content", () => {
       writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: {} },
+        { rootDir: "docs", domains: {} },
         ["speckit"],
       );
 

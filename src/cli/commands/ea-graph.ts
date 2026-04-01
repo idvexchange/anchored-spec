@@ -24,7 +24,7 @@ export function eaGraphCommand(): Command {
     .option("--format <format>", "Output format: mermaid, dot, json", "mermaid")
     .option("--output <file>", "Write to file instead of stdout")
     .option("--domain <domain>", "Include only a specific domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--direction <dir>", "Graph direction for Mermaid: TB or LR", "LR")
     .option("--focus <entity-ref>", "Focus on a specific entity and its neighbors")
     .option("--depth <n>", "Depth for --focus traversal", "2")

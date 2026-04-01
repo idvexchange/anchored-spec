@@ -56,7 +56,7 @@ export function eaDiscoverCommand(): Command {
     .option("--json", "Output discovery report as JSON")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
     .option("--no-cache", "Disable resolver cache")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -282,7 +282,7 @@ export function eaDiscoverCommand(): Command {
           const { extractFactsFromDocs } = await import("../../ea/resolvers/markdown.js");
           manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
         }
-        const factsDir = join(cwd, eaConfig.rootDir ?? "ea", "facts");
+        const factsDir = join(cwd, eaConfig.rootDir ?? "docs", "facts");
         const written = await writeFactManifests(manifests, factsDir);
         if (!options.json) {
           console.log(chalk.dim(`  Wrote ${written.length} fact manifest(s) to ${factsDir}`));

@@ -226,7 +226,7 @@ describe("Document Traceability", () => {
         `ea-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       );
       mkdirSync(join(tmpDir, "docs"), { recursive: true });
-      mkdirSync(join(tmpDir, "ea", "systems"), { recursive: true });
+      mkdirSync(join(tmpDir, "docs", "systems"), { recursive: true });
     });
 
     afterEach(() => {

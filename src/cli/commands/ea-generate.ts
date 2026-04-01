@@ -24,7 +24,7 @@ export function eaGenerateCommand(): Command {
     .option("--dry-run", "Show what would be generated without writing files")
     .option("--json", "Output report as JSON")
     .option("--output-dir <path>", "Output directory", "generated")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });

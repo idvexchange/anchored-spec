@@ -178,7 +178,7 @@ export function eaTransitionCommand(): Command {
     .description("Advance an entity to a new lifecycle status")
     .argument("<entity-ref>", "Entity ref to transition")
     .option("--to <status>", "Target status (default: next in lifecycle)")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--force", "Skip gate validation")
     .option("--dry-run", "Show what would happen without writing")
     .action(async (entityInput: string, options) => {

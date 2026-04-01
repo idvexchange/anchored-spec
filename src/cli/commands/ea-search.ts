@@ -29,7 +29,7 @@ export function eaSearchCommand(): Command {
     .option("--status <status>", "Filter by status (draft, active, deprecated, retired)")
     .option("--tag <tag>", "Filter by tag")
     .option("--confidence <level>", "Filter by confidence (declared, observed, inferred)")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--json", "Output results as JSON")
     .action(async (query: string, options) => {
       const cwd = process.cwd();

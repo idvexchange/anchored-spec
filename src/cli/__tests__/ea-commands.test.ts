@@ -50,9 +50,9 @@ describe("CLI v2 commands", () => {
     expect(result.exitCode).toBe(0);
     expect(existsSync(join(dir, ".anchored-spec", "config.json"))).toBe(true);
     expect(existsSync(join(dir, "catalog-info.yaml"))).toBe(true);
-    expect(existsSync(join(dir, "ea", "generated"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "generated"))).toBe(true);
     expect(
-      existsSync(join(dir, "ea", "schemas", "config-v1.schema.json")),
+      existsSync(join(dir, "docs", "schemas", "config-v1.schema.json")),
     ).toBe(true);
 
     const config = readJsonFile<{ entityMode: string }>(

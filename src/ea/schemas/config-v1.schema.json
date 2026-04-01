@@ -14,7 +14,7 @@
     },
     "rootDir": {
       "type": "string",
-      "default": "ea",
+      "default": "docs",
       "description": "Root directory for EA artifacts."
     },
     "generatedDir": {

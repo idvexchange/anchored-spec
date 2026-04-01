@@ -7,7 +7,7 @@ describe("resolveConfigV1", () => {
     const config = resolveConfigV1();
 
     expect(config.schemaVersion).toBe("1.0");
-    expect(config.rootDir).toBe("ea");
+    expect(config.rootDir).toBe("docs");
     expect(config.generatedDir).toBe("ea/generated");
     expect(config.workflowPolicyPath).toBe("ea/workflow-policy.yaml");
     expect(config.entityMode).toBe("manifest");

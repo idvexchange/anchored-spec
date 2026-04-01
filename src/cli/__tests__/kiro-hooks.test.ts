@@ -11,7 +11,7 @@ import {
 describe("Kiro Hooks", () => {
   // ─── generateKiroHooks ───────────────────────────────────────────
   describe("generateKiroHooks", () => {
-    const config = { rootDir: "ea", domains: { systems: "ea/systems" } };
+    const config = { rootDir: "docs", domains: { systems: "docs/systems" } };
     let hooks: ReturnType<typeof generateKiroHooks>;
 
     beforeEach(() => {
@@ -71,7 +71,7 @@ describe("Kiro Hooks", () => {
     it("writes both steering and hooks files for kiro target", () => {
       const result = writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: { systems: "ea/systems" } },
+        { rootDir: "docs", domains: { systems: "docs/systems" } },
         ["kiro"],
       );
 
@@ -93,7 +93,7 @@ describe("Kiro Hooks", () => {
     it("hook files contain valid YAML structure", () => {
       writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: {} },
+        { rootDir: "docs", domains: {} },
         ["kiro"],
       );
 
@@ -104,8 +104,8 @@ describe("Kiro Hooks", () => {
     });
 
     it("skips existing hook files on second write", () => {
-      writeAiConfigFiles(tempDir, { rootDir: "ea", domains: {} }, ["kiro"]);
-      const result2 = writeAiConfigFiles(tempDir, { rootDir: "ea", domains: {} }, ["kiro"]);
+      writeAiConfigFiles(tempDir, { rootDir: "docs", domains: {} }, ["kiro"]);
+      const result2 = writeAiConfigFiles(tempDir, { rootDir: "docs", domains: {} }, ["kiro"]);
 
       expect(result2.created).toHaveLength(0);
       expect(result2.skipped).toHaveLength(6);
