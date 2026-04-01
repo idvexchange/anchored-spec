@@ -1,7 +1,0 @@
-{
-  "schemaVersion": "1.0",
-  "rootDir": "ea",
-  "generatedDir": "ea/generated",
-  "entityMode": "manifest",
-  "manifestPath": "catalog-info.yaml"
-}
