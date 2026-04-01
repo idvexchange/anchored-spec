@@ -243,6 +243,7 @@ export function analyzeImpact(
   const bfsResults: Array<{
     id: string; kind: string; domain: string; title: string;
     depth: number; viaRelations: string[];
+    confidence: "declared" | "observed" | "inferred";
   }> = [];
 
   // BFS with depth tracking
@@ -277,6 +278,7 @@ export function analyzeImpact(
       title: node.title,
       depth,
       viaRelations: [viaRelation],
+      confidence: node.confidence,
     });
 
     if (maxDepth !== undefined && depth >= maxDepth) continue;
@@ -293,7 +295,7 @@ export function analyzeImpact(
 
   // Score and classify each entity
   let impacted: ImpactedEntity[] = bfsResults.map((entry) => {
-    const confidence: "declared" | "observed" | "inferred" = "declared";
+    const confidence = entry.confidence ?? "declared";
     const category = classifyCategory(entry.kind);
     const { score, breakdown } = computeScore(
       entry.depth, graphMaxDepth, entry.viaRelations, confidence, weights,

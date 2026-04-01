@@ -159,12 +159,15 @@ export function eaImpactCommand(): Command {
         if (!mergedReport) {
           mergedReport = report;
         } else {
-          // Merge reports for multi-entity resolution
-          const seen = new Set(mergedReport.impacted.map((e) => e.id));
+          // Merge reports: keep higher score when duplicate
+          const existingById = new Map(mergedReport.impacted.map((e, i) => [e.id, i]));
           for (const entity of report.impacted) {
-            if (!seen.has(entity.id)) {
+            const existingIdx = existingById.get(entity.id);
+            if (existingIdx === undefined) {
+              existingById.set(entity.id, mergedReport.impacted.length);
               mergedReport.impacted.push(entity);
-              seen.add(entity.id);
+            } else if (entity.score > mergedReport.impacted[existingIdx]!.score) {
+              mergedReport.impacted[existingIdx] = entity;
             }
           }
           mergedReport.totalImpacted = mergedReport.impacted.length;

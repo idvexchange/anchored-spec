@@ -11,7 +11,7 @@
  * Design reference: Intelligence Layer Plan §Phase I1
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityId,
@@ -319,20 +319,20 @@ export function extractChangedFiles(
   }
 
   if (input.staged) {
-    const output = execSync("git diff --cached --name-only", execOpts);
+    const output = execFileSync("git", ["diff", "--cached", "--name-only"], execOpts);
     return output.trim().split("\n").filter(Boolean);
   }
 
   if (input.refRange) {
-    const output = execSync(
-      `git diff --name-only ${input.refRange}`,
-      execOpts,
-    );
+    if (!/^[a-zA-Z0-9_.\-\/~^@{}]+(\.\.[a-zA-Z0-9_.\-\/~^@{}]+)?$/.test(input.refRange)) {
+      throw new Error(`Invalid git ref range: ${input.refRange}`);
+    }
+    const output = execFileSync("git", ["diff", "--name-only", input.refRange], execOpts);
     return output.trim().split("\n").filter(Boolean);
   }
 
   // Default: unstaged changes
-  const output = execSync("git diff --name-only", execOpts);
+  const output = execFileSync("git", ["diff", "--name-only"], execOpts);
   return output.trim().split("\n").filter(Boolean);
 }
 
