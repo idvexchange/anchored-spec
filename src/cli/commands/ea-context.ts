@@ -44,6 +44,54 @@ const ROLE_PRIORITY: readonly string[] = [
   "test",
 ];
 
+// ─── Tier Presets ─────────────────────────────────────────────────────
+
+type ContextTier = "brief" | "standard" | "deep" | "llm";
+
+interface TierPreset {
+  depth: number;
+  maxTokens: number | undefined;
+  maxTracedDocs: number | undefined;
+  includeConstraintBrief: boolean;
+  includeChangeRisks: boolean;
+  preferCanonical: boolean;
+}
+
+const TIER_PRESETS: Record<ContextTier, TierPreset> = {
+  brief: {
+    depth: 0,
+    maxTokens: 2000,
+    maxTracedDocs: 3,
+    includeConstraintBrief: false,
+    includeChangeRisks: false,
+    preferCanonical: false,
+  },
+  standard: {
+    depth: 1,
+    maxTokens: 8000,
+    maxTracedDocs: undefined,
+    includeConstraintBrief: true,
+    includeChangeRisks: false,
+    preferCanonical: false,
+  },
+  deep: {
+    depth: 3,
+    maxTokens: undefined,
+    maxTracedDocs: undefined,
+    includeConstraintBrief: true,
+    includeChangeRisks: true,
+    preferCanonical: false,
+  },
+  llm: {
+    depth: 2,
+    maxTokens: 8000,
+    maxTracedDocs: undefined,
+    includeConstraintBrief: true,
+    includeChangeRisks: true,
+    preferCanonical: true,
+  },
+};
+
 // ─── Types (internal) ─────────────────────────────────────────────────
 
 interface TracedDoc {
@@ -51,12 +99,17 @@ interface TracedDoc {
   role: string | undefined;
   content: string;
   tokens: number;
+  inclusionReason?: string;
+  isCanonical?: boolean;
+  isDerived?: boolean;
+  derivedFrom?: string;
 }
 
 interface RequiredDoc {
   path: string;
   content: string;
   tokens: number;
+  inclusionReason?: string;
 }
 
 interface EntityContextView {
@@ -78,6 +131,21 @@ interface RelatedEntityInfo {
   status: string;
   summary: string;
   owners: string[];
+  inclusionReason?: string;
+}
+
+interface ConstraintEntry {
+  entityRef: string;
+  kind: string;
+  title: string;
+  description: string;
+  depth: number;
+  inclusionReason: string;
+}
+
+interface ChangeRisk {
+  type: "drift" | "deprecated-relation";
+  description: string;
 }
 
 interface ContextResult {
@@ -86,8 +154,20 @@ interface ContextResult {
   requiredDocs: RequiredDoc[];
   relatedEntities: RelatedEntityInfo[];
   additionalRefs: string[];
+  constraints: ConstraintEntry[];
+  changeRisks: ChangeRisk[];
   tokenEstimate: number;
   truncated: boolean;
+  tier?: ContextTier;
+}
+
+interface AssembleOptions {
+  maxDepth: number;
+  maxTracedDocs?: number;
+  includeConstraintBrief?: boolean;
+  includeChangeRisks?: boolean;
+  preferCanonical?: boolean;
+  whyIncluded?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -119,6 +199,45 @@ function safeReadFile(filePath: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Check for @anchored-spec:canonical or @anchored-spec:derived markers in content. */
+function detectDocumentMarkers(content: string): { isCanonical: boolean; isDerived: boolean; derivedFrom?: string } {
+  const canonicalRe = /<!--\s*@anchored-spec:canonical\s*-->/;
+  const derivedRe = /<!--\s*@anchored-spec:derived\s+source="([^"]+)"\s*-->/;
+
+  const isCanonical = canonicalRe.test(content);
+  const derivedMatch = content.match(derivedRe);
+
+  return {
+    isCanonical,
+    isDerived: !!derivedMatch,
+    derivedFrom: derivedMatch?.[1],
+  };
+}
+
+/** Apply canonical preference: replace derived docs with reference lines when canonical is present. */
+function applyCanonicalPreference(tracedDocs: TracedDoc[]): TracedDoc[] {
+  const canonicalPaths = new Set<string>();
+
+  for (const doc of tracedDocs) {
+    if (doc.isCanonical) canonicalPaths.add(doc.path);
+  }
+
+  return tracedDocs.map((doc) => {
+    if (doc.isDerived && doc.derivedFrom && canonicalPaths.has(doc.derivedFrom)) {
+      const refLine = `> See also: ${doc.path} (derived from ${doc.derivedFrom})`;
+      return {
+        ...doc,
+        content: refLine,
+        tokens: estimateTokens(refLine),
+        inclusionReason: doc.inclusionReason
+          ? `${doc.inclusionReason} [reduced: canonical source "${doc.derivedFrom}" preferred]`
+          : `Derived doc reduced: canonical source "${doc.derivedFrom}" preferred`,
+      };
+    }
+    return doc;
+  });
 }
 
 // ─── Context assembly ─────────────────────────────────────────────────
@@ -187,13 +306,15 @@ function assembleContext(
   entities: EntityContextView[],
   docs: ScannedDoc[],
   cwd: string,
-  maxDepth: number,
+  options: AssembleOptions,
 ): ContextResult {
   const entityMap = new Map<string, EntityContextView>();
   for (const entity of entities) entityMap.set(entity.entityRef, entity);
 
+  const { maxDepth, maxTracedDocs, includeConstraintBrief, includeChangeRisks, preferCanonical, whyIncluded } = options;
+
   // ── 1. Traced documents ───────────────────────────────────────────
-  const tracedDocs: TracedDoc[] = [];
+  let tracedDocs: TracedDoc[] = [];
 
   for (const ref of target.traceRefs ?? []) {
     if (isUrl(ref.path)) continue;
@@ -202,15 +323,40 @@ function assembleContext(
     const content = safeReadFile(absPath);
     if (content == null) continue;
 
-    // Check frontmatter for a pre-computed token count
     const parsed = parseFrontmatter(content);
     const tokens = parsed.frontmatter.tokens ?? estimateTokens(content);
 
-    tracedDocs.push({ path: ref.path, role: ref.role, content, tokens });
+    const markers = preferCanonical ? detectDocumentMarkers(content) : undefined;
+    const priorityIdx = rolePriority(ref.role);
+
+    tracedDocs.push({
+      path: ref.path,
+      role: ref.role,
+      content,
+      tokens,
+      ...(whyIncluded ? {
+        inclusionReason: `direct traceRef with role "${ref.role ?? "none"}" (priority: ${priorityIdx + 1}/${ROLE_PRIORITY.length + 1})`,
+      } : {}),
+      ...(markers ? {
+        isCanonical: markers.isCanonical,
+        isDerived: markers.isDerived,
+        derivedFrom: markers.derivedFrom,
+      } : {}),
+    });
   }
 
   // Sort by role priority
   tracedDocs.sort((a, b) => rolePriority(a.role) - rolePriority(b.role));
+
+  // Apply canonical preference before limiting
+  if (preferCanonical) {
+    tracedDocs = applyCanonicalPreference(tracedDocs);
+  }
+
+  // Limit traced docs if maxTracedDocs is set
+  if (maxTracedDocs != null && tracedDocs.length > maxTracedDocs) {
+    tracedDocs = tracedDocs.slice(0, maxTracedDocs);
+  }
 
   // ── 2. Transitive required documents ──────────────────────────────
   const requiredDocs: RequiredDoc[] = [];
@@ -228,7 +374,14 @@ function assembleContext(
 
       const reqParsed = parseFrontmatter(content);
       const tokens = reqParsed.frontmatter.tokens ?? estimateTokens(content);
-      requiredDocs.push({ path: reqPath, content, tokens });
+      requiredDocs.push({
+        path: reqPath,
+        content,
+        tokens,
+        ...(whyIncluded ? {
+          inclusionReason: `transitive via requires frontmatter in ${td.path}`,
+        } : {}),
+      });
     }
   }
 
@@ -239,12 +392,25 @@ function assembleContext(
   for (const relatedId of relatedIds) {
     const relatedEntity = entityMap.get(relatedId);
     if (!relatedEntity) continue;
+
+    // Determine how this entity is related for inclusion reason
+    let inclusionReason: string | undefined;
+    if (whyIncluded) {
+      const directRel = target.relations.find((r) => r.target === relatedId);
+      if (directRel) {
+        inclusionReason = `1-hop ${directRel.type} relation from ${target.entityRef}`;
+      } else {
+        inclusionReason = `multi-hop relation from ${target.entityRef} (within ${maxDepth} hops)`;
+      }
+    }
+
     relatedEntities.push({
       entityRef: relatedEntity.entityRef,
       kind: relatedEntity.kind,
       status: relatedEntity.status,
       summary: relatedEntity.summary,
       owners: relatedEntity.owners,
+      ...(inclusionReason ? { inclusionReason } : {}),
     });
   }
 
@@ -260,12 +426,64 @@ function assembleContext(
     }
   }
 
-  // ── 5. Token estimate ─────────────────────────────────────────────
+  // ── 5. Constraints (Decision/Requirement entities within depth) ───
+  const constraints: ConstraintEntry[] = [];
+  if (includeConstraintBrief) {
+    const constraintKinds = new Set(["Decision", "Requirement", "decision", "requirement"]);
+    const visited = new Set<string>([target.entityRef]);
+    let frontier = [target.entityRef];
+
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const next: string[] = [];
+      for (const id of frontier) {
+        const entity = entityMap.get(id);
+        if (!entity) continue;
+        for (const rel of entity.relations ?? []) {
+          if (visited.has(rel.target)) continue;
+          visited.add(rel.target);
+          next.push(rel.target);
+
+          const relEntity = entityMap.get(rel.target);
+          if (relEntity && constraintKinds.has(relEntity.kind)) {
+            constraints.push({
+              entityRef: relEntity.entityRef,
+              kind: relEntity.kind,
+              title: relEntity.summary,
+              description: relEntity.summary,
+              depth,
+              inclusionReason: `${depth}-hop ${rel.type} relation (${relEntity.kind}) from ${target.entityRef}`,
+            });
+          }
+        }
+      }
+      if (next.length === 0) break;
+      frontier = next;
+    }
+  }
+
+  // ── 6. Change risks ───────────────────────────────────────────────
+  const changeRisks: ChangeRisk[] = [];
+  if (includeChangeRisks) {
+    for (const rel of target.relations ?? []) {
+      const relEntity = entityMap.get(rel.target);
+      if (relEntity && relEntity.status === "deprecated") {
+        changeRisks.push({
+          type: "deprecated-relation",
+          description: `Relation ${rel.type} → ${rel.target} targets a deprecated entity (${relEntity.kind})`,
+        });
+      }
+    }
+  }
+
+  // ── 7. Token estimate ─────────────────────────────────────────────
   let tokenEstimate = estimateTokens(JSON.stringify(target));
   for (const td of tracedDocs) tokenEstimate += td.tokens;
   for (const rd of requiredDocs) tokenEstimate += rd.tokens;
   for (const relatedEntity of relatedEntities) {
     tokenEstimate += estimateTokens(JSON.stringify(relatedEntity));
+  }
+  for (const c of constraints) {
+    tokenEstimate += estimateTokens(JSON.stringify(c));
   }
 
   return {
@@ -274,6 +492,8 @@ function assembleContext(
     requiredDocs,
     relatedEntities,
     additionalRefs,
+    constraints,
+    changeRisks,
     tokenEstimate,
     truncated: false,
   };
@@ -289,7 +509,16 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
   // Always include the entity spec itself
   remaining -= estimateTokens(JSON.stringify(result.entity));
   if (remaining <= 0) {
-    return { ...result, tracedDocs: [], requiredDocs: [], relatedEntities: [], additionalRefs: [], tokenEstimate: maxTokens, truncated: true };
+    return { ...result, tracedDocs: [], requiredDocs: [], relatedEntities: [], additionalRefs: [], constraints: [], changeRisks: [], tokenEstimate: maxTokens, truncated: true };
+  }
+
+  // Constraints are critical — include first
+  const keptConstraints: ConstraintEntry[] = [];
+  for (const c of result.constraints) {
+    const cost = estimateTokens(JSON.stringify(c));
+    if (remaining - cost < 0) break;
+    remaining -= cost;
+    keptConstraints.push(c);
   }
 
   // Traced docs in priority order (already sorted)
@@ -320,7 +549,8 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
   }
   const relatedTruncated = keptRelated.length < result.relatedEntities.length;
 
-  const truncated = tracedTruncated || requiredTruncated || relatedTruncated;
+  const constraintsTruncated = keptConstraints.length < result.constraints.length;
+  const truncated = tracedTruncated || requiredTruncated || relatedTruncated || constraintsTruncated;
   const tokenEstimate = maxTokens - remaining;
 
   return {
@@ -328,6 +558,7 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
     tracedDocs: keptTraced,
     requiredDocs: keptRequired,
     relatedEntities: keptRelated,
+    constraints: keptConstraints,
     tokenEstimate,
     truncated,
   };
@@ -371,8 +602,8 @@ function formatAnchors(entity: EntityContextView): string[] {
   return lines;
 }
 
-function renderMarkdown(result: ContextResult): string {
-  const { entity, tracedDocs, requiredDocs, relatedEntities, additionalRefs, tokenEstimate, truncated } = result;
+function renderMarkdown(result: ContextResult, whyIncluded?: boolean): string {
+  const { entity, tracedDocs, requiredDocs, relatedEntities, additionalRefs, constraints, changeRisks, tokenEstimate, truncated } = result;
   const lines: string[] = [];
 
   // ── Entity Specification ──────────────────────────────────────────
@@ -407,6 +638,21 @@ function renderMarkdown(result: ContextResult): string {
     lines.push(...anchorLines);
   }
 
+  // ── Constraints ───────────────────────────────────────────────────
+  if (constraints.length > 0) {
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+    lines.push("## Constraints");
+    for (const c of constraints) {
+      lines.push("");
+      if (whyIncluded) {
+        lines.push(`> Included because: ${c.inclusionReason}`);
+      }
+      lines.push(`- **${c.entityRef}** (${c.kind}): ${c.description || c.title}`);
+    }
+  }
+
   // ── Traced Documents ──────────────────────────────────────────────
   if (tracedDocs.length > 0) {
     lines.push("");
@@ -417,6 +663,10 @@ function renderMarkdown(result: ContextResult): string {
       const roleTag = td.role ? ` (${td.role})` : "";
       lines.push("");
       lines.push(`### ${td.path}${roleTag}`);
+      if (whyIncluded && td.inclusionReason) {
+        lines.push(`> Included because: ${td.inclusionReason}`);
+        lines.push("");
+      }
       lines.push(td.content);
     }
   }
@@ -430,6 +680,10 @@ function renderMarkdown(result: ContextResult): string {
     for (const rd of requiredDocs) {
       lines.push("");
       lines.push(`### ${rd.path}`);
+      if (whyIncluded && rd.inclusionReason) {
+        lines.push(`> Included because: ${rd.inclusionReason}`);
+        lines.push("");
+      }
       lines.push(rd.content);
     }
   }
@@ -443,8 +697,23 @@ function renderMarkdown(result: ContextResult): string {
     for (const relatedEntity of relatedEntities) {
       lines.push("");
       lines.push(`### ${relatedEntity.entityRef} (${relatedEntity.kind}, ${relatedEntity.status})`);
+      if (whyIncluded && relatedEntity.inclusionReason) {
+        lines.push(`> Included because: ${relatedEntity.inclusionReason}`);
+        lines.push("");
+      }
       lines.push(`- ${chalk.bold("Summary")}: ${relatedEntity.summary}`);
       lines.push(`- ${chalk.bold("Owners")}: ${relatedEntity.owners.join(", ")}`);
+    }
+  }
+
+  // ── Change Risks ──────────────────────────────────────────────────
+  if (changeRisks.length > 0) {
+    lines.push("");
+    lines.push("---");
+    lines.push("");
+    lines.push("## Change Risks");
+    for (const risk of changeRisks) {
+      lines.push(`- ${risk.description}`);
     }
   }
 
@@ -465,12 +734,13 @@ function renderMarkdown(result: ContextResult): string {
   lines.push("---");
   lines.push("");
   const truncNote = truncated ? " (truncated due to token budget)" : "";
-  lines.push(`*Context assembled by anchored-spec. Token estimate: ~${tokenEstimate}${truncNote}*`);
+  const tierNote = result.tier ? ` | Tier: ${result.tier}` : "";
+  lines.push(`*Context assembled by anchored-spec. Token estimate: ~${tokenEstimate}${truncNote}${tierNote}*`);
 
   return lines.join("\n");
 }
 
-function buildJsonOutput(result: ContextResult): Record<string, unknown> {
+function buildJsonOutput(result: ContextResult, whyIncluded?: boolean): Record<string, unknown> {
   return {
     entity: {
       entityRef: result.entity.entityRef,
@@ -486,22 +756,123 @@ function buildJsonOutput(result: ContextResult): Record<string, unknown> {
       role: td.role,
       content: td.content,
       tokens: td.tokens,
+      ...(whyIncluded && td.inclusionReason ? { inclusionReason: td.inclusionReason } : {}),
     })),
     requiredDocs: result.requiredDocs.map((rd) => ({
       path: rd.path,
       content: rd.content,
       tokens: rd.tokens,
+      ...(whyIncluded && rd.inclusionReason ? { inclusionReason: rd.inclusionReason } : {}),
     })),
     relatedEntities: result.relatedEntities.map((relatedEntity) => ({
       entityRef: relatedEntity.entityRef,
       kind: relatedEntity.kind,
       status: relatedEntity.status,
       summary: relatedEntity.summary,
+      ...(whyIncluded && relatedEntity.inclusionReason ? { inclusionReason: relatedEntity.inclusionReason } : {}),
     })),
+    constraints: result.constraints.map((c) => ({
+      entityRef: c.entityRef,
+      kind: c.kind,
+      title: c.title,
+      description: c.description,
+      depth: c.depth,
+      ...(whyIncluded ? { inclusionReason: c.inclusionReason } : {}),
+    })),
+    changeRisks: result.changeRisks,
     additionalRefs: result.additionalRefs,
     tokenEstimate: result.tokenEstimate,
     truncated: result.truncated,
+    ...(result.tier ? { tier: result.tier } : {}),
   };
+}
+
+// ─── LLM-optimized rendering ──────────────────────────────────────────
+
+function renderLlmMarkdown(result: ContextResult): string {
+  const lines: string[] = [];
+
+  lines.push(`# Context: ${result.entity.entityRef}`);
+  lines.push("");
+
+  // Constraints first (most critical)
+  if (result.constraints.length > 0) {
+    lines.push("## Constraints (read these first)");
+    for (const c of result.constraints) {
+      lines.push(`- ${c.entityRef}: ${c.description || c.title}`);
+    }
+    lines.push("");
+  }
+
+  // Entity Specification
+  lines.push("## Entity Specification");
+  lines.push(`- **Entity Ref**: ${result.entity.entityRef}`);
+  lines.push(`- **Kind**: ${result.entity.kind}`);
+  lines.push(`- **Status**: ${result.entity.status}`);
+  lines.push(`- **Summary**: ${result.entity.summary}`);
+  if (result.entity.relations.length > 0) {
+    lines.push(`- **Relations**: ${result.entity.relations.map(r => `${r.type} → ${r.target}`).join(", ")}`);
+  }
+  lines.push("");
+
+  // Primary Contract (top traced doc with specification role)
+  const specDoc = result.tracedDocs.find(d => d.role === "specification");
+  if (specDoc) {
+    lines.push("## Primary Contract");
+    lines.push(specDoc.content);
+    lines.push("");
+  }
+
+  // Implementation References
+  const implDocs = result.tracedDocs.filter(d => d.role === "implementation");
+  if (implDocs.length > 0) {
+    lines.push("## Implementation References");
+    for (const doc of implDocs) {
+      lines.push(`- ${doc.path} (traceRef, role: implementation)`);
+    }
+    lines.push("");
+  }
+
+  // Other traced docs
+  const otherDocs = result.tracedDocs.filter(d => d.role !== "specification" && d.role !== "implementation");
+  if (otherDocs.length > 0) {
+    lines.push("## Supporting Documents");
+    for (const doc of otherDocs) {
+      const roleTag = doc.role ? ` (${doc.role})` : "";
+      lines.push(`### ${doc.path}${roleTag}`);
+      lines.push(doc.content);
+      lines.push("");
+    }
+  }
+
+  // Related Entities (compact)
+  if (result.relatedEntities.length > 0) {
+    const total = result.relatedEntities.length;
+    const shown = result.relatedEntities.slice(0, 10);
+    const suffix = total > 10 ? ` (${shown.length} of ${total}, highest relevance)` : "";
+    lines.push(`## Related Entities${suffix}`);
+    for (const re of shown) {
+      lines.push(`- **${re.entityRef}** (${re.kind}, ${re.status}): ${re.summary}`);
+    }
+    lines.push("");
+  }
+
+  // Change Risks
+  if (result.changeRisks.length > 0) {
+    lines.push("## Change Risks");
+    for (const risk of result.changeRisks) {
+      lines.push(`- ${risk.description}`);
+    }
+    lines.push("");
+  }
+
+  // Footer
+  lines.push("---");
+  const truncNote = result.truncated ? " | Truncated: yes" : " | Truncated: no";
+  const tierNote = result.tier ? ` | Tier: ${result.tier}` : "";
+  lines.push(`Token estimate: ~${result.tokenEstimate}${truncNote}${tierNote}`);
+
+  return lines.join("\n");
 }
 
 // ─── Command ──────────────────────────────────────────────────────────
@@ -513,8 +884,13 @@ export function eaContextCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "ea")
     .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
     .option("--max-tokens <n>", "Maximum estimated tokens for the output")
-    .option("--depth <n>", "Maximum depth to follow relations", "1")
+    .option("--depth <n>", "Maximum depth to follow relations")
     .option("--json", "Output as JSON")
+    .option("--tier <tier>", "Context tier preset: brief, standard, deep, llm")
+    .option("--budget <n>", "Token budget (alias for --max-tokens with --tier llm)")
+    .option("--why-included", "Show inclusion rationale for each item")
+    .option("--prefer-canonical", "Prefer canonical docs over derived duplicates")
+    .option("--format <format>", "Output format: markdown, json", "markdown")
     .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -546,29 +922,80 @@ export function eaContextCommand(): Command {
       const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
       const normalizedDocs = scanDocs(cwd, { dirs: docDirs }).docs;
 
-      // Depth
-      const depth = parseInt(options.depth as string, 10);
-      if (Number.isNaN(depth) || depth < 0) {
-        throw new CliError("--depth must be a non-negative integer", 1);
+      // ── Resolve tier preset ───────────────────────────────────────
+      const tierName = options.tier as ContextTier | undefined;
+      const preset = tierName ? TIER_PRESETS[tierName] : undefined;
+
+      if (tierName && !preset) {
+        throw new CliError(`Unknown tier "${tierName}". Valid tiers: brief, standard, deep, llm`, 1);
       }
 
-      // Assemble context
-      let result = assembleContext(target, entities, normalizedDocs, cwd, depth);
+      // Depth: explicit --depth > tier preset > default 1
+      let depth: number;
+      if (options.depth != null) {
+        depth = parseInt(options.depth as string, 10);
+        if (Number.isNaN(depth) || depth < 0) {
+          throw new CliError("--depth must be a non-negative integer", 1);
+        }
+      } else if (preset) {
+        depth = preset.depth;
+      } else {
+        depth = 1;
+      }
 
-      // Apply token budget
+      // Max tokens: explicit --max-tokens > --budget (for llm tier) > tier preset
+      let maxTokens: number | undefined;
       if (options.maxTokens != null) {
-        const maxTokens = parseInt(options.maxTokens as string, 10);
+        maxTokens = parseInt(options.maxTokens as string, 10);
         if (Number.isNaN(maxTokens) || maxTokens <= 0) {
           throw new CliError("--max-tokens must be a positive integer", 1);
         }
+      } else if (options.budget != null) {
+        maxTokens = parseInt(options.budget as string, 10);
+        if (Number.isNaN(maxTokens) || maxTokens <= 0) {
+          throw new CliError("--budget must be a positive integer", 1);
+        }
+      } else if (preset?.maxTokens != null) {
+        maxTokens = preset.maxTokens;
+      }
+
+      // Feature flags: explicit flags override tier preset
+      const preferCanonical = options.preferCanonical === true || (preset?.preferCanonical ?? false);
+      const whyIncluded = options.whyIncluded === true;
+      const includeConstraintBrief = preset?.includeConstraintBrief ?? false;
+      const includeChangeRisks = preset?.includeChangeRisks ?? false;
+      const maxTracedDocs = preset?.maxTracedDocs;
+
+      // Assemble context
+      let result = assembleContext(target, entities, normalizedDocs, cwd, {
+        maxDepth: depth,
+        maxTracedDocs,
+        includeConstraintBrief,
+        includeChangeRisks,
+        preferCanonical,
+        whyIncluded,
+      });
+
+      // Store tier in result for rendering
+      if (tierName) {
+        result = { ...result, tier: tierName };
+      }
+
+      // Apply token budget
+      if (maxTokens != null) {
         result = applyTokenBudget(result, maxTokens);
       }
 
+      // Determine output format
+      const useJson = options.json === true || options.format === "json";
+
       // Output
-      if (options.json) {
-        process.stdout.write(JSON.stringify(buildJsonOutput(result), null, 2) + "\n");
+      if (useJson) {
+        process.stdout.write(JSON.stringify(buildJsonOutput(result, whyIncluded), null, 2) + "\n");
+      } else if (tierName === "llm") {
+        process.stdout.write(renderLlmMarkdown(result) + "\n");
       } else {
-        process.stdout.write(renderMarkdown(result) + "\n");
+        process.stdout.write(renderMarkdown(result, whyIncluded) + "\n");
       }
     });
 }
