@@ -57,8 +57,8 @@ export type { GraphNode, GraphEdge, MermaidOptions, DotOptions, GraphPath, Trave
 export { RelationGraph, buildRelationGraph } from "./graph.js";
 
 // Impact Analysis
-export type { ImpactedArtifact, ImpactDomainSummary, ImpactReport } from "./impact.js";
-export { analyzeImpact, renderImpactReportMarkdown } from "./impact.js";
+export type { ImpactedEntity, ImpactedArtifact, ImpactDomainSummary, ImpactCategorySummary, ImpactReport, ImpactCategory, ScoreBreakdown, ScoringWeights, ImpactOptions } from "./impact.js";
+export { analyzeImpact, renderImpactReportMarkdown, DEFAULT_SCORING_WEIGHTS } from "./impact.js";
 
 // Drift
 export type { EaDriftContext, EaDriftRule, EaDriftResult, EaDriftFinding, DomainDriftSummary, EaDriftReport, EaDriftOptions, EaResolverObservedState } from "./drift.js";
