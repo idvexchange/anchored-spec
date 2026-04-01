@@ -5,8 +5,8 @@
  * Kubernetes manifests, Terraform state). Creates draft entities with
  * confidence "inferred" or "observed", never overwrites existing entities.
  *
- * Design reference: docs/ea-drift-resolvers-generators.md (Discovery workflow)
- * Conflict rule: docs/ea-conflict-resolution.md (Rule 2: drafts never overwrite)
+ * Design reference: docs/delivery/discovery-drift-generation.md (Discovery workflow)
+ * Conflict rule: docs/delivery/discovery-drift-generation.md (declared data remains primary)
  */
 
 import type { BackstageEntity } from "./backstage/types.js";

@@ -5,7 +5,8 @@
  * Given an entity ref, finds everything that would be affected
  * by a change to that entity, grouped by domain, category, and score.
  *
- * Design reference: docs/ea-implementation-guide.md §Phase A, Phase I2
+<<<<<<< HEAD
+ * Design reference: docs/delivery/reporting-and-analysis.md (impact workflow)
  */
 
 import type { RelationGraph } from "./graph.js";

@@ -4,7 +4,7 @@
  * Resolves API anchors against OpenAPI 3.0/3.1 spec files (YAML/JSON),
  * collects observed endpoint state, and discovers api-contract artifacts.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (OpenAPI Resolver)
+ * Design reference: docs/delivery/discovery-drift-generation.md (OpenAPI Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";

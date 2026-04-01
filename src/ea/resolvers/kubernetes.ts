@@ -7,7 +7,7 @@
  * Supported resource kinds: Deployment, Service, Namespace, NetworkPolicy,
  * ServiceAccount, StatefulSet, DaemonSet, HorizontalPodAutoscaler.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (Kubernetes Resolver)
+ * Design reference: docs/delivery/discovery-drift-generation.md (Kubernetes Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";

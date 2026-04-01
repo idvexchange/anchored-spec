@@ -7,7 +7,7 @@
  *
  * Supports AWS, GCP, and Azure resource type mappings.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (Terraform Resolver)
+ * Design reference: docs/delivery/discovery-drift-generation.md (Terraform Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";

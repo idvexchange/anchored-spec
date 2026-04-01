@@ -5,7 +5,7 @@
  * EA artifacts with live infrastructure by resolving anchors, collecting
  * observed state, and discovering new artifacts.
  *
- * Design reference: docs/ea-drift-resolvers-generators.md
+ * Design reference: docs/delivery/discovery-drift-generation.md
  */
 
 import type { BackstageEntity } from "../backstage/types.js";

@@ -5,7 +5,7 @@
  * Builds paths from `anchors.apis`, sets info from artifact metadata,
  * and links back to the source artifact.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (OpenAPI Generator)
+ * Design reference: docs/delivery/discovery-drift-generation.md (OpenAPI Generator)
  */
 
 import type { BackstageEntity } from "../backstage/types.js";
