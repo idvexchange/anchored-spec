@@ -52,6 +52,28 @@ export interface DotOptions {
   filter?: (edge: GraphEdge) => boolean;
 }
 
+export interface GraphPath {
+  /** The reached node. */
+  node: GraphNode;
+  /** Shortest distance from start. */
+  depth: number;
+  /** Ordered edges forming the shortest path from start to this node. */
+  path: GraphEdge[];
+  /** Human-readable evidence strings for each edge in the path. */
+  evidence: string[];
+}
+
+export type TraversalDirection = "outgoing" | "incoming" | "both";
+
+export interface TraverseWithPathsOptions {
+  /** Direction to follow edges. Default: "incoming" (for impact analysis). */
+  direction?: TraversalDirection;
+  /** Maximum traversal depth. No limit if undefined. */
+  maxDepth?: number;
+  /** Only follow edges of these types. If empty/undefined, follow all edges. */
+  edgeTypeFilter?: string[];
+}
+
 // ─── RelationGraph ──────────────────────────────────────────────────────────────
 
 export class RelationGraph {
@@ -152,6 +174,79 @@ export class RelationGraph {
     }
 
     return result;
+  }
+
+  /**
+   * BFS traversal that records the shortest path to each reachable node.
+   * Returns a Map from node ID → GraphPath (excluding the start node).
+   */
+  traverseWithPaths(
+    startId: string,
+    options?: TraverseWithPathsOptions,
+  ): Map<string, GraphPath> {
+    const direction = options?.direction ?? "incoming";
+    const maxDepth = options?.maxDepth;
+    const edgeFilter = options?.edgeTypeFilter;
+    const hasFilter = edgeFilter && edgeFilter.length > 0;
+
+    const result = new Map<string, GraphPath>();
+    const visited = new Set<string>([startId]);
+
+    // Queue entries: [nodeId, depth, pathEdges]
+    const queue: Array<[string, number, GraphEdge[]]> = [[startId, 0, []]];
+
+    while (queue.length > 0) {
+      const [currentId, depth, pathSoFar] = queue.shift()!;
+
+      if (maxDepth !== undefined && depth >= maxDepth) continue;
+
+      const edges = this.getEdgesForDirection(currentId, direction);
+
+      for (const edge of edges) {
+        // Apply edge type filter
+        if (hasFilter && !edgeFilter!.includes(edge.type)) continue;
+
+        const neighborId = direction === "outgoing"
+          ? edge.target
+          : direction === "incoming"
+            ? edge.source
+            : (edge.source === currentId ? edge.target : edge.source);
+
+        if (visited.has(neighborId)) continue;
+        visited.add(neighborId);
+
+        const node = this.nodeMap.get(neighborId);
+        if (!node) continue;
+
+        const newPath = [...pathSoFar, edge];
+        const evidence = newPath.map(
+          (e) => `${e.source} --[${e.type}]--> ${e.target}`,
+        );
+
+        result.set(neighborId, {
+          node,
+          depth: depth + 1,
+          path: newPath,
+          evidence,
+        });
+
+        queue.push([neighborId, depth + 1, newPath]);
+      }
+    }
+
+    return result;
+  }
+
+  /** Get edges based on traversal direction. */
+  private getEdgesForDirection(id: string, direction: TraversalDirection): GraphEdge[] {
+    switch (direction) {
+      case "outgoing":
+        return this.outgoing(id);
+      case "incoming":
+        return this.incoming(id);
+      case "both":
+        return [...this.outgoing(id), ...this.incoming(id)];
+    }
   }
 
   /**

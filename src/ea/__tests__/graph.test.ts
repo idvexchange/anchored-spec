@@ -14,6 +14,8 @@ import { join } from "node:path";
 import {
   RelationRegistry,
   createDefaultRegistry,
+  TRAVERSAL_PROFILES,
+  getTraversalProfile,
   type RelationRegistryEntry,
 } from "../relation-registry.js";
 import { RelationGraph, buildRelationGraph } from "../graph.js";
@@ -764,5 +766,192 @@ describe("Integration: graph from examples/ea/", () => {
 
     expect(dot).toContain("digraph EA {");
     expect(dot).toContain("}");
+  });
+});
+
+// ─── traverseWithPaths ──────────────────────────────────────────────────────────
+
+describe("traverseWithPaths", () => {
+  function makeNode(id: string): import("../graph.js").GraphNode {
+    return {
+      id,
+      kind: "Component",
+      domain: "application" as const,
+      status: "active" as const,
+      title: id,
+      confidence: "declared" as const,
+    };
+  }
+
+  function makeEdge(
+    source: string,
+    target: string,
+    type = "dependsOn",
+  ): import("../graph.js").GraphEdge {
+    return {
+      source,
+      target,
+      type,
+      isVirtual: false,
+      criticality: "medium" as const,
+      confidence: "declared" as const,
+      status: "active" as const,
+    };
+  }
+
+  it("records shortest paths for incoming traversal (3-node chain)", () => {
+    // A --dependsOn--> B --dependsOn--> C
+    // incoming from C: B (depth 1), A (depth 2)
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+    graph.addNode(makeNode("B"));
+    graph.addNode(makeNode("C"));
+    graph.addEdge(makeEdge("A", "B", "dependsOn"));
+    graph.addEdge(makeEdge("B", "C", "dependsOn"));
+
+    const result = graph.traverseWithPaths("C", { direction: "incoming" });
+
+    expect(result.size).toBe(2);
+
+    const pathB = result.get("B")!;
+    expect(pathB.depth).toBe(1);
+    expect(pathB.path).toHaveLength(1);
+    expect(pathB.path[0].source).toBe("B");
+    expect(pathB.path[0].target).toBe("C");
+    expect(pathB.evidence).toEqual(["B --[dependsOn]--> C"]);
+
+    const pathA = result.get("A")!;
+    expect(pathA.depth).toBe(2);
+    expect(pathA.path).toHaveLength(2);
+    expect(pathA.evidence).toEqual([
+      "B --[dependsOn]--> C",
+      "A --[dependsOn]--> B",
+    ]);
+  });
+
+  it("records shortest paths for outgoing traversal", () => {
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+    graph.addNode(makeNode("B"));
+    graph.addNode(makeNode("C"));
+    graph.addEdge(makeEdge("A", "B", "dependsOn"));
+    graph.addEdge(makeEdge("B", "C", "dependsOn"));
+
+    const result = graph.traverseWithPaths("A", { direction: "outgoing" });
+
+    expect(result.size).toBe(2);
+    expect(result.get("B")!.depth).toBe(1);
+    expect(result.get("C")!.depth).toBe(2);
+  });
+
+  it("filters edges by type", () => {
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+    graph.addNode(makeNode("B"));
+    graph.addNode(makeNode("C"));
+    graph.addEdge(makeEdge("A", "B", "dependsOn"));
+    graph.addEdge(makeEdge("B", "C", "uses")); // different type
+
+    const result = graph.traverseWithPaths("A", {
+      direction: "outgoing",
+      edgeTypeFilter: ["dependsOn"],
+    });
+
+    expect(result.size).toBe(1);
+    expect(result.has("B")).toBe(true);
+    expect(result.has("C")).toBe(false);
+  });
+
+  it("respects maxDepth", () => {
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+    graph.addNode(makeNode("B"));
+    graph.addNode(makeNode("C"));
+    graph.addEdge(makeEdge("A", "B", "dependsOn"));
+    graph.addEdge(makeEdge("B", "C", "dependsOn"));
+
+    const result = graph.traverseWithPaths("A", {
+      direction: "outgoing",
+      maxDepth: 1,
+    });
+
+    expect(result.size).toBe(1);
+    expect(result.has("B")).toBe(true);
+    expect(result.has("C")).toBe(false);
+  });
+
+  it("supports bidirectional traversal", () => {
+    // A --> B --> C, start from B, both directions
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+    graph.addNode(makeNode("B"));
+    graph.addNode(makeNode("C"));
+    graph.addEdge(makeEdge("A", "B", "dependsOn"));
+    graph.addEdge(makeEdge("B", "C", "dependsOn"));
+
+    const result = graph.traverseWithPaths("B", { direction: "both" });
+
+    expect(result.size).toBe(2);
+    expect(result.has("A")).toBe(true);
+    expect(result.has("C")).toBe(true);
+  });
+
+  it("returns empty map when start node is not in graph", () => {
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+
+    const result = graph.traverseWithPaths("nonexistent");
+
+    expect(result.size).toBe(0);
+  });
+
+  it("handles cycles without infinite loops", () => {
+    // A --> B --> C --> A (cycle)
+    const graph = new RelationGraph();
+    graph.addNode(makeNode("A"));
+    graph.addNode(makeNode("B"));
+    graph.addNode(makeNode("C"));
+    graph.addEdge(makeEdge("A", "B", "dependsOn"));
+    graph.addEdge(makeEdge("B", "C", "dependsOn"));
+    graph.addEdge(makeEdge("C", "A", "dependsOn"));
+
+    const result = graph.traverseWithPaths("A", { direction: "outgoing" });
+
+    // Should find B and C but not loop back to A
+    expect(result.size).toBe(2);
+    expect(result.has("B")).toBe(true);
+    expect(result.has("C")).toBe(true);
+    expect(result.has("A")).toBe(false);
+  });
+});
+
+// ─── TRAVERSAL_PROFILES ─────────────────────────────────────────────────────────
+
+describe("TRAVERSAL_PROFILES", () => {
+  it("exposes all three profiles", () => {
+    expect(TRAVERSAL_PROFILES).toHaveProperty("strict");
+    expect(TRAVERSAL_PROFILES).toHaveProperty("broad");
+    expect(TRAVERSAL_PROFILES).toHaveProperty("contract");
+  });
+
+  it("strict profile excludes driftStrategy=none relations", () => {
+    const strict = getTraversalProfile("strict");
+    expect(strict.edgeTypes).not.toContain("owns");
+    expect(strict.edgeTypes).not.toContain("supersedes");
+    expect(strict.edgeTypes).not.toContain("mitigates");
+    expect(strict.edgeTypes.length).toBeGreaterThan(0);
+  });
+
+  it("broad profile has empty edgeTypes (no filter)", () => {
+    const broad = getTraversalProfile("broad");
+    expect(broad.edgeTypes).toEqual([]);
+  });
+
+  it("contract profile contains exactly the expected edge types", () => {
+    const contract = getTraversalProfile("contract");
+    expect(contract.edgeTypes).toEqual(
+      expect.arrayContaining(["consumes", "exposes", "interfacesWith", "dependsOn", "realizes"]),
+    );
+    expect(contract.edgeTypes).toHaveLength(5);
   });
 });

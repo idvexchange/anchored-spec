@@ -49,11 +49,11 @@ export type { EaLoadedEntity, EaEntityLoadResult, EaEntitySummary } from "./load
 export { EaRoot } from "./loader.js";
 
 // Relation Registry
-export type { RelationRegistryEntry } from "./relation-registry.js";
-export { RelationRegistry, createDefaultRegistry } from "./relation-registry.js";
+export type { RelationRegistryEntry, TraversalProfileName, TraversalProfile } from "./relation-registry.js";
+export { RelationRegistry, createDefaultRegistry, TRAVERSAL_PROFILES, getTraversalProfile } from "./relation-registry.js";
 
 // Graph
-export type { GraphNode, GraphEdge, MermaidOptions, DotOptions } from "./graph.js";
+export type { GraphNode, GraphEdge, MermaidOptions, DotOptions, GraphPath, TraversalDirection, TraverseWithPathsOptions } from "./graph.js";
 export { RelationGraph, buildRelationGraph } from "./graph.js";
 
 // Impact Analysis

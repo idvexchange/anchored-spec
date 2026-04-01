@@ -423,6 +423,54 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
   },
 ];
 
+// ─── Traversal Profiles ─────────────────────────────────────────────────────────
+
+export type TraversalProfileName = "strict" | "broad" | "contract";
+
+export interface TraversalProfile {
+  name: TraversalProfileName;
+  description: string;
+  /** The edge types included in this profile. Empty means all edges. */
+  edgeTypes: string[];
+}
+
+/**
+ * Named traversal profiles derived from relation drift strategies.
+ * - strict: Hard dependency edges (driftStrategy ≠ "none")
+ * - broad: All 27 edge types
+ * - contract: API-facing subset
+ */
+export const TRAVERSAL_PROFILES: Record<TraversalProfileName, TraversalProfile> = {
+  strict: {
+    name: "strict",
+    description: "Hard dependency edges only (driftStrategy ≠ none)",
+    edgeTypes: [
+      "realizes", "uses", "exposes", "consumes", "dependsOn",
+      "deploys", "runsOn", "boundedBy", "authenticatedBy", "deployedTo",
+      "interfacesWith", "standardizes", "providedBy",
+      "stores", "hostedOn", "lineageFrom", "implementedBy",
+      "classifiedAs", "exchangedVia", "retainedUnder",
+      "supports", "performedBy", "governedBy",
+      "generates", "targets",
+    ],
+  },
+  broad: {
+    name: "broad",
+    description: "All edge types (current default behavior)",
+    edgeTypes: [], // empty = no filter = all edges
+  },
+  contract: {
+    name: "contract",
+    description: "API-facing subset for contract impact analysis",
+    edgeTypes: ["consumes", "exposes", "interfacesWith", "dependsOn", "realizes"],
+  },
+};
+
+/** Get a traversal profile by name. */
+export function getTraversalProfile(name: TraversalProfileName): TraversalProfile {
+  return TRAVERSAL_PROFILES[name];
+}
+
 /** Create a registry pre-loaded with all current relations (Phase A + 2A + 2B + 2C + 2D + 2E). */
 export function createDefaultRegistry(): RelationRegistry {
   const registry = new RelationRegistry();
