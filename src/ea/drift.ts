@@ -380,14 +380,14 @@ const orphanStore: EaDriftRule = {
     // Build set of all artifacts that are relation targets
     const allTargets = new Set<string>();
     for (const a of ctx.artifacts) {
-      for (const r of getLegacyRelations(a).filter((relation) => relation.type !== "owns")) {
+      for (const r of getLegacyRelations(a).filter((relation) => relation.type !== "owns" && relation.type !== "ownedBy")) {
         allTargets.add(r.target);
       }
     }
 
     for (const a of ctx.artifacts) {
       if (getEntityLegacyKind(a) !== "data-store") continue;
-      const hasOwnRelations = getLegacyRelations(a).some((relation) => relation.type !== "owns");
+      const hasOwnRelations = getLegacyRelations(a).some((relation) => relation.type !== "owns" && relation.type !== "ownedBy");
       const isTargeted = allTargets.has(getEntityId(a));
 
       // Also check if any lineage references this store
@@ -975,6 +975,7 @@ const processMissingOwner: EaDriftRule = {
       const hasProcessOwner = !!processOwner;
       const specRelations = getLegacyRelations(a);
       const hasPerformedBy = specRelations?.some((r) => r.type === "performedBy") ?? false;
+      const hasOwnedBy = specRelations?.some((r) => r.type === "ownedBy") ?? false;
       // Check if any org-unit owns this process
       const entityId = getEntityId(a);
       const isOwned = ctx.artifacts.some((other) => {
@@ -982,10 +983,10 @@ const processMissingOwner: EaDriftRule = {
         return otherRels.some((r) => r.type === "owns" && r.target === entityId);
       });
 
-      if (!hasProcessOwner && !hasPerformedBy && !isOwned) {
+      if (!hasProcessOwner && !hasPerformedBy && !hasOwnedBy && !isOwned) {
         results.push({
           path: getEntityId(a),
-          message: `Process "${getEntityId(a)}" has no owner (no processOwner, performedBy, or owns relation)`,
+          message: `Process "${getEntityId(a)}" has no owner (no processOwner, performedBy, ownedBy, or owns relation)`,
           severity: "warning",
           rule: this.id,
         });

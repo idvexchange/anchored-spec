@@ -643,6 +643,21 @@ describe("validateEaRelations", () => {
       const result = validateEaRelations(entities, registry);
       expect(result.errors.filter((e) => e.rule === "ea:relation:invalid-source")).toHaveLength(0);
     });
+
+    it("does not treat spec.owner as a forward owns relation", () => {
+      const entities = [
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "service", lifecycle: "production", owner: "group:default/test-team" } }),
+        makeEntity({
+          kind: "Group",
+          name: "test-team",
+          spec: { type: "team", children: [] },
+        }),
+      ];
+      const result = validateEaRelations(entities, registry);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:invalid-source")).toHaveLength(0);
+      expect(result.errors.filter((e) => e.rule === "ea:relation:target-missing")).toHaveLength(0);
+      expect(result.warnings.filter((e) => e.rule === "ea:relation:unknown-type")).toHaveLength(0);
+    });
   });
 
   describe("ea:relation:invalid-target", () => {

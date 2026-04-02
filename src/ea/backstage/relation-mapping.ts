@@ -387,7 +387,22 @@ export function mapBackstageRelation(backstageType: string): RelationMappingEntr
  * Get the mapping entry for a spec field name (e.g., "dependsOn", "providesApis").
  */
 export function mapSpecField(fieldName: string): RelationMappingEntry | undefined {
-  return bySpecField.get(fieldName);
+  const entry = bySpecField.get(fieldName);
+  if (!entry) return undefined;
+
+  // Backstage `spec.owner` is authored on the owned entity, so the relation
+  // exposed from spec should align with `ownedBy` / `ownerOf`, not canonical EA `owns`.
+  if (fieldName === "owner") {
+    return {
+      ...entry,
+      legacyType: "ownedBy",
+      legacyInverse: "ownerOf",
+      backstageType: "ownedBy",
+      backstageInverse: "ownerOf",
+    };
+  }
+
+  return entry;
 }
 
 /**
@@ -442,8 +457,11 @@ export function extractRelationsFromSpec(
 ): Array<{ legacyType: string; backstageType: string; targets: string[] }> {
   const results: Array<{ legacyType: string; backstageType: string; targets: string[] }> = [];
 
-  for (const entry of RELATION_MAPPING_REGISTRY) {
-    if (!entry.specField) continue;
+  for (const registryEntry of RELATION_MAPPING_REGISTRY) {
+    if (!registryEntry.specField) continue;
+
+    const entry = mapSpecField(registryEntry.specField);
+    if (!entry?.specField) continue;
 
     const value = spec[entry.specField];
     if (!value) continue;

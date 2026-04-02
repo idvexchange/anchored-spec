@@ -418,7 +418,7 @@ export function buildRelationGraph(
   }
 
   // Extract relations from all entities (exclude ownership — it's metadata, not a dependency)
-  const EXCLUDED_RELATION_TYPES = new Set(["owns"]);
+  const EXCLUDED_RELATION_TYPES = new Set(["owns", "ownedBy"]);
   const entityRelations = new Map<string, Array<{ legacyType: string; targets: string[] }>>();
   for (const entity of entities) {
     const rels = getEntitySpecRelations(entity)
