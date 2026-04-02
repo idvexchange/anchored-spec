@@ -9,12 +9,12 @@ domain:
   - delivery
   - systems
 ea-entities:
-  - component:discovery-and-resolvers
-  - component:drift-and-reconcile
-  - component:generator-pipeline
-  - capability:discovery
-  - capability:drift-detection
-  - decision:declared-before-observed
+  - component:default/discovery-and-resolvers
+  - component:default/drift-and-reconcile
+  - component:default/generator-pipeline
+  - capability:default/discovery
+  - capability:default/drift-detection
+  - decision:default/declared-before-observed
 ---
 
 # Discovery, Drift, and Generation

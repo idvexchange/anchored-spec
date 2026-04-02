@@ -269,12 +269,16 @@ export function eaLinkDocsCommand(): Command {
  * in the same format (JSON or YAML).
  */
 function writeEntityTraceRefs(filePath: string, refs: AddedTraceRef[]): void {
+  const entityRef = refs[0]?.entityRef;
+  if (!entityRef) return;
+
   appendTraceRefs(
     filePath,
     refs.map((ref) => ({
       path: ref.docPath,
       role: ref.role,
     })),
+    entityRef,
   );
 }
 

@@ -9,9 +9,9 @@ domain:
   - business
   - delivery
 ea-entities:
-  - capability:manifest-authoring
-  - capability:discovery
-  - capability:drift-detection
+  - capability:default/manifest-authoring
+  - capability:default/discovery
+  - capability:default/drift-detection
 ---
 
 # Adoption Playbook

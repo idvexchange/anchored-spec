@@ -7,8 +7,8 @@ audience:
 domain:
   - systems
 ea-entities:
-  - component:backstage-entity-mapping
-  - capability:manifest-authoring
+  - component:default/backstage-entity-mapping
+  - capability:default/manifest-authoring
 ---
 
 # Relation Cheat Sheet
@@ -20,7 +20,7 @@ Use the smallest relation that captures the architectural fact.
 | Runtime or build dependency | `dependsOn` | `Component` | `Component` or `Resource` |
 | API exposure | `providesApis` | `Component` | `API` |
 | API consumption | `consumesApis` | `Component` | `API` |
-| Capability realization | `supportedBy` | `Capability` | `Component` |
+| Capability realization | `supports` | `Component` | `Capability` |
 | Decision dependency | `dependsOn` | `Decision` | `Decision`, `Capability`, or `Requirement` |
 
 ## Rules of Thumb

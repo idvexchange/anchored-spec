@@ -19,7 +19,7 @@
     },
     "generatedDir": {
       "type": "string",
-      "default": "ea/generated",
+      "default": "docs/generated",
       "description": "Directory for generated output files."
     },
     "idPrefix": {

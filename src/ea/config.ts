@@ -85,7 +85,7 @@ export interface AnchoredSpecConfigV1 {
   /** Root directory for EA entities. Default: "docs". */
   rootDir: string;
 
-  /** Directory for generated output files. Default: "ea/generated". */
+  /** Directory for generated output files. Default: "docs/generated". */
   generatedDir: string;
 
   /** Optional organizational prefix for entity IDs (e.g., "acme"). */

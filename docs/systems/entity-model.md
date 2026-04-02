@@ -9,11 +9,11 @@ domain:
   - systems
   - information
 ea-entities:
-  - component:entity-loading-and-modeling
-  - component:backstage-entity-mapping
-  - capability:manifest-authoring
-  - decision:backstage-aligned-entity-envelope
-  - decision:dual-storage-modes
+  - component:default/entity-loading-and-modeling
+  - component:default/backstage-entity-mapping
+  - capability:default/manifest-authoring
+  - decision:default/backstage-aligned-entity-envelope
+  - decision:default/dual-storage-modes
 ---
 
 # Entity Model
@@ -83,7 +83,7 @@ Prefer the smallest relation that communicates the architectural fact:
 
 - `dependsOn` when one component needs another component or resource to function
 - `providesApis` and `consumesApis` for API exposure and consumption
-- `supportedBy` for capabilities realized by components
+- `supports` on components when they realize a capability
 - `dependsOn` on `Decision` entities for the decisions or constraints they build on
 
 Do not use relations as a generic dumping ground. They should encode behaviorally useful structure, not just adjacency.

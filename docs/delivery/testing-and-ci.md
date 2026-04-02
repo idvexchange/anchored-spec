@@ -8,10 +8,10 @@ audience:
 domain:
   - delivery
 ea-entities:
-  - capability:drift-detection
-  - capability:governed-evolution
-  - component:governance-and-workflow
-  - component:drift-and-reconcile
+  - capability:default/drift-detection
+  - capability:default/governed-evolution
+  - component:default/governance-and-workflow
+  - component:default/drift-and-reconcile
 ---
 
 # Testing and CI

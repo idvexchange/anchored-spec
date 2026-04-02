@@ -9,10 +9,10 @@ domain:
   - information
   - delivery
 ea-entities:
-  - component:docs-and-traceability
-  - resource:documentation-set
-  - capability:traceability
-  - capability:ai-context-assembly
+  - component:default/docs-and-traceability
+  - resource:default/documentation-set
+  - capability:default/traceability
+  - capability:default/ai-context-assembly
 ---
 
 # Docs and Traceability
@@ -31,7 +31,7 @@ That layout keeps the model machine-readable while still giving reviewers and im
 
 ## Doc Frontmatter
 
-Architecture and guide documents should carry frontmatter that links them to entity refs:
+Architecture and guide documents should carry frontmatter that links them to canonical entity refs:
 
 ```yaml
 ---
@@ -39,8 +39,8 @@ type: architecture
 status: current
 audience: [architect, developer, agent]
 ea-entities:
-  - component:docs-and-traceability
-  - capability:traceability
+  - component:default/docs-and-traceability
+  - capability:default/traceability
 ---
 ```
 

@@ -8,10 +8,10 @@ audience:
 domain:
   - delivery
 ea-entities:
-  - capability:manifest-authoring
-  - capability:traceability
-  - capability:governed-evolution
-  - api:cli-command-surface
+  - capability:default/manifest-authoring
+  - capability:default/traceability
+  - capability:default/governed-evolution
+  - api:default/cli-command-surface
 ---
 
 # Getting Started

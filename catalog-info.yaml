@@ -1,3 +1,4 @@
+---
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
@@ -12,6 +13,11 @@ spec:
   lifecycle: production
   unitType: team
   children: []
+  traceRefs:
+    - path: docs/business/capabilities-and-operating-model.md
+      role: context
+    - path: docs/contributing.md
+      role: context
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Domain
@@ -53,7 +59,8 @@ kind: API
 metadata:
   name: cli-command-surface
   title: CLI Command Surface
-  description: Public command-line interface for initializing, validating, tracing, diffing, drifting, and reporting on the architecture model.
+  description: Public command-line interface for initializing, validating, tracing, diffing, drifting, and reporting on
+    the architecture model.
   annotations:
     anchored-spec.dev/source: docs/delivery/getting-started.md
     anchored-spec.dev/confidence: "1.0"
@@ -384,6 +391,8 @@ spec:
       role: context
     - path: docs/systems/relation-cheat-sheet.md
       role: context
+    - path: docs/business/capabilities-and-operating-model.md
+      role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1
 kind: Capability
@@ -406,6 +415,8 @@ spec:
     - path: docs/delivery/discovery-drift-generation.md
       role: specification
     - path: docs/delivery/adoption-playbook.md
+      role: context
+    - path: docs/business/capabilities-and-operating-model.md
       role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1
@@ -431,6 +442,8 @@ spec:
     - path: docs/delivery/adoption-playbook.md
       role: context
     - path: docs/delivery/testing-and-ci.md
+      role: context
+    - path: docs/business/capabilities-and-operating-model.md
       role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1
@@ -461,13 +474,16 @@ spec:
       role: context
     - path: docs/systems/federation-and-boundaries.md
       role: context
+    - path: docs/business/capabilities-and-operating-model.md
+      role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1
 kind: Capability
 metadata:
   name: governed-evolution
   title: Governed Evolution
-  description: Capability to review architectural change through validation, semantic diff, lifecycle policy, and evidence-aware workflows.
+  description: Capability to review architectural change through validation, semantic diff, lifecycle policy, and
+    evidence-aware workflows.
   annotations:
     anchored-spec.dev/source: docs/transitions/governance-and-evolution.md
     anchored-spec.dev/confidence: "1.0"
@@ -489,6 +505,8 @@ spec:
     - path: docs/delivery/testing-and-ci.md
       role: context
     - path: docs/information/glossary.md
+      role: context
+    - path: docs/business/capabilities-and-operating-model.md
       role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1
@@ -512,6 +530,8 @@ spec:
     - path: docs/delivery/reporting-and-analysis.md
       role: specification
     - path: docs/information/docs-and-traceability.md
+      role: context
+    - path: docs/business/capabilities-and-operating-model.md
       role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1

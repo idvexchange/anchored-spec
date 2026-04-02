@@ -19,7 +19,7 @@ Anchored Spec treats a repository as a living architecture model. This repo is t
 
 ## Business
 
-No current document has `business` as its primary domain. Secondary business concerns are carried in frontmatter on the relevant delivery or systems documents.
+- [Capabilities and operating model](business/capabilities-and-operating-model.md) — ownership, capability map, and how the framework is meant to be operated
 
 ## Data
 

@@ -8,10 +8,10 @@ domain:
   - systems
   - business
 ea-entities:
-  - system:anchored-spec-framework
-  - resource:documentation-set
-  - capability:manifest-authoring
-  - capability:traceability
+  - system:default/anchored-spec-framework
+  - resource:default/documentation-set
+  - capability:default/manifest-authoring
+  - capability:default/traceability
 ---
 
 # Federation and Boundaries
