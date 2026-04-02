@@ -40,7 +40,7 @@ export const EA_EVIDENCE_KINDS: readonly EaEvidenceKind[] = [
 /** An evidence record linked to an EA artifact. */
 export interface EaEvidenceRecord {
   /** EA artifact ID this evidence supports. */
-  artifactId: string;
+  entityRef: string;
   /** Evidence kind. */
   kind: EaEvidenceKind;
   /** Pass/fail status. */
@@ -69,14 +69,14 @@ export interface EaEvidence {
  * Create an EA evidence record.
  */
 export function createEaEvidenceRecord(
-  artifactId: string,
+  entityRef: string,
   kind: EaEvidenceKind,
   status: EaEvidenceRecord["status"],
   source: string,
   options?: { summary?: string; duration?: number; metadata?: Record<string, unknown> },
 ): EaEvidenceRecord {
   return {
-    artifactId,
+    entityRef,
     kind,
     status,
     recordedAt: new Date().toISOString(),
@@ -113,7 +113,7 @@ export function writeEaEvidence(
 
 /**
  * Merge new records into existing evidence, replacing records for the
- * same artifactId + kind combination.
+ * same entityRef + kind combination.
  */
 export function mergeEaEvidence(
   existing: EaEvidence | null,
@@ -124,13 +124,13 @@ export function mergeEaEvidence(
   // Add existing records
   if (existing) {
     for (const r of existing.records) {
-      merged.set(`${r.artifactId}::${r.kind}`, r);
+      merged.set(`${r.entityRef}::${r.kind}`, r);
     }
   }
 
   // Upsert new records
   for (const r of newRecords) {
-    merged.set(`${r.artifactId}::${r.kind}`, r);
+    merged.set(`${r.entityRef}::${r.kind}`, r);
   }
 
   return {
@@ -169,15 +169,15 @@ export function validateEaEvidence(
 
   // Check each evidence record
   for (const record of evidence.records) {
-    const artifactId =
-      normalizeKnownEntityRef(record.artifactId, { defaultNamespace: "default" }) ??
-      record.artifactId;
+    const entityRef =
+      normalizeKnownEntityRef(record.entityRef, { defaultNamespace: "default" }) ??
+      record.entityRef;
 
     // Artifact reference exists
-    if (!entityIds.has(artifactId)) {
+    if (!entityIds.has(entityRef)) {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence references artifact "${record.artifactId}" which does not exist`,
+        path: record.entityRef,
+        message: `Evidence references artifact "${record.entityRef}" which does not exist`,
         severity: "warning",
         rule: "ea:evidence/artifact-exists",
       });
@@ -186,8 +186,8 @@ export function validateEaEvidence(
     // Valid evidence kind
     if (!EA_EVIDENCE_KINDS.includes(record.kind as EaEvidenceKind)) {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence for "${record.artifactId}" has unknown kind "${record.kind}"`,
+        path: record.entityRef,
+        message: `Evidence for "${record.entityRef}" has unknown kind "${record.kind}"`,
         severity: "warning",
         rule: "ea:evidence/valid-kind",
       });
@@ -197,8 +197,8 @@ export function validateEaEvidence(
     const recordDate = new Date(record.recordedAt).getTime();
     if (!isNaN(recordDate) && now - recordDate > freshnessMs) {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence for "${record.artifactId}" (${record.kind}) is stale (recorded: ${record.recordedAt})`,
+        path: record.entityRef,
+        message: `Evidence for "${record.entityRef}" (${record.kind}) is stale (recorded: ${record.recordedAt})`,
         severity: "warning",
         rule: "ea:evidence/freshness",
       });
@@ -207,8 +207,8 @@ export function validateEaEvidence(
     // Failed evidence
     if (record.status === "failed" || record.status === "error") {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence for "${record.artifactId}" (${record.kind}) has status "${record.status}"`,
+        path: record.entityRef,
+        message: `Evidence for "${record.entityRef}" (${record.kind}) has status "${record.status}"`,
         severity: "error",
         rule: "ea:evidence/status",
       });
@@ -218,12 +218,12 @@ export function validateEaEvidence(
   // Check artifacts that produce evidence but have no records
   const evidenceByArtifact = new Map<string, EaEvidenceRecord[]>();
   for (const r of evidence.records) {
-    const artifactId =
-      normalizeKnownEntityRef(r.artifactId, { defaultNamespace: "default" }) ??
-      r.artifactId;
-    const list = evidenceByArtifact.get(artifactId) ?? [];
+    const entityRef =
+      normalizeKnownEntityRef(r.entityRef, { defaultNamespace: "default" }) ??
+      r.entityRef;
+    const list = evidenceByArtifact.get(entityRef) ?? [];
     list.push(r);
-    evidenceByArtifact.set(artifactId, list);
+    evidenceByArtifact.set(entityRef, list);
   }
 
   for (const entity of entities) {
@@ -249,8 +249,8 @@ export interface EaEvidenceSummary {
   byEvidenceKind: Record<string, number>;
   byStatus: Record<string, number>;
   staleCount: number;
-  coveredArtifacts: number;
-  uncoveredArtifacts: number;
+  coveredEntities: number;
+  uncoveredEntities: number;
 }
 
 /**
@@ -273,8 +273,8 @@ export function summarizeEaEvidence(
     byEvidenceKind[r.kind] = (byEvidenceKind[r.kind] ?? 0) + 1;
     byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
     coveredIds.add(
-      normalizeKnownEntityRef(r.artifactId, { defaultNamespace: "default" }) ??
-        r.artifactId,
+      normalizeKnownEntityRef(r.entityRef, { defaultNamespace: "default" }) ??
+        r.entityRef,
     );
 
     const recordDate = new Date(r.recordedAt).getTime();
@@ -288,14 +288,14 @@ export function summarizeEaEvidence(
     const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
     return Array.isArray(producesEvidence) && producesEvidence.length > 0;
   });
-  const uncoveredArtifacts = entitiesWithEvidence.filter((entity) => !coveredIds.has(getEntityId(entity))).length;
+  const uncoveredEntities = entitiesWithEvidence.filter((entity) => !coveredIds.has(getEntityId(entity))).length;
 
   return {
     totalRecords: evidence.records.length,
     byEvidenceKind,
     byStatus,
     staleCount,
-    coveredArtifacts: coveredIds.size,
-    uncoveredArtifacts,
+    coveredEntities: coveredIds.size,
+    uncoveredEntities,
   };
 }

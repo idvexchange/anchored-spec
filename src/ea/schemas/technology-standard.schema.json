@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Technology Standard",
   "description": "An approved technology standard.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["category", "technology"],
   "properties": {

@@ -27,7 +27,7 @@ export interface QueryPattern {
   captures: CaptureMapping[];
   /** Schema profile this pattern produces (e.g. "api-contract"). */
   inferredSchema: string;
-  /** EA domain for produced artifacts. */
+  /** EA domain for produced entities. */
   inferredDomain: EaDomain;
   /** Optional: category for aggregation grouping. */
   category?: "route" | "db-access" | "event" | "external-call" | "service-boundary";

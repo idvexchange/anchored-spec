@@ -2,7 +2,7 @@
  * Anchored Spec — Kubernetes Resolver
  *
  * Reads Kubernetes YAML manifests to validate deployment anchors,
- * collect observed infrastructure state, and discover delivery-layer artifacts.
+ * collect observed infrastructure state, and discover delivery-layer entities.
  *
  * Supported resource kinds: Deployment, Service, Namespace, NetworkPolicy,
  * ServiceAccount, StatefulSet, DaemonSet, HorizontalPodAutoscaler.
@@ -15,7 +15,7 @@ import { join, extname, relative } from "node:path";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import { parseSimpleYaml } from "./openapi.js";
 import type {
   EaResolver,
@@ -240,7 +240,7 @@ const CACHE_KEY_PREFIX = "kubernetes:manifests";
 
 /**
  * Kubernetes Resolver — resolves infra anchors against K8s manifests,
- * collects observed deployment state, and discovers delivery-layer artifacts.
+ * collects observed deployment state, and discovers delivery-layer entities.
  */
 export class KubernetesResolver implements EaResolver {
   readonly name = "kubernetes";
@@ -363,11 +363,11 @@ export class KubernetesResolver implements EaResolver {
    * - NetworkPolicy → network-zone entity
    * - ServiceAccount → identity-boundary entity
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const manifests = this.loadManifests(ctx);
     if (manifests.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
 
@@ -388,7 +388,7 @@ export class KubernetesResolver implements EaResolver {
       const images = extractImages(m);
       const replicas = extractReplicas(m);
 
-      const draft: EaArtifactDraft = {
+      const draft: EntityDraft = {
         suggestedId: `${descriptor.kind.toLowerCase()}:${slug}`,
         apiVersion: descriptor.apiVersion,
         kind: descriptor.kind,

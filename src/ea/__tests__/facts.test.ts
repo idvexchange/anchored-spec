@@ -9,7 +9,7 @@
  *  3. Code block extractor — TypeScript types/enums/interfaces, JSON facts
  *  4. Mermaid extractor — stateDiagram transitions, [*] normalization
  *  5. Heading+List extractor — HTTP endpoints, events, entities
- *  6. Frontmatter extractor — ea-artifacts, domain, status
+ *  6. Frontmatter extractor — ea-entities, domain, status
  *  7. Orchestrator — buildFactManifest, extractFacts
  *  8. Consistency engine — cross-document value mismatch, naming, state conflicts
  *  9. Suppression engine — inline @anchored-spec:suppress matching
@@ -508,9 +508,9 @@ Some paragraph text, not a list.
 // ─── 6. Frontmatter Extractor ───────────────────────────────────────
 
 describe("frontmatterExtractor", () => {
-  it("extracts ea-artifacts as generic facts with trace role", () => {
+  it("extracts ea-entities as generic facts with trace role", () => {
     const md = `---
-ea-artifacts:
+ea-entities:
   - SVC-identity-hub
   - API-dossier-v1
 ---

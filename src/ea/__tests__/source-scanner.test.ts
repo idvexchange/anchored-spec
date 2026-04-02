@@ -92,7 +92,7 @@ describe("scanSourceAnnotations", () => {
       const result = scanSourceAnnotations(tempDir);
       expect(result.totalScanned).toBeGreaterThanOrEqual(1);
       expect(result.sources).toHaveLength(1);
-      expect(result.sources[0]!.artifactIds).toEqual(["SVC-auth-core"]);
+      expect(result.sources[0]!.entityRefs).toEqual(["SVC-auth-core"]);
       expect(result.sources[0]!.relativePath).toContain("auth.ts");
     } finally {
       cleanup();
@@ -117,7 +117,7 @@ describe("scanSourceAnnotations", () => {
         sourceRoots: ["lib"],
       });
       expect(result.sources).toHaveLength(1);
-      expect(result.sources[0]!.artifactIds).toEqual(["SVC-lib"]);
+      expect(result.sources[0]!.entityRefs).toEqual(["SVC-lib"]);
     } finally {
       cleanup();
     }

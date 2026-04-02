@@ -42,7 +42,7 @@ export {
 
 // Validation
 export type { EaSchemaName, EaValidationError, EaValidationResult, EaValidationOptions } from "./validate.js";
-export { validateEaSchema, validateEaArtifacts, validateEaRelations, getSchemaForKind, getEaSchemaNames } from "./validate.js";
+export { validateEaSchema, validateEntities, validateEaRelations, getSchemaForKind, getEaSchemaNames } from "./validate.js";
 
 // Loader
 export type { EaLoadedEntity, EaEntityLoadResult, EaEntitySummary } from "./loader.js";
@@ -73,8 +73,8 @@ export type { EaEvidenceKind, EaEvidenceRecord, EaEvidence, EaEvidenceValidation
 export { EA_EVIDENCE_KINDS, createEaEvidenceRecord, loadEaEvidence, writeEaEvidence, mergeEaEvidence, validateEaEvidence, summarizeEaEvidence } from "./evidence.js";
 
 // Discovery
-export type { EaArtifactDraft, DiscoveryMatch, DiscoverySuggestedUpdate, DiscoveryReport, DiscoveryOptions, DiscoveryResolver } from "./discovery.js";
-export { matchDraftToExisting, discoverArtifacts, createDraft, renderDiscoveryReportMarkdown, stubResolver } from "./discovery.js";
+export type { EntityDraft, DiscoveryMatch, DiscoverySuggestedUpdate, DiscoveryReport, DiscoveryOptions, DiscoveryResolver } from "./discovery.js";
+export { matchDraftToExisting, discoverEntities, createDraft, renderDiscoveryReportMarkdown, stubResolver } from "./discovery.js";
 
 // Cache
 export type { ResolverCache, CacheEntry, CacheStats } from "./cache.js";
@@ -105,8 +105,8 @@ export type { EaVerificationOptions, EaVerificationSummary, EaVerificationResult
 export { runEaVerification } from "./verify.js";
 
 // Diff Engine
-export type { ArtifactChangeType, FieldSemantic, FieldChange, RelationDiff, ArtifactDiff, DomainDiffSummary, EaDiffReport } from "./diff.js";
-export { diffEaArtifacts, renderDiffSummary, renderDiffMarkdown, getFieldSemantic, deepEqual } from "./diff.js";
+export type { EntityChangeType, FieldSemantic, FieldChange, RelationDiff, EntityDiff, DomainDiffSummary, EaDiffReport } from "./diff.js";
+export { diffEntities, renderDiffSummary, renderDiffMarkdown, getFieldSemantic, deepEqual } from "./diff.js";
 
 // Diff — Git Integration
 export type { DiffGitOptions } from "./diff-git.js";
@@ -126,7 +126,7 @@ export { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, rend
 
 // Document Traceability
 export type { DocFrontmatter, ParsedDoc, ScannedDoc, ScanResult, ScanOptions, DocDiscoveryResult } from "./docs/index.js";
-export { parseFrontmatter, extractArtifactIds, hasEaFrontmatter, serializeFrontmatter, DEFAULT_DOC_DIRS, scanDocs, buildDocIndex, discoverFromDocs } from "./docs/index.js";
+export { parseFrontmatter, extractEntityRefs, hasEaFrontmatter, serializeFrontmatter, DEFAULT_DOC_DIRS, scanDocs, buildDocIndex, discoverFromDocs } from "./docs/index.js";
 
 export type { SourceAnnotationConfig, SourceScanResult } from "./source-scanner.js";
 export { extractAnnotations, scanSourceAnnotations } from "./source-scanner.js";

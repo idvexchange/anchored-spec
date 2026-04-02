@@ -13,7 +13,7 @@ import { join, relative } from "node:path";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import type { EaResolverContext } from "../types.js";
-import type { EaArtifactDraft } from "../../discovery.js";
+import type { EntityDraft } from "../../discovery.js";
 import type { QueryPack, QueryMatch } from "./types.js";
 import { aggregateMatches } from "./aggregator.js";
 
@@ -246,14 +246,14 @@ function enumerateSourceFiles(
  *
  * Uses web-tree-sitter (WASM) to parse source files and run declarative
  * query packs that detect code patterns (routes, DB access, events, etc.),
- * producing draft EA artifacts.
+ * producing draft EA entities.
  */
 export class TreeSitterDiscoveryResolver {
   name = "tree-sitter";
 
   constructor(private queryPacks: QueryPack[]) {}
 
-  async discoverArtifacts(ctx: EaResolverContext): Promise<EaArtifactDraft[] | null> {
+  async discoverEntities(ctx: EaResolverContext): Promise<EntityDraft[] | null> {
     if (this.queryPacks.length === 0) {
       ctx.logger.warn("No query packs configured for tree-sitter resolver");
       return null;
@@ -299,7 +299,7 @@ export class TreeSitterDiscoveryResolver {
     if (allMatches.length === 0) return null;
 
     // Aggregate matches into artifact drafts
-    const drafts = aggregateMatches(allMatches, ctx.artifacts);
+    const drafts = aggregateMatches(allMatches, ctx.entities);
     ctx.logger.info(`Tree-sitter: aggregated into ${drafts.length} draft artifact(s)`);
 
     return drafts.length > 0 ? drafts : null;

@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Verification",
   "description": "Sidecar verification tracking for EA artifact transitions — commands to run, drift checks, and evidence collection status.",
   "type": "object",
-  "required": ["artifactId", "commands"],
+  "required": ["entityRef", "commands"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string" },
@@ -12,7 +12,7 @@
       "type": "string",
       "description": "Schema version for migration tracking"
     },
-    "artifactId": {
+    "entityRef": {
       "type": "string",
       "minLength": 3,
       "description": "EA artifact ID this verification belongs to (e.g., SVC-auth, WAVE-q1)"

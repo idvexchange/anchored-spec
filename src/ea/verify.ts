@@ -6,7 +6,7 @@
  *
  * Checks include:
  *   1. JSON Schema validation (per artifact)
- *   2. Quality rules (from validateEaArtifacts)
+ *   2. Quality rules (from validateEntities)
  *   3. Relation integrity (target exists)
  *   4. Cross-reference integrity (bidirectional references)
  *   5. Lifecycle validation (status transitions)

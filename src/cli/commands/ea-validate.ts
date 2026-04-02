@@ -9,7 +9,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import {
   EaRoot,
-  validateEaArtifacts,
+  validateEntities,
   validateEaRelations,
   createDefaultRegistry,
   resolveConfigV1,
@@ -49,7 +49,7 @@ export function eaValidateCommand(): Command {
       const allWarnings: EaValidationError[] = [];
 
       // Quality rules
-      const qualityResult = validateEaArtifacts(result.entities, {
+      const qualityResult = validateEntities(result.entities, {
         quality: { strictMode: options.strict },
       });
       allErrors.push(...qualityResult.errors);

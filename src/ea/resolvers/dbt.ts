@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import type {
   EaResolver,
   EaResolverContext,
@@ -184,7 +184,7 @@ const CACHE_KEY_PREFIX = "dbt:manifest";
 
 /**
  * dbt Resolver — resolves dbt anchors against manifest.json,
- * collects observed data lineage state, and discovers data-layer artifacts.
+ * collects observed data lineage state, and discovers data-layer entities.
  */
 export class DbtResolver implements EaResolver {
   readonly name = "dbt";
@@ -357,11 +357,11 @@ export class DbtResolver implements EaResolver {
   /**
    * Discover data-layer entities from dbt manifest.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const manifest = this.loadManifest(ctx);
     if (!manifest) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
     const dataProduct = getSchemaDescriptor("data-product")!;

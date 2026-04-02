@@ -18,7 +18,7 @@ const MANIFEST_FILE = join(FIXTURES_DIR, "target", "manifest.json");
 function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   return {
     projectRoot: FIXTURES_DIR,
-    artifacts: [],
+    entities: [],
     cache: new NoOpCache(),
     logger: silentLogger,
     ...overrides,
@@ -213,23 +213,23 @@ describe("DbtResolver.collectObservedState", () => {
   });
 });
 
-// ─── DbtResolver.discoverArtifacts ──────────────────────────────────────────────
+// ─── DbtResolver.discoverEntities ──────────────────────────────────────────────
 
-describe("DbtResolver.discoverArtifacts", () => {
+describe("DbtResolver.discoverEntities", () => {
   let resolver: DbtResolver;
 
   beforeEach(() => {
     resolver = new DbtResolver();
   });
 
-  it("should discover artifacts from manifest", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+  it("should discover entities from manifest", () => {
+    const drafts = resolver.discoverEntities(makeCtx())!;
     expect(drafts).not.toBeNull();
     expect(drafts.length).toBeGreaterThan(0);
   });
 
   it("should create data-product drafts for models", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const products = drafts.filter((d) => d.schema === "data-product");
     expect(products.length).toBe(3);
     expect(products.map((p) => p.title)).toContain("dim_users");
@@ -237,26 +237,26 @@ describe("DbtResolver.discoverArtifacts", () => {
   });
 
   it("should create data-quality-rule drafts for tests", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const rules = drafts.filter((d) => d.schema === "data-quality-rule");
     expect(rules.length).toBe(2);
   });
 
   it("should create data-store drafts for sources", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const stores = drafts.filter((d) => d.schema === "data-store");
     expect(stores.length).toBe(2);
     expect(stores.map((s) => s.title)).toContain("raw.users");
   });
 
   it("should create lineage drafts for models with dependencies", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const lineage = drafts.filter((d) => d.schema === "lineage");
     expect(lineage.length).toBe(3); // all 3 models have depends_on
   });
 
   it("should set correct draft structure", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.status).toBe("draft");
       expect(draft.confidence).toBe("observed");
@@ -266,7 +266,7 @@ describe("DbtResolver.discoverArtifacts", () => {
 
   it("should return null when no manifest found", () => {
     const ctx = makeCtx({ projectRoot: "/does/not/exist" });
-    expect(resolver.discoverArtifacts(ctx)).toBeNull();
+    expect(resolver.discoverEntities(ctx)).toBeNull();
   });
 });
 

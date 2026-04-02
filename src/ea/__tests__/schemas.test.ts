@@ -28,7 +28,7 @@ describe("getEaSchemaNames", () => {
   it("returns 55 schema names (3 base + 48 kinds + 4 config/governance)", () => {
     const names = getEaSchemaNames();
     expect(names).toHaveLength(55);
-    expect(names).toContain("artifact-base");
+    expect(names).toContain("entity-base");
     expect(names).toContain("relation");
     expect(names).toContain("anchors");
     expect(names).toContain("config-v1");
@@ -51,15 +51,15 @@ describe("getSchemaForKind", () => {
 
 // ─── Base Schema Validation ─────────────────────────────────────────────────────
 
-describe("artifact-base schema", () => {
+describe("entity-base schema", () => {
   it("accepts a valid base artifact", () => {
-    const result = validateEaSchema(validBase("application"), "artifact-base");
+    const result = validateEaSchema(validBase("application"), "entity-base");
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
 
   it("rejects missing required fields", () => {
-    const result = validateEaSchema({}, "artifact-base");
+    const result = validateEaSchema({}, "entity-base");
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
   });
@@ -67,7 +67,7 @@ describe("artifact-base schema", () => {
   it("rejects invalid status enum", () => {
     const result = validateEaSchema(
       validBase("application", { status: "bogus" }),
-      "artifact-base"
+      "entity-base"
     );
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.path.includes("status"))).toBe(true);
@@ -76,7 +76,7 @@ describe("artifact-base schema", () => {
   it("rejects invalid confidence enum", () => {
     const result = validateEaSchema(
       validBase("application", { confidence: "guess" }),
-      "artifact-base"
+      "entity-base"
     );
     expect(result.valid).toBe(false);
   });
@@ -84,7 +84,7 @@ describe("artifact-base schema", () => {
   it("rejects empty owners array", () => {
     const result = validateEaSchema(
       validBase("application", { owners: [] }),
-      "artifact-base"
+      "entity-base"
     );
     expect(result.valid).toBe(false);
   });
@@ -92,7 +92,7 @@ describe("artifact-base schema", () => {
   it("rejects summary that is too short", () => {
     const result = validateEaSchema(
       validBase("application", { summary: "short" }),
-      "artifact-base"
+      "entity-base"
     );
     expect(result.valid).toBe(false);
   });
@@ -108,7 +108,7 @@ describe("artifact-base schema", () => {
         compliance: { frameworks: ["SOC2"] },
         extensions: { custom: "data" },
       }),
-      "artifact-base"
+      "entity-base"
     );
     expect(result.valid).toBe(true);
   });
@@ -547,7 +547,7 @@ describe("schema auto-resolution from kind", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("falls back to artifact-base for unknown kinds", () => {
+  it("falls back to entity-base for unknown kinds", () => {
     const result = validateEaSchema(validBase("custom-kind"));
     expect(result.valid).toBe(true); // base schema accepts any kind string
   });
@@ -658,8 +658,8 @@ describe("lineage schema", () => {
   it("accepts valid with required fields", () => {
     const result = validateEaSchema(
       validBase("lineage", {
-        source: { artifactId: "data/STORE-orders-db" },
-        destination: { artifactId: "data/STORE-warehouse" },
+        source: { entityRef: "data/STORE-orders-db" },
+        destination: { entityRef: "data/STORE-warehouse" },
         mechanism: "etl",
       })
     );
@@ -669,7 +669,7 @@ describe("lineage schema", () => {
   it("rejects missing source", () => {
     const result = validateEaSchema(
       validBase("lineage", {
-        destination: { artifactId: "data/STORE-warehouse" },
+        destination: { entityRef: "data/STORE-warehouse" },
         mechanism: "etl",
       })
     );
@@ -679,7 +679,7 @@ describe("lineage schema", () => {
   it("rejects missing destination", () => {
     const result = validateEaSchema(
       validBase("lineage", {
-        source: { artifactId: "data/STORE-orders-db" },
+        source: { entityRef: "data/STORE-orders-db" },
         mechanism: "etl",
       })
     );
@@ -689,8 +689,8 @@ describe("lineage schema", () => {
   it("rejects missing mechanism", () => {
     const result = validateEaSchema(
       validBase("lineage", {
-        source: { artifactId: "data/STORE-orders-db" },
-        destination: { artifactId: "data/STORE-warehouse" },
+        source: { entityRef: "data/STORE-orders-db" },
+        destination: { entityRef: "data/STORE-warehouse" },
       })
     );
     expect(result.valid).toBe(false);
@@ -699,8 +699,8 @@ describe("lineage schema", () => {
   it("accepts with all optional fields", () => {
     const result = validateEaSchema(
       validBase("lineage", {
-        source: { artifactId: "data/STORE-orders-db", description: "Orders DB" },
-        destination: { artifactId: "data/STORE-warehouse", description: "Data warehouse" },
+        source: { entityRef: "data/STORE-orders-db", description: "Orders DB" },
+        destination: { entityRef: "data/STORE-warehouse", description: "Data warehouse" },
         mechanism: "streaming",
         executedBy: "kafka-connect",
         transformation: "flatten nested orders",
@@ -914,7 +914,7 @@ describe("ea-evidence schema", () => {
         source: "vitest",
         records: [
           {
-            artifactId: "SVC-auth",
+            entityRef: "SVC-auth",
             testFile: "src/auth.test.ts",
             kind: "unit",
             status: "passed",
@@ -927,7 +927,7 @@ describe("ea-evidence schema", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("rejects missing artifactId in records", () => {
+  it("rejects missing entityRef in records", () => {
     const result = validateEaSchema(
       {
         generatedAt: "2026-01-15T10:00:00Z",
@@ -946,7 +946,7 @@ describe("ea-verification schema", () => {
   it("accepts valid verification", () => {
     const result = validateEaSchema(
       {
-        artifactId: "SVC-auth",
+        entityRef: "SVC-auth",
         commands: [
           { name: "typecheck", command: "tsc --noEmit", required: true, status: "pending" },
         ],
@@ -956,7 +956,7 @@ describe("ea-verification schema", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("rejects missing artifactId", () => {
+  it("rejects missing entityRef", () => {
     const result = validateEaSchema(
       { commands: [{ name: "test", command: "npm test", required: true }] },
       "ea-verification"
@@ -967,7 +967,7 @@ describe("ea-verification schema", () => {
   it("accepts with drift checks and evidence", () => {
     const result = validateEaSchema(
       {
-        artifactId: "WAVE-q1",
+        entityRef: "WAVE-q1",
         commands: [
           { name: "build", command: "npm run build", required: true },
         ],

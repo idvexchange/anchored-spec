@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Control",
   "description": "A governance control with type, implementation, assertion, and enforcement.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["controlType", "implementation", "assertion"],
   "properties": {

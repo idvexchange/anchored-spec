@@ -142,7 +142,7 @@ If $ARGUMENTS is provided, trace that specific entity or file. Otherwise run a f
 Steps:
 1. Run: \`npx anchored-spec trace --check\` (or \`npx anchored-spec trace $ARGUMENTS\`)
 2. Report findings:
-   - ✅ Bidirectional: entity traceRef → doc AND doc ea-artifacts → entity
+   - ✅ Bidirectional: entity traceRef → doc AND doc ea-entities → entity
    - ⚠ One-way: link exists in only one direction
    - ❌ Broken: traceRef points to a missing file
 3. To fix one-way links: \`npx anchored-spec link-docs\`
@@ -550,7 +550,7 @@ npx anchored-spec trace $ARGUMENTS
 ### 2. Analyze the results
 
 Report:
-- ✅ **Bidirectional links**: entity has traceRef → doc, doc has ea-artifacts → entity
+- ✅ **Bidirectional links**: entity has traceRef → doc, doc has ea-entities → entity
 - ⚠ **One-way links**: only one direction exists
 - ❌ **Broken links**: traceRef points to a file that doesn't exist
 

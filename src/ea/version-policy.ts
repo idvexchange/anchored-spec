@@ -37,7 +37,7 @@ export interface VersionPolicyConfig {
 
 /** A single policy violation. */
 export interface PolicyViolation {
-  artifactId: string;
+  entityRef: string;
   kind: string;
   schema: string;
   domain: string;
@@ -55,7 +55,7 @@ export interface PolicyEnforcementReport {
   passed: boolean;
   violations: PolicyViolation[];
   summary: {
-    artifactsChecked: number;
+    entitiesChecked: number;
     violations: number;
     byPolicy: Record<CompatibilityMode, number>;
   };
@@ -166,7 +166,7 @@ export function enforceVersionPolicies(
 
   for (const assessment of compatReport.assessments) {
     // Resolve policy from the head artifact (or base if removed)
-    const entity = headMap.get(assessment.artifactId) ?? baseMap.get(assessment.artifactId);
+    const entity = headMap.get(assessment.entityRef) ?? baseMap.get(assessment.entityRef);
     if (!entity) continue;
 
     const policy = resolveVersionPolicy(entity, config);
@@ -178,14 +178,14 @@ export function enforceVersionPolicies(
       );
 
       violations.push({
-        artifactId: assessment.artifactId,
+        entityRef: assessment.entityRef,
         kind: assessment.kind,
         schema: assessment.schema,
         domain: assessment.domain,
         policy,
         compatLevel: assessment.level,
         reasons: breakingReasons,
-        message: buildViolationMessage(assessment.artifactId, assessment.level, policy),
+        message: buildViolationMessage(assessment.entityRef, assessment.level, policy),
       });
     }
   }
@@ -197,7 +197,7 @@ export function enforceVersionPolicies(
     passed: violations.length === 0,
     violations,
     summary: {
-      artifactsChecked: compatReport.assessments.length,
+      entitiesChecked: compatReport.assessments.length,
       violations: violations.length,
       byPolicy,
     },
@@ -215,11 +215,11 @@ function isViolatingReason(level: CompatibilityLevel, mode: CompatibilityMode): 
 }
 
 function buildViolationMessage(
-  artifactId: string,
+  entityRef: string,
   compatLevel: CompatibilityLevel,
   policy: VersionPolicy,
 ): string {
-  return `${artifactId}: ${compatLevel} change violates ${policy.compatibility} policy`;
+  return `${entityRef}: ${compatLevel} change violates ${policy.compatibility} policy`;
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────────────
@@ -227,9 +227,9 @@ function buildViolationMessage(
 /** One-line policy enforcement summary. */
 export function renderPolicySummary(report: PolicyEnforcementReport): string {
   if (report.passed) {
-    return `PASSED: ${report.summary.artifactsChecked} artifacts checked, 0 violations`;
+    return `PASSED: ${report.summary.entitiesChecked} artifacts checked, 0 violations`;
   }
-  return `FAILED: ${report.summary.violations} violation(s) across ${report.summary.artifactsChecked} artifacts`;
+  return `FAILED: ${report.summary.violations} violation(s) across ${report.summary.entitiesChecked} artifacts`;
 }
 
 /** Full markdown policy enforcement report. */
@@ -262,7 +262,7 @@ export function renderPolicyMarkdown(report: PolicyEnforcementReport): string {
         ? v.reasons.map((r) => r.message).join("; ")
         : v.message;
       lines.push(
-        `| ${v.artifactId} | ${v.kind} | ${v.schema} | ${v.domain} | ${v.compatLevel} | ${v.policy.compatibility} | ${reason} |`,
+        `| ${v.entityRef} | ${v.kind} | ${v.schema} | ${v.domain} | ${v.compatLevel} | ${v.policy.compatibility} | ${reason} |`,
       );
     }
     lines.push("");

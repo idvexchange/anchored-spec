@@ -11,7 +11,7 @@ import { join } from "node:path";
 import {
   EaRoot,
   resolveConfigV1,
-  discoverArtifacts,
+  discoverEntities,
   renderDiscoveryReportMarkdown,
   createResolverCache,
   OpenApiResolver,
@@ -28,7 +28,7 @@ import {
 } from "../../ea/index.js";
 import { MarkdownResolver } from "../../ea/resolvers/markdown.js";
 import type { EaResolver } from "../../ea/resolvers/types.js";
-import type { EaArtifactDraft } from "../../ea/discovery.js";
+import type { EntityDraft } from "../../ea/discovery.js";
 import { loadResolversFromConfig } from "../../ea/resolvers/loader.js";
 import { CliError } from "../errors.js";
 
@@ -79,7 +79,7 @@ export function eaDiscoverCommand(): Command {
         const docResult = discoverFromDocs(scanResult.docs, existingEntities);
 
         // Feed doc-discovered drafts into the standard pipeline
-        const report = await discoverArtifacts({
+        const report = await discoverEntities({
           existingEntities,
           drafts: docResult.drafts,
           resolverNames: ["doc-frontmatter"],
@@ -149,7 +149,7 @@ export function eaDiscoverCommand(): Command {
       const entities = result.entities;
 
       // Instantiate resolver(s) and run discovery
-      const drafts: EaArtifactDraft[] = [];
+      const drafts: EntityDraft[] = [];
       const resolverNames: string[] = [];
       let markdownResolver: InstanceType<typeof MarkdownResolver> | undefined;
 
@@ -160,9 +160,9 @@ export function eaDiscoverCommand(): Command {
           const resolver = new TreeSitterDiscoveryResolver(packs);
           resolverNames.push(resolver.name);
 
-          const discovered = await resolver.discoverArtifacts({
+          const discovered = await resolver.discoverEntities({
             projectRoot: cwd,
-            artifacts: entities,
+            entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -185,9 +185,9 @@ export function eaDiscoverCommand(): Command {
           resolverNames.push(resolver.name);
           if (resolver instanceof MarkdownResolver) markdownResolver = resolver;
 
-          const discovered = resolver.discoverArtifacts?.({
+          const discovered = resolver.discoverEntities?.({
             projectRoot: cwd,
-            artifacts: entities,
+            entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -209,7 +209,7 @@ export function eaDiscoverCommand(): Command {
           resolverNames.push(lr.name);
           const ctx = {
             projectRoot: cwd,
-            artifacts: entities,
+            entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -230,9 +230,9 @@ export function eaDiscoverCommand(): Command {
           resolverNames.push(resolver.name);
           if (resolver instanceof MarkdownResolver) markdownResolver = resolver;
 
-          const discovered = resolver.discoverArtifacts?.({
+          const discovered = resolver.discoverEntities?.({
             projectRoot: cwd,
-            artifacts: entities,
+            entities,
             cache,
             logger,
             source: options.source as string | undefined,
@@ -249,9 +249,9 @@ export function eaDiscoverCommand(): Command {
           if (packs.length > 0) {
             const tsResolver = new TreeSitterDiscoveryResolver(packs);
             resolverNames.push(tsResolver.name);
-            const discovered = await tsResolver.discoverArtifacts({
+            const discovered = await tsResolver.discoverEntities({
               projectRoot: cwd,
-              artifacts: entities,
+              entities,
               cache,
               logger,
               source: options.source as string | undefined,
@@ -265,7 +265,7 @@ export function eaDiscoverCommand(): Command {
         }
       }
 
-      const report = await discoverArtifacts({
+      const report = await discoverEntities({
         existingEntities,
         drafts,
         resolverNames,

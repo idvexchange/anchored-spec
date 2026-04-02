@@ -21,7 +21,7 @@ const TEST_CACHE_ROOT = join(tmpdir(), `ea-k8s-test-${Date.now()}`);
 function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   return {
     projectRoot: FIXTURES_DIR,
-    artifacts: [],
+    entities: [],
     cache: new NoOpCache(),
     logger: silentLogger,
     ...overrides,
@@ -296,23 +296,23 @@ describe("KubernetesResolver.collectObservedState", () => {
   });
 });
 
-// ─── KubernetesResolver.discoverArtifacts ───────────────────────────────────────
+// ─── KubernetesResolver.discoverEntities ───────────────────────────────────────
 
-describe("KubernetesResolver.discoverArtifacts", () => {
+describe("KubernetesResolver.discoverEntities", () => {
   let resolver: KubernetesResolver;
 
   beforeEach(() => {
     resolver = new KubernetesResolver();
   });
 
-  it("should discover artifacts from manifests", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+  it("should discover entities from manifests", () => {
+    const drafts = resolver.discoverEntities(makeCtx())!;
     expect(drafts).not.toBeNull();
     expect(drafts.length).toBeGreaterThan(0);
   });
 
   it("should create drafts with correct kind and status", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.status).toBe("draft");
       expect(draft.confidence).toBe("observed");
@@ -321,7 +321,7 @@ describe("KubernetesResolver.discoverArtifacts", () => {
   });
 
   it("should create deployment draft from Deployment", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const deploy = drafts.find(
       (d) => d.schema === "deployment" && d.title.includes("order-service"),
     );
@@ -334,7 +334,7 @@ describe("KubernetesResolver.discoverArtifacts", () => {
   });
 
   it("should create environment draft from Namespace", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const env = drafts.find((d) => d.schema === "environment");
     expect(env).toBeDefined();
     expect(env!.kind).toBe("Resource");
@@ -342,7 +342,7 @@ describe("KubernetesResolver.discoverArtifacts", () => {
   });
 
   it("should create network-zone draft from NetworkPolicy", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const zone = drafts.find((d) => d.schema === "network-zone");
     expect(zone).toBeDefined();
     expect(zone!.kind).toBe("Resource");
@@ -350,7 +350,7 @@ describe("KubernetesResolver.discoverArtifacts", () => {
   });
 
   it("should create identity-boundary draft from ServiceAccount", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const idb = drafts.find((d) => d.schema === "identity-boundary");
     expect(idb).toBeDefined();
     expect(idb!.kind).toBe("SystemInterface");
@@ -358,14 +358,14 @@ describe("KubernetesResolver.discoverArtifacts", () => {
   });
 
   it("should include K8s anchors", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.anchors?.infra?.some((a) => a.startsWith("kubernetes:"))).toBe(true);
     }
   });
 
   it("should deduplicate manifests", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const ids = drafts.map((d) => d.suggestedId);
     const unique = [...new Set(ids)];
     expect(ids.length).toBe(unique.length);
@@ -373,7 +373,7 @@ describe("KubernetesResolver.discoverArtifacts", () => {
 
   it("should return null when no manifests found", () => {
     const ctx = makeCtx({ projectRoot: "/does/not/exist" });
-    expect(resolver.discoverArtifacts(ctx)).toBeNull();
+    expect(resolver.discoverEntities(ctx)).toBeNull();
   });
 });
 

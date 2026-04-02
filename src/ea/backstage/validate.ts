@@ -2,7 +2,7 @@
  * Backstage Entity Validation
  *
  * Ajv-based validation for BackstageEntity against kind-specific Backstage
- * schemas, plus quality rules that parallel the legacy validateEaArtifacts().
+ * schemas, plus quality rules that parallel the legacy validateEntities().
  *
  * Uses a separate Ajv instance from the legacy validator to avoid conflicts
  * between the two schema sets (legacy flat-shape vs Backstage envelope).
@@ -388,7 +388,7 @@ function pushFinding(
 /**
  * Run quality rules across a set of Backstage entities.
  *
- * Rules (parallel to legacy validateEaArtifacts):
+ * Rules (parallel to legacy validateEntities):
  *   - `backstage:quality:duplicate-name`    (error)   — No duplicate entity refs
  *   - `backstage:quality:name-format`       (error)   — Name must be valid
  *   - `backstage:quality:active-needs-owner`(error)   — Active entities need an owner

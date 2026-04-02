@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Environment",
   "description": "A deployment environment (prod, staging, dev).",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["tier", "isProduction"],
   "properties": {

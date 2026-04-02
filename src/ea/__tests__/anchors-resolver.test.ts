@@ -179,7 +179,7 @@ describe("AnchorsResolver", () => {
     expect(resolver.description).toBeTruthy();
   });
 
-  it("resolves artifacts with anchors", async () => {
+  it("resolves entities with anchors", async () => {
     writeSource("src/service.ts", "export class UserService {}");
 
     const entity: BackstageEntity = {
@@ -200,7 +200,7 @@ describe("AnchorsResolver", () => {
     const resolver = new AnchorsResolver();
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [entity],
+      entities: [entity],
     });
 
     expect(result.source).toBe("anchors");
@@ -231,14 +231,14 @@ describe("AnchorsResolver", () => {
     const resolver = new AnchorsResolver();
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [entity],
+      entities: [entity],
     });
 
     expect(result.entities).toHaveLength(1);
     expect(result.entities[0]!.metadata!.status).toBe("missing");
   });
 
-  it("skips artifacts without anchors", async () => {
+  it("skips entities without anchors", async () => {
     const entity: BackstageEntity = {
       apiVersion: "backstage.io/v1alpha1",
       kind: "Component",
@@ -256,7 +256,7 @@ describe("AnchorsResolver", () => {
     const resolver = new AnchorsResolver();
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [entity],
+      entities: [entity],
     });
 
     expect(result.entities).toHaveLength(0);
@@ -284,7 +284,7 @@ describe("AnchorsResolver", () => {
     const resolver = new AnchorsResolver({ sourceRoots: ["lib"] });
     const result = await resolver.resolve({
       projectRoot: tempDir,
-      artifacts: [entity],
+      entities: [entity],
     });
 
     expect(result.entities).toHaveLength(1);

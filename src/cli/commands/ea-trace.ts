@@ -2,7 +2,7 @@
  * anchored-spec ea trace
  *
  * Show the traceability web between entities (`traceRefs`) and
- * markdown documents (frontmatter `ea-artifacts`). Supports single-target
+ * markdown documents (frontmatter `ea-entities`). Supports single-target
  * lookup, orphan detection, full bidirectional integrity checks, and
  * summary statistics.
  */
@@ -46,7 +46,7 @@ interface TraceEntityView {
 interface SummaryReport {
   entitiesWithTraceRefs: number;
   totalEntities: number;
-  docsWithEaArtifacts: number;
+  docsWithEaEntities: number;
   totalDocsScanned: number;
   totalTraceLinks: number;
   totalFrontmatterRefs: number;
@@ -64,19 +64,19 @@ function buildSummaryReport(
   const entitiesWithRefs = new Set(
     entities.filter((entity) => (entity.traceRefs?.length ?? 0) > 0).map((entity) => entity.entityRef),
   ).size;
-  const totalTraceLinks = links.filter((l) => l.artifactToDoc).length;
-  const totalFmRefs = links.filter((l) => l.docToArtifact).length;
+  const totalTraceLinks = links.filter((l) => l.entityToDoc).length;
+  const totalFmRefs = links.filter((l) => l.docToEntity).length;
 
   return {
     entitiesWithTraceRefs: entitiesWithRefs,
     totalEntities: entities.length,
-    docsWithEaArtifacts: docs.length,
+    docsWithEaEntities: docs.length,
     totalDocsScanned: totalScanned,
     totalTraceLinks,
     totalFrontmatterRefs: totalFmRefs,
     bidirectionalPairs: check.bidirectionalCount,
     oneWayPairs:
-      check.oneWayArtifactToDoc.length + check.oneWayDocToArtifact.length,
+      check.oneWayEntityToDoc.length + check.oneWayDocToEntity.length,
   };
 }
 
@@ -149,7 +149,7 @@ function renderTargetEntity(
     lines.push("  Missing backlinks:");
     for (const ref of missingBacklinks) {
       lines.push(
-        `    ${chalk.yellow("⚠")} ${ref.path} has traceRef but no ea-artifacts frontmatter`,
+        `    ${chalk.yellow("⚠")} ${ref.path} has traceRef but no ea-entities frontmatter`,
       );
     }
   }
@@ -181,10 +181,10 @@ function renderTargetDoc(
   if (fm.tokens != null) parts.push(`tokens: ${fm.tokens}`);
   lines.push(`    ${parts.join(" | ")}`);
 
-  // ea-artifacts
-  if (doc.artifactIds.length > 0) {
-    lines.push("  ea-artifacts:");
-    for (const aid of doc.artifactIds) {
+  // ea-entities
+  if (doc.entityRefs.length > 0) {
+    lines.push("  ea-entities:");
+    for (const aid of doc.entityRefs) {
       const entity = entityMap.get(aid);
       if (!entity) {
         lines.push(`    → ${aid} ${chalk.red("❌ (entity not found)")}`);
@@ -218,7 +218,7 @@ function renderOrphans(
   let missingLinks = 0;
 
   for (const doc of docs) {
-    const orphanIds = doc.artifactIds.filter((aid) => {
+    const orphanIds = doc.entityRefs.filter((aid) => {
       const entity = entityMap.get(aid);
       if (!entity) return false; // entity doesn't exist — different issue
       return !(entity.traceRefs ?? []).some((r) => r.path === doc.relativePath);
@@ -255,61 +255,61 @@ function renderCheck(report: TraceCheckReport): string {
   if (report.brokenTraceRefs.length > 0) {
     lines.push("  Entities with broken traceRefs:");
     for (const b of report.brokenTraceRefs) {
-      lines.push(`    ${chalk.red("❌")} ${b.artifactId} → ${b.path} (${b.reason})`);
+      lines.push(`    ${chalk.red("❌")} ${b.entityRef} → ${b.path} (${b.reason})`);
     }
     lines.push("");
   }
 
   // One-way entity → doc
-  if (report.oneWayArtifactToDoc.length > 0) {
-    const actionable = report.oneWayArtifactToDoc.filter(
+  if (report.oneWayEntityToDoc.length > 0) {
+    const actionable = report.oneWayEntityToDoc.filter(
       (o) => o.severity === "warning",
     );
-    const structural = report.oneWayArtifactToDoc.filter(
+    const structural = report.oneWayEntityToDoc.filter(
       (o) => o.severity === "info",
     );
 
     if (actionable.length > 0) {
       lines.push("  Entities with one-way traceRefs (actionable — missing frontmatter):");
       for (const o of actionable) {
-        lines.push(`    ${chalk.yellow("⚠")} ${o.artifactId} → ${o.path} (${o.reason})`);
+        lines.push(`    ${chalk.yellow("⚠")} ${o.entityRef} → ${o.path} (${o.reason})`);
       }
       lines.push("");
     }
     if (structural.length > 0) {
       lines.push("  Entities with one-way traceRefs (structural — non-markdown files):");
       for (const o of structural) {
-        lines.push(`    ${chalk.blue("ℹ")} ${o.artifactId} → ${o.path} (${o.reason})`);
+        lines.push(`    ${chalk.blue("ℹ")} ${o.entityRef} → ${o.path} (${o.reason})`);
       }
       lines.push("");
     }
   }
 
   // One-way doc → entity
-  if (report.oneWayDocToArtifact.length > 0) {
+  if (report.oneWayDocToEntity.length > 0) {
     lines.push("  Docs with one-way frontmatter (no traceRef back):");
-    for (const o of report.oneWayDocToArtifact) {
-      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.artifactId} (no traceRef in entity)`);
+    for (const o of report.oneWayDocToEntity) {
+      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.entityRef} (no traceRef in entity)`);
     }
     lines.push("");
   }
 
-  const actionableOneWay = report.oneWayArtifactToDoc.filter(
+  const actionableOneWay = report.oneWayEntityToDoc.filter(
     (o) => o.severity === "warning",
   ).length;
-  const structuralOneWay = report.oneWayArtifactToDoc.filter(
+  const structuralOneWay = report.oneWayEntityToDoc.filter(
     (o) => o.severity === "info",
   ).length;
 
   const totalIssues =
     actionableOneWay +
-    report.oneWayDocToArtifact.length +
+    report.oneWayDocToEntity.length +
     report.brokenTraceRefs.length;
 
   lines.push(`  Fully bidirectional links: ${report.bidirectionalCount} ${chalk.green("✅")}`);
   lines.push(`  One-way entity→doc (actionable): ${actionableOneWay} ${chalk.yellow("⚠")}`);
   lines.push(`  One-way entity→doc (structural): ${structuralOneWay} ${chalk.blue("ℹ")}`);
-  lines.push(`  One-way doc→entity: ${report.oneWayDocToArtifact.length} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way doc→entity: ${report.oneWayDocToEntity.length} ${chalk.yellow("⚠")}`);
   lines.push(`  Broken references: ${report.brokenTraceRefs.length} ${chalk.red("❌")}`);
   lines.push("");
 
@@ -328,7 +328,7 @@ function renderSummary(report: SummaryReport): string {
   const lines: string[] = [];
   lines.push(chalk.bold("Trace Summary:"));
   lines.push(`  Entities with traceRefs: ${report.entitiesWithTraceRefs} / ${report.totalEntities}`);
-  lines.push(`  Documents with ea-artifacts: ${report.docsWithEaArtifacts} / ${report.totalDocsScanned} scanned`);
+  lines.push(`  Documents with ea-entities: ${report.docsWithEaEntities} / ${report.totalDocsScanned} scanned`);
   lines.push(`  Total trace links (entity→doc): ${report.totalTraceLinks}`);
   lines.push(`  Total frontmatter refs (doc→entity): ${report.totalFrontmatterRefs}`);
   lines.push(`  Bidirectional pairs: ${report.bidirectionalPairs}`);
@@ -438,12 +438,12 @@ export function eaTraceCommand(): Command {
         // Group broken refs by entity ref
         const brokenByEntity = new Map<string, string[]>();
         for (const b of toRemove) {
-          const list = brokenByEntity.get(b.artifactId) ?? [];
+          const list = brokenByEntity.get(b.entityRef) ?? [];
           list.push(b.path);
-          brokenByEntity.set(b.artifactId, list);
+          brokenByEntity.set(b.entityRef, list);
         }
 
-        const removed: { artifactId: string; path: string }[] = [];
+        const removed: { entityRef: string; path: string }[] = [];
 
         if (!options.dryRun) {
           for (const [entityRef, paths] of brokenByEntity) {
@@ -458,12 +458,12 @@ export function eaTraceCommand(): Command {
             const pathSet = new Set(paths);
             removeBrokenTraceRefs(detail.filePath, pathSet);
             for (const p of paths) {
-              removed.push({ artifactId: entityRef, path: p });
+              removed.push({ entityRef: entityRef, path: p });
             }
           }
         } else {
           for (const b of toRemove) {
-            removed.push({ artifactId: b.artifactId, path: b.path });
+            removed.push({ entityRef: b.entityRef, path: b.path });
           }
         }
 
@@ -490,7 +490,7 @@ export function eaTraceCommand(): Command {
           );
           for (const r of removed) {
             console.log(
-              `  ${chalk.red("✕")} ${r.artifactId} → ${r.path}`,
+              `  ${chalk.red("✕")} ${r.entityRef} → ${r.path}`,
             );
           }
         }
@@ -521,7 +521,7 @@ export function eaTraceCommand(): Command {
         if (options.json) {
           const orphanData: { docPath: string; missingBacklinks: string[] }[] = [];
           for (const doc of normalizedDocs) {
-            const orphanIds = doc.artifactIds.filter((aid) => {
+            const orphanIds = doc.entityRefs.filter((aid) => {
               const a = entityMap.get(aid);
               if (!a) return false;
               return !(a.traceRefs ?? []).some((r) => r.path === doc.relativePath);
@@ -604,7 +604,7 @@ export function eaTraceCommand(): Command {
                   path: doc.relativePath,
                   frontmatter: doc.frontmatter,
                 },
-                linkedEntities: doc.artifactIds.map((aid) => {
+                linkedEntities: doc.entityRefs.map((aid) => {
                   const a = entityMap.get(aid);
                   if (!a) return { id: aid, found: false, hasTraceBack: false };
                   const hasBack = (a.traceRefs ?? []).some(

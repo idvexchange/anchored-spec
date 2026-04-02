@@ -12,7 +12,7 @@
  *  - 10 business drift rules including retired-system-dependency
  */
 import { describe, it, expect } from "vitest";
-import { createDefaultRegistry, validateEaArtifacts, validateEaRelations, validateEaSchema, evaluateEaDrift, } from "../index.js";
+import { createDefaultRegistry, validateEntities, validateEaRelations, validateEaSchema, evaluateEaDrift, } from "../index.js";
 import { ENTITY_DESCRIPTOR_REGISTRY, getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import { makeEntity } from "./helpers/make-entity.js";
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
@@ -356,17 +356,17 @@ describe("Phase 2D: Schema Validation", () => {
 describe("Phase 2D: Quality Rules", () => {
     it("ea:quality:capability-missing-level — fires on missing level", () => {
         const artifacts = [makeEntity({ ref: "capability:no-level", kind: "Capability" } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:capability-missing-level")).toBeDefined();
     });
     it("ea:quality:process-missing-steps — fires on empty steps", () => {
         const artifacts = [makeEntity({ ref: "valuestream:no-steps", kind: "ValueStream", type: "process", steps: [] } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.warnings.find((w) => w.rule === "ea:quality:process-missing-steps")).toBeDefined();
     });
     it("ea:quality:value-stream-missing-stages — fires on missing stages", () => {
         const artifacts = [makeEntity({ ref: "valuestream:no-stages", kind: "ValueStream", stages: [] } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:value-stream-missing-stages")).toBeDefined();
     });
     it("ea:quality:control-missing-assertion — fires on empty assertion", () => {
@@ -377,12 +377,12 @@ describe("Phase 2D: Quality Rules", () => {
                 implementation: "automated",
                 assertion: ""
             } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:control-missing-assertion")).toBeDefined();
     });
     it("ea:quality:org-unit-missing-type — fires on missing unitType", () => {
         const artifacts = [makeEntity({ ref: "group:no-type", kind: "Group", type: "team", unitType: "" } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:org-unit-missing-type")).toBeDefined();
     });
     it("ea:quality:policy-missing-objective — fires on empty objective", () => {
@@ -393,12 +393,12 @@ describe("Phase 2D: Quality Rules", () => {
                 category: "sla",
                 objective: ""
             } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:policy-missing-objective")).toBeDefined();
     });
     it("ea:quality:mission-missing-key-results — fires as info on missing KRs", () => {
         const artifacts = [makeEntity({ ref: "mission:no-kr", kind: "Mission" } as any)];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         // info severity maps to warnings
         expect(result.warnings.find((w) => w.rule === "ea:quality:mission-missing-key-results")).toBeDefined();
     });

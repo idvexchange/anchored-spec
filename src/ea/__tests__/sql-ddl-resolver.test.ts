@@ -16,7 +16,7 @@ const SQL_FILE = join(FIXTURES_DIR, "sql", "migrations.sql");
 function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   return {
     projectRoot: FIXTURES_DIR,
-    artifacts: [],
+    entities: [],
     cache: new NoOpCache(),
     logger: silentLogger,
     source: "sql",
@@ -226,9 +226,9 @@ describe("SqlDdlResolver.collectObservedState", () => {
   });
 });
 
-// ─── SqlDdlResolver.discoverArtifacts ───────────────────────────────────────────
+// ─── SqlDdlResolver.discoverEntities ───────────────────────────────────────────
 
-describe("SqlDdlResolver.discoverArtifacts", () => {
+describe("SqlDdlResolver.discoverEntities", () => {
   let resolver: SqlDdlResolver;
 
   beforeEach(() => {
@@ -236,7 +236,7 @@ describe("SqlDdlResolver.discoverArtifacts", () => {
   });
 
   it("should discover physical-schema and data-store drafts", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     expect(drafts).not.toBeNull();
     const schemas = drafts.filter((d) => d.schema === "physical-schema");
     const stores = drafts.filter((d) => d.schema === "data-store");
@@ -245,7 +245,7 @@ describe("SqlDdlResolver.discoverArtifacts", () => {
   });
 
   it("should create correct draft structure", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.status).toBe("draft");
       expect(draft.confidence).toBe("observed");
@@ -254,7 +254,7 @@ describe("SqlDdlResolver.discoverArtifacts", () => {
   });
 
   it("should include column details in schemaFields", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const users = drafts.find((d) => d.title === "public.users");
     expect(users?.schemaFields?.columns).toBeDefined();
   });

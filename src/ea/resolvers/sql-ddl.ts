@@ -12,7 +12,7 @@ import { join, extname, relative } from "node:path";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import type {
   EaResolver,
   EaResolverContext,
@@ -265,7 +265,7 @@ const CACHE_KEY_PREFIX = "sql-ddl:tables";
 
 /**
  * SQL DDL Resolver — resolves schema anchors against CREATE TABLE statements,
- * collects observed table state, and discovers physical-schema/data-store artifacts.
+ * collects observed table state, and discovers physical-schema/data-store entities.
  */
 export class SqlDdlResolver implements EaResolver {
   readonly name = "sql-ddl";
@@ -380,11 +380,11 @@ export class SqlDdlResolver implements EaResolver {
   /**
    * Discover physical-schema and data-store entities from DDL files.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const tables = this.loadTables(ctx);
     if (tables.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
     const schemas = new Set<string>();

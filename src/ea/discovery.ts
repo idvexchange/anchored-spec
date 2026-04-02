@@ -30,7 +30,7 @@ import type { EaRelation } from "./types.js";
 // ─── Discovery Types ────────────────────────────────────────────────────────────
 
 /** A draft entity produced by discovery. */
-export interface EaArtifactDraft {
+export interface EntityDraft {
   /** Suggested canonical entity ref. */
   suggestedId: string;
   /** Backstage or anchored-spec entity kind. */
@@ -68,7 +68,7 @@ export interface DiscoveryMatch {
   /** How the match was determined. */
   matchedBy: "anchor" | "title";
   /** The draft that matched. */
-  draft: EaArtifactDraft;
+  draft: EntityDraft;
   /** New anchors that could be added to the existing entity. */
   suggestedAnchorsToAdd?: Record<string, string[]>;
 }
@@ -117,7 +117,7 @@ export interface DiscoveryOptions {
   /** Existing loaded entities to deduplicate against. */
   existingEntities: BackstageEntity[];
   /** Draft entities from resolvers. */
-  drafts: EaArtifactDraft[];
+  drafts: EntityDraft[];
   /** Resolver names that were used. */
   resolverNames: string[];
   /** Project root directory. */
@@ -135,7 +135,7 @@ export interface DiscoveryResolver {
   /** Resolver name. */
   name: string;
   /** Discover entities from a source. */
-  discover(source: string): EaArtifactDraft[];
+  discover(source: string): EntityDraft[];
 }
 
 function getExistingId(value: BackstageEntity): string {
@@ -164,7 +164,7 @@ function getExistingAnchors(value: BackstageEntity): Record<string, unknown> {
  * 2. Same schema AND normalized title matches
  */
 export function matchDraftToExisting(
-  draft: EaArtifactDraft,
+  draft: EntityDraft,
   existing: BackstageEntity[],
 ): { match: BackstageEntity; matchedBy: "anchor" | "title" } | null {
   const sameSchema = existing.filter((entity) => getExistingSchema(entity) === draft.schema);
@@ -206,7 +206,7 @@ function normalizeTitle(title: string): string {
  * Compute new anchors that a draft has but the existing entity doesn't.
  */
 function computeNewAnchors(
-  draft: EaArtifactDraft,
+  draft: EntityDraft,
   existing: BackstageEntity,
 ): Record<string, string[]> | undefined {
   if (!draft.anchors) return undefined;
@@ -260,7 +260,7 @@ function toCanonicalTargetRef(target: string): string {
 }
 
 /** Convert a draft into a Backstage entity ready for supported writers. */
-function draftToEntity(draft: EaArtifactDraft): BackstageEntity | null {
+function draftToEntity(draft: EntityDraft): BackstageEntity | null {
   const parsedRef = tryParseEntityRef(draft.suggestedId);
   if (!parsedRef) return null;
 
@@ -317,7 +317,7 @@ function draftToEntity(draft: EaArtifactDraft): BackstageEntity | null {
 }
 
 async function writeDraftEntity(
-  draft: EaArtifactDraft,
+  draft: EntityDraft,
   projectRoot: string,
   config: AnchoredSpecConfigV1,
 ): Promise<string | null> {
@@ -336,7 +336,7 @@ async function writeDraftEntity(
  * 3. New → write draft files (unless dry-run)
  * 4. Build discovery report
  */
-export async function discoverArtifacts(options: DiscoveryOptions): Promise<DiscoveryReport> {
+export async function discoverEntities(options: DiscoveryOptions): Promise<DiscoveryReport> {
   const {
     existingEntities,
     drafts,
@@ -411,7 +411,7 @@ export async function discoverArtifacts(options: DiscoveryOptions): Promise<Disc
  */
 export const stubResolver: DiscoveryResolver = {
   name: "stub",
-  discover(): EaArtifactDraft[] {
+  discover(): EntityDraft[] {
     return [];
   },
 };
@@ -438,7 +438,7 @@ export function createDraft(
     schemaFields?: Record<string, unknown>;
     summary?: string;
   },
-): EaArtifactDraft {
+): EntityDraft {
   const slug = titleToSlug(title);
   const suggestedId = `${descriptor.kind.toLowerCase()}:${slug}`;
   const type = "type" in descriptor && descriptor.type !== undefined

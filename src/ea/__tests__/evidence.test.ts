@@ -38,7 +38,7 @@ describe("evidence helpers", () => {
             producesEvidence: ["test"]
         });
         const staleRecord = {
-            artifactId: "component:auth",
+            entityRef: "component:auth",
             kind: "test",
             status: "failed",
             recordedAt: "2020-01-01T00:00:00.000Z",
@@ -66,7 +66,7 @@ describe("evidence helpers", () => {
         expect(summary.totalRecords).toBe(1);
         expect(summary.byStatus.failed).toBe(1);
         expect(summary.staleCount).toBe(1);
-        expect(summary.uncoveredArtifacts).toBe(1);
+        expect(summary.uncoveredEntities).toBe(1);
     });
 });
 describe("evidence CLI", () => {
@@ -109,7 +109,7 @@ describe("evidence CLI", () => {
             generatedAt: new Date().toISOString(),
             records: [
                 {
-                    artifactId: "component:auth",
+                    entityRef: "component:auth",
                     kind: "test",
                     status: "failed",
                     recordedAt: new Date().toISOString(),
@@ -122,8 +122,8 @@ describe("evidence CLI", () => {
         expect(`${result.stdout}${result.stderr}`).toContain('status "failed"');
         expect(readJsonFile<{
             records: Array<{
-                artifactId: string;
+                entityRef: string;
             }>;
-        }>(dir, "docs/evidence/ea-evidence.json").records[0]?.artifactId).toBe("component:auth");
+        }>(dir, "docs/evidence/ea-evidence.json").records[0]?.entityRef).toBe("component:auth");
     });
 });

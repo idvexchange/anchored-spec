@@ -338,12 +338,12 @@ const lineageStale: EaDriftRule = {
     for (const a of ctx.artifacts) {
       if (!hasEntitySchema(a, "lineage")) continue;
       const spec = a.spec as Record<string, unknown> | undefined;
-      const source = spec?.source as { artifactId?: string } | undefined;
-      const destination = spec?.destination as { artifactId?: string } | undefined;
+      const source = spec?.source as { entityRef?: string } | undefined;
+      const destination = spec?.destination as { entityRef?: string } | undefined;
 
       for (const endpoint of [
-        { ref: source?.artifactId, label: "source" },
-        { ref: destination?.artifactId, label: "destination" },
+        { ref: source?.entityRef, label: "source" },
+        { ref: destination?.entityRef, label: "destination" },
       ]) {
         if (!endpoint.ref) continue;
         const target = ctx.artifactMap.get(endpoint.ref);
@@ -401,9 +401,9 @@ const orphanStore: EaDriftRule = {
       const isLineageEndpoint = ctx.artifacts.some((other) => {
         if (!hasEntitySchema(other, "lineage")) return false;
         const spec = other.spec as Record<string, unknown> | undefined;
-        const source = spec?.source as { artifactId?: string } | undefined;
-        const destination = spec?.destination as { artifactId?: string } | undefined;
-        return source?.artifactId === entityId || destination?.artifactId === entityId;
+        const source = spec?.source as { entityRef?: string } | undefined;
+        const destination = spec?.destination as { entityRef?: string } | undefined;
+        return source?.entityRef === entityId || destination?.entityRef === entityId;
       });
 
       if (!hasOwnRelations && !isTargeted && !isLineageEndpoint) {
@@ -1548,14 +1548,14 @@ const qualityRuleNotEnforced: EaDriftRule = {
 const baselineMissingArtifacts: EaDriftRule = {
   id: "ea:transition/baseline-missing-artifacts",
   severity: "warning",
-  description: "Baseline artifactRefs references artifacts that don't exist.",
+  description: "Baseline entityRefs references artifacts that don't exist.",
   requiresResolver: false,
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
       if (!hasEntitySchema(a, "baseline")) continue;
-      const artifactRefs = a.spec?.artifactRefs as string[] | undefined;
-      for (const ref of artifactRefs ?? []) {
+      const entityRefs = a.spec?.entityRefs as string[] | undefined;
+      for (const ref of entityRefs ?? []) {
         const normalizedRef = normalizeTransitionRef(ref);
         if (!ctx.artifactMap.has(normalizedRef)) {
           results.push({
@@ -1601,14 +1601,14 @@ const baselineStale: EaDriftRule = {
 const invalidTargetReference: EaDriftRule = {
   id: "ea:transition/invalid-target-reference",
   severity: "error",
-  description: "Target artifactRefs references non-existent artifact.",
+  description: "Target entityRefs references non-existent artifact.",
   requiresResolver: false,
   evaluate(ctx) {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
       if (!hasEntitySchema(a, "target")) continue;
-      const artifactRefs = a.spec?.artifactRefs as string[] | undefined;
-      for (const ref of artifactRefs ?? []) {
+      const entityRefs = a.spec?.entityRefs as string[] | undefined;
+      for (const ref of entityRefs ?? []) {
         const target = ctx.artifactMap.get(normalizeTransitionRef(ref));
         if (!target) {
           results.push({
@@ -1799,8 +1799,8 @@ const exceptionMissingScope: EaDriftRule = {
     const results: EaValidationError[] = [];
     for (const a of ctx.artifacts) {
       if (!hasEntitySchema(a, "exception")) continue;
-      const scope = a.spec?.scope as { artifactIds?: string[]; rules?: string[]; domains?: string[] } | undefined;
-      const hasScope = (scope?.artifactIds?.length ?? 0) > 0 ||
+      const scope = a.spec?.scope as { entityRefs?: string[]; rules?: string[]; domains?: string[] } | undefined;
+      const hasScope = (scope?.entityRefs?.length ?? 0) > 0 ||
         (scope?.rules?.length ?? 0) > 0 ||
         (scope?.domains?.length ?? 0) > 0;
       if (!hasScope) {
@@ -1985,7 +1985,7 @@ export interface EaDriftFinding {
   /** Severity (may be overridden from default). */
   severity: "error" | "warning" | "info";
   /** The artifact that triggered this finding. */
-  artifactId: string;
+  entityRef: string;
   /** Path within the artifact (e.g., field name). */
   path: string;
   /** EA domain of the affected artifact. */
@@ -2100,14 +2100,14 @@ function validationErrorToFinding(
   artifacts: BackstageEntity[],
 ): EaDriftFinding {
   // Extract artifact ID from the error path (typically the first segment)
-  const artifactId = error.path ?? "";
-  const domain = inferDomainFromArtifact(artifactId, artifacts);
+  const entityRef = error.path ?? "";
+  const domain = inferDomainFromArtifact(entityRef, artifacts);
   const rule = error.rule ?? error.message.split(":")[0] ?? "unknown";
 
   return {
     rule,
     severity,
-    artifactId,
+    entityRef,
     path: error.path ?? "",
     domain,
     message: error.message,
@@ -2118,8 +2118,8 @@ function validationErrorToFinding(
 /**
  * Infer domain from an artifact ID by looking up in the kind registry.
  */
-function inferDomainFromArtifact(artifactId: string, artifacts: BackstageEntity[]): string {
-  const artifact = artifacts.find((a) => getEntityId(a) === artifactId);
+function inferDomainFromArtifact(entityRef: string, artifacts: BackstageEntity[]): string {
+  const artifact = artifacts.find((a) => getEntityId(a) === entityRef);
   if (!artifact) return "unknown";
   return getEntityDomain(artifact) ?? "unknown";
 }
@@ -2128,7 +2128,7 @@ function inferDomainFromArtifact(artifactId: string, artifacts: BackstageEntity[
  * Apply exception suppression to findings.
  *
  * A finding is suppressed if an active, non-expired exception matches:
- * - scope.artifactIds includes the finding's artifactId (or artifactIds is empty/undefined)
+ * - scope.entityRefs includes the finding's entityRef (or entityRefs is empty/undefined)
  * - scope.rules includes the finding's rule (or rules is empty/undefined)
  * - scope.domains includes the finding's domain (or domains is empty/undefined)
  */
@@ -2148,9 +2148,9 @@ function applySuppression(
 
   return findings.map((f) => {
     for (const exc of activeExceptions) {
-      const scope = exc.spec?.scope as { artifactIds?: string[]; rules?: string[]; domains?: string[] } | undefined;
+      const scope = exc.spec?.scope as { entityRefs?: string[]; rules?: string[]; domains?: string[] } | undefined;
       const matchesArtifact =
-        !scope?.artifactIds || scope.artifactIds.length === 0 || scope.artifactIds.includes(f.artifactId);
+        !scope?.entityRefs || scope.entityRefs.length === 0 || scope.entityRefs.includes(f.entityRef);
       const matchesRule =
         !scope?.rules || scope.rules.length === 0 || scope.rules.includes(f.rule);
       const matchesDomain =
@@ -2179,7 +2179,7 @@ function applyInlineSuppression(
   findings: EaDriftFinding[],
   artifacts: BackstageEntity[],
 ): EaDriftFinding[] {
-  // Build a map: artifactId → Set<suppressed rule IDs>
+  // Build a map: entityRef → Set<suppressed rule IDs>
   const suppressMap = new Map<string, Set<string>>();
   for (const a of artifacts) {
     const suppress = a.spec?.driftSuppress as unknown;
@@ -2192,9 +2192,9 @@ function applyInlineSuppression(
 
   return findings.map((f) => {
     if (f.suppressed) return f;
-    const rules = suppressMap.get(f.artifactId);
+    const rules = suppressMap.get(f.entityRef);
     if (rules && rules.has(f.rule)) {
-      return { ...f, suppressed: true, suppressedBy: `${f.artifactId}:inline` };
+      return { ...f, suppressed: true, suppressedBy: `${f.entityRef}:inline` };
     }
     return f;
   });

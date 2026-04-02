@@ -26,10 +26,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["artifactId", "testFile", "kind", "status", "recordedAt"],
+        "required": ["entityRef", "testFile", "kind", "status", "recordedAt"],
         "additionalProperties": false,
         "properties": {
-          "artifactId": {
+          "entityRef": {
             "type": "string",
             "minLength": 3,
             "description": "EA artifact ID this test relates to (e.g., SVC-auth, APP-frontend)"

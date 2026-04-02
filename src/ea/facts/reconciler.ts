@@ -18,7 +18,7 @@ export interface ReconciliationReport {
   passed: boolean;
   findings: ConsistencyFinding[];
   factsChecked: number;
-  artifactsChecked: number;
+  entitiesChecked: number;
 }
 
 // ─── Kind → Anchor Field Mapping ────────────────────────────────────
@@ -226,7 +226,7 @@ function checkArtifactMismatches(
             factParts.slice(0, -1).join(".") ===
               anchorParts.slice(0, -1).join(".")
           ) {
-            const artifactIds = kindAnchors.get(anchor)!;
+            const entityRefs = kindAnchors.get(anchor)!;
 
             const locations: FactLocation[] = [
               {
@@ -234,7 +234,7 @@ function checkArtifactMismatches(
                 line: fact.source.line,
                 value: fact.key,
               },
-              ...artifactIds.map((id) => ({
+              ...entityRefs.map((id) => ({
                 file: id,
                 line: 0,
                 value: anchor,
@@ -306,6 +306,6 @@ export function reconcileFactsWithArtifacts(
     passed: errors === 0,
     findings,
     factsChecked,
-    artifactsChecked: entities.length,
+    entitiesChecked: entities.length,
   };
 }

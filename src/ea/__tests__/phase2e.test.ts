@@ -8,7 +8,7 @@
  *  - 5 quality rules for transition-layer artifacts
  */
 import { describe, it, expect } from "vitest";
-import { createDefaultRegistry, validateEaArtifacts, validateEaRelations, validateEaSchema, getEaSchemaNames, evaluateEaDrift, buildGapAnalysis, renderGapAnalysisMarkdown, } from "../index.js";
+import { createDefaultRegistry, validateEntities, validateEaRelations, validateEaSchema, getEaSchemaNames, evaluateEaDrift, buildGapAnalysis, renderGapAnalysisMarkdown, } from "../index.js";
 import { ENTITY_DESCRIPTOR_REGISTRY, getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import { makeEntity } from "./helpers/make-entity.js";
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
             schemaVersion: "1.0.0",
             scope: { description: "All systems domain artifacts", domains: ["systems"] },
             capturedAt: "2026-01-15",
-            artifactRefs: ["component:orders", "component:payments"]
+            entityRefs: ["component:orders", "component:payments"]
         };
         const result = validateEaSchema(data, "baseline");
         expect(result.valid).toBe(true);
@@ -88,7 +88,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
             schemaVersion: "1.0.0",
             scope: { description: "Migrate all services to Kubernetes" },
             effectiveBy: "2026-12-31",
-            artifactRefs: ["component:orders-v2"],
+            entityRefs: ["component:orders-v2"],
             successMetrics: [{ ref: "m1", metric: "Service count on K8s", target: "100%" }]
         };
         const result = validateEaSchema(data, "target");
@@ -151,7 +151,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
             confidence: "declared",
             status: "active",
             schemaVersion: "1.0.0",
-            scope: { artifactIds: ["api:legacy-orders"], rules: ["ea:quality:api-missing-spec"] },
+            scope: { entityRefs: ["api:legacy-orders"], rules: ["ea:quality:api-missing-spec"] },
             approvedBy: "cto",
             approvedAt: "2026-01-15T00:00:00Z",
             expiresAt: "2026-06-15T00:00:00Z",
@@ -176,10 +176,10 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: []
+                entityRefs: []
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.warnings.find((w) => w.rule === "ea:quality:baseline-empty-refs")).toBeDefined();
     });
     it("does not warn when baseline has artifact refs", () => {
@@ -190,10 +190,10 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: ["component:orders"]
+                entityRefs: ["component:orders"]
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.warnings.find((w) => w.rule === "ea:quality:baseline-empty-refs")).toBeUndefined();
     });
     it("warns when target has no success metrics", () => {
@@ -204,10 +204,10 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:orders"]
+                entityRefs: ["component:orders"]
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.warnings.find((w) => w.rule === "ea:quality:target-missing-metrics")).toBeDefined();
     });
     it("warns when transition plan has no milestones", () => {
@@ -220,7 +220,7 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 milestones: []
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.warnings.find((w) => w.rule === "ea:quality:plan-empty-milestones")).toBeDefined();
     });
     it("errors when exception has empty scope", () => {
@@ -235,7 +235,7 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 reason: "Just because"
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:exception-empty-scope")).toBeDefined();
     });
     it("does not error when exception has scoped rules", () => {
@@ -250,7 +250,7 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 reason: "Valid exception"
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:exception-empty-scope")).toBeUndefined();
     });
     it("warns when migration wave has empty scope", () => {
@@ -265,7 +265,7 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 scope: {}
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.warnings.find((w) => w.rule === "ea:quality:wave-empty-scope")).toBeDefined();
     });
 });
@@ -336,7 +336,7 @@ describe("Phase 2E: Transition Relations", () => {
                 makeEntity({
                     ref: "exception:legacy",
                     kind: "Exception",
-                    scope: { artifactIds: ["component:legacy"] },
+                    scope: { entityRefs: ["component:legacy"] },
                     approvedBy: "cto",
                     approvedAt: "2026-01-15",
                     expiresAt: "2027-01-15",
@@ -375,7 +375,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     type: "baseline",
                     scope: { description: "test" },
                     capturedAt: new Date().toISOString(),
-                    artifactRefs: ["component:nonexistent"]
+                    entityRefs: ["component:nonexistent"]
                 } as any),
             ];
             const result = evaluateEaDrift(artifacts);
@@ -389,7 +389,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     type: "baseline",
                     scope: { description: "test" },
                     capturedAt: new Date().toISOString(),
-                    artifactRefs: ["component:orders"]
+                    entityRefs: ["component:orders"]
                 } as any),
                 makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
             ];
@@ -407,7 +407,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     type: "baseline",
                     scope: { description: "test" },
                     capturedAt: oldDate,
-                    artifactRefs: []
+                    entityRefs: []
                 } as any),
             ];
             const result = evaluateEaDrift(artifacts);
@@ -423,7 +423,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     type: "target",
                     scope: { description: "test" },
                     effectiveBy: "2027-12-31",
-                    artifactRefs: ["component:nonexistent"]
+                    entityRefs: ["component:nonexistent"]
                 } as any),
             ];
             const result = evaluateEaDrift(artifacts);
@@ -439,7 +439,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     type: "target",
                     scope: { description: "test" },
                     effectiveBy: "2020-01-01",
-                    artifactRefs: []
+                    entityRefs: []
                 } as any),
             ];
             const result = evaluateEaDrift(artifacts);
@@ -469,7 +469,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     baseline: "transitionplan:q1",
                     scope: { description: "test" },
                     capturedAt: new Date().toISOString(),
-                    artifactRefs: []
+                    entityRefs: []
                 } as any),
             ];
             const result = evaluateEaDrift(artifacts);
@@ -615,7 +615,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: ["component:orders"]
+                entityRefs: ["component:orders"]
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -623,7 +623,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:orders", "component:payments"]
+                entityRefs: ["component:orders", "component:payments"]
             } as any),
             makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
             makeEntity({ ref: "component:payments", kind: "Component", type: "website", status: "draft" }),
@@ -632,7 +632,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
         expect(report.summary.newWork).toBe(1);
         expect(report.summary.continuing).toBe(1);
         expect(report.summary.retirements).toBe(0);
-        expect(report.newWork[0].artifactId).toBe("component:default/payments");
+        expect(report.newWork[0].entityRef).toBe("component:default/payments");
         expect(report.newWork[0].status).toBe("draft");
     });
     it("classifies retirements (in baseline but not target)", () => {
@@ -643,7 +643,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: ["component:orders", "component:legacy"]
+                entityRefs: ["component:orders", "component:legacy"]
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -651,14 +651,14 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:orders"]
+                entityRefs: ["component:orders"]
             } as any),
             makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
             makeEntity({ ref: "component:legacy", kind: "Component", type: "website" }),
         ];
         const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
         expect(report.summary.retirements).toBe(1);
-        expect(report.retirements[0].artifactId).toBe("component:default/legacy");
+        expect(report.retirements[0].entityRef).toBe("component:default/legacy");
         expect(report.retirements[0].blocked).toBe(false);
     });
     it("detects blocked retirements", () => {
@@ -669,7 +669,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: ["component:orders", "exchange:legacy-bridge"]
+                entityRefs: ["component:orders", "exchange:legacy-bridge"]
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -677,7 +677,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:orders"]
+                entityRefs: ["component:orders"]
             } as any),
             makeEntity({
                 ref: "component:orders",
@@ -700,7 +700,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: []
+                entityRefs: []
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -708,7 +708,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:new-service"]
+                entityRefs: ["component:new-service"]
             } as any),
             makeEntity({ ref: "component:new-service", kind: "Component", type: "website", status: "draft" }),
         ];
@@ -723,7 +723,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: ["component:orders"]
+                entityRefs: ["component:orders"]
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -731,7 +731,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:orders", "component:payments"],
+                entityRefs: ["component:orders", "component:payments"],
                 successMetrics: [{ id: "sm1", metric: "Services on K8s", target: "100%", currentValue: "50%" }]
             } as any),
             makeEntity({
@@ -767,7 +767,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                artifactRefs: []
+                entityRefs: []
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -775,7 +775,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 type: "target",
                 scope: { description: "test" },
                 effectiveBy: "2026-12-31",
-                artifactRefs: ["component:payments"]
+                entityRefs: ["component:payments"]
             } as any),
             makeEntity({
                 ref: "transitionplan:migration",
@@ -820,7 +820,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                     type: "baseline",
                     scope: { description: "test" },
                     capturedAt: "2026-01-15",
-                    artifactRefs: ["component:orders", "component:legacy"]
+                    entityRefs: ["component:orders", "component:legacy"]
                 } as any),
                 makeEntity({
                     ref: "transitionplan:q4",
@@ -828,7 +828,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
                     type: "target",
                     scope: { description: "test" },
                     effectiveBy: "2026-12-31",
-                    artifactRefs: ["component:orders", "component:payments"],
+                    entityRefs: ["component:orders", "component:payments"],
                     successMetrics: [{ ref: "sm1", metric: "Uptime", target: "99.9%", currentValue: "99.5%" }]
                 } as any),
                 makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),

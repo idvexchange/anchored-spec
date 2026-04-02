@@ -118,7 +118,7 @@ export const jsonSchemaGenerator: EaGenerator = {
         relativePath: `${slug}.schema.json`,
         content,
         contentType: "json",
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         description: `JSON Schema for ${getEntityTitle(entity)}`,
         overwrite: true,
       },
@@ -143,7 +143,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       if (JSON.stringify(currentProps) !== JSON.stringify(expectedProps)) {
         drifts.push({
           filePath: `${slug}.schema.json`,
-          sourceArtifactId: getEntityId(entity),
+          sourceEntityRef: getEntityId(entity),
           message: `Schema properties differ: expected [${expectedProps.join(", ")}], found [${currentProps.join(", ")}]`,
           suggestion: "review",
         });
@@ -152,7 +152,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       if (JSON.stringify(currentParsed.required?.sort()) !== JSON.stringify(expectedParsed.required?.sort())) {
         drifts.push({
           filePath: `${slug}.schema.json`,
-          sourceArtifactId: getEntityId(entity),
+          sourceEntityRef: getEntityId(entity),
           message: "Schema required fields differ from spec",
           suggestion: "review",
         });
@@ -160,7 +160,7 @@ export const jsonSchemaGenerator: EaGenerator = {
     } catch {
       drifts.push({
         filePath: `${slug}.schema.json`,
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         message: "Cannot parse existing schema as JSON",
         suggestion: "regenerate",
       });

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { parseFrontmatter, extractArtifactIds, hasEaFrontmatter, serializeFrontmatter, } from "../docs/frontmatter.js";
+import { parseFrontmatter, extractEntityRefs, hasEaFrontmatter, serializeFrontmatter, } from "../docs/frontmatter.js";
 import type { DocFrontmatter } from "../docs/frontmatter.js";
 import { scanDocs, buildDocIndex, discoverFromDocs } from "../docs/scanner.js";
 import type { ScannedDoc } from "../docs/scanner.js";
@@ -18,7 +18,7 @@ describe("Document Traceability", () => {
                 "audience: agent, developer",
                 "domain: [systems, delivery]",
                 "requires: [./other.md]",
-                "ea-artifacts: [APP-web, SVC-api]",
+                "ea-entities: [APP-web, SVC-api]",
                 "tokens: 1500",
                 'last-verified: "2024-01-15"',
                 "---",
@@ -31,7 +31,7 @@ describe("Document Traceability", () => {
             expect(result.frontmatter.audience).toEqual(["agent", "developer"]);
             expect(result.frontmatter.domain).toEqual(["systems", "delivery"]);
             expect(result.frontmatter.requires).toEqual(["./other.md"]);
-            expect(result.frontmatter.eaArtifacts).toEqual(["APP-web", "SVC-api"]);
+            expect(result.frontmatter.eaEntities).toEqual(["APP-web", "SVC-api"]);
             expect(result.frontmatter.tokens).toBe(1500);
             expect(result.frontmatter.lastVerified).toBe("2024-01-15");
         });
@@ -70,10 +70,10 @@ describe("Document Traceability", () => {
             const result = parseFrontmatter(content);
             expect(result.frontmatter.domain).toEqual(["systems", "delivery"]);
         });
-        it("merges ea-artifacts and anchored-spec fields", () => {
-            const content = "---\nea-artifacts: [A, B]\nanchored-spec: [B, C]\n---\n";
+        it("merges ea-entities and anchored-spec fields", () => {
+            const content = "---\nea-entities: [A, B]\nanchored-spec: [B, C]\n---\n";
             const result = parseFrontmatter(content);
-            expect(result.frontmatter.eaArtifacts).toEqual(["A", "B", "C"]);
+            expect(result.frontmatter.eaEntities).toEqual(["A", "B", "C"]);
         });
         it("handles last-verified kebab case", () => {
             const content = '---\nlast-verified: "2024-01-01"\n---\n';
@@ -97,26 +97,26 @@ describe("Document Traceability", () => {
             expect(result.body).toBe("Body here.");
         });
     });
-    // ─── extractArtifactIds ───────────────────────────────────────────
-    describe("extractArtifactIds", () => {
+    // ─── extractEntityRefs ───────────────────────────────────────────
+    describe("extractEntityRefs", () => {
         it("returns artifact IDs from frontmatter", () => {
-            const fm: DocFrontmatter = { eaArtifacts: ["component:web", "component:api"] };
-            expect(extractArtifactIds(fm)).toEqual(["component:web", "component:api"]);
+            const fm: DocFrontmatter = { eaEntities: ["component:web", "component:api"] };
+            expect(extractEntityRefs(fm)).toEqual(["component:web", "component:api"]);
         });
-        it("returns empty array when no eaArtifacts", () => {
-            expect(extractArtifactIds({})).toEqual([]);
+        it("returns empty array when no eaEntities", () => {
+            expect(extractEntityRefs({})).toEqual([]);
         });
         it("deduplicates artifact IDs", () => {
             const fm: DocFrontmatter = {
-                eaArtifacts: ["component:web", "component:web", "component:api"]
+                eaEntities: ["component:web", "component:web", "component:api"]
             };
-            expect(extractArtifactIds(fm)).toEqual(["component:web", "component:api"]);
+            expect(extractEntityRefs(fm)).toEqual(["component:web", "component:api"]);
         });
     });
     // ─── hasEaFrontmatter ─────────────────────────────────────────────
     describe("hasEaFrontmatter", () => {
-        it("returns true for frontmatter with ea-artifacts", () => {
-            const content = "---\nea-artifacts: [APP-web]\n---\n";
+        it("returns true for frontmatter with ea-entities", () => {
+            const content = "---\nea-entities: [APP-web]\n---\n";
             expect(hasEaFrontmatter(content)).toBe(true);
         });
         it("returns true for frontmatter with type", () => {
@@ -133,11 +133,11 @@ describe("Document Traceability", () => {
     });
     // ─── serializeFrontmatter ─────────────────────────────────────────
     describe("serializeFrontmatter", () => {
-        it("serializes frontmatter with ea-artifacts key", () => {
-            const fm: DocFrontmatter = { eaArtifacts: ["component:web", "component:api"] };
+        it("serializes frontmatter with ea-entities key", () => {
+            const fm: DocFrontmatter = { eaEntities: ["component:web", "component:api"] };
             const output = serializeFrontmatter(fm);
-            expect(output).toContain("ea-artifacts:");
-            expect(output).not.toContain("eaArtifacts");
+            expect(output).toContain("ea-entities:");
+            expect(output).not.toContain("eaEntities");
             expect(output.startsWith("---\n")).toBe(true);
             expect(output.endsWith("\n---")).toBe(true);
         });
@@ -153,7 +153,7 @@ describe("Document Traceability", () => {
                 status: "current",
                 audience: ["agent", "developer"],
                 domain: ["systems"],
-                eaArtifacts: ["component:web", "component:api"],
+                eaEntities: ["component:web", "component:api"],
                 tokens: 1200,
                 lastVerified: "2024-03-15"
             };
@@ -164,7 +164,7 @@ describe("Document Traceability", () => {
             expect(parsed.frontmatter.status).toBe(original.status);
             expect(parsed.frontmatter.audience).toEqual(original.audience);
             expect(parsed.frontmatter.domain).toEqual(original.domain);
-            expect(parsed.frontmatter.eaArtifacts).toEqual(original.eaArtifacts);
+            expect(parsed.frontmatter.eaEntities).toEqual(original.eaEntities);
             expect(parsed.frontmatter.tokens).toBe(original.tokens);
             expect(parsed.frontmatter.lastVerified).toBe(original.lastVerified);
         });
@@ -180,12 +180,12 @@ describe("Document Traceability", () => {
         afterEach(() => {
             rmSync(tmpDir, { recursive: true, force: true });
         });
-        it("finds docs with ea-artifacts frontmatter", () => {
-            writeFileSync(join(tmpDir, "docs", "arch.md"), "---\nea-artifacts: [APP-web]\n---\n# Architecture\n");
+        it("finds docs with ea-entities frontmatter", () => {
+            writeFileSync(join(tmpDir, "docs", "arch.md"), "---\nea-entities: [APP-web]\n---\n# Architecture\n");
             const result = scanDocs(tmpDir, { dirs: ["docs"] });
             expect(result.docs).toHaveLength(1);
             expect(result.docs[0].relativePath).toBe(join("docs", "arch.md"));
-            expect(result.docs[0].artifactIds).toEqual(["APP-web"]);
+            expect(result.docs[0].entityRefs).toEqual(["APP-web"]);
         });
         it("ignores docs without frontmatter", () => {
             writeFileSync(join(tmpDir, "docs", "readme.md"), "# README\n\nNo frontmatter here.\n");
@@ -193,44 +193,44 @@ describe("Document Traceability", () => {
             expect(result.docs).toHaveLength(0);
             expect(result.totalScanned).toBe(1);
         });
-        it("ignores docs with frontmatter but no ea-artifacts unless includeAll", () => {
+        it("ignores docs with frontmatter but no ea-entities unless includeAll", () => {
             writeFileSync(join(tmpDir, "docs", "notes.md"), "---\ntype: guide\n---\n# Notes\n");
             const withoutAll = scanDocs(tmpDir, {
                 dirs: ["docs"],
                 includeAll: false
             });
             expect(withoutAll.docs).toHaveLength(0);
-            expect(withoutAll.withFrontmatterNoArtifacts).toBe(1);
+            expect(withoutAll.withFrontmatterNoEntities).toBe(1);
             const withAll = scanDocs(tmpDir, { dirs: ["docs"], includeAll: true });
             expect(withAll.docs).toHaveLength(1);
-            expect(withAll.docs[0].artifactIds).toEqual([]);
+            expect(withAll.docs[0].entityRefs).toEqual([]);
         });
         it("skips node_modules directory", () => {
             mkdirSync(join(tmpDir, "node_modules", "pkg"), { recursive: true });
-            writeFileSync(join(tmpDir, "node_modules", "pkg", "README.md"), "---\nea-artifacts: [LIB-pkg]\n---\n# Pkg\n");
+            writeFileSync(join(tmpDir, "node_modules", "pkg", "README.md"), "---\nea-entities: [LIB-pkg]\n---\n# Pkg\n");
             const result = scanDocs(tmpDir, { dirs: ["."] });
             expect(result.docs.every((d) => !d.path.includes("node_modules"))).toBe(true);
         });
         it("deduplicates files across overlapping dirs", () => {
-            writeFileSync(join(tmpDir, "docs", "shared.md"), "---\nea-artifacts: [APP-shared]\n---\n# Shared\n");
+            writeFileSync(join(tmpDir, "docs", "shared.md"), "---\nea-entities: [APP-shared]\n---\n# Shared\n");
             const result = scanDocs(tmpDir, { dirs: [".", "docs"] });
             const sharedDocs = result.docs.filter((d) => d.relativePath.endsWith("shared.md"));
             expect(sharedDocs).toHaveLength(1);
         });
         it("handles non-existent dirs gracefully", () => {
-            writeFileSync(join(tmpDir, "docs", "real.md"), "---\nea-artifacts: [APP-real]\n---\n# Real\n");
+            writeFileSync(join(tmpDir, "docs", "real.md"), "---\nea-entities: [APP-real]\n---\n# Real\n");
             const result = scanDocs(tmpDir, { dirs: ["nonexistent", "docs"] });
             expect(result.docs).toHaveLength(1);
-            expect(result.docs[0].artifactIds).toEqual(["APP-real"]);
+            expect(result.docs[0].entityRefs).toEqual(["APP-real"]);
         });
         it("returns correct totalScanned count", () => {
-            writeFileSync(join(tmpDir, "docs", "a.md"), "---\nea-artifacts: [A]\n---\n# A\n");
+            writeFileSync(join(tmpDir, "docs", "a.md"), "---\nea-entities: [A]\n---\n# A\n");
             writeFileSync(join(tmpDir, "docs", "b.md"), "---\ntype: guide\n---\n# B\n");
             writeFileSync(join(tmpDir, "docs", "c.md"), "# C — no frontmatter\n");
             const result = scanDocs(tmpDir, { dirs: ["docs"] });
             expect(result.totalScanned).toBe(3);
             expect(result.docs).toHaveLength(1);
-            expect(result.withFrontmatterNoArtifacts).toBe(1);
+            expect(result.withFrontmatterNoEntities).toBe(1);
         });
     });
     // ─── buildDocIndex ────────────────────────────────────────────────
@@ -240,14 +240,14 @@ describe("Document Traceability", () => {
                 {
                     path: "/p/docs/a.md",
                     relativePath: "docs/a.md",
-                    frontmatter: { eaArtifacts: ["component:web", "component:api"] },
-                    artifactIds: ["component:web", "component:api"]
+                    frontmatter: { eaEntities: ["component:web", "component:api"] },
+                    entityRefs: ["component:web", "component:api"]
                 },
                 {
                     path: "/p/docs/b.md",
                     relativePath: "docs/b.md",
-                    frontmatter: { eaArtifacts: ["component:api", "DB-main"] },
-                    artifactIds: ["component:api", "DB-main"]
+                    frontmatter: { eaEntities: ["component:api", "DB-main"] },
+                    entityRefs: ["component:api", "DB-main"]
                 },
             ];
             const index = buildDocIndex(docs);
@@ -267,13 +267,13 @@ describe("Document Traceability", () => {
                     path: "/p/docs/empty.md",
                     relativePath: "docs/empty.md",
                     frontmatter: { type: "guide" as const },
-                    artifactIds: [] as string[]
+                    entityRefs: [] as string[]
                 },
                 {
                     path: "/p/docs/real.md",
                     relativePath: "docs/real.md",
-                    frontmatter: { eaArtifacts: ["component:web"] },
-                    artifactIds: ["component:web"]
+                    frontmatter: { eaEntities: ["component:web"] },
+                    entityRefs: ["component:web"]
                 },
             ];
             const index = buildDocIndex(docs);
@@ -283,16 +283,16 @@ describe("Document Traceability", () => {
     });
     // ─── discoverFromDocs ───────────────────────────────────────────
     describe("discoverFromDocs", () => {
-        function makeDoc(relativePath: string, artifactIds: string[], type?: string): ScannedDoc {
+        function makeDoc(relativePath: string, entityRefs: string[], type?: string): ScannedDoc {
             return {
                 path: `/project/${relativePath}`,
                 relativePath,
                 frontmatter: {
                     type: (type as DocFrontmatter["type"]) ?? "spec",
                     domain: ["systems"],
-                    eaArtifacts: artifactIds
+                    eaEntities: entityRefs
                 },
-                artifactIds
+                entityRefs
             };
         }
         it("scaffolds drafts for missing artifacts", () => {
