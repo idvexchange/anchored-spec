@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { BACKSTAGE_KIND_REGISTRY } from "../ea/backstage/kind-mapping.js";
+import { ENTITY_DESCRIPTOR_REGISTRY } from "../ea/backstage/kind-mapping.js";
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -15,15 +15,6 @@ function schemaPath(name: string): string {
 export function generateVscodeSettings(_config: {
   domains: Record<string, string>;
 }): object {
-  const yamlSchemas: Record<string, string[]> = {};
-
-  for (const entry of BACKSTAGE_KIND_REGISTRY) {
-    yamlSchemas[schemaPath(entry.legacyKind)] = [
-      `**/${entry.legacyPrefix}-*.yaml`,
-      `**/${entry.legacyPrefix}-*.yml`,
-    ];
-  }
-
   const jsonSchemas = [
     {
       fileMatch: [".anchored-spec/config.json"],
@@ -32,7 +23,7 @@ export function generateVscodeSettings(_config: {
   ];
 
   return {
-    "yaml.schemas": yamlSchemas,
+    "yaml.schemas": {},
     "json.schemas": jsonSchemas,
     "files.associations": {
       "ea/**/*.yaml": "yaml",
@@ -50,40 +41,24 @@ export function generateVscodeExtensions(): object {
 
 // ── 3. snippets ──────────────────────────────────────────────────────
 
-const SNIPPET_KINDS = [
-  "application",
-  "api-contract",
-  "service",
-  "deployment",
-  "environment",
-  "platform",
-  "data-store",
-  "capability",
-  "process",
-  "requirement",
-  "event-contract",
-  "canonical-entity",
-  "baseline",
-  "target",
-  "transition-plan",
-] as const;
+const SNIPPET_SCHEMAS = [...new Set(ENTITY_DESCRIPTOR_REGISTRY.map((entry) => entry.schema))].sort();
 
-function titleCase(kind: string): string {
-  return kind
+function titleCase(schema: string): string {
+  return schema
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
-function snippetBody(kind: string): string[] {
-  const entry = BACKSTAGE_KIND_REGISTRY.find((candidate) => candidate.legacyKind === kind);
+function snippetBody(schema: string): string[] {
+  const entry = ENTITY_DESCRIPTOR_REGISTRY.find((candidate) => candidate.schema === schema);
   if (!entry) return [];
   return [
     `apiVersion: ${entry.apiVersion}`,
-    `kind: ${entry.backstageKind}`,
+    `kind: ${entry.kind}`,
     "metadata:",
     "  name: ${1:slug}",
-    `  title: ${"${2:"}${titleCase(kind)}}`,
+    `  title: ${"${2:"}${titleCase(schema)}}`,
     "  description: ${3:Brief description}",
     "  tags:",
     "    - ${4:tag}",
@@ -97,15 +72,15 @@ function snippetBody(kind: string): string[] {
 export function generateVscodeSnippets(): object {
   const snippets: Record<string, object> = {};
 
-  for (const kind of SNIPPET_KINDS) {
-    const entry = BACKSTAGE_KIND_REGISTRY.find((e) => e.legacyKind === kind);
+  for (const schema of SNIPPET_SCHEMAS) {
+    const entry = ENTITY_DESCRIPTOR_REGISTRY.find((e) => e.schema === schema);
     if (!entry) continue;
 
-    snippets[`EA: ${titleCase(kind)}`] = {
-      prefix: `ea-${kind}`,
+    snippets[`EA: ${titleCase(schema)}`] = {
+      prefix: `ea-${schema}`,
       scope: "yaml",
-      body: snippetBody(kind),
-      description: `Create a new ${entry.backstageKind} entity for ${kind}`,
+      body: snippetBody(schema),
+      description: `Create a new ${entry.kind} entity for ${schema}`,
     };
   }
 
@@ -117,7 +92,7 @@ export function generateVscodeSnippets(): object {
       "- type: ${1|dependsOn,consumedBy,implements,deployedOn,ownedBy,partOf,triggers,flowsTo|}",
       "  target: ${2:KIND-slug}",
     ],
-    description: "Add a relation entry to an artifact",
+    description: "Add a relation entry to an entity",
   };
 
   // Utility: anchor
@@ -129,7 +104,7 @@ export function generateVscodeSnippets(): object {
       "  uri: ${2:https://}",
       "  label: ${3:description}",
     ],
-    description: "Add an anchor entry to an artifact",
+    description: "Add an anchor entry to an entity",
   };
 
   return snippets;

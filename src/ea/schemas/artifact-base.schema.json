@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json",
   "title": "Anchored Spec — EA Artifact Base",
-  "description": "The unified base shape shared by all EA artifacts. Every kind extends this with additional kind-specific fields.",
+  "description": "The unified base shape shared by all EA entities. Every schema profile extends this with additional schema-specific fields.",
   "type": "object",
   "required": [
     "id",

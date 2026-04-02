@@ -1,8 +1,8 @@
 /**
  * anchored-spec link <from> <to>
  *
- * Create a relation between two EA artifacts.
- * Updates the source artifact file to add the relation entry.
+ * Create a relation between two EA entities.
+ * Updates the source entity file to add the relation entry.
  */
 
 import { Command } from "commander";
@@ -29,7 +29,7 @@ import { CliError } from "../errors.js";
 
 export function eaLinkCommand(): Command {
   return new Command("link")
-    .description("Create a relation between two EA artifacts")
+    .description("Create a relation between two EA entities")
     .argument("<from>", "Source entity ref")
     .argument("<to>", "Target entity ref")
     .option("--type <type>", "Relation type (e.g., uses, ownedBy, implements)", "uses")

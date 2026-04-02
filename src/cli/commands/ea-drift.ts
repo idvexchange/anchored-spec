@@ -15,7 +15,7 @@ import {
   EA_DOMAINS,
   createResolverCache,
 } from "../../ea/index.js";
-import { getEntityLegacyKind } from "../../ea/backstage/accessors.js";
+import { getEntitySchema } from "../../ea/backstage/accessors.js";
 import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
 import { checkConsistency } from "../../ea/facts/consistency.js";
 import type { ConsistencyReport } from "../../ea/facts/consistency.js";
@@ -155,7 +155,7 @@ export function eaDriftCommand(): Command {
 
       // Collect exception entities
       const exceptionEntities = result.entities.filter(
-        (entity) => getEntityLegacyKind(entity) === "exception",
+        (entity) => getEntitySchema(entity) === "exception",
       );
 
       // Build resolver cache

@@ -1,26 +1,29 @@
 /**
  * Anchored Spec — EA Schema Validation
  *
- * Provides Ajv-based validation for EA artifacts against kind-specific schemas.
+ * Provides Ajv-based validation for EA artifacts against schema-specific contracts.
  * Follows the same pattern as core validate.ts but with EA-specific schemas.
  */
 
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
+import { RELATION_OWNED_BY } from "@backstage/catalog-model";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntityStatus,
   getEntityDescription,
   getEntityOwners,
   getEntitySpecRelations,
   getEntitySystem,
 } from "./backstage/accessors.js";
-import { formatEntityRef, parseEntityRef } from "./backstage/types.js";
+import { ENTITY_DESCRIPTOR_REGISTRY } from "./backstage/kind-mapping.js";
+import { normalizeEntityRef } from "./backstage/types.js";
 import type { EaQualityConfig } from "./config.js";
 import type { RelationRegistry } from "./relation-registry.js";
 
@@ -98,62 +101,23 @@ export type EaSchemaName =
   | "ea-evidence"
   | "ea-verification";
 
-const EA_SCHEMA_NAMES: EaSchemaName[] = [
+const EA_NON_ENTITY_SCHEMA_NAMES = [
   "artifact-base",
   "relation",
   "anchors",
-  "application",
-  "service",
-  "api-contract",
-  "event-contract",
-  "integration",
-  "system-interface",
-  "consumer",
-  "platform",
-  "deployment",
-  "runtime-cluster",
-  "network-zone",
-  "identity-boundary",
-  "cloud-resource",
-  "environment",
-  "technology-standard",
-  "logical-data-model",
-  "physical-schema",
-  "data-store",
-  "lineage",
-  "master-data-domain",
-  "data-quality-rule",
-  "data-product",
-  "information-concept",
-  "canonical-entity",
-  "information-exchange",
-  "classification",
-  "retention-policy",
-  "glossary-term",
-  "mission",
-  "capability",
-  "value-stream",
-  "process",
-  "org-unit",
-  "policy-objective",
-  "business-service",
-  "control",
-  "baseline",
-  "target",
-  "transition-plan",
-  "migration-wave",
-  "exception",
-  "requirement",
-  "security-requirement",
-  "data-requirement",
-  "technical-requirement",
-  "information-requirement",
-  "change",
-  "decision",
   "config-v1",
   "workflow-policy",
   "ea-evidence",
   "ea-verification",
+] as const satisfies readonly EaSchemaName[];
+
+const EA_ENTITY_SCHEMA_NAMES = ENTITY_DESCRIPTOR_REGISTRY.map(
+  (entry) => entry.schema,
+) as EaSchemaName[];
+
+const EA_SCHEMA_NAMES: EaSchemaName[] = [
+  ...EA_NON_ENTITY_SCHEMA_NAMES,
+  ...EA_ENTITY_SCHEMA_NAMES,
 ];
 
 function getEaAjv(): Ajv {
@@ -196,17 +160,20 @@ export interface EaValidationResult {
 }
 
 /**
- * Validate an EA artifact against its kind-specific schema.
- * Falls back to artifact-base if no kind-specific schema exists.
+ * Validate an EA artifact against its schema-specific contract.
+ * Falls back to artifact-base if no schema-specific contract exists.
  */
 export function validateEaSchema(
   data: unknown,
-  schemaName?: EaSchemaName
+  schema?: EaSchemaName
 ): EaValidationResult {
   const ajv = getEaAjv();
+  const normalizedData = schema
+    ? normalizeSchemaValidationInput(data, schema)
+    : data;
 
   // Determine which schema to use
-  const name = schemaName ?? resolveSchemaName(data);
+  const name = schema ?? resolveSchemaName(normalizedData);
   const validate = ajv.getSchema(name);
 
   if (!validate) {
@@ -224,7 +191,7 @@ export function validateEaSchema(
     };
   }
 
-  const valid = validate(data) as boolean;
+  const valid = validate(normalizedData) as boolean;
   const errors: EaValidationError[] = [];
   const warnings: EaValidationError[] = [];
 
@@ -242,6 +209,46 @@ export function validateEaSchema(
   }
 
   return { valid, errors, warnings };
+}
+
+function normalizeSchemaValidationInput(
+  data: unknown,
+  schema: EaSchemaName,
+): unknown {
+  return normalizeSchemaNode(data, true, schema);
+}
+
+function normalizeSchemaNode(
+  value: unknown,
+  isRoot: boolean,
+  schema: EaSchemaName,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeSchemaNode(item, false, schema));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const input = value as Record<string, unknown>;
+  const output: Record<string, unknown> = {};
+
+  for (const [key, nested] of Object.entries(input)) {
+    if (key === "ref" && !("id" in input)) {
+      output.id = normalizeSchemaNode(nested, false, schema);
+      continue;
+    }
+
+    output[key] = normalizeSchemaNode(nested, false, schema);
+  }
+
+  if (isRoot && typeof output.kind === "string" && output.kind !== schema) {
+    output.kind = schema;
+  }
+
+  delete output.ref;
+  return output;
 }
 
 /**
@@ -358,7 +365,7 @@ export function validateEaArtifacts(
     for (const { legacyType, targets } of getEntitySpecRelations(a)) {
       for (const t of targets) {
         allTargets.add(t);
-        if (legacyType === "ownedBy") {
+        if (legacyType === RELATION_OWNED_BY) {
           for (const candidate of resolveOwnerRefCandidates(t)) {
             allTargets.add(candidate);
           }
@@ -374,14 +381,15 @@ export function validateEaArtifacts(
 
   for (const a of entities) {
     const entityId = getEntityId(a);
-    const kind = getEntityLegacyKind(a);
+    const schema = getEntitySchema(a);
+    const entityKind = getEntityKind(a);
     const status = getEntityStatus(a);
     const isActive = status === "active" || status === "shipped";
 
     if (q?.requireOwners !== false) {
       const ownerSev = ruleSeverity("ea:quality:active-needs-owner", "error", q);
       const owners = getEntityOwners(a);
-      const isOwnershipPrincipal = kind === "org-unit" || kind === "user";
+      const isOwnershipPrincipal = entityKind === "Group" || entityKind === "User";
       if (!isOwnershipPrincipal && isActive && (owners.length === 0 || (owners.length === 1 && owners[0] === "unassigned"))) {
         push(ownerSev, "ea:quality:active-needs-owner", entityId, `Active artifact "${entityId}" must have at least one owner`);
       }
@@ -395,26 +403,26 @@ export function validateEaArtifacts(
       }
     }
 
-    if (kind === "system-interface") {
+    if (schema === "system-interface") {
       const sifSev = ruleSeverity("ea:quality:system-interface-missing-direction", "error", q);
       if (!a.spec?.direction) { push(sifSev, "ea:quality:system-interface-missing-direction", entityId, `System interface "${entityId}" must have a direction (inbound, outbound, or bidirectional)`); }
     }
-    if (kind === "consumer") {
+    if (schema === "consumer") {
       const conSev = ruleSeverity("ea:quality:consumer-missing-contract", "warning", q);
       const cc = a.spec?.consumesContracts as unknown[] | undefined;
       if (!cc || cc.length === 0) { push(conSev, "ea:quality:consumer-missing-contract", entityId, `Consumer "${entityId}" has no consumesContracts — link it to at least one API or event contract`); }
     }
-    if (kind === "cloud-resource") {
+    if (schema === "cloud-resource") {
       const cSev = ruleSeverity("ea:quality:cloud-resource-missing-provider", "error", q);
       if (!a.spec?.provider) { push(cSev, "ea:quality:cloud-resource-missing-provider", entityId, `Cloud resource "${entityId}" must specify a provider (aws, gcp, azure, or other)`); }
     }
-    if (kind === "environment") {
+    if (schema === "environment") {
       const eSev = ruleSeverity("ea:quality:environment-production-not-restricted", "warning", q);
       if (a.spec?.isProduction && a.spec?.accessLevel && a.spec.accessLevel !== "restricted") {
         push(eSev, "ea:quality:environment-production-not-restricted", entityId, `Production environment "${entityId}" should have accessLevel "restricted" (currently "${a.spec.accessLevel as string}")`);
       }
     }
-    if (kind === "technology-standard") {
+    if (schema === "technology-standard") {
       const tSev = ruleSeverity("ea:quality:technology-standard-expired-review", "warning", q);
       const reviewBy = a.spec?.reviewBy;
       if (typeof reviewBy === "string" && isActive) {
@@ -422,35 +430,35 @@ export function validateEaArtifacts(
         if (!isNaN(rd.getTime()) && rd < new Date()) { push(tSev, "ea:quality:technology-standard-expired-review", entityId, `Technology standard "${entityId}" has passed its review date (${reviewBy})`); }
       }
     }
-    if (kind === "logical-data-model") {
+    if (schema === "logical-data-model") {
       const lSev = ruleSeverity("ea:quality:ldm-missing-attributes", "warning", q);
       const attrs = a.spec?.attributes as unknown[] | undefined;
       if (!attrs || attrs.length === 0) { push(lSev, "ea:quality:ldm-missing-attributes", entityId, `Logical data model "${entityId}" has no attributes defined`); }
     }
-    if (kind === "physical-schema") {
+    if (schema === "physical-schema") {
       const pSev = ruleSeverity("ea:quality:physical-schema-missing-tables", "warning", q);
       const tables = a.spec?.tables as unknown[] | undefined;
       if (!tables || tables.length === 0) { push(pSev, "ea:quality:physical-schema-missing-tables", entityId, `Physical schema "${entityId}" has no tables defined`); }
     }
-    if (kind === "data-store") {
+    if (schema === "data-store") {
       const dSev = ruleSeverity("ea:quality:data-store-missing-technology", "error", q);
       if (!a.spec?.technology) { push(dSev, "ea:quality:data-store-missing-technology", entityId, `Data store "${entityId}" must specify a technology (engine + category)`); }
     }
-    if (kind === "lineage") {
+    if (schema === "lineage") {
       const lnSev = ruleSeverity("ea:quality:lineage-missing-source-destination", "error", q);
       if (!a.spec?.source || !a.spec?.destination) { push(lnSev, "ea:quality:lineage-missing-source-destination", entityId, `Lineage "${entityId}" must specify both source and destination`); }
     }
-    if (kind === "data-quality-rule") {
+    if (schema === "data-quality-rule") {
       const dqSev = ruleSeverity("ea:quality:dqr-missing-assertion", "error", q);
       const assertion = a.spec?.assertion;
       if (!assertion || (typeof assertion === "string" && assertion.trim().length === 0)) { push(dqSev, "ea:quality:dqr-missing-assertion", entityId, `Data quality rule "${entityId}" must have an assertion`); }
     }
-    if (kind === "data-product") {
+    if (schema === "data-product") {
       const dpSev = ruleSeverity("ea:quality:data-product-missing-output-ports", "warning", q);
       const op = a.spec?.outputPorts as unknown[] | undefined;
       if (!op || op.length === 0) { push(dpSev, "ea:quality:data-product-missing-output-ports", entityId, `Data product "${entityId}" has no output ports defined`); }
     }
-    if (kind === "canonical-entity") {
+    if (schema === "canonical-entity") {
       const attributes = a.spec?.attributes as Array<Record<string, unknown>> | undefined;
       const ceSev = ruleSeverity("ea:quality:ce-missing-attributes", "error", q);
       if (!attributes || attributes.length === 0) { push(ceSev, "ea:quality:ce-missing-attributes", entityId, `Canonical entity "${entityId}" has no attributes defined`); }
@@ -463,66 +471,66 @@ export function validateEaArtifacts(
         }
       }
     }
-    if (kind === "information-exchange") {
+    if (schema === "information-exchange") {
       const exSev = ruleSeverity("ea:quality:exchange-missing-source-destination", "error", q);
       if (!a.spec?.source || !a.spec?.destination) { push(exSev, "ea:quality:exchange-missing-source-destination", entityId, `Information exchange "${entityId}" must specify both source and destination`); }
       const epSev = ruleSeverity("ea:quality:exchange-missing-purpose", "error", q);
       const purpose = a.spec?.purpose;
       if (!purpose || (typeof purpose === "string" && purpose.trim().length === 0)) { push(epSev, "ea:quality:exchange-missing-purpose", entityId, `Information exchange "${entityId}" must have a purpose`); }
     }
-    if (kind === "classification") {
+    if (schema === "classification") {
       const clSev = ruleSeverity("ea:quality:classification-missing-controls", "error", q);
       const rc = a.spec?.requiredControls as unknown[] | undefined;
       if (!rc || rc.length === 0) { push(clSev, "ea:quality:classification-missing-controls", entityId, `Classification "${entityId}" has no required controls defined`); }
     }
-    if (kind === "retention-policy") {
+    if (schema === "retention-policy") {
       const rtSev = ruleSeverity("ea:quality:retention-missing-duration", "error", q);
       const ret = a.spec?.retention as Record<string, unknown> | undefined;
       const dur = typeof ret?.duration === "string" ? ret.duration : "";
       if (!ret || !dur || dur.trim().length === 0) { push(rtSev, "ea:quality:retention-missing-duration", entityId, `Retention policy "${entityId}" must specify a retention duration`); }
     }
-    if (kind === "glossary-term") {
+    if (schema === "glossary-term") {
       const gtSev = ruleSeverity("ea:quality:glossary-missing-definition", "error", q);
       const def_ = a.spec?.definition;
       if (!def_ || (typeof def_ === "string" && def_.trim().length === 0)) { push(gtSev, "ea:quality:glossary-missing-definition", entityId, `Glossary term "${entityId}" must have a definition`); }
     }
-    if (kind === "capability") {
+    if (schema === "capability") {
       const cpSev = ruleSeverity("ea:quality:capability-missing-level", "error", q);
       if (a.spec?.level === undefined || a.spec?.level === null) { push(cpSev, "ea:quality:capability-missing-level", entityId, `Capability "${entityId}" must specify a level`); }
     }
-    if (kind === "process") {
+    if (schema === "process") {
       const prSev = ruleSeverity("ea:quality:process-missing-steps", "warning", q);
       const steps = a.spec?.steps as unknown[] | undefined;
       if (!steps || steps.length === 0) { push(prSev, "ea:quality:process-missing-steps", entityId, `Process "${entityId}" has no steps defined`); }
     }
-    if (kind === "value-stream") {
+    if (schema === "value-stream") {
       const vsSev = ruleSeverity("ea:quality:value-stream-missing-stages", "error", q);
       const stages = a.spec?.stages as unknown[] | undefined;
       if (!stages || stages.length === 0) { push(vsSev, "ea:quality:value-stream-missing-stages", entityId, `Value stream "${entityId}" has no stages defined`); }
     }
-    if (kind === "control") {
+    if (schema === "control") {
       const ctSev = ruleSeverity("ea:quality:control-missing-assertion", "error", q);
       const asrt = a.spec?.assertion;
       if (!asrt || (typeof asrt === "string" && asrt.trim().length === 0)) { push(ctSev, "ea:quality:control-missing-assertion", entityId, `Control "${entityId}" must have an assertion`); }
     }
-    if (kind === "org-unit") {
+    if (schema === "org-unit") {
       const ouSev = ruleSeverity("ea:quality:org-unit-missing-type", "error", q);
       const ut = a.spec?.unitType;
       if (!ut || (typeof ut === "string" && ut.trim().length === 0)) { push(ouSev, "ea:quality:org-unit-missing-type", entityId, `Organization unit "${entityId}" must specify a unitType`); }
     }
-    if (kind === "policy-objective") {
+    if (schema === "policy-objective") {
       const poSev = ruleSeverity("ea:quality:policy-missing-objective", "error", q);
       const obj = a.spec?.objective;
       if (!obj || (typeof obj === "string" && obj.trim().length === 0)) { push(poSev, "ea:quality:policy-missing-objective", entityId, `Policy objective "${entityId}" must have an objective`); }
     }
-    if (kind === "mission") {
+    if (schema === "mission") {
       const miSev = ruleSeverity("ea:quality:mission-missing-key-results", "info", q);
       const kr = a.spec?.keyResults as unknown[] | undefined;
       if (!kr || kr.length === 0) { push(miSev, "ea:quality:mission-missing-key-results", entityId, `Mission "${entityId}" has no key results defined`); }
     }
     {
       const orphanSev = ruleSeverity("ea:quality:orphan-artifact", "warning", q);
-      const specRels = getEntitySpecRelations(a).filter((r) => r.legacyType !== "ownedBy");
+      const specRels = getEntitySpecRelations(a).filter((r) => r.legacyType !== RELATION_OWNED_BY);
       const hasSystemRef = typeof getEntitySystem(a) === "string" && getEntitySystem(a)!.trim().length > 0;
       const hasDomainRef = typeof a.spec?.domain === "string" && a.spec.domain.trim().length > 0;
       const compRels = a.relations ?? [];
@@ -530,22 +538,22 @@ export function validateEaArtifacts(
       const isTargeted = allTargets.has(entityId);
       if (!hasOwn && !isTargeted) { push(orphanSev, "ea:quality:orphan-artifact", entityId, `Artifact "${entityId}" has no relations and is not referenced by any other artifact`); }
     }
-    if (kind === "baseline") {
+    if (schema === "baseline") {
       const blSev = ruleSeverity("ea:quality:baseline-empty-refs", "warning", q);
       const ar = a.spec?.artifactRefs as unknown[] | undefined;
       if (!ar || ar.length === 0) { push(blSev, "ea:quality:baseline-empty-refs", entityId, `Baseline "${entityId}" has no artifact references`); }
     }
-    if (kind === "target") {
+    if (schema === "target") {
       const tgSev = ruleSeverity("ea:quality:target-missing-metrics", "warning", q);
       const sm = a.spec?.successMetrics as unknown[] | undefined;
       if (!sm || sm.length === 0) { push(tgSev, "ea:quality:target-missing-metrics", entityId, `Target "${entityId}" has no success metrics defined`); }
     }
-    if (kind === "transition-plan") {
+    if (schema === "transition-plan") {
       const plSev = ruleSeverity("ea:quality:plan-empty-milestones", "warning", q);
       const ms = a.spec?.milestones as unknown[] | undefined;
       if (!ms || ms.length === 0) { push(plSev, "ea:quality:plan-empty-milestones", entityId, `Transition plan "${entityId}" has no milestones`); }
     }
-    if (kind === "exception") {
+    if (schema === "exception") {
       const excSev = ruleSeverity("ea:quality:exception-empty-scope", "error", q);
       const scope = a.spec?.scope as Record<string, unknown> | undefined;
       const hs = ((scope?.artifactIds as unknown[] | undefined)?.length ?? 0) > 0 ||
@@ -553,7 +561,7 @@ export function validateEaArtifacts(
         ((scope?.domains as unknown[] | undefined)?.length ?? 0) > 0;
       if (!hs) { push(excSev, "ea:quality:exception-empty-scope", entityId, `Exception "${entityId}" has empty scope (would suppress everything)`); }
     }
-    if (kind === "migration-wave") {
+    if (schema === "migration-wave") {
       const wvSev = ruleSeverity("ea:quality:wave-empty-scope", "warning", q);
       const scope = a.spec?.scope as Record<string, unknown> | undefined;
       const hs = ((scope?.create as unknown[] | undefined)?.length ?? 0) > 0 ||
@@ -586,16 +594,24 @@ function extractFlatRelations(entity: BackstageEntity): Array<{ type: string; ta
 }
 
 function resolveOwnerRefCandidates(ownerRef: string): string[] {
-  const parsed = parseEntityRef(ownerRef);
-
-  if (parsed.kind) {
-    return [formatEntityRef(parsed.kind, parsed.namespace ?? "default", parsed.name)];
+  try {
+    return [normalizeEntityRef(ownerRef, { defaultNamespace: "default" })];
+  } catch {
+    try {
+      return [
+        normalizeEntityRef(ownerRef, {
+          defaultKind: "Group",
+          defaultNamespace: "default",
+        }),
+        normalizeEntityRef(ownerRef, {
+          defaultKind: "User",
+          defaultNamespace: "default",
+        }),
+      ];
+    } catch {
+      return [ownerRef];
+    }
   }
-
-  return [
-    formatEntityRef("group", parsed.namespace ?? "default", parsed.name),
-    formatEntityRef("user", parsed.namespace ?? "default", parsed.name),
-  ];
 }
 
 function addEntityRefCandidates(
@@ -606,8 +622,14 @@ function addEntityRefCandidates(
   if (!ref) return;
 
   targets.add(ref);
-  const parsed = parseEntityRef(ref);
-  targets.add(formatEntityRef(parsed.kind ?? kind, parsed.namespace ?? "default", parsed.name));
+  try {
+    targets.add(normalizeEntityRef(ref, {
+      defaultKind: kind,
+      defaultNamespace: "default",
+    }));
+  } catch {
+    // Leave unresolved shorthand refs in place; later validation will report them.
+  }
 }
 
 /**
@@ -633,7 +655,7 @@ export function validateEaRelations(
 
   for (const a of entities) {
     const aId = getEntityId(a);
-    const aKind = getEntityLegacyKind(a);
+    const sourceSchema = getEntitySchema(a);
     const aStatus = getEntityStatus(a);
     const flatRelations = extractFlatRelations(a);
     if (flatRelations.length === 0) continue;
@@ -648,19 +670,6 @@ export function validateEaRelations(
         continue;
       }
 
-      let target = entityById.get(rel.target);
-      if (!target && rel.type === "ownedBy") {
-        for (const candidate of resolveOwnerRefCandidates(rel.target)) {
-          target = entityById.get(candidate);
-          if (target) break;
-        }
-      }
-
-      if (!target) {
-        push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Artifact "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
-        continue;
-      }
-
       const regEntry = registry.get(rel.type);
       if (!regEntry) {
         const canonicalEntry = registry.getCanonicalEntry(rel.type);
@@ -672,13 +681,26 @@ export function validateEaRelations(
         continue;
       }
 
-      if (!registry.isValidSource(rel.type, aKind)) {
-        push(ruleSeverity("ea:relation:invalid-source", "error", q), "ea:relation:invalid-source", aId, `Kind "${aKind}" is not a valid source for relation type "${rel.type}"`);
+      let target = entityById.get(rel.target);
+      if (!target && rel.type === RELATION_OWNED_BY) {
+        for (const candidate of resolveOwnerRefCandidates(rel.target)) {
+          target = entityById.get(candidate);
+          if (target) break;
+        }
       }
 
-      const targetKind = getEntityLegacyKind(target);
-      if (!registry.isValidTarget(rel.type, targetKind)) {
-        push(ruleSeverity("ea:relation:invalid-target", "error", q), "ea:relation:invalid-target", aId, `Kind "${targetKind}" is not a valid target for relation type "${rel.type}" (target: "${getEntityId(target)}")`);
+      if (!target) {
+        push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Artifact "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
+        continue;
+      }
+
+      if (!registry.isValidSourceSchema(rel.type, sourceSchema)) {
+        push(ruleSeverity("ea:relation:invalid-source", "error", q), "ea:relation:invalid-source", aId, `Schema "${sourceSchema}" is not a valid source for relation type "${rel.type}"`);
+      }
+
+      const targetSchema = getEntitySchema(target);
+      if (!registry.isValidTargetSchema(rel.type, targetSchema)) {
+        push(ruleSeverity("ea:relation:invalid-target", "error", q), "ea:relation:invalid-target", aId, `Schema "${targetSchema}" is not a valid target for relation type "${rel.type}" (target: "${getEntityId(target)}")`);
       }
 
       const targetStatus = getEntityStatus(target);

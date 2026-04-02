@@ -15,7 +15,8 @@ import {
   getEntityAnchors,
   getEntityConfidence,
   getEntityDomain,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntitySpecRelations,
   getEntityStatus,
 } from "../../ea/backstage/accessors.js";
@@ -51,16 +52,19 @@ export function eaStatusCommand(): Command {
       // Group by various dimensions
       const byDomain: Record<string, number> = {};
       const byKind: Record<string, number> = {};
+      const bySchema: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
       const byConfidence: Record<string, number> = {};
       let relationCount = 0;
       let anchoredCount = 0;
 
       for (const entity of entities) {
-        const kind = getEntityLegacyKind(entity);
+        const kind = getEntityKind(entity);
+        const schema = getEntitySchema(entity);
         const domain = getEntityDomain(entity) ?? "unknown";
         byDomain[domain] = (byDomain[domain] ?? 0) + 1;
         byKind[kind] = (byKind[kind] ?? 0) + 1;
+        bySchema[schema] = (bySchema[schema] ?? 0) + 1;
         const status = getEntityStatus(entity);
         byStatus[status] = (byStatus[status] ?? 0) + 1;
         const confidence = getEntityConfidence(entity);
@@ -77,6 +81,7 @@ export function eaStatusCommand(): Command {
           total: entities.length,
           byDomain,
           byKind,
+          bySchema,
           byStatus,
           byConfidence,
           relationCount,
@@ -116,6 +121,13 @@ export function eaStatusCommand(): Command {
       console.log(chalk.bold("By Confidence"));
       for (const [conf, count] of Object.entries(byConfidence).sort((a, b) => b[1] - a[1])) {
         console.log(`  ${conf}: ${count}`);
+      }
+
+      console.log("");
+
+      console.log(chalk.bold("By Schema"));
+      for (const [schema, count] of Object.entries(bySchema).sort((a, b) => b[1] - a[1])) {
+        console.log(`  ${schema}: ${count}`);
       }
 
       console.log("");

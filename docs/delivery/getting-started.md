@@ -35,9 +35,11 @@ Manifest mode creates one root `catalog-info.yaml` and linked markdown under `do
 ## 3. Create the first entities
 
 ```bash
-npx anchored-spec create application --title "Orders Service" --owner group:default/platform-team
-npx anchored-spec create api-contract --title "Orders API" --owner group:default/platform-team
+npx anchored-spec create --kind Component --type website --title "Orders Service" --owner group:default/platform-team
+npx anchored-spec create --kind API --type openapi --title "Orders API" --owner group:default/platform-team
 ```
+
+The `create` command now takes an explicit Backstage descriptor selection. Use `--kind` for the real entity kind, `--type` for `spec.type`, and `--schema` only when a kind/type pair is ambiguous across multiple schema profiles.
 
 Then validate immediately:
 

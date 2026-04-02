@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 import type { BackstageEntity } from "./backstage/types.js";
 import type { EaValidationError } from "./validate.js";
-import { getEntityKindMapping } from "./backstage/accessors.js";
+import { getEntityDescriptor } from "./backstage/accessors.js";
 import { validateBackstageEntity, validateBackstageEntities } from "./backstage/validate.js";
 import type { EaValidationResult } from "./validate.js";
 import type { EaDriftReport } from "./drift.js";
@@ -112,7 +112,7 @@ export async function reconcileEaProject(
   // Apply domain filter
   if (options.domains && options.domains.length > 0) {
     entities = entities.filter((entity) =>
-      options.domains!.includes(getEntityKindMapping(entity)?.domain ?? ""),
+      options.domains!.includes(getEntityDescriptor(entity)?.domain ?? ""),
     );
   }
 

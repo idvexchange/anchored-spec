@@ -70,17 +70,17 @@ export function eaDiscoverCommand(): Command {
       }
 
       const result = await root.loadEntities();
-      const existingArtifacts = result.entities;
+      const existingEntities = result.entities;
 
       // ── --from-docs: prose-first discovery ──────────────────────────
       if (options.fromDocs) {
         const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
         const scanResult = scanDocs(cwd, { dirs: docDirs });
-        const docResult = discoverFromDocs(scanResult.docs, existingArtifacts);
+        const docResult = discoverFromDocs(scanResult.docs, existingEntities);
 
         // Feed doc-discovered drafts into the standard pipeline
         const report = await discoverArtifacts({
-          existingArtifacts,
+          existingEntities,
           drafts: docResult.drafts,
           resolverNames: ["doc-frontmatter"],
           projectRoot: cwd,
@@ -93,19 +93,19 @@ export function eaDiscoverCommand(): Command {
               ...report,
               docDiscovery: {
                 docsScanned: scanResult.totalScanned,
-                docsWithArtifacts: scanResult.docs.length,
+                docsWithEntityRefs: scanResult.docs.length,
                 alreadyExists: docResult.alreadyExists,
-                unknownPrefix: docResult.unknownPrefix,
+                invalidRefs: docResult.invalidRefs,
               },
           }, null, 2) + "\n");
         } else {
           const md = renderDiscoveryReportMarkdown(report);
           process.stdout.write(md);
 
-          if (docResult.unknownPrefix.length > 0) {
+          if (docResult.invalidRefs.length > 0) {
             console.log(
               chalk.yellow(
-                `\n⚠ Unknown prefix for: ${docResult.unknownPrefix.join(", ")}`,
+                `\n⚠ Invalid Backstage entity refs: ${docResult.invalidRefs.join(", ")}`,
               ),
             );
           }
@@ -118,10 +118,10 @@ export function eaDiscoverCommand(): Command {
           }
         }
 
-        if (!options.dryRun && report.summary.newArtifacts > 0) {
+        if (!options.dryRun && report.summary.newEntities > 0) {
           console.log(
             chalk.green(
-              `\n✓ Created ${report.summary.newArtifacts} draft entit${report.summary.newArtifacts === 1 ? "y" : "ies"} from doc frontmatter`,
+              `\n✓ Created ${report.summary.newEntities} draft entit${report.summary.newEntities === 1 ? "y" : "ies"} from doc frontmatter`,
             ),
           );
           console.log(
@@ -266,7 +266,7 @@ export function eaDiscoverCommand(): Command {
       }
 
       const report = await discoverArtifacts({
-        existingArtifacts,
+        existingEntities,
         drafts,
         resolverNames,
         projectRoot: cwd,
@@ -296,10 +296,10 @@ export function eaDiscoverCommand(): Command {
         process.stdout.write(md);
       }
 
-      if (!options.dryRun && report.summary.newArtifacts > 0) {
+      if (!options.dryRun && report.summary.newEntities > 0) {
         console.log(
           chalk.green(
-            `\n✓ Created ${report.summary.newArtifacts} draft entit${report.summary.newArtifacts === 1 ? "y" : "ies"}`,
+            `\n✓ Created ${report.summary.newEntities} draft entit${report.summary.newEntities === 1 ? "y" : "ies"}`,
           ),
         );
       }
@@ -307,7 +307,7 @@ export function eaDiscoverCommand(): Command {
       if (report.summary.suggestedUpdates > 0) {
         console.log(
           chalk.yellow(
-            `⚠ ${report.summary.suggestedUpdates} suggested update(s) — review matched artifacts`,
+            `⚠ ${report.summary.suggestedUpdates} suggested update(s) — review matched entities`,
           ),
         );
       }

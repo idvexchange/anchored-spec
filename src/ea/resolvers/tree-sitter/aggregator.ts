@@ -1,11 +1,12 @@
 /**
- * Anchored Spec — Tree-sitter Pattern → Artifact Aggregator
+ * Anchored Spec — Tree-sitter Pattern → Entity Aggregator
  *
  * Aggregates raw query matches from Tree-sitter into meaningful
- * EA artifact drafts by grouping, deduplicating, and inferring relations.
+ * EA entity drafts by grouping, deduplicating, and inferring relations.
  */
 
 import type { BackstageEntity } from "../../backstage/types.js";
+import { getSchemaDescriptor } from "../../backstage/kind-mapping.js";
 import { getEntityId, getEntityTitle } from "../../backstage/accessors.js";
 import type { EaArtifactDraft } from "../../discovery.js";
 import type { QueryMatch } from "./types.js";
@@ -20,16 +21,16 @@ function kebabCase(s: string): string {
     .toLowerCase();
 }
 
-function prefixForKind(kind: string): string {
-  const map: Record<string, string> = {
-    "api-contract": "API",
-    "physical-schema": "SCHEMA",
-    "event-contract": "EVT",
-    service: "SVC",
-    application: "APP",
-    "data-store": "DS",
-  };
-  return map[kind] ?? kind.split("-").map((w) => w[0]?.toUpperCase() ?? "").join("");
+function getDraftDescriptor(schema: string) {
+  const descriptor = getSchemaDescriptor(schema);
+  if (!descriptor) {
+    throw new Error(`Unknown discovery schema "${schema}"`);
+  }
+  return descriptor;
+}
+
+function suggestedIdForSchema(schema: string, slug: string): string {
+  return `${getDraftDescriptor(schema).kind.toLowerCase()}:${slug}`;
 }
 
 function dirGroupKey(filePath: string): string {
@@ -74,12 +75,15 @@ function aggregateRoutes(matches: QueryMatch[]): EaArtifactDraft[] {
 
     const firstMatch = groupMatches[0]!;
     const slug = kebabCase(dirKey.split("/").pop() ?? "api");
-    const prefix = prefixForKind(firstMatch.pattern.inferredKind);
+    const descriptor = getDraftDescriptor(firstMatch.pattern.inferredSchema);
     const routeList = [...routes].sort();
 
     drafts.push({
-      suggestedId: `${prefix}-${slug}`,
-      kind: firstMatch.pattern.inferredKind,
+      suggestedId: suggestedIdForSchema(descriptor.schema, slug),
+      apiVersion: descriptor.apiVersion,
+      kind: descriptor.kind,
+      type: descriptor.specType,
+      schema: descriptor.schema,
       title: `${slug} API`,
       summary: `Discovered ${routeList.length} route(s) in ${dirKey}: ${routeList.slice(0, 5).join(", ")}${routeList.length > 5 ? "..." : ""}`,
       status: "draft",
@@ -128,11 +132,14 @@ function aggregateDbAccess(matches: QueryMatch[]): EaArtifactDraft[] {
 
     const slug = kebabCase(tableName);
     const firstMatch = groupMatches[0]!;
-    const prefix = prefixForKind(firstMatch.pattern.inferredKind);
+    const descriptor = getDraftDescriptor(firstMatch.pattern.inferredSchema);
 
     drafts.push({
-      suggestedId: `${prefix}-${slug}`,
-      kind: firstMatch.pattern.inferredKind,
+      suggestedId: suggestedIdForSchema(descriptor.schema, slug),
+      apiVersion: descriptor.apiVersion,
+      kind: descriptor.kind,
+      type: descriptor.specType,
+      schema: descriptor.schema,
       title: `${tableName} schema`,
       summary: `Discovered data access to "${tableName}" in ${files.size} file(s). Operations: ${[...operations].join(", ") || "unknown"}`,
       status: "draft",
@@ -143,7 +150,7 @@ function aggregateDbAccess(matches: QueryMatch[]): EaArtifactDraft[] {
       relations: [],
       discoveredBy: "tree-sitter",
       discoveredAt: now(),
-      kindSpecificFields: {
+      schemaFields: {
         tables: [tableName],
       },
     });
@@ -176,11 +183,14 @@ function aggregateEvents(matches: QueryMatch[]): EaArtifactDraft[] {
 
     const slug = kebabCase(eventName);
     const firstMatch = groupMatches[0]!;
-    const prefix = prefixForKind(firstMatch.pattern.inferredKind);
+    const descriptor = getDraftDescriptor(firstMatch.pattern.inferredSchema);
 
     drafts.push({
-      suggestedId: `${prefix}-${slug}`,
-      kind: firstMatch.pattern.inferredKind,
+      suggestedId: suggestedIdForSchema(descriptor.schema, slug),
+      apiVersion: descriptor.apiVersion,
+      kind: descriptor.kind,
+      type: descriptor.specType,
+      schema: descriptor.schema,
       title: `${eventName} event`,
       summary: `Discovered event "${eventName}" in ${files.size} file(s)`,
       status: "draft",
@@ -221,11 +231,14 @@ function aggregateExternalCalls(matches: QueryMatch[]): EaArtifactDraft[] {
     }
 
     const slug = kebabCase(serviceName.replace(/https?:\/\//, "").split("/")[0] ?? serviceName);
-    const prefix = prefixForKind("service");
+    const descriptor = getDraftDescriptor("service");
 
     drafts.push({
-      suggestedId: `${prefix}-${slug}`,
-      kind: "service",
+      suggestedId: suggestedIdForSchema(descriptor.schema, slug),
+      apiVersion: descriptor.apiVersion,
+      kind: descriptor.kind,
+      type: descriptor.specType,
+      schema: descriptor.schema,
       title: `${serviceName} (external)`,
       summary: `Discovered external service call to "${serviceName}" in ${files.size} file(s)`,
       status: "draft",
@@ -266,15 +279,15 @@ function deduplicateAgainstExisting(
 // ─── Main Aggregator ────────────────────────────────────────────────────────────
 
 /**
- * Aggregate raw query matches into EA artifact drafts.
+ * Aggregate raw query matches into EA entity drafts.
  *
  * Groups matches by category (route, db-access, event, external-call),
  * then aggregates within each category by file proximity or name,
- * producing deduplicated artifact drafts.
+ * producing deduplicated entity drafts.
  */
 export function aggregateMatches(
   matches: QueryMatch[],
-  existingArtifacts: BackstageEntity[],
+  existingEntities: BackstageEntity[],
 ): EaArtifactDraft[] {
   // Categorize matches
   const routes: QueryMatch[] = [];
@@ -311,15 +324,18 @@ export function aggregateMatches(
     ...aggregateExternalCalls(externalCalls),
   ];
 
-  // Handle uncategorized matches as generic artifacts
+  // Handle uncategorized matches as generic entities
   for (const match of uncategorized) {
     const title = match.captures["@title"] ?? match.captures["@name"] ?? match.pattern.name;
     const slug = kebabCase(title);
-    const prefix = prefixForKind(match.pattern.inferredKind);
+    const descriptor = getDraftDescriptor(match.pattern.inferredSchema);
 
     allDrafts.push({
-      suggestedId: `${prefix}-${slug}`,
-      kind: match.pattern.inferredKind,
+      suggestedId: suggestedIdForSchema(descriptor.schema, slug),
+      apiVersion: descriptor.apiVersion,
+      kind: descriptor.kind,
+      type: descriptor.specType,
+      schema: descriptor.schema,
       title,
       summary: `Discovered ${match.pattern.name} in ${match.file}:${match.startLine + 1}`,
       status: "draft",
@@ -339,6 +355,6 @@ export function aggregateMatches(
     return true;
   });
 
-  // Deduplicate against existing artifacts
-  return deduplicateAgainstExisting(unique, existingArtifacts);
+  // Deduplicate against existing entities
+  return deduplicateAgainstExisting(unique, existingEntities);
 }

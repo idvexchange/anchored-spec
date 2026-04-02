@@ -1,7 +1,7 @@
 /**
  * Backstage Entity Model — Public API
  *
- * Re-exports all Backstage-aligned types, kind mappings, and utilities.
+ * Re-exports all Backstage-aligned types, descriptor mappings, and utilities.
  */
 
 // Core types
@@ -47,26 +47,44 @@ export {
   ANNOTATION_PREFIX,
   ANNOTATION_KEYS,
   parseEntityRef,
-  formatEntityRef,
-  formatFullEntityRef,
+  normalizeEntityRef,
+  stringifyEntityRef,
+  parseLocationRef,
+  stringifyLocationRef,
 } from "./types.js";
 
-// Kind mapping
-export type { KindMappingEntry } from "./kind-mapping.js";
+export type { EntityRefNormalizationOptions } from "./ref-utils.js";
 
 export {
-  BACKSTAGE_KIND_REGISTRY,
-  mapLegacyKind,
-  mapLegacyPrefix,
-  mapBackstageKind,
-  getLegacyKindsForBackstageKind,
-  isLegacyKindRegistered,
-  isBackstageKindRegistered,
-  getAllBackstageKinds,
-  getBuiltinKinds,
-  getCustomKinds,
-  legacyIdToEntityName,
-  entityNameToLegacyId,
+  looksLikeEntityRef,
+  normalizeKnownEntityRef,
+  getEntityRefAliases,
+  entityRefToFilenameSlug,
+} from "./ref-utils.js";
+
+export type { EntityDescriptorMatch } from "./predicates.js";
+
+export {
+  hasEntityKind,
+  hasEntitySchema,
+  hasEntitySpecType,
+  matchesEntityDescriptor,
+  matchesSchemaDescriptor,
+} from "./predicates.js";
+
+// Descriptor mapping
+export type { EntityDescriptor } from "./kind-mapping.js";
+
+export {
+  ENTITY_DESCRIPTOR_REGISTRY,
+  getSchemaDescriptor,
+  getEntityDescriptorForEntity,
+  getEntityDescriptorsForKind,
+  isSchemaRegistered,
+  isEntityKindRegistered,
+  getAllEntityKinds,
+  getBuiltinEntityDescriptors,
+  getCustomEntityDescriptors,
 } from "./kind-mapping.js";
 
 // Relation mapping
@@ -142,8 +160,9 @@ export {
   getEntityNamespace,
   getEntityTitle,
   getEntityDescription,
-  getEntityLegacyKind,
-  getEntityKindMapping,
+  getEntityKind,
+  getEntitySchema,
+  getEntityDescriptor,
   getEntitySpecType,
   getEntityStatus,
   getEntityLifecycle,

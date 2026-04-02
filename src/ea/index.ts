@@ -200,26 +200,25 @@ export {
   ANNOTATION_PREFIX,
   ANNOTATION_KEYS,
   parseEntityRef,
-  formatEntityRef,
-  formatFullEntityRef,
+  normalizeEntityRef,
+  stringifyEntityRef,
+  parseLocationRef,
+  stringifyLocationRef,
 } from "./backstage/types.js";
 
 // Kind mapping
-export type { KindMappingEntry } from "./backstage/kind-mapping.js";
+export type { EntityDescriptor } from "./backstage/kind-mapping.js";
 
 export {
-  BACKSTAGE_KIND_REGISTRY,
-  mapLegacyKind,
-  mapLegacyPrefix,
-  mapBackstageKind,
-  getLegacyKindsForBackstageKind,
-  isLegacyKindRegistered,
-  isBackstageKindRegistered,
-  getAllBackstageKinds,
-  getBuiltinKinds,
-  getCustomKinds,
-  legacyIdToEntityName,
-  entityNameToLegacyId,
+  ENTITY_DESCRIPTOR_REGISTRY,
+  getSchemaDescriptor,
+  getEntityDescriptorForEntity,
+  getEntityDescriptorsForKind,
+  isSchemaRegistered,
+  isEntityKindRegistered,
+  getAllEntityKinds,
+  getBuiltinEntityDescriptors,
+  getCustomEntityDescriptors,
 } from "./backstage/kind-mapping.js";
 
 // Relation mapping
@@ -246,8 +245,9 @@ export {
   getEntityNamespace,
   getEntityTitle,
   getEntityDescription,
-  getEntityLegacyKind,
-  getEntityKindMapping,
+  getEntityKind,
+  getEntitySchema,
+  getEntityDescriptor,
   getEntitySpecType,
   getEntityStatus,
   getEntityLifecycle,
@@ -274,6 +274,16 @@ export {
   getEntityDomain,
   getEntityLinks,
 } from "./backstage/accessors.js";
+
+export type { EntityDescriptorMatch } from "./backstage/predicates.js";
+
+export {
+  hasEntityKind,
+  hasEntitySchema,
+  hasEntitySpecType,
+  matchesEntityDescriptor,
+  matchesSchemaDescriptor,
+} from "./backstage/predicates.js";
 
 // Backstage I/O
 export type {

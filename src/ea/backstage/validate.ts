@@ -23,8 +23,6 @@ import {
 } from "@backstage/catalog-model";
 import type { Entity as CatalogEntity, KindValidator } from "@backstage/catalog-model";
 import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { BackstageEntity } from "./types.js";
 import type { EaValidationError, EaValidationResult, EaValidationOptions } from "../validate.js";
 import {
@@ -35,15 +33,12 @@ import {
   getEntitySpecRelations,
 } from "./accessors.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 // ─── Schema Loading ─────────────────────────────────────────────────────────────
 
-const BACKSTAGE_SCHEMAS_DIR = join(__dirname, "..", "schemas", "backstage");
+const BACKSTAGE_SCHEMAS_DIR = new URL("../schemas/backstage/", import.meta.url);
 
-function loadBackstageSchema(name: string): Record<string, unknown> {
-  const filePath = join(BACKSTAGE_SCHEMAS_DIR, `${name}.schema.json`);
+function loadCustomBackstageSchema(name: string): Record<string, unknown> {
+  const filePath = new URL(`${name}.schema.json`, BACKSTAGE_SCHEMAS_DIR);
   return JSON.parse(readFileSync(filePath, "utf-8")) as Record<string, unknown>;
 }
 
@@ -187,14 +182,10 @@ function getBackstageAjv(): Ajv {
     });
     addFormats(backstageAjvInstance);
 
-    // Load local envelope first (it's referenced by anchored-spec custom kind schemas)
-    const envelope = loadBackstageSchema("entity-envelope");
-    backstageAjvInstance.addSchema(envelope, "entity-envelope");
-
-    // Load anchored-spec custom kind schemas only. Backstage built-ins are validated
-    // using the upstream catalog-model validators instead of local shadow schemas.
+    // Load anchored-spec custom kind schemas only. Backstage built-ins and the
+    // shared entity envelope are validated using upstream catalog-model validators.
     for (const name of CUSTOM_SCHEMA_NAMES) {
-      const schema = loadBackstageSchema(name);
+      const schema = loadCustomBackstageSchema(name);
       backstageAjvInstance.addSchema(schema, name);
     }
   }
@@ -259,24 +250,24 @@ function errorToValidationResult(
 
 async function validateBuiltinEntity(
   data: unknown,
-  schemaName: BuiltinBackstageSchemaName,
+  schema: BuiltinBackstageSchemaName,
 ): Promise<EaValidationResult> {
   try {
-    if (schemaName === "entity-envelope") {
+    if (schema === "entity-envelope") {
       const validateEnvelope = entityEnvelopeSchemaValidator();
       validateEnvelope(data);
       return { valid: true, errors: [], warnings: [] };
     }
 
-    const validator = BUILTIN_KIND_VALIDATORS[schemaName];
+    const validator = BUILTIN_KIND_VALIDATORS[schema];
     if (!validator) {
       return {
         valid: false,
         errors: [{
           path: "/",
-          message: `Unsupported Backstage built-in schema: ${schemaName}`,
+          message: `Unsupported Backstage built-in schema: ${schema}`,
           severity: "error",
-          rule: `backstage:schema:${schemaName}`,
+          rule: `backstage:schema:${schema}`,
         }],
         warnings: [],
       };
@@ -288,9 +279,9 @@ async function validateBuiltinEntity(
         valid: false,
         errors: [{
           path: "/",
-          message: `Entity does not match Backstage schema: ${schemaName}`,
+          message: `Entity does not match Backstage schema: ${schema}`,
           severity: "error",
-          rule: `backstage:schema:${schemaName}`,
+          rule: `backstage:schema:${schema}`,
         }],
         warnings: [],
       };
@@ -298,23 +289,28 @@ async function validateBuiltinEntity(
 
     return { valid: true, errors: [], warnings: [] };
   } catch (err) {
-    return errorToValidationResult(schemaName, err);
+    return errorToValidationResult(schema, err);
   }
 }
 
-function validateCustomEntity(
+async function validateCustomEntity(
   data: unknown,
-  schemaName: BackstageSchemaName,
-): EaValidationResult {
+  schema: BackstageSchemaName,
+): Promise<EaValidationResult> {
+  const envelopeResult = await validateBuiltinEntity(data, "entity-envelope");
+  if (!envelopeResult.valid) {
+    return envelopeResult;
+  }
+
   const ajv = getBackstageAjv();
-  const validate = ajv.getSchema(schemaName);
+  const validate = ajv.getSchema(schema);
 
   if (!validate) {
     return {
       valid: false,
       errors: [{
         path: "",
-        message: `Unknown Backstage schema: ${schemaName}`,
+        message: `Unknown Backstage schema: ${schema}`,
         severity: "error",
         rule: "backstage:schema:unknown",
       }],
@@ -334,7 +330,7 @@ function validateCustomEntity(
         path,
         message: `${path}: ${message}`,
         severity: "error",
-        rule: `backstage:schema:${schemaName}`,
+        rule: `backstage:schema:${schema}`,
       });
     }
   }
@@ -348,9 +344,9 @@ function validateCustomEntity(
  */
 export async function validateBackstageEntity(
   data: unknown,
-  schemaName?: BackstageSchemaName,
+  schema?: BackstageSchemaName,
 ): Promise<EaValidationResult> {
-  const name = schemaName ?? resolveBackstageSchemaName(data);
+  const name = schema ?? resolveBackstageSchemaName(data);
   if (isBuiltinSchemaName(name)) {
     return validateBuiltinEntity(data, name);
   }

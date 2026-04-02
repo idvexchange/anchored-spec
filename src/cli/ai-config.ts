@@ -57,7 +57,7 @@ Architecture is defined as Backstage-aligned entities stored in catalog manifest
 | Command | Purpose |
 |---|---|
 | \`npx anchored-spec validate\` | Validate all entities against schemas |
-| \`npx anchored-spec create <kind> --title "Name"\` | Create a new entity |
+| \`npx anchored-spec create --kind Component --type website --title "Name"\` | Create a new entity |
 | \`npx anchored-spec discover\` | Discover entities from code and infrastructure |
 | \`npx anchored-spec drift\` | Detect drift between specs and reality |
 | \`npx anchored-spec diff --base main\` | Semantic diff with compatibility checks |
@@ -93,7 +93,7 @@ Spec-as-source EA framework. Architecture = Backstage-aligned entities, not ad-h
 
 ## Commands
 - \`npx anchored-spec validate\` — Validate entities
-- \`npx anchored-spec create <kind> --title "Name"\` — Create entity
+- \`npx anchored-spec create --kind Component --type website --title "Name"\` — Create entity
 - \`npx anchored-spec discover\` — Discover from code/infra
 - \`npx anchored-spec drift\` — Check drift
 - \`npx anchored-spec diff --base main\` — Semantic diff
@@ -123,37 +123,37 @@ export interface AgentPrompts {
  * The format is agent-agnostic markdown with $ARGUMENTS placeholder.
  */
 export function generateAgentPrompts(_config: AiConfigInput): AgentPrompts {
-  const scaffold = `Scaffold EA artifacts from document frontmatter references.
+  const scaffold = `Scaffold EA entities from document frontmatter references.
 
 Steps:
 1. Preview: \`npx anchored-spec discover --from-docs --dry-run\`
-2. Review the output — it shows new artifacts to create, existing ones (skipped), and unknown prefixes
+2. Review the output — it shows new entities to create, existing ones (skipped), and unknown prefixes
 3. If the preview looks correct: \`npx anchored-spec discover --from-docs\`
-4. For each new draft artifact, read the source spec and fill in kind-specific fields (tech stack, endpoints, schemas, etc.)
+4. For each new draft entity, read the source spec and fill in schema-specific fields (tech stack, endpoints, schemas, etc.)
 5. Set confidence to "declared" after human review
 6. Sync trace links: \`npx anchored-spec link-docs\`
 7. Validate: \`npx anchored-spec validate\`
 `;
 
-  const trace = `Check bidirectional traceability between docs and EA artifacts.
+  const trace = `Check bidirectional traceability between docs and EA entities.
 
-If $ARGUMENTS is provided, trace that specific artifact or file. Otherwise run a full check.
+If $ARGUMENTS is provided, trace that specific entity or file. Otherwise run a full check.
 
 Steps:
 1. Run: \`npx anchored-spec trace --check\` (or \`npx anchored-spec trace $ARGUMENTS\`)
 2. Report findings:
-   - ✅ Bidirectional: artifact traceRef → doc AND doc ea-artifacts → artifact
+   - ✅ Bidirectional: entity traceRef → doc AND doc ea-artifacts → entity
    - ⚠ One-way: link exists in only one direction
    - ❌ Broken: traceRef points to a missing file
 3. To fix one-way links: \`npx anchored-spec link-docs\`
 4. Show summary: \`npx anchored-spec trace --summary\`
 `;
 
-  const context = `Assemble the full architectural context for artifact $ARGUMENTS before starting implementation.
+  const context = `Assemble the full architectural context for entity $ARGUMENTS before starting implementation.
 
 Steps:
 1. Run: \`npx anchored-spec context $ARGUMENTS\`
-2. This gathers: the artifact spec, all traced docs (by role), transitive dependencies, and related artifacts
+2. This gathers: the entity descriptor, all traced docs (by role), transitive dependencies, and related entities
 3. For token-limited contexts: \`npx anchored-spec context $ARGUMENTS --max-tokens 8000\`
 4. Show the dependency graph: \`npx anchored-spec graph --focus $ARGUMENTS --depth 2 --format mermaid\`
 5. Check impact: \`npx anchored-spec impact $ARGUMENTS\`
@@ -164,9 +164,9 @@ Steps:
 
 Steps:
 1. Run: \`npx anchored-spec drift\`
-2. If drift is detected, report which artifacts are affected and what drifted
+2. If drift is detected, report which entities are affected and what drifted
 3. For each finding, suggest resolution:
-   - Code is correct → update the artifact: \`npx anchored-spec reconcile\`
+   - Code is correct → update the entity: \`npx anchored-spec reconcile\`
    - Spec is correct → revert the code change
 4. Run \`npx anchored-spec validate\` after any reconciliation
 `;
@@ -176,9 +176,9 @@ Steps:
 Steps:
 1. Run: \`npx anchored-spec validate\` — zero schema errors required
 2. Run: \`npx anchored-spec drift\` — check for existing drift
-3. Run: \`npx anchored-spec trace --check\` — verify doc↔artifact links
-4. Check confidence: are key artifacts at "declared" (not "inferred")?
-5. Check relations: does the target artifact have defined dependencies?
+3. Run: \`npx anchored-spec trace --check\` — verify doc↔entity links
+4. Check confidence: are key entities at "declared" (not "inferred")?
+5. Check relations: does the target entity have defined dependencies?
 6. Report a go/no-go decision with specific items to fix before implementation
 `;
 
@@ -195,21 +195,21 @@ export function generateCopilotPrompts(config: AiConfigInput): Array<{ name: str
     {
       name: "ea-scaffold",
       content: `---
-description: "Scaffold EA artifacts from document frontmatter references"
+description: "Scaffold EA entities from document frontmatter references"
 ---
 ${prompts.scaffold}`,
     },
     {
       name: "ea-trace",
       content: `---
-description: "Check bidirectional traceability between docs and EA artifacts"
+description: "Check bidirectional traceability between docs and EA entities"
 ---
 ${prompts.trace}`,
     },
     {
       name: "ea-context",
       content: `---
-description: "Assemble full architectural context for an EA artifact"
+description: "Assemble full architectural context for an EA entity"
 ---
 ${prompts.context}`,
     },
@@ -294,7 +294,7 @@ ${domainList(domains, "- ")}
 - \`${rootDir}/workflow-policy.yaml\` — Workflow policy rules (if exists)
 
 ## Artifact Naming
-Each artifact kind has a unique prefix:
+Each schema profile has a unique prefix:
 - Systems: APP, SVC, API, EVT, INT, SIF, CON
 - Delivery: PLAT, DEPLOY, CLUSTER, ZONE, IDB, CLOUD, ENV, TECH
 - Data: LDM, SCHEMA, STORE, LINEAGE, MDM, DQR, DPROD
@@ -318,13 +318,13 @@ export interface KiroHooks {
 export function generateKiroHooks(config: AiConfigInput): KiroHooks {
   const { rootDir } = config;
 
-  const validateOnSave = `name: "Validate EA Artifact"
-description: "Validate EA artifacts against JSON schemas when saved"
+  const validateOnSave = `name: "Validate EA Entity"
+description: "Validate EA entities against JSON schemas when saved"
 trigger: onSave
 pattern: "${rootDir}/**/*.{yaml,yml,json}"
 throttle: 2000
 action: |
-  An EA artifact file was just saved. Validate it:
+  An EA entity file was just saved. Validate it:
 
   1. Run the anchored-spec validator on the saved file:
      \`\`\`bash
@@ -332,9 +332,9 @@ action: |
      \`\`\`
   2. If there are schema errors, report them concisely with the field path and expected type.
   3. If there are drift warnings, mention them but don't block.
-  4. If everything is valid, report "✓ Artifact valid" and nothing more.
+  4. If everything is valid, report "✓ Entity valid" and nothing more.
 
-  Be concise — only report problems. A clean artifact needs no explanation.
+  Be concise — only report problems. A clean entity needs no explanation.
 `;
 
   const traceOnSave = `name: "Check Trace Integrity"
@@ -343,7 +343,7 @@ trigger: onSave
 pattern: "{docs,specs,doc,documentation}/**/*.md"
 throttle: 3000
 action: |
-  A spec document was saved. Check that trace links between this document and EA artifacts are intact.
+  A spec document was saved. Check that trace links between this document and EA entities are intact.
 
   1. Run trace check:
      \`\`\`bash
@@ -351,7 +351,7 @@ action: |
      \`\`\`
 
   2. Report only problems:
-     - ⚠ One-way links: artifact references the doc but doc doesn't list the artifact (or vice versa)
+     - ⚠ One-way links: entity references the doc but doc doesn't list the entity (or vice versa)
      - ❌ Broken links: traceRef points to a file that doesn't exist
 
   3. If there are one-way links, suggest running:
@@ -376,12 +376,12 @@ action: |
      \`\`\`
 
   2. If drift is detected, report:
-     - Which artifact(s) are affected
+     - Which entities are affected
      - What the drift is (e.g. "endpoint /api/users not declared in API-users-v1")
      - Whether it's a warning or error
 
   3. Suggest resolution:
-     - If the code is correct: "Update the artifact to match: npx anchored-spec reconcile"
+     - If the code is correct: "Update the entity to match: npx anchored-spec reconcile"
      - If the spec is correct: "Revert the code change to match the spec"
 
   4. If no drift is detected, report nothing.
@@ -408,7 +408,7 @@ extension:
   id: "anchored-spec"
   name: "Anchored Spec EA Framework"
   version: "1.0.0"
-  description: "Spec-as-source enterprise architecture: frontmatter enrichment, artifact scaffolding, trace validation, and AI context assembly"
+  description: "Spec-as-source enterprise architecture: frontmatter enrichment, entity scaffolding, trace validation, and AI context assembly"
   author: "anchored-spec"
   repository: "https://github.com/idvexchange/anchored-spec"
   license: "MIT"
@@ -424,21 +424,21 @@ provides:
   commands:
     - name: "speckit.anchored-spec.scaffold"
       file: "commands/scaffold.md"
-      description: "Scaffold EA artifacts from spec document frontmatter references"
+      description: "Scaffold EA entities from spec document frontmatter references"
 
     - name: "speckit.anchored-spec.trace"
       file: "commands/trace.md"
-      description: "Check bidirectional traceability between specs and EA artifacts"
+      description: "Check bidirectional traceability between specs and EA entities"
 
     - name: "speckit.anchored-spec.context"
       file: "commands/context.md"
-      description: "Assemble AI context package for an EA artifact"
+      description: "Assemble AI context package for an EA entity"
 
 hooks:
   after_tasks:
     command: "speckit.anchored-spec.scaffold"
     optional: true
-    prompt: "Scaffold EA artifacts from spec frontmatter references?"
+    prompt: "Scaffold EA entities from spec frontmatter references?"
 
 tags:
   - "enterprise-architecture"
@@ -448,13 +448,13 @@ tags:
 `;
 
   const scaffoldCmd = `---
-description: "Scaffold EA artifacts from spec document frontmatter references"
+description: "Scaffold EA entities from spec document frontmatter references"
 ---
 
-# Scaffold EA Artifacts from Specs
+# Scaffold EA Entities from Specs
 
-You are an EA scaffolding agent. Your job is to create draft EA artifacts
-for any artifact IDs referenced in spec documents that don't yet exist.
+You are an EA scaffolding agent. Your job is to create draft EA entities
+for any entity refs referenced in spec documents that don't yet exist.
 
 ## User Input
 
@@ -488,7 +488,7 @@ npx anchored-spec discover --from-docs
 For each newly created draft artifact in \`${rootDir}/\`:
 1. Read the draft (it will have \`status: "draft"\` and \`confidence: "inferred"\`)
 2. Read the source spec document (listed in the draft's \`anchors.docs\`)
-3. Fill in kind-specific fields based on the spec content:
+3. Fill in schema-specific fields based on the spec content:
    - Services: \`techStack\`, \`endpoints\`
    - APIs: \`protocol\`, \`basePath\`, \`operations\`
    - Schemas: \`engine\`, \`tables\`
@@ -512,25 +512,25 @@ npx anchored-spec trace --check
 ## Rules
 
 - **Never overwrite existing artifacts** — the discovery pipeline prevents this
-- **Draft artifacts need human review** — always enrich with kind-specific fields
+- **Draft entities need human review** — always enrich with schema-specific fields
 - **Run link-docs after scaffolding** — this establishes bidirectional traces
 - **Validate after every change** — catch schema errors early
 `;
 
   const traceCmd = `---
-description: "Check bidirectional traceability between specs and EA artifacts"
+description: "Check bidirectional traceability between specs and EA entities"
 ---
 
 # Trace Integrity Check
 
 You are a traceability validation agent. Your job is to check that
-spec documents and EA artifacts are properly linked in both directions.
+spec documents and EA entities are properly linked in both directions.
 
 ## User Input
 
 $ARGUMENTS
 
-If a specific artifact ID or file path is given, trace that item.
+If a specific entity ref or file path is given, trace that item.
 Otherwise, run a full integrity check.
 
 ## Steps
@@ -550,7 +550,7 @@ npx anchored-spec trace $ARGUMENTS
 ### 2. Analyze the results
 
 Report:
-- ✅ **Bidirectional links**: artifact has traceRef → doc, doc has ea-artifacts → artifact
+- ✅ **Bidirectional links**: entity has traceRef → doc, doc has ea-artifacts → entity
 - ⚠ **One-way links**: only one direction exists
 - ❌ **Broken links**: traceRef points to a file that doesn't exist
 
@@ -564,7 +564,7 @@ npx anchored-spec link-docs              # apply fixes
 
 For broken links:
 - Check if the file was moved/renamed
-- Update the traceRef path in the artifact
+- Update the traceRef path in the entity
 
 ### 4. Show summary
 
@@ -574,19 +574,19 @@ npx anchored-spec trace --summary
 `;
 
   const contextCmd = `---
-description: "Assemble AI context package for an EA artifact"
+description: "Assemble AI context package for an EA entity"
 ---
 
 # Context Assembly
 
 You are a context assembly agent. Your job is to gather all relevant
-architectural context for an artifact before starting implementation work.
+architectural context for an entity before starting implementation work.
 
 ## User Input
 
 $ARGUMENTS
 
-The artifact ID to assemble context for.
+The entity ref to assemble context for.
 
 ## Steps
 

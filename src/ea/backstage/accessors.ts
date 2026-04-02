@@ -6,9 +6,9 @@
  */
 
 import type { BackstageEntity, EntityRelation } from "./types.js";
-import { ANNOTATION_KEYS, formatEntityRef } from "./types.js";
-import { mapBackstageKind, mapLegacyKind } from "./kind-mapping.js";
-import type { KindMappingEntry } from "./kind-mapping.js";
+import { ANNOTATION_KEYS, stringifyEntityRef } from "./types.js";
+import { getSchemaDescriptor, getEntityDescriptorForEntity } from "./kind-mapping.js";
+import type { EntityDescriptor } from "./kind-mapping.js";
 import { extractRelationsFromSpec } from "./relation-mapping.js";
 import type { EaAnchors } from "../types.js";
 
@@ -19,7 +19,11 @@ import type { EaAnchors } from "../types.js";
  * This is the canonical entity reference.
  */
 export function getEntityId(entity: BackstageEntity): string {
-  return formatEntityRef(entity.kind, entity.metadata.namespace, entity.metadata.name);
+  return stringifyEntityRef({
+    kind: entity.kind,
+    namespace: entity.metadata.namespace,
+    name: entity.metadata.name,
+  });
 }
 
 /**
@@ -57,26 +61,26 @@ export function getEntityDescription(entity: BackstageEntity): string {
 // ─── Kind & Type ────────────────────────────────────────────────────────────────
 
 /**
- * Get the legacy kebab-case kind (e.g., "service", "api-contract").
- * Uses the kind mapping registry to reverse-map from Backstage kind + spec.type.
+ * Get the anchored-spec schema name for this entity (e.g., "service", "api-contract").
+ * Uses the kind descriptor registry to reverse-map from Backstage kind + spec.type.
  */
-export function getEntityLegacyKind(entity: BackstageEntity): string {
-  const annotated = getAnnotation(entity, ANNOTATION_KEYS.LEGACY_KIND);
-  if (annotated) return annotated;
-  const specType = typeof entity.spec?.type === "string" ? entity.spec.type : undefined;
-  const mapping = mapBackstageKind(entity.apiVersion, entity.kind, specType);
-  return mapping?.legacyKind ?? entity.kind.toLowerCase();
+export function getEntitySchema(entity: BackstageEntity): string {
+  const descriptor = inferEntityDescriptor(entity);
+  return descriptor?.schema ?? entity.kind.toLowerCase();
+}
+
+/**
+ * Get the entity kind exactly as stored in the catalog entity envelope.
+ */
+export function getEntityKind(entity: BackstageEntity): string {
+  return entity.kind;
 }
 
 /**
  * Get the kind mapping entry for this entity, or undefined if not mapped.
  */
-export function getEntityKindMapping(entity: BackstageEntity): KindMappingEntry | undefined {
-  const specType = typeof entity.spec?.type === "string" ? entity.spec.type : undefined;
-  return (
-    mapBackstageKind(entity.apiVersion, entity.kind, specType) ??
-    mapLegacyKind(getAnnotation(entity, ANNOTATION_KEYS.LEGACY_KIND) ?? entity.kind)
-  );
+export function getEntityDescriptor(entity: BackstageEntity): EntityDescriptor | undefined {
+  return inferEntityDescriptor(entity);
 }
 
 /**
@@ -84,6 +88,26 @@ export function getEntityKindMapping(entity: BackstageEntity): KindMappingEntry 
  */
 export function getEntitySpecType(entity: BackstageEntity): string | undefined {
   return typeof entity.spec?.type === "string" ? entity.spec.type : undefined;
+}
+
+function inferEntityDescriptor(entity: BackstageEntity): EntityDescriptor | undefined {
+  const spec = entity.spec ?? {};
+  const specType = typeof spec.type === "string" ? spec.type : undefined;
+
+  if (entity.apiVersion === "backstage.io/v1alpha1" && entity.kind === "Component" && specType === "service") {
+    if (Array.isArray(spec.consumesContracts) || typeof spec.consumerType === "string") {
+      return getSchemaDescriptor("consumer");
+    }
+    if (
+      typeof spec.platformType === "string" ||
+      typeof spec.provider === "string" ||
+      typeof spec.region === "string"
+    ) {
+      return getSchemaDescriptor("platform");
+    }
+  }
+
+  return getEntityDescriptorForEntity(entity.apiVersion, entity.kind, specType);
 }
 
 // ─── Lifecycle ──────────────────────────────────────────────────────────────────
@@ -346,15 +370,15 @@ export function getEntitySystem(entity: BackstageEntity): string | undefined {
 }
 
 /**
- * Get the domain this entity belongs to (from spec.domain or kind-mapping).
+ * Get the domain this entity belongs to (from spec.domain or the descriptor registry).
  */
 export function getEntityDomain(entity: BackstageEntity): string | undefined {
   // Direct domain field (System kind)
   if (typeof entity.spec?.domain === "string") return entity.spec.domain;
 
   // Via kind mapping
-  const mapping = getEntityKindMapping(entity);
-  return mapping?.domain;
+  const descriptor = getEntityDescriptor(entity);
+  return descriptor?.domain;
 }
 
 // ─── Links ──────────────────────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { minimatch } from "minimatch";
-import { getEntityId, getEntityLegacyKind, getEntityAnchors } from "../backstage/accessors.js";
+import { getEntityId, getEntitySchema, getEntityAnchors } from "../backstage/accessors.js";
 import type { EaResolver, EaResolverContext, ObservedEaState, ObservedEntity } from "./types.js";
 
 // ─── Source File Scanning ───────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ function getExports(entry: FileEntry): Set<string> {
 }
 
 /**
- * Scan source files for anchors from EA artifacts.
+ * Scan source files for anchors from EA entities.
  */
 export function scanAnchors(
   anchors: Record<string, string[]>,
@@ -267,12 +267,12 @@ export class AnchorsResolver implements EaResolver {
 
       // Report each anchor as an observed entity
       const entityId = getEntityId(artifact);
-      const legacyKind = getEntityLegacyKind(artifact);
+      const schema = getEntitySchema(artifact);
       for (const match of result.matches) {
         entities.push({
           externalId: `${entityId}:anchor:${match.anchorType}:${match.anchorValue}`,
-          inferredKind: legacyKind,
-          matchedArtifactId: entityId,
+          inferredSchema: schema,
+          matchedEntityId: entityId,
           metadata: {
             name: `${match.anchorType}/${match.anchorValue}`,
             anchorType: match.anchorType,
@@ -286,8 +286,8 @@ export class AnchorsResolver implements EaResolver {
       for (const miss of result.missing) {
         entities.push({
           externalId: `${entityId}:anchor:${miss.anchorType}:${miss.anchorValue}`,
-          inferredKind: legacyKind,
-          matchedArtifactId: entityId,
+          inferredSchema: schema,
+          matchedEntityId: entityId,
           metadata: {
             name: `${miss.anchorType}/${miss.anchorValue}`,
             anchorType: miss.anchorType,

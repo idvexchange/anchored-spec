@@ -8,8 +8,8 @@ describe("resolveConfigV1", () => {
 
     expect(config.schemaVersion).toBe("1.0");
     expect(config.rootDir).toBe("docs");
-    expect(config.generatedDir).toBe("ea/generated");
-    expect(config.workflowPolicyPath).toBe("ea/workflow-policy.yaml");
+    expect(config.generatedDir).toBe("docs/generated");
+    expect(config.workflowPolicyPath).toBe("docs/workflow-policy.yaml");
     expect(config.entityMode).toBe("manifest");
     expect(config.manifestPath).toBe("catalog-info.yaml");
     expect(config.inlineDocDirs).toBeUndefined();

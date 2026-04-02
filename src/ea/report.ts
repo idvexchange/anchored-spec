@@ -5,8 +5,11 @@
  * from loaded EA artifacts.
  */
 
+import { RELATION_DEPENDS_ON, RELATION_OWNED_BY } from "@backstage/catalog-model";
 import type { BackstageEntity } from "./backstage/types.js";
-import { getEntityDomain, getEntityId, getEntityLegacyKind, getEntityTitle, getEntityStatus, getEntitySpecRelations, getEntityTraceRefs, getSpecField } from "./backstage/accessors.js";
+import { getEntityDomain, getEntityId, getEntityKind, getEntitySchema, getEntityTitle, getEntityStatus, getEntitySpecRelations, getEntityTraceRefs, getSpecField } from "./backstage/accessors.js";
+import { hasEntitySchema } from "./backstage/predicates.js";
+import { normalizeKnownEntityRef } from "./backstage/ref-utils.js";
 import { EA_DOMAINS } from "./types.js";
 import { evaluateEaDrift } from "./drift.js";
 import type { DomainDriftSummary } from "./drift.js";
@@ -15,6 +18,13 @@ import { detectEaDrift } from "./drift.js";
 function getFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
   return getEntitySpecRelations(entity).flatMap((r) =>
     r.targets.map((t) => ({ type: r.legacyType, target: t })),
+  );
+}
+
+function normalizeRefList(values: string[] | undefined): string[] {
+  return (values ?? []).map(
+    (value) =>
+      normalizeKnownEntityRef(value, { defaultNamespace: "default" }) ?? value,
   );
 }
 
@@ -63,9 +73,9 @@ export function buildSystemDataMatrix(entities: BackstageEntity[]): SystemDataMa
     byId.set(getEntityId(a), a);
   }
 
-  const apps = entities.filter((a) => getEntityLegacyKind(a) === "application");
-  const stores = entities.filter((a) => getEntityLegacyKind(a) === "data-store");
-  const ldms = entities.filter((a) => getEntityLegacyKind(a) === "logical-data-model");
+  const apps = entities.filter((a) => hasEntitySchema(a, "application"));
+  const stores = entities.filter((a) => hasEntitySchema(a, "data-store"));
+  const ldms = entities.filter((a) => hasEntitySchema(a, "logical-data-model"));
 
   // Build store → LDMs index
   const storeToLdms = new Map<string, BackstageEntity[]>();
@@ -73,7 +83,7 @@ export function buildSystemDataMatrix(entities: BackstageEntity[]): SystemDataMa
     for (const rel of getFlatRelations(store)) {
       if (rel.type === "stores") {
         const target = byId.get(rel.target);
-        if (target && getEntityLegacyKind(target) === "logical-data-model") {
+        if (target && hasEntitySchema(target, "logical-data-model")) {
           const list = storeToLdms.get(getEntityId(store)) ?? [];
           list.push(target);
           storeToLdms.set(getEntityId(store), list);
@@ -87,7 +97,7 @@ export function buildSystemDataMatrix(entities: BackstageEntity[]): SystemDataMa
     for (const rel of getFlatRelations(ldm)) {
       if (rel.type === "implementedBy") {
         const target = byId.get(rel.target);
-        if (target && getEntityLegacyKind(target) === "data-store") {
+        if (target && hasEntitySchema(target, "data-store")) {
           const list = storeToLdms.get(getEntityId(target)) ?? [];
           if (!list.some((l) => getEntityId(l) === getEntityId(ldm))) {
             list.push(ldm);
@@ -105,7 +115,7 @@ export function buildSystemDataMatrix(entities: BackstageEntity[]): SystemDataMa
     for (const rel of getFlatRelations(app)) {
       if (rel.type !== "uses") continue;
       const store = byId.get(rel.target);
-      if (!store || getEntityLegacyKind(store) !== "data-store") continue;
+      if (!store || !hasEntitySchema(store, "data-store")) continue;
 
       const linkedLdms = storeToLdms.get(getEntityId(store)) ?? [];
       const logicalModels = linkedLdms.map((ldm) => {
@@ -206,6 +216,7 @@ export interface ClassifiedEntity {
   entityId: string;
   entityTitle: string;
   kind: string;
+  schema: string;
 }
 
 /** A store that should enforce a classification. */
@@ -260,7 +271,7 @@ export function buildClassificationCoverage(entities: BackstageEntity[]): Classi
     byId.set(getEntityId(a), a);
   }
 
-  const classifications = entities.filter((a) => getEntityLegacyKind(a) === "classification");
+  const classifications = entities.filter((a) => hasEntitySchema(a, "classification"));
   const entries: ClassificationCoverageEntry[] = [];
 
   let totalCoveredEntities = 0;
@@ -283,7 +294,8 @@ export function buildClassificationCoverage(entities: BackstageEntity[]): Classi
         coveredEntities.push({
           entityId: getEntityId(a),
           entityTitle: getEntityTitle(a),
-          kind: getEntityLegacyKind(a),
+          kind: getEntityKind(a),
+          schema: getEntitySchema(a),
         });
       }
     }
@@ -298,7 +310,7 @@ export function buildClassificationCoverage(entities: BackstageEntity[]): Classi
       for (const r of getFlatRelations(entityArt)) {
         if (r.type === "implementedBy") {
           const target = byId.get(r.target);
-          if (target && (getEntityLegacyKind(target) === "data-store" || getEntityLegacyKind(target) === "physical-schema") && !storeMap.has(getEntityId(target))) {
+          if (target && (hasEntitySchema(target, "data-store") || hasEntitySchema(target, "physical-schema")) && !storeMap.has(getEntityId(target))) {
             const enforced = getFlatRelations(target).some(
               (tr) => tr.type === "classifiedAs" && tr.target === getEntityId(cls)
             );
@@ -332,7 +344,7 @@ export function buildClassificationCoverage(entities: BackstageEntity[]): Classi
     // Find exchanges carrying classified entities
     const exchanges: ClassificationCoverageEntry["exchanges"] = [];
     for (const a of entities) {
-      if (getEntityLegacyKind(a) !== "information-exchange") continue;
+      if (!hasEntitySchema(a, "information-exchange")) continue;
       const exchangedEntities = getSpecField<string[]>(a, "exchangedEntities");
       if (!exchangedEntities) continue;
 
@@ -532,8 +544,8 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
   const byId = new Map<string, BackstageEntity>();
   for (const a of entities) byId.set(getEntityId(a), a);
 
-  const capabilities = entities.filter((a) => getEntityLegacyKind(a) === "capability");
-  const missionArtifacts = entities.filter((a) => getEntityLegacyKind(a) === "mission");
+  const capabilities = entities.filter((a) => hasEntitySchema(a, "capability"));
+  const missionArtifacts = entities.filter((a) => hasEntitySchema(a, "mission"));
 
   // Build reverse indexes
   const realizesMap = new Map<string, string[]>();
@@ -553,7 +565,7 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
         list.push(rel.target);
         supportsMap.set(getEntityId(a), list);
       }
-      if (rel.type === "ownedBy") {
+      if (rel.type === RELATION_OWNED_BY) {
         ownsReverseMap.set(getEntityId(a), rel.target);
       }
       if (rel.type === "governedBy") {
@@ -582,12 +594,12 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
 
   // Find processes related to each capability (via realizes or supports)
   const capProcesses = new Map<string, string[]>();
-  const processArtifacts = entities.filter((a) => getEntityLegacyKind(a) === "process");
+  const processArtifacts = entities.filter((a) => hasEntitySchema(a, "process"));
   for (const proc of processArtifacts) {
     for (const rel of getFlatRelations(proc)) {
       if (rel.type === "realizes" || rel.type === "supports") {
         const target = byId.get(rel.target);
-        if (target && getEntityLegacyKind(target) === "capability") {
+        if (target && hasEntitySchema(target, "capability")) {
           const list = capProcesses.get(rel.target) ?? [];
           if (!list.includes(getEntityId(proc))) list.push(getEntityId(proc));
           capProcesses.set(rel.target, list);
@@ -603,7 +615,7 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
     const controls: string[] = [];
     for (const gId of governed) {
       const target = byId.get(gId);
-      if (target && getEntityLegacyKind(target) === "control") {
+      if (target && hasEntitySchema(target, "control")) {
         controls.push(getEntityId(target));
       }
     }
@@ -663,7 +675,7 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
     const targets = supportsMap.get(getEntityId(cap)) ?? [];
     for (const t of targets) {
       const target = byId.get(t);
-      if (target && getEntityLegacyKind(target) === "mission") {
+      if (target && hasEntitySchema(target, "mission")) {
         const set = missionCaps.get(t) ?? new Set();
         set.add(getEntityId(cap));
         missionCaps.set(t, set);
@@ -907,18 +919,33 @@ export function buildGapAnalysis(
   const byId = new Map<string, BackstageEntity>();
   for (const a of entities) byId.set(getEntityId(a), a);
 
-  const baselineArt = byId.get(options.baselineId);
-  const targetArt = byId.get(options.targetId);
+  const baselineId =
+    normalizeKnownEntityRef(options.baselineId, { defaultNamespace: "default" }) ??
+    options.baselineId;
+  const targetId =
+    normalizeKnownEntityRef(options.targetId, { defaultNamespace: "default" }) ??
+    options.targetId;
+  const planId = options.planId
+    ? normalizeKnownEntityRef(options.planId, { defaultNamespace: "default" }) ??
+      options.planId
+    : undefined;
 
-  if (!baselineArt || getEntityLegacyKind(baselineArt) !== "baseline") {
+  const baselineArt = byId.get(baselineId);
+  const targetArt = byId.get(targetId);
+
+  if (!baselineArt || !hasEntitySchema(baselineArt, "baseline")) {
     return emptyGapReport(options);
   }
-  if (!targetArt || getEntityLegacyKind(targetArt) !== "target") {
+  if (!targetArt || !hasEntitySchema(targetArt, "target")) {
     return emptyGapReport(options);
   }
 
-  const baselineSet = new Set(getSpecField<string[]>(baselineArt, "artifactRefs") ?? []);
-  const targetSet = new Set(getSpecField<string[]>(targetArt, "artifactRefs") ?? []);
+  const baselineSet = new Set(
+    normalizeRefList(getSpecField<string[]>(baselineArt, "artifactRefs")),
+  );
+  const targetSet = new Set(
+    normalizeRefList(getSpecField<string[]>(targetArt, "artifactRefs")),
+  );
 
   // Classify artifacts
   const newWorkIds = [...targetSet].filter((id) => !baselineSet.has(id));
@@ -927,12 +954,12 @@ export function buildGapAnalysis(
 
   // Find transition plan and waves
   const planEntity = options.planId
-    ? byId.get(options.planId)
+    ? byId.get(planId!)
     : undefined;
 
   const waves = entities
-    .filter((a) => getEntityLegacyKind(a) === "migration-wave")
-    .filter((w) => !options.planId || getSpecField<string>(w, "transitionPlan") === options.planId)
+    .filter((a) => hasEntitySchema(a, "migration-wave"))
+    .filter((w) => !planId || getSpecField<string>(w, "transitionPlan") === planId)
     .sort((a, b) => (getSpecField<number>(a, "sequenceOrder") ?? 0) - (getSpecField<number>(b, "sequenceOrder") ?? 0));
 
   // Build milestone deliverable index
@@ -940,7 +967,7 @@ export function buildGapAnalysis(
   if (planEntity) {
     const planMilestonesForIndex = getSpecField<Array<{ id: string; title: string; status?: string; deliverables?: string[] }>>(planEntity, "milestones") ?? [];
     for (const ms of planMilestonesForIndex) {
-      for (const d of ms.deliverables ?? []) {
+      for (const d of normalizeRefList(ms.deliverables)) {
         milestoneDeliverables.set(d, ms.id);
       }
     }
@@ -951,15 +978,15 @@ export function buildGapAnalysis(
   const waveRetires = new Map<string, string>();
   for (const wave of waves) {
     const scope = getSpecField<{ create?: string[]; retire?: string[] }>(wave, "scope");
-    for (const id of scope?.create ?? []) waveCreates.set(id, getEntityId(wave));
-    for (const id of scope?.retire ?? []) waveRetires.set(id, getEntityId(wave));
+    for (const id of normalizeRefList(scope?.create)) waveCreates.set(id, getEntityId(wave));
+    for (const id of normalizeRefList(scope?.retire)) waveRetires.set(id, getEntityId(wave));
   }
 
   // Build reverse dependency index: target → [sources that depend on it]
   const dependedOnByMap = new Map<string, string[]>();
   for (const a of entities) {
     for (const rel of getFlatRelations(a)) {
-      if (rel.type === "dependsOn" || rel.type === "uses" || rel.type === "realizes") {
+      if (rel.type === RELATION_DEPENDS_ON || rel.type === "uses" || rel.type === "realizes") {
         const list = dependedOnByMap.get(rel.target) ?? [];
         list.push(getEntityId(a));
         dependedOnByMap.set(rel.target, list);
@@ -1006,7 +1033,8 @@ export function buildGapAnalysis(
       let complete = 0;
       let inProgress = 0;
       let pending = 0;
-      for (const d of ms.deliverables ?? []) {
+      const normalizedDeliverables = normalizeRefList(ms.deliverables);
+      for (const d of normalizedDeliverables) {
         const art = byId.get(d);
         if (!art) { pending++; continue; }
         const artStatus = getEntityStatus(art);
@@ -1016,7 +1044,7 @@ export function buildGapAnalysis(
       }
       const total = ms.deliverables?.length ?? 0;
       const status = ms.status ?? (complete === total && total > 0 ? "complete" : pending === total ? "pending" : "in-progress");
-      const atRisk = retirements.some((r) => r.blocked && ms.deliverables?.includes(r.artifactId));
+      const atRisk = retirements.some((r) => r.blocked && normalizedDeliverables.includes(r.artifactId));
       milestones.push({ id: ms.id, title: ms.title, status, deliverables: { total, complete, inProgress, pending }, atRisk });
     }
   }
@@ -1198,7 +1226,7 @@ export function buildExceptionReport(
   const thresholdMs = (options?.expiringThresholdDays ?? 30) * 24 * 60 * 60 * 1000;
 
   const exceptions = entities.filter(
-    (a) => getEntityLegacyKind(a) === "exception",
+    (a) => hasEntitySchema(a, "exception"),
   );
 
   const entries: ExceptionReportEntry[] = exceptions.map((exc) => {
@@ -1448,7 +1476,7 @@ export function buildDriftHeatmap(
 ): DriftHeatmapReport {
   // Collect exceptions
   const exceptions = entities.filter(
-    (a) => getEntityLegacyKind(a) === "exception",
+    (a) => hasEntitySchema(a, "exception"),
   );
 
   const report = detectEaDrift({
@@ -1533,6 +1561,7 @@ export function renderDriftHeatmapMarkdown(report: DriftHeatmapReport): string {
 export interface TraceabilityIndexEntry {
   artifactId: string;
   kind: string;
+  schema: string;
   domain: string;
   role: string;
   label: string | null;
@@ -1578,7 +1607,8 @@ export function buildTraceabilityIndex(
 
       const entry: TraceabilityIndexEntry = {
         artifactId: getEntityId(a),
-        kind: getEntityLegacyKind(a),
+        kind: getEntityKind(a),
+        schema: getEntitySchema(a),
         domain: getEntityDomain(a) ?? "unknown",
         role: ref.role ?? "context",
         label: (ref as Record<string, unknown>).label as string | null ?? null,

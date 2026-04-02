@@ -46,7 +46,7 @@ describe("Spec-Kit Extension", () => {
     });
 
     it("uses rootDir from config in scaffold command", () => {
-      expect(ext.scaffoldCmd).toContain("ea/");
+      expect(ext.scaffoldCmd).toContain("docs/");
     });
   });
 

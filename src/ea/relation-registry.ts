@@ -2,10 +2,16 @@
  * Anchored Spec — EA Relation Registry
  *
  * Single source of truth for relation type semantics: canonical directions,
- * computed inverses, valid source/target kind constraints, and cycle policies.
+ * computed inverses, valid source/target schema constraints, and cycle policies.
  *
  * Design reference: docs/systems/entity-model.md
  */
+
+import {
+  RELATION_DEPENDS_ON,
+  RELATION_OWNED_BY,
+  RELATION_OWNER_OF,
+} from "@backstage/catalog-model";
 
 // ─── Registry Entry ─────────────────────────────────────────────────────────────
 
@@ -16,11 +22,11 @@ export interface RelationRegistryEntry {
   /** The computed inverse type name (used in virtual inverse generation). */
   inverse: string;
 
-  /** Which artifact kinds can be the source of this relation ("*" = any). */
-  validSourceKinds: string[] | "*";
+  /** Which schema profiles can be the source of this relation ("*" = any). */
+  validSourceSchemas: string[] | "*";
 
-  /** Which artifact kinds can be the target of this relation ("*" = any). */
-  validTargetKinds: string[] | "*";
+  /** Which schema profiles can be the target of this relation ("*" = any). */
+  validTargetSchemas: string[] | "*";
 
   /** Whether cycles are allowed in this relation type. */
   allowCycles: boolean;
@@ -77,20 +83,20 @@ export class RelationRegistry {
     return undefined;
   }
 
-  /** Check if a source kind is valid for a relation type. */
-  isValidSource(type: string, sourceKind: string): boolean {
+  /** Check if a source schema is valid for a relation type. */
+  isValidSourceSchema(type: string, sourceSchema: string): boolean {
     const entry = this.entries.get(type);
     if (!entry) return false;
-    if (entry.validSourceKinds === "*") return true;
-    return entry.validSourceKinds.includes(sourceKind);
+    if (entry.validSourceSchemas === "*") return true;
+    return entry.validSourceSchemas.includes(sourceSchema);
   }
 
-  /** Check if a target kind is valid for a relation type. */
-  isValidTarget(type: string, targetKind: string): boolean {
+  /** Check if a target schema is valid for a relation type. */
+  isValidTargetSchema(type: string, targetSchema: string): boolean {
     const entry = this.entries.get(type);
     if (!entry) return false;
-    if (entry.validTargetKinds === "*") return true;
-    return entry.validTargetKinds.includes(targetKind);
+    if (entry.validTargetSchemas === "*") return true;
+    return entry.validTargetSchemas.includes(targetSchema);
   }
 
   /** Check if a type is registered (canonical or inverse). */
@@ -115,8 +121,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "realizes",
     inverse: "realizedBy",
-    validSourceKinds: ["application", "service", "integration", "business-service", "decision"],
-    validTargetKinds: ["capability", "business-service", "requirement", "security-requirement", "data-requirement", "technical-requirement", "information-requirement", "mission"],
+    validSourceSchemas: ["application", "service", "integration", "business-service", "decision"],
+    validTargetSchemas: ["capability", "business-service", "requirement", "security-requirement", "data-requirement", "technical-requirement", "information-requirement", "mission"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -125,8 +131,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "uses",
     inverse: "usedBy",
-    validSourceKinds: ["application", "service", "integration"],
-    validTargetKinds: ["data-store", "data-product", "application", "service", "api-contract"],
+    validSourceSchemas: ["application", "service", "integration"],
+    validTargetSchemas: ["data-store", "data-product", "application", "service", "api-contract"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -135,8 +141,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "exposes",
     inverse: "exposedBy",
-    validSourceKinds: ["application", "service"],
-    validTargetKinds: ["api-contract", "event-contract"],
+    validSourceSchemas: ["application", "service"],
+    validTargetSchemas: ["api-contract", "event-contract"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -145,18 +151,18 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "consumes",
     inverse: "consumedBy",
-    validSourceKinds: ["application", "service", "consumer"],
-    validTargetKinds: ["api-contract", "event-contract", "system-interface"],
+    validSourceSchemas: ["application", "service", "consumer"],
+    validTargetSchemas: ["api-contract", "event-contract", "system-interface"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "external-topology",
     description: "Source system consumes an API, event contract, or system interface.",
   },
   {
-    type: "dependsOn",
+    type: RELATION_DEPENDS_ON,
     inverse: "dependedOnBy",
-    validSourceKinds: "*",
-    validTargetKinds: "*",
+    validSourceSchemas: "*",
+    validTargetSchemas: "*",
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -165,8 +171,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "deploys",
     inverse: "deployedBy",
-    validSourceKinds: ["deployment"],
-    validTargetKinds: ["application", "service"],
+    validSourceSchemas: ["deployment"],
+    validTargetSchemas: ["application", "service"],
     allowCycles: false,
     allowExplicitInverse: true,
     driftStrategy: "anchor-resolution",
@@ -175,8 +181,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "runsOn",
     inverse: "runs",
-    validSourceKinds: ["deployment", "application", "service", "data-store"],
-    validTargetKinds: ["platform", "runtime-cluster", "cloud-resource"],
+    validSourceSchemas: ["deployment", "application", "service", "data-store"],
+    validTargetSchemas: ["platform", "runtime-cluster", "cloud-resource"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -185,8 +191,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "boundedBy",
     inverse: "bounds",
-    validSourceKinds: ["deployment", "application", "service", "data-store", "cloud-resource", "environment"],
-    validTargetKinds: ["network-zone", "identity-boundary"],
+    validSourceSchemas: ["deployment", "application", "service", "data-store", "cloud-resource", "environment"],
+    validTargetSchemas: ["network-zone", "identity-boundary"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -195,8 +201,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "authenticatedBy",
     inverse: "authenticates",
-    validSourceKinds: ["deployment", "application", "service"],
-    validTargetKinds: ["identity-boundary"],
+    validSourceSchemas: ["deployment", "application", "service"],
+    validTargetSchemas: ["identity-boundary"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -205,8 +211,8 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "deployedTo",
     inverse: "hosts",
-    validSourceKinds: ["application", "service"],
-    validTargetKinds: ["platform", "environment", "runtime-cluster"],
+    validSourceSchemas: ["application", "service"],
+    validTargetSchemas: ["platform", "environment", "runtime-cluster"],
     allowCycles: false,
     allowExplicitInverse: true,
     driftStrategy: "anchor-resolution",
@@ -220,8 +226,8 @@ const PHASE_2A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "interfacesWith",
     inverse: "interfacedBy",
-    validSourceKinds: ["application", "service", "integration"],
-    validTargetKinds: ["system-interface"],
+    validSourceSchemas: ["application", "service", "integration"],
+    validTargetSchemas: ["system-interface"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -230,8 +236,8 @@ const PHASE_2A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "standardizes",
     inverse: "standardizedBy",
-    validSourceKinds: ["technology-standard"],
-    validTargetKinds: ["application", "service", "data-store", "cloud-resource", "platform"],
+    validSourceSchemas: ["technology-standard"],
+    validTargetSchemas: ["application", "service", "data-store", "cloud-resource", "platform"],
     allowCycles: false,
     allowExplicitInverse: true,
     driftStrategy: "graph-integrity",
@@ -240,8 +246,8 @@ const PHASE_2A_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "providedBy",
     inverse: "provides",
-    validSourceKinds: ["cloud-resource"],
-    validTargetKinds: ["platform"],
+    validSourceSchemas: ["cloud-resource"],
+    validTargetSchemas: ["platform"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -255,8 +261,8 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "stores",
     inverse: "storedIn",
-    validSourceKinds: ["data-store"],
-    validTargetKinds: ["logical-data-model", "physical-schema", "canonical-entity"],
+    validSourceSchemas: ["data-store"],
+    validTargetSchemas: ["logical-data-model", "physical-schema", "canonical-entity"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -265,8 +271,8 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "hostedOn",
     inverse: "hostsData",
-    validSourceKinds: ["data-store"],
-    validTargetKinds: ["platform", "cloud-resource", "runtime-cluster"],
+    validSourceSchemas: ["data-store"],
+    validTargetSchemas: ["platform", "cloud-resource", "runtime-cluster"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -275,8 +281,8 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "lineageFrom",
     inverse: "lineageTo",
-    validSourceKinds: ["lineage", "data-product"],
-    validTargetKinds: ["data-store", "logical-data-model", "data-product"],
+    validSourceSchemas: ["lineage", "data-product"],
+    validTargetSchemas: ["data-store", "logical-data-model", "data-product"],
     allowCycles: true,
     allowExplicitInverse: false,
     driftStrategy: "external-topology",
@@ -285,8 +291,8 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "implementedBy",
     inverse: "implements",
-    validSourceKinds: ["logical-data-model", "information-concept", "change", "information-exchange", "canonical-entity"],
-    validTargetKinds: ["physical-schema", "data-store", "application", "canonical-entity", "decision", "requirement", "security-requirement", "data-requirement", "technical-requirement", "information-requirement", "api-contract", "event-contract"],
+    validSourceSchemas: ["logical-data-model", "information-concept", "change", "information-exchange", "canonical-entity"],
+    validTargetSchemas: ["physical-schema", "data-store", "application", "canonical-entity", "decision", "requirement", "security-requirement", "data-requirement", "technical-requirement", "information-requirement", "api-contract", "event-contract"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -300,12 +306,12 @@ const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "classifiedAs",
     inverse: "classifies",
-    validSourceKinds: [
+    validSourceSchemas: [
       "canonical-entity", "logical-data-model", "data-store",
       "information-exchange", "information-concept", "physical-schema",
       "data-product",
     ],
-    validTargetKinds: ["classification"],
+    validTargetSchemas: ["classification"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -314,8 +320,8 @@ const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "exchangedVia",
     inverse: "exchanges",
-    validSourceKinds: ["canonical-entity", "information-concept"],
-    validTargetKinds: ["information-exchange", "api-contract", "event-contract"],
+    validSourceSchemas: ["canonical-entity", "information-concept"],
+    validTargetSchemas: ["information-exchange", "api-contract", "event-contract"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
@@ -324,8 +330,8 @@ const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "retainedUnder",
     inverse: "retains",
-    validSourceKinds: ["data-store", "data-product", "physical-schema"],
-    validTargetKinds: ["retention-policy"],
+    validSourceSchemas: ["data-store", "data-product", "physical-schema"],
+    validTargetSchemas: ["retention-policy"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -339,8 +345,8 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "supports",
     inverse: "supportedBy",
-    validSourceKinds: ["application", "service", "process", "business-service", "capability", "mission"],
-    validTargetKinds: ["capability", "mission", "value-stream"],
+    validSourceSchemas: ["application", "service", "process", "business-service", "capability", "mission"],
+    validTargetSchemas: ["capability", "mission", "value-stream"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -349,8 +355,8 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "performedBy",
     inverse: "performs",
-    validSourceKinds: ["capability", "business-service", "process"],
-    validTargetKinds: ["process", "org-unit"],
+    validSourceSchemas: ["capability", "business-service", "process"],
+    validTargetSchemas: ["process", "org-unit"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -359,18 +365,18 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "governedBy",
     inverse: "governs",
-    validSourceKinds: "*",
-    validTargetKinds: ["policy-objective", "control"],
+    validSourceSchemas: "*",
+    validTargetSchemas: ["policy-objective", "control"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
     description: "Source artifact is governed by a policy objective or control.",
   },
   {
-    type: "ownedBy",
-    inverse: "ownerOf",
-    validSourceKinds: "*",
-    validTargetKinds: ["org-unit", "user"],
+    type: RELATION_OWNED_BY,
+    inverse: RELATION_OWNER_OF,
+    validSourceSchemas: "*",
+    validTargetSchemas: ["org-unit", "user"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
@@ -384,8 +390,8 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "supersedes",
     inverse: "supersededBy",
-    validSourceKinds: "*",
-    validTargetKinds: "*",
+    validSourceSchemas: "*",
+    validTargetSchemas: "*",
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
@@ -394,8 +400,8 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "generates",
     inverse: "generatedBy",
-    validSourceKinds: ["transition-plan", "migration-wave"],
-    validTargetKinds: "*",
+    validSourceSchemas: ["transition-plan", "migration-wave"],
+    validTargetSchemas: "*",
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
@@ -404,8 +410,8 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "mitigates",
     inverse: "mitigatedBy",
-    validSourceKinds: ["exception"],
-    validTargetKinds: "*",
+    validSourceSchemas: ["exception"],
+    validTargetSchemas: "*",
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
@@ -414,8 +420,8 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
   {
     type: "targets",
     inverse: "targetedBy",
-    validSourceKinds: ["transition-plan", "migration-wave", "baseline", "target", "change", "decision", "exception"],
-    validTargetKinds: "*",
+    validSourceSchemas: ["transition-plan", "migration-wave", "baseline", "target", "change", "decision", "exception"],
+    validTargetSchemas: "*",
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",

@@ -39,7 +39,7 @@
           "artifacts": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Ordered list of EA artifact kinds this variant requires"
+            "description": "Ordered list of schema profiles this variant requires"
           },
           "skipSkillSequence": {
             "type": "boolean",

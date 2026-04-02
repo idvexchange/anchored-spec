@@ -1,13 +1,14 @@
 /**
  * Anchored Spec — Markdown Prose Resolver
  *
- * Discovers EA artifacts by extracting structured facts from markdown
+ * Discovers EA entities by extracting structured facts from markdown
  * documentation. Parses tables, code blocks, Mermaid diagrams, and
  * annotated regions to produce event, endpoint, and entity drafts.
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname, relative, resolve } from "node:path";
+import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { EaArtifactDraft } from "../discovery.js";
 import type { EaResolver, EaResolverContext, ResolverLogger } from "./types.js";
 import { silentLogger } from "./types.js";
@@ -132,8 +133,8 @@ function slugify(value: string): string {
 }
 
 /**
- * Convert extracted facts from manifests into EA artifact drafts.
- * Maps event, endpoint, and entity facts to their corresponding artifact kinds.
+ * Convert extracted facts from manifests into EA entity drafts.
+ * Maps event, endpoint, and entity facts to their corresponding schema profiles.
  */
 function factsToArtifactDrafts(manifests: FactManifest[]): EaArtifactDraft[] {
   const drafts: EaArtifactDraft[] = [];
@@ -161,12 +162,18 @@ function factToDraft(
   now: string,
 ): EaArtifactDraft | null {
   const slug = slugify(fact.key);
+  const eventContract = getSchemaDescriptor("event-contract")!;
+  const apiContract = getSchemaDescriptor("api-contract")!;
+  const canonicalEntity = getSchemaDescriptor("canonical-entity")!;
 
   switch (fact.kind) {
     case "event-table":
       return {
-        suggestedId: `systems/EVT-${slug}`,
-        kind: "event-contract",
+        suggestedId: `api:${slug}`,
+        apiVersion: eventContract.apiVersion,
+        kind: eventContract.kind,
+        type: eventContract.specType,
+        schema: eventContract.schema,
         title: fact.key,
         summary: `Event discovered from ${source}`,
         status: "draft",
@@ -178,8 +185,11 @@ function factToDraft(
 
     case "endpoint-table":
       return {
-        suggestedId: `systems/API-${slug}`,
-        kind: "api-contract",
+        suggestedId: `api:${slug}`,
+        apiVersion: apiContract.apiVersion,
+        kind: apiContract.kind,
+        type: apiContract.specType,
+        schema: apiContract.schema,
         title: fact.key,
         summary: `API endpoint discovered from ${source}`,
         status: "draft",
@@ -191,8 +201,11 @@ function factToDraft(
 
     case "entity-fields":
       return {
-        suggestedId: `information/CE-${slug}`,
-        kind: "canonical-entity",
+        suggestedId: `canonicalentity:${slug}`,
+        apiVersion: canonicalEntity.apiVersion,
+        kind: canonicalEntity.kind,
+        type: canonicalEntity.specType,
+        schema: canonicalEntity.schema,
         title: fact.key,
         summary: `Entity discovered from ${source}`,
         status: "draft",
@@ -249,22 +262,22 @@ export async function extractFactsFromDocs(
 // ─── Markdown Resolver ────────────────────────────────────────────────
 
 /**
- * Markdown Prose Resolver — discovers EA artifacts by extracting
+ * Markdown Prose Resolver — discovers EA entities by extracting
  * structured facts from project markdown documentation.
  */
 export class MarkdownResolver implements EaResolver {
   readonly name = "markdown";
   readonly domains: EaResolver["domains"] = ["systems", "information"];
-  readonly kinds = ["event-contract", "api-contract", "canonical-entity"];
+  readonly schemas = ["event-contract", "api-contract", "canonical-entity"];
 
   /** Manifests from the last `discoverArtifacts` call (reusable for --write-facts). */
   lastManifests: FactManifest[] = [];
 
   /**
-   * Discover artifacts by parsing markdown files and extracting facts.
+   * Discover entities by parsing markdown files and extracting facts.
    *
    * Scans `ctx.source` (or default doc directories) for `.md` files,
-   * parses each, extracts facts, and converts relevant facts to artifact drafts.
+   * parses each, extracts facts, and converts relevant facts to entity drafts.
    */
   discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
     const cacheKey = `${CACHE_KEY_PREFIX}:${ctx.source ?? "default"}`;

@@ -14,7 +14,7 @@ import {
   resolveConfigV1,
 } from "../../ea/index.js";
 import type { EaDomain } from "../../ea/index.js";
-import { getEntityLegacyKind, getEntityId } from "../../ea/backstage/accessors.js";
+import { getEntityKind, getEntitySchema, getEntityId } from "../../ea/backstage/accessors.js";
 import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
@@ -28,7 +28,8 @@ export function eaGraphCommand(): Command {
     .option("--direction <dir>", "Graph direction for Mermaid: TB or LR", "LR")
     .option("--focus <entity-ref>", "Focus on a specific entity and its neighbors")
     .option("--depth <n>", "Depth for --focus traversal", "2")
-    .option("--kind <kind>", "Filter to a specific entity kind")
+    .option("--kind <kind>", "Filter to a specific Backstage/custom entity kind")
+    .option("--schema <schema>", "Filter to a specific anchored-spec schema name")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -64,9 +65,17 @@ export function eaGraphCommand(): Command {
       let graphEntities = result.entities;
       if (options.kind) {
         const kindFilter = options.kind as string;
-        graphEntities = graphEntities.filter((e) => getEntityLegacyKind(e) === kindFilter);
+        graphEntities = graphEntities.filter((e) => getEntityKind(e) === kindFilter);
         if (graphEntities.length === 0) {
           console.error(`No entities of kind "${kindFilter}" found.`);
+          return;
+        }
+      }
+      if (options.schema) {
+        const schemaFilter = options.schema as string;
+        graphEntities = graphEntities.filter((e) => getEntitySchema(e) === schemaFilter);
+        if (graphEntities.length === 0) {
+          console.error(`No entities for schema "${schemaFilter}" found.`);
           return;
         }
       }

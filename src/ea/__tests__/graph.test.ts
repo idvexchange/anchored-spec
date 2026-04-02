@@ -59,8 +59,8 @@ describe("RelationRegistry", () => {
     const entry: RelationRegistryEntry = {
       type: "testRel",
       inverse: "testRelInverse",
-      validSourceKinds: ["application"],
-      validTargetKinds: ["service"],
+      validSourceSchemas: ["application"],
+      validTargetSchemas: ["service"],
       allowCycles: false,
       allowExplicitInverse: false,
       description: "A test relation.",
@@ -76,8 +76,8 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "uses",
       inverse: "usedBy",
-      validSourceKinds: "*",
-      validTargetKinds: "*",
+      validSourceSchemas: "*",
+      validTargetSchemas: "*",
       allowCycles: false,
       allowExplicitInverse: false,
       description: "uses",
@@ -92,17 +92,17 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "exposes",
       inverse: "exposedBy",
-      validSourceKinds: ["application", "service"],
-      validTargetKinds: ["api-contract"],
+      validSourceSchemas: ["application", "service"],
+      validTargetSchemas: ["api-contract"],
       allowCycles: false,
       allowExplicitInverse: false,
       description: "exposes",
     });
 
-    expect(registry.isValidSource("exposes", "application")).toBe(true);
-    expect(registry.isValidSource("exposes", "service")).toBe(true);
-    expect(registry.isValidSource("exposes", "deployment")).toBe(false);
-    expect(registry.isValidSource("unknown", "application")).toBe(false);
+    expect(registry.isValidSourceSchema("exposes", "application")).toBe(true);
+    expect(registry.isValidSourceSchema("exposes", "service")).toBe(true);
+    expect(registry.isValidSourceSchema("exposes", "deployment")).toBe(false);
+    expect(registry.isValidSourceSchema("unknown", "application")).toBe(false);
   });
 
   it("validates target kinds", () => {
@@ -110,16 +110,16 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "exposes",
       inverse: "exposedBy",
-      validSourceKinds: ["application"],
-      validTargetKinds: ["api-contract", "event-contract"],
+      validSourceSchemas: ["application"],
+      validTargetSchemas: ["api-contract", "event-contract"],
       allowCycles: false,
       allowExplicitInverse: false,
       description: "exposes",
     });
 
-    expect(registry.isValidTarget("exposes", "api-contract")).toBe(true);
-    expect(registry.isValidTarget("exposes", "event-contract")).toBe(true);
-    expect(registry.isValidTarget("exposes", "application")).toBe(false);
+    expect(registry.isValidTargetSchema("exposes", "api-contract")).toBe(true);
+    expect(registry.isValidTargetSchema("exposes", "event-contract")).toBe(true);
+    expect(registry.isValidTargetSchema("exposes", "application")).toBe(false);
   });
 
   it("accepts wildcard source/target kinds", () => {
@@ -127,15 +127,15 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "dependsOn",
       inverse: "dependedOnBy",
-      validSourceKinds: "*",
-      validTargetKinds: "*",
+      validSourceSchemas: "*",
+      validTargetSchemas: "*",
       allowCycles: false,
       allowExplicitInverse: false,
       description: "depends on",
     });
 
-    expect(registry.isValidSource("dependsOn", "anything")).toBe(true);
-    expect(registry.isValidTarget("dependsOn", "anything")).toBe(true);
+    expect(registry.isValidSourceSchema("dependsOn", "anything")).toBe(true);
+    expect(registry.isValidTargetSchema("dependsOn", "anything")).toBe(true);
   });
 
   it("checks isRegistered for canonical and inverse names", () => {
@@ -143,8 +143,8 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "uses",
       inverse: "usedBy",
-      validSourceKinds: "*",
-      validTargetKinds: "*",
+      validSourceSchemas: "*",
+      validTargetSchemas: "*",
       allowCycles: false,
       allowExplicitInverse: false,
       description: "uses",
@@ -160,8 +160,8 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "a",
       inverse: "aInv",
-      validSourceKinds: "*",
-      validTargetKinds: "*",
+      validSourceSchemas: "*",
+      validTargetSchemas: "*",
       allowCycles: false,
       allowExplicitInverse: false,
       description: "a",
@@ -169,8 +169,8 @@ describe("RelationRegistry", () => {
     registry.register({
       type: "b",
       inverse: "bInv",
-      validSourceKinds: "*",
-      validTargetKinds: "*",
+      validSourceSchemas: "*",
+      validTargetSchemas: "*",
       allowCycles: false,
       allowExplicitInverse: false,
       description: "b",
@@ -185,8 +185,8 @@ describe("RelationRegistry", () => {
     const entry: RelationRegistryEntry = {
       type: "deploys",
       inverse: "deployedBy",
-      validSourceKinds: ["deployment"],
-      validTargetKinds: ["application"],
+      validSourceSchemas: ["deployment"],
+      validTargetSchemas: ["application"],
       allowCycles: false,
       allowExplicitInverse: true,
       description: "deploys",
@@ -243,8 +243,8 @@ describe("createDefaultRegistry", () => {
   it("dependsOn allows any source/target kind", () => {
     const registry = createDefaultRegistry();
     const entry = registry.get("dependsOn")!;
-    expect(entry.validSourceKinds).toBe("*");
-    expect(entry.validTargetKinds).toBe("*");
+    expect(entry.validSourceSchemas).toBe("*");
+    expect(entry.validTargetSchemas).toBe("*");
   });
 
   it("deploys allows explicit inverse", () => {
@@ -269,6 +269,8 @@ describe("createDefaultRegistry", () => {
 
 describe("RelationGraph", () => {
   const registry = createDefaultRegistry();
+  const componentRef = (name: string) => `component:default/${name}`;
+  const apiRef = (name: string) => `api:default/${name}`;
 
   function buildTestGraph(): RelationGraph {
     const entities: BackstageEntity[] = [
@@ -297,14 +299,14 @@ describe("RelationGraph", () => {
     it("creates nodes for all entities", () => {
       const graph = buildTestGraph();
       expect(graph.nodes()).toHaveLength(3);
-      expect(graph.node("component:orders")).toBeDefined();
-      expect(graph.node("component:payment")).toBeDefined();
-      expect(graph.node("api:orders")).toBeDefined();
+      expect(graph.node(componentRef("orders"))).toBeDefined();
+      expect(graph.node(componentRef("payment"))).toBeDefined();
+      expect(graph.node(apiRef("orders"))).toBeDefined();
     });
 
     it("creates forward edges from spec relation fields", () => {
       const graph = buildTestGraph();
-      const out = graph.outgoing("component:orders");
+      const out = graph.outgoing(componentRef("orders"));
       const forward = out.filter((e) => !e.isVirtual);
       expect(forward).toHaveLength(2);
       expect(forward.map((e) => e.type).sort()).toEqual(["dependsOn", "exposes"]);
@@ -312,19 +314,19 @@ describe("RelationGraph", () => {
 
     it("creates virtual inverse edges", () => {
       const graph = buildTestGraph();
-      const paymentOut = graph.outgoing("component:payment");
+      const paymentOut = graph.outgoing(componentRef("payment"));
       const virtual = paymentOut.filter((e) => e.isVirtual);
       expect(virtual).toHaveLength(1);
       expect(virtual[0]!.type).toBe("dependedOnBy");
-      expect(virtual[0]!.target).toBe("component:orders");
+      expect(virtual[0]!.target).toBe(componentRef("orders"));
     });
 
     it("sets correct edge properties", () => {
       const graph = buildTestGraph();
-      const forward = graph.outgoing("component:orders").find((e) => e.type === "dependsOn")!;
+      const forward = graph.outgoing(componentRef("orders")).find((e) => e.type === "dependsOn")!;
       expect(forward.isVirtual).toBe(false);
-      expect(forward.source).toBe("component:orders");
-      expect(forward.target).toBe("component:payment");
+      expect(forward.source).toBe(componentRef("orders"));
+      expect(forward.target).toBe(componentRef("payment"));
       expect(forward.criticality).toBe("medium");
       expect(forward.status).toBe("active");
     });
@@ -333,15 +335,15 @@ describe("RelationGraph", () => {
   describe("queries", () => {
     it("outgoing returns forward + virtual edges from a node", () => {
       const graph = buildTestGraph();
-      expect(graph.outgoing("component:orders").length).toBe(2);
+      expect(graph.outgoing(componentRef("orders")).length).toBe(2);
       expect(graph.outgoing("nonexistent")).toEqual([]);
     });
 
     it("incoming returns all edges pointing to a node", () => {
       const graph = buildTestGraph();
-      const incoming = graph.incoming("component:payment");
+      const incoming = graph.incoming(componentRef("payment"));
       expect(incoming).toHaveLength(1);
-      expect(incoming[0]!.source).toBe("component:orders");
+      expect(incoming[0]!.source).toBe(componentRef("orders"));
       expect(incoming[0]!.type).toBe("dependsOn");
     });
 
@@ -349,7 +351,7 @@ describe("RelationGraph", () => {
       const graph = buildTestGraph();
       const deps = graph.edgesOfType("dependsOn");
       expect(deps).toHaveLength(1);
-      expect(deps[0]!.source).toBe("component:orders");
+      expect(deps[0]!.source).toBe(componentRef("orders"));
     });
 
     it("edges returns all edges including virtual", () => {
@@ -376,8 +378,8 @@ describe("RelationGraph", () => {
         makeEntity({ kind: "Component", name: "c" }),
       ];
       const graph = buildRelationGraph(entities, registry);
-      const reachable = graph.traverse("component:a", "dependsOn");
-      expect(reachable.map((n) => n.id)).toEqual(["component:b", "component:c"]);
+      const reachable = graph.traverse(componentRef("a"), "dependsOn");
+      expect(reachable.map((n) => n.id)).toEqual([componentRef("b"), componentRef("c")]);
     });
 
     it("respects maxDepth", () => {
@@ -395,13 +397,13 @@ describe("RelationGraph", () => {
         makeEntity({ kind: "Component", name: "c" }),
       ];
       const graph = buildRelationGraph(entities, registry);
-      const reachable = graph.traverse("component:a", "dependsOn", 1);
-      expect(reachable.map((n) => n.id)).toEqual(["component:b"]);
+      const reachable = graph.traverse(componentRef("a"), "dependsOn", 1);
+      expect(reachable.map((n) => n.id)).toEqual([componentRef("b")]);
     });
 
     it("returns empty for no matching edges", () => {
       const graph = buildTestGraph();
-      const reachable = graph.traverse("component:orders", "runsOn");
+      const reachable = graph.traverse(componentRef("orders"), "runsOn");
       expect(reachable).toEqual([]);
     });
   });
@@ -422,8 +424,8 @@ describe("RelationGraph", () => {
         makeEntity({ kind: "Component", name: "core" }),
       ];
       const graph = buildRelationGraph(entities, registry);
-      const impacted = graph.impactSet("component:core");
-      expect(impacted.map((n) => n.id).sort()).toEqual(["component:a", "component:b"]);
+      const impacted = graph.impactSet(componentRef("core"));
+      expect(impacted.map((n) => n.id).sort()).toEqual([componentRef("a"), componentRef("b")]);
     });
 
     it("returns empty for leaf nodes with no incoming edges", () => {
@@ -431,7 +433,7 @@ describe("RelationGraph", () => {
         makeEntity({ kind: "Component", name: "isolated" }),
       ];
       const graph = buildRelationGraph(entities, registry);
-      const impacted = graph.impactSet("component:isolated");
+      const impacted = graph.impactSet(componentRef("isolated"));
       expect(impacted).toHaveLength(0);
     });
   });
@@ -453,8 +455,8 @@ describe("RelationGraph", () => {
       const graph = buildRelationGraph(entities, registry);
       const cycles = graph.detectCycles("dependsOn");
       expect(cycles.length).toBeGreaterThan(0);
-      expect(cycles[0]!).toContain("component:a");
-      expect(cycles[0]!).toContain("component:b");
+      expect(cycles[0]!).toContain(componentRef("a"));
+      expect(cycles[0]!).toContain(componentRef("b"));
     });
 
     it("returns empty when no cycles exist", () => {
@@ -543,11 +545,11 @@ describe("RelationGraph", () => {
       const graph = buildTestGraph();
       const adj = graph.toAdjacencyJson();
 
-      expect(adj["component:orders"]).toBeDefined();
-      expect(adj["component:orders"]).toHaveLength(2);
+      expect(adj[componentRef("orders")]).toBeDefined();
+      expect(adj[componentRef("orders")]).toHaveLength(2);
 
       // Virtual inverse on payment
-      const paymentAdj = adj["component:payment"];
+      const paymentAdj = adj[componentRef("payment")];
       expect(paymentAdj).toBeDefined();
       expect(paymentAdj!.some((e) => e.virtual === true)).toBe(true);
     });
@@ -734,16 +736,13 @@ describe("validateEaRelations", () => {
   });
 });
 
-// ─── Integration: build graph from examples/ea/ ─────────────────────────────────
+// ─── Integration: build graph from manifest fixture ─────────────────────────────
 
-describe("Integration: graph from examples/ea/", () => {
+describe("Integration: graph from manifest fixture", () => {
   const projectRoot = join(__dirname, "..", "..", "..");
 
   it("builds a graph from example artifacts", async () => {
-    const root = new EaRoot(projectRoot, {
-      ...resolveConfigV1(),
-      manifestPath: "examples/backstage-manifest/catalog-info.yaml",
-    });
+    const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();
     const registry = createDefaultRegistry();
@@ -754,10 +753,7 @@ describe("Integration: graph from examples/ea/", () => {
   });
 
   it("generates valid Mermaid output from examples", async () => {
-    const root = new EaRoot(projectRoot, {
-      ...resolveConfigV1(),
-      manifestPath: "examples/backstage-manifest/catalog-info.yaml",
-    });
+    const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();
     const registry = createDefaultRegistry();
@@ -769,10 +765,7 @@ describe("Integration: graph from examples/ea/", () => {
   });
 
   it("generates valid DOT output from examples", async () => {
-    const root = new EaRoot(projectRoot, {
-      ...resolveConfigV1(),
-      manifestPath: "examples/backstage-manifest/catalog-info.yaml",
-    });
+    const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();
     const registry = createDefaultRegistry();

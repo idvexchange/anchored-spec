@@ -1,9 +1,9 @@
 /**
- * Backstage Kind Mapping Registry
+ * Backstage Entity Descriptor Registry
  *
- * Maps the 48 legacy anchored-spec artifact kinds to the ~16 Backstage-aligned
- * kinds. Built-in Backstage kinds use `backstage.io/v1alpha1`; custom EA kinds
- * use `anchored-spec.dev/v1alpha1`.
+ * Maps anchored-spec schema names to Backstage-aligned entity descriptors.
+ * Built-in Backstage kinds use `backstage.io/v1alpha1`; custom EA kinds use
+ * `anchored-spec.dev/v1alpha1`.
  */
 
 import {
@@ -14,281 +14,145 @@ import {
 } from "./types.js";
 import type { EaDomain } from "../types.js";
 
-// ─── Mapping Entry ──────────────────────────────────────────────────────────────
-
-/** A mapping from a legacy kind to a Backstage entity kind. */
-export interface KindMappingEntry {
-  /** The legacy anchored-spec kind (e.g., "service"). */
-  legacyKind: string;
-  /** The legacy ID prefix (e.g., "SVC"). */
-  legacyPrefix: string;
-  /** The anchored-spec domain this kind belongs to. */
+export interface EntityDescriptor {
+  /** Anchored-spec schema profile used for validation and per-schema policy. */
+  schema: string;
+  /** The anchored-spec domain this descriptor belongs to. */
   domain: EaDomain;
-  /** The Backstage API version for this kind. */
+  /** The API version for this entity descriptor. */
   apiVersion: ApiVersion;
-  /** The Backstage entity kind (PascalCase). */
-  backstageKind: EntityKind;
-  /** The `spec.type` value (for kinds that use type discrimination). */
+  /** The Backstage or anchored-spec entity kind. */
+  kind: EntityKind;
+  /** Optional `spec.type` discriminator for the entity descriptor. */
   specType?: string;
   /** Human-readable description. */
   description: string;
 }
 
-// ─── The Registry ───────────────────────────────────────────────────────────────
+export const ENTITY_DESCRIPTOR_REGISTRY: readonly EntityDescriptor[] = [
+  { schema: "application", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, kind: "Component", specType: "website", description: "A frontend application" },
+  { schema: "service", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, kind: "Component", specType: "service", description: "A backend service or microservice" },
+  { schema: "consumer", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, kind: "Component", specType: "service", description: "A declared API/event consumer" },
+  { schema: "platform", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Component", specType: "service", description: "A runtime platform" },
 
-/**
- * Complete mapping from every legacy anchored-spec kind to its Backstage equivalent.
- *
- * Tier 1: Backstage built-in kinds (backstage.io/v1alpha1)
- * Tier 2: Custom EA kinds (anchored-spec.dev/v1alpha1)
- */
-export const BACKSTAGE_KIND_REGISTRY: readonly KindMappingEntry[] = [
-  // ── Tier 1: Backstage Built-in Kinds ──────────────────────────────────────
+  { schema: "api-contract", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, kind: "API", specType: "openapi", description: "A REST/GraphQL/gRPC API specification" },
+  { schema: "event-contract", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, kind: "API", specType: "asyncapi", description: "An async event/message contract" },
 
-  // Systems domain → Component
-  { legacyKind: "application", legacyPrefix: "APP", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Component", specType: "website", description: "A frontend application" },
-  { legacyKind: "service", legacyPrefix: "SVC", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Component", specType: "service", description: "A backend service or microservice" },
-  { legacyKind: "consumer", legacyPrefix: "CON", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Component", specType: "service", description: "A declared API/event consumer" },
-  { legacyKind: "platform", legacyPrefix: "PLAT", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Component", specType: "service", description: "A runtime platform" },
+  { schema: "cloud-resource", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "cloud-resource", description: "A specific cloud resource" },
+  { schema: "physical-schema", domain: "data", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "database-table", description: "A physical database schema" },
+  { schema: "data-store", domain: "data", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "database", description: "A data storage system" },
+  { schema: "data-product", domain: "data", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "data-product", description: "A data product with SLAs" },
+  { schema: "runtime-cluster", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "cluster", description: "A compute cluster" },
+  { schema: "network-zone", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "network-zone", description: "A network security zone" },
+  { schema: "deployment", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "deployment", description: "A deployed instance" },
+  { schema: "environment", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "environment", description: "A deployment environment" },
 
-  // Systems domain → API
-  { legacyKind: "api-contract", legacyPrefix: "API", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "API", specType: "openapi", description: "A REST/GraphQL/gRPC API specification" },
-  { legacyKind: "event-contract", legacyPrefix: "EVT", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "API", specType: "asyncapi", description: "An async event/message contract" },
+  { schema: "org-unit", domain: "business", apiVersion: BACKSTAGE_API_VERSION, kind: "Group", specType: "team", description: "An organizational unit" },
 
-  // Delivery/Data domain → Resource
-  { legacyKind: "cloud-resource", legacyPrefix: "CLOUD", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "cloud-resource", description: "A specific cloud resource" },
-  { legacyKind: "physical-schema", legacyPrefix: "SCHEMA", domain: "data", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "database-table", description: "A physical database schema" },
-  { legacyKind: "data-store", legacyPrefix: "STORE", domain: "data", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "database", description: "A data storage system" },
-  { legacyKind: "data-product", legacyPrefix: "DPROD", domain: "data", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "data-product", description: "A data product with SLAs" },
-  { legacyKind: "runtime-cluster", legacyPrefix: "CLUSTER", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "cluster", description: "A compute cluster" },
-  { legacyKind: "network-zone", legacyPrefix: "ZONE", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "network-zone", description: "A network security zone" },
-  { legacyKind: "deployment", legacyPrefix: "DEPLOY", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "deployment", description: "A deployed instance" },
-  { legacyKind: "environment", legacyPrefix: "ENV", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Resource", specType: "environment", description: "A deployment environment" },
+  { schema: "requirement", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Requirement", specType: "functional", description: "A behavioral software requirement" },
+  { schema: "security-requirement", domain: "systems", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Requirement", specType: "security", description: "A security requirement" },
+  { schema: "data-requirement", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Requirement", specType: "data", description: "A data requirement" },
+  { schema: "technical-requirement", domain: "delivery", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Requirement", specType: "technical", description: "A technical requirement" },
+  { schema: "information-requirement", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Requirement", specType: "information", description: "An information requirement" },
 
-  // Business domain → Group
-  { legacyKind: "org-unit", legacyPrefix: "ORG", domain: "business", apiVersion: BACKSTAGE_API_VERSION, backstageKind: "Group", specType: "team", description: "An organizational unit" },
+  { schema: "decision", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Decision", description: "An architecture decision record" },
+  { schema: "change", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Decision", specType: "change-record", description: "An implementation change record" },
 
-  // ── Tier 2: Custom EA Kinds ───────────────────────────────────────────────
+  { schema: "canonical-entity", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "CanonicalEntity", description: "A canonical data entity" },
+  { schema: "information-concept", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "CanonicalEntity", specType: "concept", description: "A high-level information concept" },
+  { schema: "glossary-term", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "CanonicalEntity", specType: "glossary-term", description: "A canonical glossary term" },
+  { schema: "master-data-domain", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "CanonicalEntity", specType: "master-data-domain", description: "A master data domain" },
 
-  // Requirements (all requirement subtypes → Requirement)
-  { legacyKind: "requirement", legacyPrefix: "REQ", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Requirement", specType: "functional", description: "A behavioral software requirement" },
-  { legacyKind: "security-requirement", legacyPrefix: "SREQ", domain: "systems", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Requirement", specType: "security", description: "A security requirement" },
-  { legacyKind: "data-requirement", legacyPrefix: "DREQ", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Requirement", specType: "data", description: "A data requirement" },
-  { legacyKind: "technical-requirement", legacyPrefix: "TREQ", domain: "delivery", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Requirement", specType: "technical", description: "A technical requirement" },
-  { legacyKind: "information-requirement", legacyPrefix: "IREQ", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Requirement", specType: "information", description: "An information requirement" },
+  { schema: "information-exchange", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Exchange", description: "A declared information exchange" },
+  { schema: "integration", domain: "systems", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Exchange", specType: "integration", description: "A declared integration" },
 
-  // Decisions
-  { legacyKind: "decision", legacyPrefix: "ADR", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Decision", description: "An architecture decision record" },
-  { legacyKind: "change", legacyPrefix: "CHG", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Decision", specType: "change-record", description: "An implementation change record" },
+  { schema: "capability", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Capability", description: "A business capability" },
+  { schema: "value-stream", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "ValueStream", description: "A value stream with stages" },
+  { schema: "process", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "ValueStream", specType: "process", description: "A business process" },
+  { schema: "mission", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Mission", description: "A strategic mission" },
+  { schema: "policy-objective", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Mission", specType: "policy-objective", description: "A policy objective" },
+  { schema: "business-service", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Capability", specType: "business-service", description: "A business service" },
 
-  // Information domain → CanonicalEntity
-  { legacyKind: "canonical-entity", legacyPrefix: "CE", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "CanonicalEntity", description: "A canonical data entity" },
-  { legacyKind: "information-concept", legacyPrefix: "IC", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "CanonicalEntity", specType: "concept", description: "A high-level information concept" },
-  { legacyKind: "glossary-term", legacyPrefix: "TERM", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "CanonicalEntity", specType: "glossary-term", description: "A canonical glossary term" },
-  { legacyKind: "master-data-domain", legacyPrefix: "MDM", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "CanonicalEntity", specType: "master-data-domain", description: "A master data domain" },
+  { schema: "technology-standard", domain: "delivery", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Technology", description: "An approved technology standard" },
 
-  // Exchanges
-  { legacyKind: "information-exchange", legacyPrefix: "EXCH", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Exchange", description: "A declared information exchange" },
-  { legacyKind: "integration", legacyPrefix: "INT", domain: "systems", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Exchange", specType: "integration", description: "A declared integration" },
+  { schema: "system-interface", domain: "systems", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "SystemInterface", description: "An external system boundary" },
+  { schema: "identity-boundary", domain: "delivery", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "SystemInterface", specType: "identity-boundary", description: "An identity/auth boundary" },
 
-  // Business domain → Capability, ValueStream, Mission
-  { legacyKind: "capability", legacyPrefix: "CAP", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Capability", description: "A business capability" },
-  { legacyKind: "value-stream", legacyPrefix: "VS", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "ValueStream", description: "A value stream with stages" },
-  { legacyKind: "process", legacyPrefix: "PROC", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "ValueStream", specType: "process", description: "A business process" },
-  { legacyKind: "mission", legacyPrefix: "MISSION", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Mission", description: "A strategic mission" },
-  { legacyKind: "policy-objective", legacyPrefix: "POL", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Mission", specType: "policy-objective", description: "A policy objective" },
-  { legacyKind: "business-service", legacyPrefix: "BSVC", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Capability", specType: "business-service", description: "A business service" },
+  { schema: "control", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Control", description: "A governance control" },
+  { schema: "classification", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Control", specType: "classification", description: "A data classification level" },
+  { schema: "retention-policy", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Control", specType: "retention-policy", description: "A data retention policy" },
+  { schema: "data-quality-rule", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Control", specType: "data-quality-rule", description: "A data quality rule" },
 
-  // Technology
-  { legacyKind: "technology-standard", legacyPrefix: "TECH", domain: "delivery", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Technology", description: "An approved technology standard" },
+  { schema: "transition-plan", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "TransitionPlan", description: "A transition plan" },
+  { schema: "migration-wave", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "TransitionPlan", specType: "migration-wave", description: "A migration wave" },
+  { schema: "baseline", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "TransitionPlan", specType: "baseline", description: "A point-in-time snapshot" },
+  { schema: "target", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "TransitionPlan", specType: "target", description: "A desired future state" },
 
-  // System Interface / Identity
-  { legacyKind: "system-interface", legacyPrefix: "SIF", domain: "systems", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "SystemInterface", description: "An external system boundary" },
-  { legacyKind: "identity-boundary", legacyPrefix: "IDB", domain: "delivery", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "SystemInterface", specType: "identity-boundary", description: "An identity/auth boundary" },
+  { schema: "exception", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Exception", description: "An approved policy exception" },
 
-  // Control / Governance
-  { legacyKind: "control", legacyPrefix: "CTRL", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Control", description: "A governance control" },
-  { legacyKind: "classification", legacyPrefix: "CLASS", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Control", specType: "classification", description: "A data classification level" },
-  { legacyKind: "retention-policy", legacyPrefix: "RET", domain: "information", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Control", specType: "retention-policy", description: "A data retention policy" },
-  { legacyKind: "data-quality-rule", legacyPrefix: "DQR", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Control", specType: "data-quality-rule", description: "A data quality rule" },
-
-  // Transitions
-  { legacyKind: "transition-plan", legacyPrefix: "PLAN", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "TransitionPlan", description: "A transition plan" },
-  { legacyKind: "migration-wave", legacyPrefix: "WAVE", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "TransitionPlan", specType: "migration-wave", description: "A migration wave" },
-  { legacyKind: "baseline", legacyPrefix: "BASELINE", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "TransitionPlan", specType: "baseline", description: "A point-in-time snapshot" },
-  { legacyKind: "target", legacyPrefix: "TARGET", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "TransitionPlan", specType: "target", description: "A desired future state" },
-
-  // Exceptions
-  { legacyKind: "exception", legacyPrefix: "EXCEPT", domain: "transitions", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Exception", description: "An approved policy exception" },
-
-  // Data domain — Logical/Lineage (these map to CanonicalEntity since they're conceptual)
-  { legacyKind: "logical-data-model", legacyPrefix: "LDM", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "CanonicalEntity", specType: "logical-data-model", description: "A logical data model" },
-  { legacyKind: "lineage", legacyPrefix: "LINEAGE", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, backstageKind: "Exchange", specType: "data-lineage", description: "A data lineage path" },
+  { schema: "logical-data-model", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "CanonicalEntity", specType: "logical-data-model", description: "A logical data model" },
+  { schema: "lineage", domain: "data", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Exchange", specType: "data-lineage", description: "A data lineage path" },
 ] as const;
 
-// ─── Lookup Helpers ─────────────────────────────────────────────────────────────
-
-/** Index by legacy kind for O(1) lookup. */
-const byLegacyKind = new Map<string, KindMappingEntry>(
-  BACKSTAGE_KIND_REGISTRY.map((e) => [e.legacyKind, e]),
+const bySchema = new Map<string, EntityDescriptor>(
+  ENTITY_DESCRIPTOR_REGISTRY.map((entry) => [entry.schema, entry]),
 );
 
-/** Index by legacy prefix for O(1) lookup. */
-const byLegacyPrefix = new Map<string, KindMappingEntry>(
-  BACKSTAGE_KIND_REGISTRY.map((e) => [e.legacyPrefix, e]),
-);
-
-/** Index by Backstage kind for reverse lookup (returns all matching entries). */
-const byBackstageKind = new Map<string, KindMappingEntry[]>();
-for (const entry of BACKSTAGE_KIND_REGISTRY) {
-  const existing = byBackstageKind.get(entry.backstageKind) ?? [];
+const byEntityKind = new Map<string, EntityDescriptor[]>();
+for (const entry of ENTITY_DESCRIPTOR_REGISTRY) {
+  const existing = byEntityKind.get(entry.kind) ?? [];
   existing.push(entry);
-  byBackstageKind.set(entry.backstageKind, existing);
+  byEntityKind.set(entry.kind, existing);
 }
 
-/**
- * Look up a Backstage mapping by legacy kind name.
- */
-export function mapLegacyKind(legacyKind: string): KindMappingEntry | undefined {
-  return byLegacyKind.get(legacyKind);
+export function getSchemaDescriptor(schema: string): EntityDescriptor | undefined {
+  return bySchema.get(schema);
 }
 
-/**
- * Look up a Backstage mapping by legacy ID prefix (e.g., "SVC", "APP").
- */
-export function mapLegacyPrefix(prefix: string): KindMappingEntry | undefined {
-  return byLegacyPrefix.get(prefix);
-}
-
-/**
- * Reverse lookup: find the best-matching legacy kind for a Backstage entity.
- *
- * Uses `apiVersion`, `kind`, and optionally `spec.type` to disambiguate.
- * Returns undefined if no mapping exists.
- */
-export function mapBackstageKind(
+export function getEntityDescriptorForEntity(
   apiVersion: string,
   kind: string,
   specType?: string,
-): KindMappingEntry | undefined {
-  const entries = byBackstageKind.get(kind);
+): EntityDescriptor | undefined {
+  const entries = byEntityKind.get(kind);
   if (!entries) return undefined;
 
-  // Filter by apiVersion
-  const versionMatches = entries.filter((e) => e.apiVersion === apiVersion);
+  const versionMatches = entries.filter((entry) => entry.apiVersion === apiVersion);
   if (versionMatches.length === 0) return undefined;
   if (versionMatches.length === 1) return versionMatches[0];
 
-  // Disambiguate by specType
   if (specType) {
-    const typeMatch = versionMatches.find((e) => e.specType === specType);
+    const typeMatch = versionMatches.find((entry) => entry.specType === specType);
     if (typeMatch) return typeMatch;
   }
 
-  // Fall back to the entry without a specType (the "default" for this kind)
-  return versionMatches.find((e) => !e.specType) ?? versionMatches[0];
+  return versionMatches.find((entry) => !entry.specType) ?? versionMatches[0];
 }
 
-/**
- * Get all legacy kinds that map to a given Backstage kind.
- */
-export function getLegacyKindsForBackstageKind(backstageKind: string): KindMappingEntry[] {
-  return byBackstageKind.get(backstageKind) ?? [];
+export function getEntityDescriptorsForKind(kind: string): EntityDescriptor[] {
+  return byEntityKind.get(kind) ?? [];
 }
 
-/**
- * Check if a legacy kind is recognized.
- */
-export function isLegacyKindRegistered(legacyKind: string): boolean {
-  return byLegacyKind.has(legacyKind);
+export function isSchemaRegistered(schema: string): boolean {
+  return bySchema.has(schema);
 }
 
-/**
- * Check if a Backstage kind is recognized.
- */
-export function isBackstageKindRegistered(backstageKind: string): boolean {
-  return byBackstageKind.has(backstageKind);
+export function isEntityKindRegistered(kind: string): boolean {
+  return byEntityKind.has(kind);
 }
 
-/**
- * Get all unique Backstage kinds (for schema validation, etc.).
- */
-export function getAllBackstageKinds(): EntityKind[] {
-  return [...new Set(BACKSTAGE_KIND_REGISTRY.map((e) => e.backstageKind))];
+export function getAllEntityKinds(): EntityKind[] {
+  return [...new Set(ENTITY_DESCRIPTOR_REGISTRY.map((entry) => entry.kind))];
 }
 
-/**
- * Get all Backstage built-in kinds from the registry.
- */
-export function getBuiltinKinds(): KindMappingEntry[] {
-  return BACKSTAGE_KIND_REGISTRY.filter(
-    (e) => e.apiVersion === BACKSTAGE_API_VERSION,
-  ) as unknown as KindMappingEntry[];
+export function getBuiltinEntityDescriptors(): EntityDescriptor[] {
+  return ENTITY_DESCRIPTOR_REGISTRY.filter(
+    (entry) => entry.apiVersion === BACKSTAGE_API_VERSION,
+  ) as EntityDescriptor[];
 }
 
-/**
- * Get all custom anchored-spec kinds from the registry.
- */
-export function getCustomKinds(): KindMappingEntry[] {
-  return BACKSTAGE_KIND_REGISTRY.filter(
-    (e) => e.apiVersion === ANCHORED_SPEC_API_VERSION,
-  ) as unknown as KindMappingEntry[];
-}
-
-/**
- * Convert a legacy artifact ID (e.g., "SVC-verifier-core") to a Backstage
- * entity name (e.g., "verifier-core").
- *
- * Strips the known prefix and returns the slug portion.
- */
-export function legacyIdToEntityName(legacyId: string): string {
-  // Strip domain prefix if present (e.g., "systems/SVC-verifier-core")
-  const localId = legacyId.includes("/")
-    ? legacyId.split("/").pop()!
-    : legacyId;
-
-  // Find the prefix
-  const dashIndex = localId.indexOf("-");
-  if (dashIndex < 0) return localId.toLowerCase();
-
-  const prefix = localId.slice(0, dashIndex);
-  const mapping = byLegacyPrefix.get(prefix);
-
-  if (mapping) {
-    // Known prefix — strip it
-    return localId.slice(dashIndex + 1).toLowerCase();
-  }
-
-  // Unknown prefix — return as-is, lowercased
-  return localId.toLowerCase();
-}
-
-/**
- * Convert a Backstage entity reference back to a legacy artifact ID.
- *
- * @param backstageKind - The Backstage kind (e.g., "Component")
- * @param name - The entity name (e.g., "verifier-core")
- * @param specType - Optional spec.type for disambiguation
- */
-export function entityNameToLegacyId(
-  backstageKind: string,
-  name: string,
-  specType?: string,
-): string {
-  // Find the mapping to determine the legacy prefix
-  const entries = byBackstageKind.get(backstageKind) ?? [];
-
-  let mapping: KindMappingEntry | undefined;
-  if (specType) {
-    mapping = entries.find((e) => e.specType === specType);
-  }
-  if (!mapping) {
-    mapping = entries.find((e) => !e.specType) ?? entries[0];
-  }
-
-  if (!mapping) {
-    return name.toUpperCase();
-  }
-
-  return `${mapping.legacyPrefix}-${name}`;
+export function getCustomEntityDescriptors(): EntityDescriptor[] {
+  return ENTITY_DESCRIPTOR_REGISTRY.filter(
+    (entry) => entry.apiVersion === ANCHORED_SPEC_API_VERSION,
+  ) as EntityDescriptor[];
 }

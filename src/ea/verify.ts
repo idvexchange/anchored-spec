@@ -17,7 +17,7 @@ import { type EaValidationError, type EaValidationOptions } from "./validate.js"
 import type { EaRoot } from "./loader.js";
 import { loadEaPlugins, runEaPluginChecks, type EaPlugin } from "./plugins.js";
 import type { BackstageEntity } from "./backstage/types.js";
-import { getEntityId, getEntityKindMapping, getEntitySpecRelations, getEntityStatus } from "./backstage/accessors.js";
+import { getEntityId, getEntityDescriptor, getEntityOwnerRef, getEntitySpecRelations, getEntityStatus } from "./backstage/accessors.js";
 import { validateBackstageEntities } from "./backstage/validate.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ function checkRelationTargets(entities: BackstageEntity[]): EaValidationError[] 
 
   for (const entity of entities) {
     for (const rel of getEntitySpecRelations(entity)) {
+      if (rel.legacyType === "ownedBy") continue;
       for (const target of rel.targets) {
         if (!target.includes(":") && !target.includes("/")) continue;
         if (knownIds.has(target)) continue;
@@ -87,7 +88,9 @@ function checkOrphanArtifacts(entities: BackstageEntity[]): EaValidationError[] 
     const status = getEntityStatus(entity);
     if (status === "draft" || status === "deprecated" || status === "retired") continue;
     const entityId = getEntityId(entity);
-    const hasOutgoing = getEntitySpecRelations(entity).some((rel) => rel.targets.length > 0);
+    const hasOutgoing =
+      typeof getEntityOwnerRef(entity) === "string" ||
+      getEntitySpecRelations(entity).some((rel) => rel.targets.length > 0);
     const hasIncoming = referencedIds.has(entityId);
     if (!hasOutgoing && !hasIncoming) {
       warnings.push({
@@ -123,7 +126,7 @@ function checkLifecycleConsistency(entities: BackstageEntity[]): EaValidationErr
     }
 
     // Active artifacts in transitions domain must have a target date or link
-    if (status === "active" && getEntityKindMapping(entity)?.domain === "transitions") {
+    if (status === "active" && getEntityDescriptor(entity)?.domain === "transitions") {
       const hasTarget = getEntitySpecRelations(entity).some((rel) => rel.legacyType === "targets" || rel.legacyType === "implementedBy");
       if (!hasTarget) {
         errors.push({
@@ -281,7 +284,7 @@ export async function runEaVerification(
   // Build domain counts
   const byDomain: Record<string, number> = {};
   for (const entity of entities) {
-    const domain = getEntityKindMapping(entity)?.domain ?? "unknown";
+    const domain = getEntityDescriptor(entity)?.domain ?? "unknown";
     byDomain[domain] = (byDomain[domain] ?? 0) + 1;
   }
 

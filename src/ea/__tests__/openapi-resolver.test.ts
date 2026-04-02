@@ -317,10 +317,10 @@ describe("OpenApiResolver.collectObservedState", () => {
     expect(state.entities.length).toBe(15);
   });
 
-  it("should set inferredKind to api-contract", () => {
+  it("should set inferredSchema to api-contract", () => {
     const state = resolver.collectObservedState(makeCtx())!;
     for (const entity of state.entities) {
-      expect(entity.inferredKind).toBe("api-contract");
+      expect(entity.inferredSchema).toBe("api-contract");
       expect(entity.inferredDomain).toBe("systems");
     }
   });
@@ -358,21 +358,23 @@ describe("OpenApiResolver.discoverArtifacts", () => {
   it("should create drafts with correct kind and status", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
     for (const draft of drafts) {
-      expect(draft.kind).toBe("api-contract");
+      expect(draft.kind).toBe("API");
+      expect(draft.type).toBe("openapi");
+      expect(draft.schema).toBe("api-contract");
       expect(draft.status).toBe("draft");
       expect(draft.confidence).toBe("observed");
       expect(draft.discoveredBy).toBe("openapi");
     }
   });
 
-  it("should populate kind-specific fields", () => {
+  it("should populate schema-specific fields", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
     const petStore = drafts.find((d) => d.title === "Pet Store API");
     expect(petStore).toBeDefined();
-    expect(petStore!.kindSpecificFields?.protocol).toBe("rest");
-    expect(petStore!.kindSpecificFields?.specFormat).toBe("openapi");
-    expect(petStore!.kindSpecificFields?.specPath).toBe("petstore.json");
-    expect(petStore!.kindSpecificFields?.version).toBe("1.0.0");
+    expect(petStore!.schemaFields?.protocol).toBe("rest");
+    expect(petStore!.schemaFields?.specFormat).toBe("openapi");
+    expect(petStore!.schemaFields?.specPath).toBe("petstore.json");
+    expect(petStore!.schemaFields?.version).toBe("1.0.0");
   });
 
   it("should include API endpoints as anchors", () => {
@@ -385,7 +387,7 @@ describe("OpenApiResolver.discoverArtifacts", () => {
   it("should generate slugified suggested IDs", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
     const petStore = drafts.find((d) => d.title === "Pet Store API");
-    expect(petStore!.suggestedId).toBe("systems/API-pet-store-api");
+    expect(petStore!.suggestedId).toBe("api:pet-store-api");
   });
 
   it("should return null when no specs found", () => {
@@ -397,7 +399,7 @@ describe("OpenApiResolver.discoverArtifacts", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
     const billing = drafts.find((d) => d.title === "Legacy Billing API");
     expect(billing).toBeDefined();
-    expect(billing!.kindSpecificFields?.version).toBe("1.5.0");
+    expect(billing!.schemaFields?.version).toBe("1.5.0");
   });
 });
 
@@ -444,9 +446,9 @@ describe("OpenApiResolver metadata", () => {
     expect(new OpenApiResolver().domains).toEqual(["systems"]);
   });
 
-  it("should handle api-contract, application, service kinds", () => {
-    expect(new OpenApiResolver().kinds).toContain("api-contract");
-    expect(new OpenApiResolver().kinds).toContain("application");
-    expect(new OpenApiResolver().kinds).toContain("service");
+  it("should handle api-contract, application, and service schemas", () => {
+    expect(new OpenApiResolver().schemas).toContain("api-contract");
+    expect(new OpenApiResolver().schemas).toContain("application");
+    expect(new OpenApiResolver().schemas).toContain("service");
   });
 });

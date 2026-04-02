@@ -3,7 +3,7 @@
   "$id": "https://anchored-spec.dev/schemas/backstage/decision.schema.json",
   "title": "Anchored Spec — Decision Entity",
   "description": "An architectural decision record (ADR).",
-  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "type": "object",
   "properties": {
     "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
     "kind": { "const": "Decision" },

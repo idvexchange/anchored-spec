@@ -10,6 +10,7 @@
 
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors, getEntityDescription, getEntityId, getEntityTitle, getSpecField } from "../backstage/accessors.js";
+import { entityRefToFilenameSlug } from "../backstage/ref-utils.js";
 import type {
   EaGenerator,
   EaGeneratorContext,
@@ -17,7 +18,7 @@ import type {
   GenerationDrift,
 } from "./index.js";
 
-/** Shape of an api-contract artifact's kind-specific fields. */
+/** Shape of an api-contract entity's schema-specific fields. */
 interface ApiContractFields {
   protocol?: string;
   specFormat?: string;
@@ -36,7 +37,7 @@ interface ApiContractFields {
  */
 export const openapiGenerator: EaGenerator = {
   name: "openapi",
-  kinds: ["api-contract"],
+  schemas: ["api-contract"],
   outputFormat: "openapi",
 
   generate(entity: BackstageEntity, _ctx: EaGeneratorContext): GeneratedOutput[] {
@@ -88,7 +89,7 @@ export const openapiGenerator: EaGenerator = {
 
     lines.push(``);
 
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
     return [
       {
         relativePath: `${slug}.openapi.yaml`,
@@ -107,7 +108,7 @@ export const openapiGenerator: EaGenerator = {
     if (generated.length === 0) return [];
 
     const expectedContent = generated[0]!.content;
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
 
     if (normalizeWhitespace(currentOutput) !== normalizeWhitespace(expectedContent)) {
       drifts.push({

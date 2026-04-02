@@ -182,20 +182,20 @@ describe("DbtResolver.collectObservedState", () => {
 
   it("should include data-product entities for models", () => {
     const state = resolver.collectObservedState(makeCtx())!;
-    const products = state.entities.filter((e) => e.inferredKind === "data-product");
+    const products = state.entities.filter((e) => e.inferredSchema === "data-product");
     // 3 models + 1 exposure = 4
     expect(products.length).toBe(4);
   });
 
   it("should include data-quality-rule entities for tests", () => {
     const state = resolver.collectObservedState(makeCtx())!;
-    const rules = state.entities.filter((e) => e.inferredKind === "data-quality-rule");
+    const rules = state.entities.filter((e) => e.inferredSchema === "data-quality-rule");
     expect(rules.length).toBe(2);
   });
 
   it("should include data-store entities for sources", () => {
     const state = resolver.collectObservedState(makeCtx())!;
-    const stores = state.entities.filter((e) => e.inferredKind === "data-store");
+    const stores = state.entities.filter((e) => e.inferredSchema === "data-store");
     expect(stores.length).toBe(2);
   });
 
@@ -230,7 +230,7 @@ describe("DbtResolver.discoverArtifacts", () => {
 
   it("should create data-product drafts for models", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const products = drafts.filter((d) => d.kind === "data-product");
+    const products = drafts.filter((d) => d.schema === "data-product");
     expect(products.length).toBe(3);
     expect(products.map((p) => p.title)).toContain("dim_users");
     expect(products.map((p) => p.title)).toContain("fct_orders");
@@ -238,20 +238,20 @@ describe("DbtResolver.discoverArtifacts", () => {
 
   it("should create data-quality-rule drafts for tests", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const rules = drafts.filter((d) => d.kind === "data-quality-rule");
+    const rules = drafts.filter((d) => d.schema === "data-quality-rule");
     expect(rules.length).toBe(2);
   });
 
   it("should create data-store drafts for sources", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const stores = drafts.filter((d) => d.kind === "data-store");
+    const stores = drafts.filter((d) => d.schema === "data-store");
     expect(stores.length).toBe(2);
     expect(stores.map((s) => s.title)).toContain("raw.users");
   });
 
   it("should create lineage drafts for models with dependencies", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const lineage = drafts.filter((d) => d.kind === "lineage");
+    const lineage = drafts.filter((d) => d.schema === "lineage");
     expect(lineage.length).toBe(3); // all 3 models have depends_on
   });
 
@@ -281,11 +281,11 @@ describe("DbtResolver metadata", () => {
     expect(new DbtResolver().domains).toEqual(["data"]);
   });
 
-  it("should handle data-layer kinds", () => {
-    const kinds = new DbtResolver().kinds!;
-    expect(kinds).toContain("data-product");
-    expect(kinds).toContain("lineage");
-    expect(kinds).toContain("data-quality-rule");
-    expect(kinds).toContain("data-store");
+  it("should handle data-layer schemas", () => {
+    const schemas = new DbtResolver().schemas!;
+    expect(schemas).toContain("data-product");
+    expect(schemas).toContain("lineage");
+    expect(schemas).toContain("data-quality-rule");
+    expect(schemas).toContain("data-store");
   });
 });

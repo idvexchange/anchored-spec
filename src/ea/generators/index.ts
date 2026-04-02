@@ -12,7 +12,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import type { ResolverLogger } from "../resolvers/types.js";
 import type { BackstageEntity } from "../backstage/types.js";
-import { getEntityId, getEntityLegacyKind } from "../backstage/accessors.js";
+import { getEntityId, getEntitySchema } from "../backstage/accessors.js";
 
 // ─── Generator Types ────────────────────────────────────────────────────────────
 
@@ -61,14 +61,14 @@ export interface GenerationDrift {
 /**
  * Generator plugin interface.
  *
- * Each generator declares which artifact kinds it handles and provides
+ * Each generator declares which schema profiles it handles and provides
  * generate() and optional diff() methods.
  */
 export interface EaGenerator {
   /** Unique generator name. */
   name: string;
-  /** Which artifact kinds this generator processes. */
-  kinds: string[];
+  /** Which schema profiles this generator processes. */
+  schemas: string[];
   /** Output format identifier. */
   outputFormat: string;
 
@@ -124,8 +124,8 @@ export interface EaGeneratorOptions {
   checkOnly?: boolean;
   /** If true, show what would be generated without writing. */
   dryRun?: boolean;
-  /** Filter to specific artifact kinds. */
-  kinds?: string[];
+  /** Filter to specific schema profiles. */
+  schemas?: string[];
   /** Filter to specific generator name. */
   generatorName?: string;
 }
@@ -152,7 +152,7 @@ export interface GenerationReport {
 /**
  * Run the generator pipeline.
  *
- * 1. For each generator, find matching artifacts by kind
+ * 1. For each generator, find matching entities by schema
  * 2. In check mode: compare existing output vs what would be generated
  * 3. In generate mode: produce outputs and write files
  */
@@ -166,7 +166,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     logger,
     checkOnly,
     dryRun,
-    kinds,
+    schemas,
     generatorName,
   } = options;
 
@@ -195,10 +195,14 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
       options: genOptions,
     };
 
-    // Find matching artifacts
-    let matchingArtifacts = entities.filter((entity) => generator.kinds.includes(getEntityLegacyKind(entity)));
-    if (kinds && kinds.length > 0) {
-      matchingArtifacts = matchingArtifacts.filter((entity) => kinds.includes(getEntityLegacyKind(entity)));
+    // Find matching entities for the generator's schema profiles.
+    let matchingArtifacts = entities.filter((entity) =>
+      generator.schemas.includes(getEntitySchema(entity)),
+    );
+    if (schemas && schemas.length > 0) {
+      matchingArtifacts = matchingArtifacts.filter((entity) =>
+        schemas.includes(getEntitySchema(entity)),
+      );
     }
 
     if (matchingArtifacts.length === 0) {

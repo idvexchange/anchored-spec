@@ -16,7 +16,8 @@ import { serializeFrontmatter } from "../../ea/docs/frontmatter.js";
 import type { DocFrontmatter } from "../../ea/docs/frontmatter.js";
 import {
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntityTitle,
 } from "../../ea/backstage/accessors.js";
 import { buildEntityLookup, formatEntityHint } from "../entity-ref.js";
@@ -191,7 +192,7 @@ export function eaCreateDocCommand(): Command {
           const entity = entityById.get(id);
           if (entity) {
             bodyLines.push(
-              `- **${formatEntityHint(entity)}** (${getEntityLegacyKind(entity)}) — ${getEntityTitle(entity)}`
+              `- **${formatEntityHint(entity)}** (${getEntityKind(entity)}/${getEntitySchema(entity)}) — ${getEntityTitle(entity)}`
             );
           } else {
             bodyLines.push(`- **${id}**`);

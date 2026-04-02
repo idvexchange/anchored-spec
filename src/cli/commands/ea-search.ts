@@ -1,7 +1,7 @@
 /**
  * anchored-spec search <query>
  *
- * Find EA artifacts by ID, name, kind, domain, tag, or status.
+ * Find EA entities by ID, name, kind, domain, tag, or status.
  */
 
 import { Command } from "commander";
@@ -13,7 +13,9 @@ import {
   getEntityDomain,
   getEntityDescription,
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
+  getEntitySpecType,
   getEntityStatus,
   getEntityTags,
   getEntityTitle,
@@ -22,9 +24,10 @@ import { formatEntityDisplay, formatEntityHint } from "../entity-ref.js";
 
 export function eaSearchCommand(): Command {
   return new Command("search")
-    .description("Search EA artifacts by ID, name, kind, domain, tag, or status")
-    .argument("<query>", "Search term (matches against ID, name, kind, tags, and status)")
-    .option("--kind <kind>", "Filter by artifact kind")
+    .description("Search EA entities by ID, name, Backstage kind, schema, domain, tag, or status")
+    .argument("<query>", "Search term (matches against ID, name, kind, schema, tags, and status)")
+    .option("--kind <kind>", "Filter by Backstage/custom entity kind")
+    .option("--schema <schema>", "Filter by anchored-spec schema name")
     .option("--domain <domain>", "Filter by EA domain")
     .option("--status <status>", "Filter by status (draft, active, deprecated, retired)")
     .option("--tag <tag>", "Filter by tag")
@@ -43,7 +46,8 @@ export function eaSearchCommand(): Command {
         const searchable = [
           getEntityId(entity),
           getEntityTitle(entity),
-          getEntityLegacyKind(entity),
+          getEntityKind(entity),
+          getEntitySchema(entity),
           getEntityDescription(entity),
           ...getEntityTags(entity),
         ]
@@ -55,7 +59,10 @@ export function eaSearchCommand(): Command {
 
       // Apply filters
       if (options.kind) {
-        results = results.filter((entity) => getEntityLegacyKind(entity) === options.kind);
+        results = results.filter((entity) => getEntityKind(entity) === options.kind);
+      }
+      if (options.schema) {
+        results = results.filter((entity) => getEntitySchema(entity) === options.schema);
       }
       if (options.domain) {
         results = results.filter(
@@ -77,11 +84,12 @@ export function eaSearchCommand(): Command {
 
       if (options.json) {
         const output = results.map((entity) => {
-          const kind = getEntityLegacyKind(entity);
           return {
             id: getEntityId(entity),
             displayId: formatEntityHint(entity),
-            kind,
+            kind: getEntityKind(entity),
+            type: getEntitySpecType(entity),
+            schema: getEntitySchema(entity),
             name: getEntityTitle(entity),
             status: getEntityStatus(entity),
             confidence: getEntityConfidence(entity),
@@ -100,7 +108,9 @@ export function eaSearchCommand(): Command {
       console.log(chalk.blue(`Found ${results.length} artifact${results.length === 1 ? "" : "s"}:\n`));
 
       for (const entity of results) {
-        const kind = getEntityLegacyKind(entity);
+        const kind = getEntityKind(entity);
+        const specType = getEntitySpecType(entity);
+        const schema = getEntitySchema(entity);
         const domain = getEntityDomain(entity) ?? "unknown";
         const id = formatEntityDisplay(entity);
         const title = getEntityTitle(entity);
@@ -111,7 +121,7 @@ export function eaSearchCommand(): Command {
           `  ${chalk.green(id)} ${chalk.dim("·")} ${title}`,
         );
         console.log(
-          chalk.dim(`    ${kind} · ${domain} · ${status} · ${confidence}`),
+          chalk.dim(`    ${kind}${specType ? `/${specType}` : ""} · ${schema} · ${domain} · ${status} · ${confidence}`),
         );
       }
     });

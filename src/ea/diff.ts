@@ -11,8 +11,9 @@
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityId,
-  getEntityKindMapping,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntityDescriptor,
+  getEntitySchema,
   getEntitySpecRelations,
 } from "./backstage/accessors.js";
 
@@ -30,7 +31,7 @@ export type FieldSemantic =
   | "metadata"      // title, summary, tags, owners
   | "structural"    // relations, anchors, traceRefs
   | "behavioral"    // status, confidence, risk
-  | "contractual"   // kind-specific contract fields
+  | "contractual"   // schema-specific contract fields
   | "governance"    // compliance, extensions.driftSuppress, exceptions
   | "unknown";
 
@@ -56,6 +57,7 @@ export interface RelationDiff {
 export interface ArtifactDiff {
   artifactId: string;
   kind: string;
+  schema: string;
   domain: string;
   changeType: ArtifactChangeType;
   fieldChanges: FieldChange[];
@@ -138,7 +140,7 @@ const BASE_FIELD_SEMANTICS: Record<string, FieldSemantic> = {
 /**
  * Get the semantic classification for a field.
  * Checks each path segment from most specific (deepest) to least specific.
- * Unknown fields (kind-specific) are "contractual".
+ * Unknown schema-specific fields are "contractual".
  */
 export function getFieldSemantic(field: string): FieldSemantic {
   const parts = field.split(".").map((p) => p.replace(/\[.*\]/, ""));
@@ -221,11 +223,12 @@ export function diffEaArtifacts(
   // Added: in head but not in base
   for (const [id, artifact] of headMap) {
     if (!baseMap.has(id)) {
-      const legacyKind = getEntityLegacyKind(artifact);
+      const schema = getEntitySchema(artifact);
       diffs.push({
         artifactId: id,
-        kind: legacyKind,
-        domain: getEntityKindMapping(artifact)?.domain ?? "unknown",
+        kind: getEntityKind(artifact),
+        schema,
+        domain: getEntityDescriptor(artifact)?.domain ?? "unknown",
         changeType: "added",
         fieldChanges: [],
         relationChanges: [],
@@ -236,11 +239,12 @@ export function diffEaArtifacts(
   // Removed: in base but not in head
   for (const [id, artifact] of baseMap) {
     if (!headMap.has(id)) {
-      const legacyKind = getEntityLegacyKind(artifact);
+      const schema = getEntitySchema(artifact);
       diffs.push({
         artifactId: id,
-        kind: legacyKind,
-        domain: getEntityKindMapping(artifact)?.domain ?? "unknown",
+        kind: getEntityKind(artifact),
+        schema,
+        domain: getEntityDescriptor(artifact)?.domain ?? "unknown",
         changeType: "removed",
         fieldChanges: [],
         relationChanges: [],
@@ -264,11 +268,12 @@ export function diffEaArtifacts(
         ? "modified"
         : "unchanged";
 
-    const legacyKind = getEntityLegacyKind(headArtifact);
+    const schema = getEntitySchema(headArtifact);
     diffs.push({
       artifactId: id,
-      kind: legacyKind,
-      domain: getEntityKindMapping(headArtifact)?.domain ?? "unknown",
+      kind: getEntityKind(headArtifact),
+      schema,
+      domain: getEntityDescriptor(headArtifact)?.domain ?? "unknown",
       changeType,
       fieldChanges,
       relationChanges,
@@ -645,10 +650,10 @@ export function renderDiffMarkdown(report: EaDiffReport): string {
   if (added.length > 0) {
     lines.push(`## Added (${added.length})`);
     lines.push("");
-    lines.push("| Artifact | Kind | Domain |");
-    lines.push("|----------|------|--------|");
+    lines.push("| Artifact | Kind | Schema | Domain |");
+    lines.push("|----------|------|--------|--------|");
     for (const d of added) {
-      lines.push(`| ${d.artifactId} | ${d.kind} | ${d.domain} |`);
+      lines.push(`| ${d.artifactId} | ${d.kind} | ${d.schema} | ${d.domain} |`);
     }
     lines.push("");
   }
@@ -658,10 +663,10 @@ export function renderDiffMarkdown(report: EaDiffReport): string {
   if (removed.length > 0) {
     lines.push(`## Removed (${removed.length})`);
     lines.push("");
-    lines.push("| Artifact | Kind | Domain |");
-    lines.push("|----------|------|--------|");
+    lines.push("| Artifact | Kind | Schema | Domain |");
+    lines.push("|----------|------|--------|--------|");
     for (const d of removed) {
-      lines.push(`| ${d.artifactId} | ${d.kind} | ${d.domain} |`);
+      lines.push(`| ${d.artifactId} | ${d.kind} | ${d.schema} | ${d.domain} |`);
     }
     lines.push("");
   }
@@ -672,7 +677,7 @@ export function renderDiffMarkdown(report: EaDiffReport): string {
     lines.push(`## Modified (${modified.length})`);
     lines.push("");
     for (const d of modified) {
-      lines.push(`### ${d.artifactId} (${d.kind}, ${d.domain})`);
+      lines.push(`### ${d.artifactId} (${d.kind}, ${d.schema}, ${d.domain})`);
       lines.push("");
 
       if (d.fieldChanges.length > 0) {

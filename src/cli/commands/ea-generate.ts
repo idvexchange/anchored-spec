@@ -19,7 +19,7 @@ export function eaGenerateCommand(): Command {
   return new Command("generate")
     .description("Generate implementation artifacts from EA specs")
     .option("--generator <name>", "Run a specific generator")
-    .option("--kind <kind>", "Filter to specific artifact kinds (comma-separated)")
+    .option("--schema <schema>", "Filter to specific schema profiles (comma-separated)")
     .option("--check", "Check for generation drift without generating")
     .option("--dry-run", "Show what would be generated without writing files")
     .option("--json", "Output report as JSON")
@@ -70,7 +70,9 @@ export function eaGenerateCommand(): Command {
         return;
       }
 
-      const kinds = options.kind ? options.kind.split(",").map((k: string) => k.trim()) : undefined;
+      const schemas = options.schema
+        ? options.schema.split(",").map((schema: string) => schema.trim())
+        : undefined;
 
       const report = runGenerators({
         entities,
@@ -81,7 +83,7 @@ export function eaGenerateCommand(): Command {
         logger: silentLogger,
         checkOnly: options.check,
         dryRun: options.dryRun,
-        kinds,
+        schemas,
         generatorName: options.generator,
       });
 

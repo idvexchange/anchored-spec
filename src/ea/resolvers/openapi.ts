@@ -2,13 +2,14 @@
  * Anchored Spec — OpenAPI Resolver
  *
  * Resolves API anchors against OpenAPI 3.0/3.1 spec files (YAML/JSON),
- * collects observed endpoint state, and discovers api-contract artifacts.
+ * collects observed endpoint state, and discovers api-contract entities.
  *
  * Design reference: docs/delivery/discovery-drift-generation.md (OpenAPI Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
+import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
 import type { EaArtifactDraft } from "../discovery.js";
@@ -422,7 +423,7 @@ const CACHE_KEY_PREFIX = "openapi:specs";
 export class OpenApiResolver implements EaResolver {
   readonly name = "openapi";
   readonly domains: EaResolver["domains"] = ["systems"];
-  readonly kinds = ["api-contract", "application", "service"];
+  readonly schemas = ["api-contract", "application", "service"];
 
   /**
    * Resolve API anchors on an artifact against OpenAPI spec files.
@@ -502,7 +503,7 @@ export class OpenApiResolver implements EaResolver {
           const op = (methods as Record<string, OpenApiOperation>)[method];
           entities.push({
             externalId: `${method.toUpperCase()} ${path}`,
-            inferredKind: "api-contract",
+            inferredSchema: "api-contract",
             inferredDomain: "systems",
             metadata: {
               specFile: spec._sourceFile,
@@ -527,9 +528,9 @@ export class OpenApiResolver implements EaResolver {
   }
 
   /**
-   * Discover api-contract artifacts from OpenAPI spec files.
+   * Discover api-contract entities from OpenAPI spec files.
    *
-   * Each OpenAPI spec file produces one draft artifact with all its endpoints
+   * Each OpenAPI spec file produces one draft entity with all its endpoints
    * listed as API anchors.
    */
   discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
@@ -538,6 +539,7 @@ export class OpenApiResolver implements EaResolver {
 
     const drafts: EaArtifactDraft[] = [];
     const now = new Date().toISOString();
+    const apiContract = getSchemaDescriptor("api-contract")!;
 
     for (const spec of specs) {
       const title = spec.info?.title ?? "Untitled API";
@@ -545,8 +547,11 @@ export class OpenApiResolver implements EaResolver {
       const apis = extractAllEndpoints(spec);
 
       drafts.push({
-        suggestedId: `systems/API-${slug}`,
-        kind: "api-contract",
+        suggestedId: `api:${slug}`,
+        apiVersion: apiContract.apiVersion,
+        kind: apiContract.kind,
+        type: apiContract.specType,
+        schema: apiContract.schema,
         title,
         summary:
           spec.info?.description ?? `API contract discovered from ${spec._sourceFile}`,
@@ -555,7 +560,7 @@ export class OpenApiResolver implements EaResolver {
         anchors: apis.length > 0 ? { apis } : undefined,
         discoveredBy: "openapi",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           protocol: "rest",
           specFormat: "openapi",
           specPath: spec._sourceFile,
