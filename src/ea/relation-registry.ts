@@ -367,14 +367,14 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
     description: "Source artifact is governed by a policy objective or control.",
   },
   {
-    type: "owns",
-    inverse: "ownedBy",
-    validSourceKinds: ["org-unit"],
-    validTargetKinds: "*",
+    type: "ownedBy",
+    inverse: "ownerOf",
+    validSourceKinds: "*",
+    validTargetKinds: ["org-unit", "user"],
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
-    description: "Organization unit owns the target artifact.",
+    description: "Artifact is owned by the target organization unit or user.",
   },
 ];
 

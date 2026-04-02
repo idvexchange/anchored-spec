@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0",
+  "rootDir": "docs",
+  "generatedDir": "docs/generated",
+  "idPrefix": null,
+  "domains": {
+    "systems": "docs/systems",
+    "delivery": "docs/delivery",
+    "data": "docs/data",
+    "information": "docs/information",
+    "business": "docs/business",
+    "transitions": "docs/transitions"
+  },
+  "resolvers": [],
+  "generators": [],
+  "evidenceSources": [],
+  "cache": {
+    "dir": ".anchored-spec/cache",
+    "defaultTTL": 3600
+  },
+  "quality": {
+    "requireOwners": true,
+    "requireSummary": true,
+    "requireRelations": false,
+    "requireAnchors": false,
+    "strictMode": false,
+    "rules": {}
+  },
+  "workflowPolicyPath": "docs/workflow-policy.yaml",
+  "entityMode": "manifest",
+  "manifestPath": "catalog-info.yaml"
+}

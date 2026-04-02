@@ -600,14 +600,14 @@ describe("validateEaRelations", () => {
 
     it("suggests canonical type when virtual inverse is used directly", () => {
       const entities = [
-        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined,  }, relations: [{ type: "ownedBy", targetRef: "component:svc-tgt" }] }),
+        makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined,  }, relations: [{ type: "ownerOf", targetRef: "component:svc-tgt" }] }),
         makeEntity({ kind: "Component", name: "svc-tgt", spec: { owner: undefined } }),
       ];
       const result = validateEaRelations(entities, registry);
       const warns = result.warnings.filter((e) => e.rule === "ea:relation:unknown-type");
       expect(warns).toHaveLength(1);
       expect(warns[0].message).toContain("virtual inverse");
-      expect(warns[0].message).toContain('"owns"');
+      expect(warns[0].message).toContain('"ownedBy"');
     });
 
     it("gives generic message for truly unknown types, not inverse hint", () => {
@@ -642,7 +642,7 @@ describe("validateEaRelations", () => {
       expect(result.errors.filter((e) => e.rule === "ea:relation:invalid-source")).toHaveLength(0);
     });
 
-    it("does not treat spec.owner as a forward owns relation", () => {
+    it("treats spec.owner as canonical ownedBy relation", () => {
       const entities = [
         makeEntity({ kind: "Component", name: "app-src", spec: { type: "service", lifecycle: "production", owner: "group:default/test-team" } }),
         makeEntity({

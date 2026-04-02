@@ -10,7 +10,7 @@ export function makeEntity(
   return legacyFixtureToEntity({
     title: overrides.title ?? overrides.id,
     summary: "A well-described artifact for testing purposes.",
-    owners: ["team-test"],
+    owners: [],
     tags: [],
     confidence: "declared",
     status: "active",
