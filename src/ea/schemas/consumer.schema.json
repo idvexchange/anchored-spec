@@ -13,7 +13,7 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "minItems": 1,
-      "description": "Artifact IDs of consumed API/event contracts"
+      "description": "Entity IDs of consumed API/event contracts"
     },
     "consumerType": {
       "type": "string",

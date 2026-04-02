@@ -2,7 +2,7 @@
  * Anchored Spec — EA Anchors Resolver
  *
  * Scans source files for exported symbols, routes, error codes, and other
- * code-level references that correspond to EA artifact `anchors`. This is the
+ * code-level references that correspond to EA entity `anchors`. This is the
  * EA-native replacement for the core drift scanner (src/core/drift.ts).
  *
  * Used by `ea drift` to detect stale or missing anchors.
@@ -224,14 +224,14 @@ function resolveAnchor(index: FileEntry[], anchorType: string, value: string): s
 // ─── EA Resolver Interface ──────────────────────────────────────────────────────
 
 /**
- * EA Anchors Resolver — resolves EA artifact anchors against source code.
+ * EA Anchors Resolver — resolves EA entity anchors against source code.
  *
- * For each artifact with `anchors`, scans source files for matching symbols,
+ * For each entity with `anchors`, scans source files for matching symbols,
  * routes, events, schemas, etc. Reports findings as ObservedEntity entries.
  */
 export class AnchorsResolver implements EaResolver {
   readonly name = "anchors";
-  readonly description = "Resolves EA artifact anchors against source code";
+  readonly description = "Resolves EA entity anchors against source code";
 
   private sourceRoots: string[];
   private sourceGlobs: string[];
@@ -245,8 +245,8 @@ export class AnchorsResolver implements EaResolver {
     const observedEntities: ObservedEntity[] = [];
     const entities = ctx.entities ?? [];
 
-    for (const artifact of entities) {
-      const entityAnchors = getEntityAnchors(artifact);
+    for (const entity of entities) {
+      const entityAnchors = getEntityAnchors(entity);
       if (!entityAnchors) continue;
 
       const anchorsMap: Record<string, string[]> = {};
@@ -266,8 +266,8 @@ export class AnchorsResolver implements EaResolver {
       );
 
       // Report each anchor as an observed entity
-      const entityId = getEntityId(artifact);
-      const schema = getEntitySchema(artifact);
+      const entityId = getEntityId(entity);
+      const schema = getEntitySchema(entity);
       for (const match of result.matches) {
         observedEntities.push({
           externalId: `${entityId}:anchor:${match.anchorType}:${match.anchorValue}`,

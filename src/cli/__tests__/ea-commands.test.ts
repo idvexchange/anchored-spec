@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { cleanupTestWorkspace, cliOutput, createTestWorkspace, makeArtifact, readJsonFile, readTextFile, runCli, writeManifestProject, } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, cliOutput, createTestWorkspace, makeEntity, readJsonFile, readTextFile, runCli, writeManifestProject, } from "../../test-helpers/workspace.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
     const dir = createTestWorkspace(prefix);
@@ -15,7 +15,7 @@ afterEach(() => {
     }
 });
 describe("CLI v2 commands", () => {
-    it("shows top-level entity-native commands and omits the legacy ea alias group", () => {
+    it("shows top-level entity-native commands and omits removed alias groups", () => {
         const result = runCli(["--help"], process.cwd());
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain("init");
@@ -88,7 +88,7 @@ describe("CLI v2 commands", () => {
     it("treats removal of an active entity as breaking in diff --compat", () => {
         const dir = makeWorkspace("cli-diff-compat");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service", status: "active" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service", status: "active" }),
         ]);
         expect(spawnSync("git", ["init"], { cwd: dir, encoding: "utf-8" }).status).toBe(0);
         expect(spawnSync("git", ["config", "user.name", "Test User"], { cwd: dir, encoding: "utf-8" }).status).toBe(0);
@@ -114,7 +114,7 @@ describe("CLI v2 commands", () => {
                 entityRef: "component:default/auth",
                 level: "breaking",
                 reasons: expect.arrayContaining([
-                    expect.objectContaining({ rule: "compat:artifact-removed" }),
+                    expect.objectContaining({ rule: "compat:entity-removed" }),
                 ])
             }),
         ]));

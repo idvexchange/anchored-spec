@@ -25,7 +25,7 @@ describe("Phase 2A: New Relations", () => {
             expect(entry!.validTargetSchemas).toContain("system-interface");
         });
         it("validates successfully for valid source/target", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:order-service",
                     kind: "Component",
@@ -39,12 +39,12 @@ describe("Phase 2A: New Relations", () => {
                     ownership: "external"
                 } as any),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
         it("rejects invalid source kind", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:dev",
                     kind: "Resource",
@@ -60,7 +60,7 @@ describe("Phase 2A: New Relations", () => {
                     ownership: "external"
                 } as any),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const sourceError = result.errors.find((e) => e.rule === "ea:relation:invalid-source");
             expect(sourceError).toBeDefined();
         });
@@ -76,7 +76,7 @@ describe("Phase 2A: New Relations", () => {
             expect(entry!.validTargetSchemas).toContain("platform");
         });
         it("validates successfully for valid source/target", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:nodejs",
                     kind: "Technology",
@@ -86,7 +86,7 @@ describe("Phase 2A: New Relations", () => {
                 } as any),
                 makeEntity({ ref: "component:order-service", kind: "Component", type: "website" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -104,7 +104,7 @@ describe("Phase 2A: New Relations", () => {
             expect(entry!.validTargetSchemas).toContain("platform");
         });
         it("validates successfully for valid source/target", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:rds-orders",
                     kind: "Resource",
@@ -120,7 +120,7 @@ describe("Phase 2A: New Relations", () => {
                     platformType: "kubernetes"
                 } as any),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -129,7 +129,7 @@ describe("Phase 2A: New Relations", () => {
 describe("Phase 2A: Extended Relations", () => {
     const registry = createDefaultRegistry();
     it("consumes now accepts system-interface as target", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:frontend",
                 kind: "Component",
@@ -143,12 +143,12 @@ describe("Phase 2A: Extended Relations", () => {
                 ownership: "external"
             } as any),
         ];
-        const result = validateEaRelations(artifacts, registry);
+        const result = validateEaRelations(entities, registry);
         const targetError = result.errors.find((e) => e.rule === "ea:relation:invalid-target");
         expect(targetError).toBeUndefined();
     });
     it("boundedBy now accepts cloud-resource as source", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "resource:rds-main",
                 kind: "Resource",
@@ -159,12 +159,12 @@ describe("Phase 2A: Extended Relations", () => {
             } as any),
             makeEntity({ ref: "resource:private", kind: "Resource", type: "network-zone" }),
         ];
-        const result = validateEaRelations(artifacts, registry);
+        const result = validateEaRelations(entities, registry);
         const sourceError = result.errors.find((e) => e.rule === "ea:relation:invalid-source");
         expect(sourceError).toBeUndefined();
     });
     it("boundedBy now accepts environment as source", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "resource:staging",
                 kind: "Resource",
@@ -175,7 +175,7 @@ describe("Phase 2A: Extended Relations", () => {
             } as any),
             makeEntity({ ref: "resource:dmz", kind: "Resource", type: "network-zone" }),
         ];
-        const result = validateEaRelations(artifacts, registry);
+        const result = validateEaRelations(entities, registry);
         const sourceError = result.errors.find((e) => e.rule === "ea:relation:invalid-source");
         expect(sourceError).toBeUndefined();
     });
@@ -184,7 +184,7 @@ describe("Phase 2A: Extended Relations", () => {
 describe("Phase 2A: Quality Rules", () => {
     describe("ea:quality:system-interface-missing-direction", () => {
         it("fires when system-interface has no direction", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "systeminterface:missing-dir",
                     kind: "SystemInterface",
@@ -192,12 +192,12 @@ describe("Phase 2A: Quality Rules", () => {
                     ownership: "owned"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const err = result.errors.find((e) => e.rule === "ea:quality:system-interface-missing-direction");
             expect(err).toBeDefined();
         });
         it("does not fire when direction is present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "systeminterface:has-dir",
                     kind: "SystemInterface",
@@ -205,14 +205,14 @@ describe("Phase 2A: Quality Rules", () => {
                     ownership: "owned"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const err = result.errors.find((e) => e.rule === "ea:quality:system-interface-missing-direction");
             expect(err).toBeUndefined();
         });
     });
     describe("ea:quality:consumer-missing-contract", () => {
         it("fires when consumer has empty consumesContracts", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:orphan",
                     kind: "Component",
@@ -221,12 +221,12 @@ describe("Phase 2A: Quality Rules", () => {
                     consumerType: "internal"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:consumer-missing-contract");
             expect(warn).toBeDefined();
         });
         it("does not fire when consumesContracts has entries", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:linked",
                     kind: "Component",
@@ -235,14 +235,14 @@ describe("Phase 2A: Quality Rules", () => {
                     consumerType: "external"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:consumer-missing-contract");
             expect(warn).toBeUndefined();
         });
     });
     describe("ea:quality:cloud-resource-missing-provider", () => {
         it("fires when cloud-resource has no provider", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:no-provider",
                     kind: "Resource",
@@ -250,12 +250,12 @@ describe("Phase 2A: Quality Rules", () => {
                     resourceType: "rds"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const err = result.errors.find((e) => e.rule === "ea:quality:cloud-resource-missing-provider");
             expect(err).toBeDefined();
         });
         it("does not fire when provider is present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:with-provider",
                     kind: "Resource",
@@ -264,14 +264,14 @@ describe("Phase 2A: Quality Rules", () => {
                     resourceType: "rds"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const err = result.errors.find((e) => e.rule === "ea:quality:cloud-resource-missing-provider");
             expect(err).toBeUndefined();
         });
     });
     describe("ea:quality:environment-production-not-restricted", () => {
         it("fires when production environment has non-restricted access", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:prod",
                     kind: "Resource",
@@ -281,12 +281,12 @@ describe("Phase 2A: Quality Rules", () => {
                     accessLevel: "team"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:environment-production-not-restricted");
             expect(warn).toBeDefined();
         });
         it("does not fire when production has restricted access", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:prod-restricted",
                     kind: "Resource",
@@ -296,12 +296,12 @@ describe("Phase 2A: Quality Rules", () => {
                     accessLevel: "restricted"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:environment-production-not-restricted");
             expect(warn).toBeUndefined();
         });
         it("does not fire when accessLevel is not specified", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:prod-default",
                     kind: "Resource",
@@ -310,14 +310,14 @@ describe("Phase 2A: Quality Rules", () => {
                     isProduction: true
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:environment-production-not-restricted");
             expect(warn).toBeUndefined();
         });
     });
     describe("ea:quality:technology-standard-expired-review", () => {
         it("fires when active standard has passed review date", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:old-standard",
                     kind: "Technology",
@@ -327,12 +327,12 @@ describe("Phase 2A: Quality Rules", () => {
                     reviewBy: "2020-01-01"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:technology-standard-expired-review");
             expect(warn).toBeDefined();
         });
         it("does not fire for future review date", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:current",
                     kind: "Technology",
@@ -342,12 +342,12 @@ describe("Phase 2A: Quality Rules", () => {
                     reviewBy: "2099-01-01"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:technology-standard-expired-review");
             expect(warn).toBeUndefined();
         });
         it("does not fire for draft/retired standards", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:retired",
                     kind: "Technology",
@@ -357,7 +357,7 @@ describe("Phase 2A: Quality Rules", () => {
                     reviewBy: "2020-01-01"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:technology-standard-expired-review");
             expect(warn).toBeUndefined();
         });
@@ -367,7 +367,7 @@ describe("Phase 2A: Quality Rules", () => {
 describe("Phase 2A: Drift Rules", () => {
     describe("ea:systems/consumer-contract-version-mismatch", () => {
         it("fires when consumer contractVersion differs from contract schemaVersion", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:portal",
                     kind: "Component",
@@ -383,14 +383,14 @@ describe("Phase 2A: Drift Rules", () => {
                     schemaVersion: "2.0.0"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/consumer-contract-version-mismatch");
             expect(warn).toBeDefined();
             expect(warn!.message).toContain("1.0.0");
             expect(warn!.message).toContain("2.0.0");
         });
         it("does not fire when versions match", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:portal",
                     kind: "Component",
@@ -406,12 +406,12 @@ describe("Phase 2A: Drift Rules", () => {
                     schemaVersion: "1.0.0"
                 }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/consumer-contract-version-mismatch");
             expect(warn).toBeUndefined();
         });
         it("does not fire when consumer has no contractVersion", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:no-version",
                     kind: "Component",
@@ -426,14 +426,14 @@ describe("Phase 2A: Drift Rules", () => {
                     schemaVersion: "2.0.0"
                 }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/consumer-contract-version-mismatch");
             expect(warn).toBeUndefined();
         });
     });
     describe("ea:systems/technology-standard-violation", () => {
         it("fires when cloud resource uses unapproved technology", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:postgres",
                     kind: "Technology",
@@ -450,13 +450,13 @@ describe("Phase 2A: Drift Rules", () => {
                     technology: { engine: "MySQL", version: "8.0" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const err = result.errors.find((e) => e.rule === "ea:systems/technology-standard-violation");
             expect(err).toBeDefined();
             expect(err!.message).toContain("MySQL");
         });
         it("does not fire when cloud resource matches standard", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:postgres",
                     kind: "Technology",
@@ -473,12 +473,12 @@ describe("Phase 2A: Drift Rules", () => {
                     technology: { engine: "postgresql", version: "15" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const err = result.errors.find((e) => e.rule === "ea:systems/technology-standard-violation");
             expect(err).toBeUndefined();
         });
         it("does not fire when no standards are active", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:retired-pg",
                     kind: "Technology",
@@ -495,14 +495,14 @@ describe("Phase 2A: Drift Rules", () => {
                     technology: { engine: "MySQL", version: "8.0" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const err = result.errors.find((e) => e.rule === "ea:systems/technology-standard-violation");
             expect(err).toBeUndefined();
         });
     });
     describe("ea:systems/deprecated-version-in-use", () => {
         it("fires when cloud resource uses deprecated version", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:postgres",
                     kind: "Technology",
@@ -521,13 +521,13 @@ describe("Phase 2A: Drift Rules", () => {
                     technology: { engine: "PostgreSQL", version: "12" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/deprecated-version-in-use");
             expect(warn).toBeDefined();
             expect(warn!.message).toContain("12");
         });
         it("does not fire for approved version", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "technology:postgres",
                     kind: "Technology",
@@ -546,14 +546,14 @@ describe("Phase 2A: Drift Rules", () => {
                     technology: { engine: "PostgreSQL", version: "16" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/deprecated-version-in-use");
             expect(warn).toBeUndefined();
         });
     });
     describe("ea:systems/environment-promotion-gap", () => {
         it("fires when promotesFrom references non-existent environment", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:staging",
                     kind: "Resource",
@@ -563,13 +563,13 @@ describe("Phase 2A: Drift Rules", () => {
                     promotesFrom: "resource:dev"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/environment-promotion-gap");
             expect(warn).toBeDefined();
             expect(warn!.message).toContain("resource:default/dev");
         });
         it("fires when promotesTo references non-existent environment", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:staging",
                     kind: "Resource",
@@ -579,13 +579,13 @@ describe("Phase 2A: Drift Rules", () => {
                     promotesTo: "resource:production"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/environment-promotion-gap");
             expect(warn).toBeDefined();
             expect(warn!.message).toContain("resource:default/production");
         });
         it("does not fire when promotion chain is complete", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:dev",
                     kind: "Resource",
@@ -612,7 +612,7 @@ describe("Phase 2A: Drift Rules", () => {
                     promotesFrom: "resource:staging"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:systems/environment-promotion-gap");
             expect(warn).toBeUndefined();
         });

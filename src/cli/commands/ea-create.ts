@@ -45,7 +45,7 @@ export function eaCreateCommand(): Command {
         throw new CliError("Missing required option: --title. Use --interactive for a wizard.", 2);
       }
 
-      await createArtifact(options.title, options);
+      await createEntityDescriptor(options.title, options);
     });
 }
 
@@ -61,7 +61,7 @@ interface CreateOptions {
   relations?: Array<{ target: string; type: string }>;
 }
 
-async function createArtifact(title: string, options: CreateOptions): Promise<void> {
+async function createEntityDescriptor(title: string, options: CreateOptions): Promise<void> {
   const cwd = process.cwd();
   const rootDir = options.rootDir ?? "docs";
   const config = loadProjectConfig(cwd, rootDir);

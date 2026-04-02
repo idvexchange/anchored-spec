@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export function eaInitCommand(): Command {
   return new Command("init")
     .description("Initialize EA directory structure and v1.0 configuration")
-    .option("--root-dir <path>", "Root directory for EA artifacts", "docs")
+    .option("--root-dir <path>", "Root directory for EA entities", "docs")
     .option("--mode <mode>", "Storage mode for backstage format: manifest (default), inline", "manifest")
     .option("--with-examples", "Create starter Backstage entities")
     .option("--with-policy", "Create a starter workflow policy file")
@@ -284,25 +284,25 @@ workflowVariants:
   - id: feature-behavior-first
     name: "Feature (Behavior First)"
     defaultTypes: [feature]
-    artifacts: [requirements, design-doc, implementation-plan]
+    requiredSchemas: [requirements, design-doc, implementation-plan]
     verificationFocus: [behavioral-coverage, semantic-drift]
 
   - id: fix-root-cause-first
     name: "Fix (Root Cause First)"
     defaultTypes: [fix]
-    artifacts: [bugfix-spec, design-doc]
+    requiredSchemas: [bugfix-spec, design-doc]
     verificationFocus: [regression-testing, root-cause-verification]
 
   - id: chore
     name: "Chore (Lightweight)"
     defaultTypes: [chore]
-    artifacts: []
+    requiredSchemas: []
     skipSkillSequence: true
     verificationFocus: [build-passes]
 
 changeRequiredRules:
   - id: source-change
-    description: "Source code changes require a change artifact"
+    description: "Source code changes require a change entity"
     include: ["src/**"]
     exclude: ["src/**/*.test.*", "src/**/*.spec.*"]
 

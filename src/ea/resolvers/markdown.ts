@@ -120,9 +120,9 @@ function findMarkdownFiles(projectRoot: string, source?: string): string[] {
   return mdFiles;
 }
 
-// ─── Fact → Artifact Draft Conversion ─────────────────────────────────
+// ─── Fact → Entity Draft Conversion ─────────────────────────────────
 
-/** Slugify a string for use as an artifact ID segment. */
+/** Slugify a string for use as an entity ID segment. */
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -136,7 +136,7 @@ function slugify(value: string): string {
  * Convert extracted facts from manifests into EA entity drafts.
  * Maps event, endpoint, and entity facts to their corresponding schema profiles.
  */
-function factsToArtifactDrafts(manifests: FactManifest[]): EntityDraft[] {
+function factsToEntityDrafts(manifests: FactManifest[]): EntityDraft[] {
   const drafts: EntityDraft[] = [];
   const now = new Date().toISOString();
   const seen = new Set<string>();
@@ -326,6 +326,6 @@ export class MarkdownResolver implements EaResolver {
 
     if (totalFacts === 0) return null;
 
-    return factsToArtifactDrafts(manifests);
+    return factsToEntityDrafts(manifests);
   }
 }

@@ -23,7 +23,7 @@ export const EA_DOMAINS: readonly EaDomain[] = [
   "transitions",
 ] as const;
 
-export type ArtifactStatus =
+export type EntityStatus =
   | "draft"
   | "planned"
   | "active"
@@ -32,7 +32,7 @@ export type ArtifactStatus =
   | "retired"
   | "deferred";
 
-export type ArtifactConfidence = "declared" | "observed" | "inferred";
+export type EntityConfidence = "declared" | "observed" | "inferred";
 
 export interface EaAnchors {
   symbols?: string[];

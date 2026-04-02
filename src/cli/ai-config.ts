@@ -256,7 +256,7 @@ This project uses anchored-spec for enterprise architecture governance.
 - Maintain a living architecture model as code
 - Validate specs against 55 JSON schemas
 - Detect drift between declared and observed state
-- Track artifact lifecycle from draft to retired
+- Track entity lifecycle from draft to retired
 
 ## Workflows
 - Spec-first: write the spec before the code
@@ -269,21 +269,21 @@ This project uses anchored-spec for enterprise architecture governance.
 
 ## Stack
 - **Framework**: anchored-spec (npm package)
-- **Artifact format**: YAML and JSON with JSON Schema validation
+- **Entity format**: YAML and JSON with JSON Schema validation
 - **CLI**: \`npx anchored-spec <command>\`
 - **6 resolvers**: OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter
 - **42 drift rules** across 7 domains
 
 ## Conventions
-- Artifact IDs: \`{PREFIX}-{slug}\` (e.g., APP-todo-web)
+- Entity IDs: \`{PREFIX}-{slug}\` (e.g., APP-todo-web)
 - File naming: \`{PREFIX}-{slug}.yaml\` in domain directories
-- Relations: typed edges between artifacts (27 relation types)
+- Relations: typed edges between entities (27 relation types)
 - Confidence levels: declared > observed > inferred
 `;
 
   const structure = `# Project Structure
 
-## EA Artifact Directories
+## EA Entity Directories
 ${domainList(domains, "- ")}
 
 ## Configuration
@@ -293,7 +293,7 @@ ${domainList(domains, "- ")}
 - \`SKILL.md\` — AI agent instruction set (READ THIS for workflows)
 - \`${rootDir}/workflow-policy.yaml\` — Workflow policy rules (if exists)
 
-## Artifact Naming
+## Entity Naming
 Each schema profile has a unique prefix:
 - Systems: APP, SVC, API, EVT, INT, SIF, CON
 - Delivery: PLAT, DEPLOY, CLUSTER, ZONE, IDB, CLOUD, ENV, TECH
@@ -471,11 +471,11 @@ npx anchored-spec discover --from-docs --dry-run
 \`\`\`
 
 Review the output. It shows:
-- **New artifacts**: IDs from frontmatter that don't match existing artifacts
+- **New entities**: IDs from frontmatter that don't match existing entities
 - **Already exists**: IDs that are already modeled (skipped)
 - **Unknown prefix**: IDs whose prefix doesn't match any EA kind
 
-### 2. Create the draft artifacts
+### 2. Create the draft entities
 
 If the preview looks correct:
 
@@ -485,7 +485,7 @@ npx anchored-spec discover --from-docs
 
 ### 3. Enrich the drafts
 
-For each newly created draft artifact in \`${rootDir}/\`:
+For each newly created draft entity in \`${rootDir}/\`:
 1. Read the draft (it will have \`status: "draft"\` and \`confidence: "inferred"\`)
 2. Read the source spec document (listed in the draft's \`anchors.docs\`)
 3. Fill in schema-specific fields based on the spec content:
@@ -511,7 +511,7 @@ npx anchored-spec trace --check
 
 ## Rules
 
-- **Never overwrite existing artifacts** — the discovery pipeline prevents this
+- **Never overwrite existing entities** — the discovery pipeline prevents this
 - **Draft entities need human review** — always enrich with schema-specific fields
 - **Run link-docs after scaffolding** — this establishes bidirectional traces
 - **Validate after every change** — catch schema errors early
@@ -597,10 +597,10 @@ npx anchored-spec context $ARGUMENTS
 \`\`\`
 
 This outputs:
-- The artifact's full specification
+- The entity's full specification
 - All traced documents (sorted by role: specification > rationale > context)
 - Transitive document dependencies (from \`requires\` frontmatter)
-- Related artifacts (from \`relations[]\`)
+- Related entities (from \`relations[]\`)
 
 ### 2. For token-limited contexts
 
@@ -621,7 +621,7 @@ Organize the output into these context blocks for the implementing agent:
 
 | Block | Source | Purpose |
 |---|---|---|
-| **Feature intent** | Artifact summary + spec docs | What we're building |
+| **Feature intent** | Entity summary + spec docs | What we're building |
 | **Architecture** | Relations + graph | How components connect |
 | **Standards** | Compliance fields + tech standards | What rules apply |
 | **Guardrails** | Version policies + drift findings | What constraints exist |
@@ -697,7 +697,7 @@ export function writeAiConfigFiles(
     const hooks = generateKiroHooks(config);
     const hooksDir = join(".kiro", "hooks");
     filesToWrite.push(
-      { rel: join(hooksDir, "validate-artifact.yml"), content: hooks.validateOnSave },
+      { rel: join(hooksDir, "validate-entity.yml"), content: hooks.validateOnSave },
       { rel: join(hooksDir, "trace-integrity.yml"), content: hooks.traceOnSave },
       { rel: join(hooksDir, "drift-detection.yml"), content: hooks.driftOnSave },
     );

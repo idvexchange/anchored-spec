@@ -69,7 +69,7 @@ describe("docs-oriented CLI commands", () => {
     ).toBe(true);
   });
 
-  it("suggests @anchored-spec annotations without relying on legacy command aliases", () => {
+  it("suggests @anchored-spec annotations without relying on removed command aliases", () => {
     writeTextFile(
       workspace,
       "docs/orders.md",

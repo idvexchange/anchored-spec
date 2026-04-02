@@ -6,7 +6,7 @@ audience:
   - architect
 domain:
   - systems
-ea-artifacts:
+ea-entities:
   - component:backstage-entity-mapping
   - capability:manifest-authoring
 ---

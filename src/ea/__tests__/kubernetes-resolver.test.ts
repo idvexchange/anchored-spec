@@ -197,7 +197,7 @@ describe("KubernetesResolver.resolveAnchors", () => {
     resolver = new KubernetesResolver();
   });
 
-  it("should return null when artifact has no infra anchors", () => {
+  it("should return null when entity has no infra anchors", () => {
     const entity = makeEntity({ anchors: {} });
     expect(resolver.resolveAnchors(entity, makeCtx())).toBeNull();
   });

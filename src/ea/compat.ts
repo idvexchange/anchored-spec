@@ -67,38 +67,38 @@ interface RuleContext {
 }
 
 /**
- * Statuses considered "live" — removal of artifacts in these states is breaking.
+ * Statuses considered "live" — removal of entities in these states is breaking.
  */
 const LIVE_STATUSES = new Set(["active", "shipped", "planned"]);
 
 const COMPAT_RULES: CompatibilityRule[] = [
-  // Artifact-level rules
+  // Entity-level rules
   {
-    id: "compat:artifact-removed",
+    id: "compat:entity-removed",
     evaluate(diff, ctx) {
       if (diff.changeType !== "removed") return [];
       const status = ctx.baseEntity ? getEntityStatus(ctx.baseEntity) : "unknown";
       if (LIVE_STATUSES.has(status)) {
         return [{
-          rule: "compat:artifact-removed",
+          rule: "compat:entity-removed",
           level: "breaking",
-          field: "(artifact)",
-          message: `Artifact ${diff.entityRef} removed while in ${status} state`,
+          field: "(entity)",
+          message: `Entity ${diff.entityRef} removed while in ${status} state`,
         }];
       }
       return [];
     },
   },
   {
-    id: "compat:artifact-removed-deprecated",
+    id: "compat:entity-removed-deprecated",
     evaluate(diff, ctx) {
       if (diff.changeType !== "removed") return [];
       if (ctx.baseEntity && getEntityStatus(ctx.baseEntity) === "deprecated") {
         return [{
-          rule: "compat:artifact-removed-deprecated",
+          rule: "compat:entity-removed-deprecated",
           level: "compatible",
-          field: "(artifact)",
-          message: `Deprecated artifact ${diff.entityRef} removed`,
+          field: "(entity)",
+          message: `Deprecated entity ${diff.entityRef} removed`,
         }];
       }
       return [];
@@ -335,13 +335,13 @@ export function assessCompatibility(
       reasons.push(...rule.evaluate(diff, ctx));
     }
 
-    // For added artifacts with no specific reasons, classify as additive
+    // For added entities with no specific reasons, classify as additive
     if (diff.changeType === "added" && reasons.length === 0) {
       reasons.push({
-        rule: "compat:artifact-added",
+        rule: "compat:entity-added",
         level: "additive",
-        field: "(artifact)",
-        message: `New artifact ${diff.entityRef} added`,
+        field: "(entity)",
+        message: `New entity ${diff.entityRef} added`,
       });
     }
 
@@ -420,7 +420,7 @@ export function renderCompatMarkdown(report: CompatibilityReport): string {
 
     lines.push(`### ${section.icon} ${section.title} (${items.length})`);
     lines.push("");
-    lines.push("| Artifact | Kind | Schema | Rule | Reason |");
+    lines.push("| Entity | Kind | Schema | Rule | Reason |");
     lines.push("|----------|------|--------|------|--------|");
     for (const item of items) {
       for (const reason of item.reasons.filter((r) => r.level === section.level)) {

@@ -6,7 +6,7 @@ audience:
   - contributor
 domain:
   - delivery
-ea-artifacts:
+ea-entities:
   - system:anchored-spec-framework
   - api:cli-command-surface
   - api:node-library-api

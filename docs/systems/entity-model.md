@@ -8,7 +8,7 @@ audience:
 domain:
   - systems
   - information
-ea-artifacts:
+ea-entities:
   - component:entity-loading-and-modeling
   - component:backstage-entity-mapping
   - capability:manifest-authoring

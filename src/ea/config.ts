@@ -32,13 +32,13 @@ export interface EaGeneratorConfig {
 
 /** Quality rules configuration for EA validation. */
 export interface EaQualityConfig {
-  /** Active artifacts must have at least one owner. Default: true. */
+  /** Active entities must have at least one owner. Default: true. */
   requireOwners: boolean;
-  /** Active artifacts must have a non-empty summary. Default: true. */
+  /** Active entities must have a non-empty summary. Default: true. */
   requireSummary: boolean;
-  /** Active artifacts should have at least one relation. Default: false. */
+  /** Active entities should have at least one relation. Default: false. */
   requireRelations: boolean;
-  /** Active system/delivery artifacts should have anchors. Default: false. */
+  /** Active system/delivery entities should have anchors. Default: false. */
   requireAnchors: boolean;
   /** Treat warnings as errors. Default: false. */
   strictMode: boolean;
@@ -71,7 +71,7 @@ export interface EaHookDefinition {
 export interface EaTestMetadataConfig {
   /** Glob patterns for test files. */
   testGlobs?: string[];
-  /** Regex pattern(s) to extract artifact IDs from test files. */
+  /** Regex pattern(s) to extract entity IDs from test files. */
   requirementPattern?: string | string[];
 }
 
@@ -82,7 +82,7 @@ export interface AnchoredSpecConfigV1 {
   /** Config format version. Must be "1.0". */
   schemaVersion: "1.0";
 
-  /** Root directory for EA artifacts. Default: "docs". */
+  /** Root directory for EA entities. Default: "docs". */
   rootDir: string;
 
   /** Directory for generated output files. Default: "ea/generated". */

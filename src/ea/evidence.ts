@@ -2,7 +2,7 @@
  * Anchored Spec — EA Evidence Pipeline Extension
  *
  * Extends the core evidence pipeline with EA-specific evidence kinds,
- * artifact references, and freshness validation.
+ * entity references, and freshness validation.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -37,9 +37,9 @@ export const EA_EVIDENCE_KINDS: readonly EaEvidenceKind[] = [
   "performance",
 ] as const;
 
-/** An evidence record linked to an EA artifact. */
+/** An evidence record linked to an EA entity. */
 export interface EaEvidenceRecord {
-  /** EA artifact ID this evidence supports. */
+  /** EA entity ID this evidence supports. */
   entityRef: string;
   /** Evidence kind. */
   kind: EaEvidenceKind;
@@ -152,9 +152,9 @@ export interface EaEvidenceValidationError {
  * Validate EA evidence for freshness and coverage.
  *
  * Checks:
- * 1. All evidence records reference existing artifacts
+ * 1. All evidence records reference existing entities
  * 2. Evidence freshness (records older than freshnessWindowDays are stale)
- * 3. Artifacts with `producesEvidence` field have matching evidence
+ * 3. Entities with `producesEvidence` field have matching evidence
  */
 export function validateEaEvidence(
   evidence: EaEvidence,
@@ -173,13 +173,13 @@ export function validateEaEvidence(
       normalizeKnownEntityRef(record.entityRef, { defaultNamespace: "default" }) ??
       record.entityRef;
 
-    // Artifact reference exists
+    // Entity reference exists
     if (!entityIds.has(entityRef)) {
       issues.push({
         path: record.entityRef,
-        message: `Evidence references artifact "${record.entityRef}" which does not exist`,
+        message: `Evidence references entity "${record.entityRef}" which does not exist`,
         severity: "warning",
-        rule: "ea:evidence/artifact-exists",
+        rule: "ea:evidence/entity-exists",
       });
     }
 
@@ -215,24 +215,24 @@ export function validateEaEvidence(
     }
   }
 
-  // Check artifacts that produce evidence but have no records
-  const evidenceByArtifact = new Map<string, EaEvidenceRecord[]>();
+  // Check entities that produce evidence but have no records
+  const evidenceByEntity = new Map<string, EaEvidenceRecord[]>();
   for (const r of evidence.records) {
     const entityRef =
       normalizeKnownEntityRef(r.entityRef, { defaultNamespace: "default" }) ??
       r.entityRef;
-    const list = evidenceByArtifact.get(entityRef) ?? [];
+    const list = evidenceByEntity.get(entityRef) ?? [];
     list.push(r);
-    evidenceByArtifact.set(entityRef, list);
+    evidenceByEntity.set(entityRef, list);
   }
 
   for (const entity of entities) {
     const entityId = getEntityId(entity);
     const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
-    if (producesEvidence && !evidenceByArtifact.has(entityId)) {
+    if (producesEvidence && !evidenceByEntity.has(entityId)) {
       issues.push({
         path: entityId,
-        message: `Artifact "${entityId}" declares producesEvidence but has no evidence records`,
+        message: `Entity "${entityId}" declares producesEvidence but has no evidence records`,
         severity: "warning",
         rule: "ea:evidence/coverage",
       });
@@ -283,7 +283,7 @@ export function summarizeEaEvidence(
     }
   }
 
-  // Count artifacts that declare evidence expectations
+  // Count entities that declare evidence expectations
   const entitiesWithEvidence = entities.filter((entity) => {
     const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
     return Array.isArray(producesEvidence) && producesEvidence.length > 0;

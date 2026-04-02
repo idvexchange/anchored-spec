@@ -26,7 +26,7 @@
       "enum": ["continuous", "hourly", "daily", "weekly", "monthly", "on-demand", "event-triggered"],
       "description": "Execution frequency"
     },
-    "producesEvidence": { "type": "string", "description": "Evidence artifact reference" },
+    "producesEvidence": { "type": "string", "description": "Evidence entity reference" },
     "onViolation": {
       "type": "object",
       "required": ["action"],

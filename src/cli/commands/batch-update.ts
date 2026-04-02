@@ -1,7 +1,7 @@
 /**
  * anchored-spec batch-update
  *
- * Apply field changes to multiple artifacts matching a filter.
+ * Apply field changes to multiple entities matching a filter.
  * Enables bulk operations like promoting confidence from observed to declared.
  */
 

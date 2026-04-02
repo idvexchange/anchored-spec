@@ -1,7 +1,7 @@
 swagger: "2.0"
 info:
-  title: Legacy Billing API
-  description: Legacy billing system (Swagger 2.0)
+  title: Brownfield Billing API
+  description: Brownfield billing system (Swagger 2.0)
   version: 1.5.0
 paths:
   /invoices:

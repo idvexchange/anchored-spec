@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json",
-  "title": "Anchored Spec — EA Artifact Base",
+  "title": "Anchored Spec — EA Entity Base",
   "description": "The unified base shape shared by all EA entities. Every schema profile extends this with additional schema-specific fields.",
   "type": "object",
   "required": [
@@ -22,12 +22,12 @@
     "id": {
       "type": "string",
       "minLength": 3,
-      "description": "Artifact identifier: {domain}/{KIND_PREFIX}-{slug} or {KIND_PREFIX}-{slug}"
+      "description": "Entity identifier: {domain}/{KIND_PREFIX}-{slug} or {KIND_PREFIX}-{slug}"
     },
     "schemaVersion": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "description": "Semantic version of this artifact's content schema (team-managed)"
+      "description": "Semantic version of this entity's content schema (team-managed)"
     },
     "kind": {
       "type": "string",
@@ -56,7 +56,7 @@
     "summary": {
       "type": "string",
       "minLength": 10,
-      "description": "Human-readable summary of what this artifact represents"
+      "description": "Human-readable summary of what this entity represents"
     },
     "owners": {
       "type": "array",
@@ -67,7 +67,7 @@
     "confidence": {
       "type": "string",
       "enum": ["declared", "observed", "inferred"],
-      "description": "How this artifact's information was established"
+      "description": "How this entity's information was established"
     },
     "tags": {
       "type": "array",
@@ -79,7 +79,7 @@
       "items": {
         "$ref": "https://anchored-spec.dev/schemas/ea/relation.schema.json"
       },
-      "description": "Typed directional relations to other artifacts"
+      "description": "Typed directional relations to other entities"
     },
     "anchors": {
       "$ref": "https://anchored-spec.dev/schemas/ea/anchors.schema.json",
@@ -93,7 +93,7 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "Path to external document, URL, or artifact ID"
+            "description": "Path to external document, URL, or entity ID"
           },
           "role": {
             "type": "string",
@@ -143,7 +143,7 @@
         "controls": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "References to control artifact IDs"
+          "description": "References to control entity IDs"
         },
         "lastAuditedAt": {
           "type": "string",

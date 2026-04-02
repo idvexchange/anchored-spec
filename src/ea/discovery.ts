@@ -14,7 +14,7 @@ import {
   ANNOTATION_KEYS,
   normalizeEntityRef,
   parseEntityRef,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
 } from "./backstage/index.js";
 import type { EntityDescriptor } from "./backstage/kind-mapping.js";
 import {
@@ -286,7 +286,7 @@ function draftToEntity(draft: EntityDraft): BackstageEntity | null {
   };
 
   for (const relation of draft.relations ?? []) {
-    const mapped = legacyRelationToSpecEntry(relation.type, toCanonicalTargetRef(relation.target));
+    const mapped = relationTypeToSpecEntry(relation.type, toCanonicalTargetRef(relation.target));
     if (!mapped) continue;
 
     if (mapped.specField === "owner") {

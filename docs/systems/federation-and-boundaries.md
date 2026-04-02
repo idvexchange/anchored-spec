@@ -7,7 +7,7 @@ audience:
 domain:
   - systems
   - business
-ea-artifacts:
+ea-entities:
   - system:anchored-spec-framework
   - resource:documentation-set
   - capability:manifest-authoring

@@ -10,15 +10,15 @@
  *   - isEaChoreEligible
  */
 import { describe, it, expect } from "vitest";
-import { isTrivialPath, matchRules, evaluateEaPolicy, checkEaPaths, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeArtifact, } from "../policy.js";
+import { isTrivialPath, matchRules, evaluateEaPolicy, checkEaPaths, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeEntity, } from "../policy.js";
 import type { EaWorkflowPolicy, EaChangeRequiredRule } from "../../ea/index.js";
 import { makeEntity } from "./helpers/make-entity.js";
 // ─── Fixtures ───────────────────────────────────────────────────────────────────
 function makePolicy(overrides?: Partial<EaWorkflowPolicy>): EaWorkflowPolicy {
     return {
         workflowVariants: [
-            { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: ["change"] },
-            { id: "chore", name: "Chore", defaultTypes: ["chore"], artifacts: [] }
+            { id: "feature", name: "Feature", defaultTypes: ["feature"], requiredSchemas: ["change"] },
+            { id: "chore", name: "Chore", defaultTypes: ["chore"], requiredSchemas: [] }
         ],
         changeRequiredRules: [
             { id: "src-rule", include: ["src/**"], exclude: ["src/**/*.test.*"] },
@@ -142,7 +142,7 @@ describe("checkEaPaths", () => {
         expect(result.valid).toBe(false);
         expect(result.uncoveredPaths).toContain("src/auth.ts");
     });
-    it("ignores non-active change artifacts", () => {
+    it("ignores non-active change entities", () => {
         const change = makeChangeEntity({
             ref: "chg-draft",
             status: "draft",
@@ -156,19 +156,19 @@ describe("checkEaPaths", () => {
         expect(result.valid).toBe(true);
     });
 });
-// ─── isPathCoveredByChangeArtifact ──────────────────────────────────────────────
-describe("isPathCoveredByChangeArtifact", () => {
+// ─── isPathCoveredByChangeEntity ──────────────────────────────────────────────
+describe("isPathCoveredByChangeEntity", () => {
     it("returns true when path matches scope include", () => {
-        const artifact = makeChangeEntity({ scope: { include: ["src/**"] } });
-        expect(isPathCoveredByChangeArtifact("src/app.ts", artifact)).toBe(true);
+        const entity = makeChangeEntity({ scope: { include: ["src/**"] } });
+        expect(isPathCoveredByChangeEntity("src/app.ts", entity)).toBe(true);
     });
     it("returns false when path matches scope exclude", () => {
-        const artifact = makeChangeEntity({ scope: { include: ["src/**"], exclude: ["src/test/**"] } });
-        expect(isPathCoveredByChangeArtifact("src/test/app.test.ts", artifact)).toBe(false);
+        const entity = makeChangeEntity({ scope: { include: ["src/**"], exclude: ["src/test/**"] } });
+        expect(isPathCoveredByChangeEntity("src/test/app.test.ts", entity)).toBe(false);
     });
-    it("returns false when artifact has no scope", () => {
-        const artifact = makeChangeEntity({});
-        expect(isPathCoveredByChangeArtifact("src/app.ts", artifact)).toBe(false);
+    it("returns false when entity has no scope", () => {
+        const entity = makeChangeEntity({});
+        expect(isPathCoveredByChangeEntity("src/app.ts", entity)).toBe(false);
     });
 });
 // ─── resolveEaWorkflowVariant ───────────────────────────────────────────────────

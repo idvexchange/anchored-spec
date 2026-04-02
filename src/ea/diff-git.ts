@@ -191,6 +191,3 @@ export function diffEaGitRefs(options: DiffGitOptions): EaGitDiffResult {
     headEntities,
   };
 }
-
-export const loadArtifactsFromGitRef = loadEntitiesFromGitRef;
-export const loadArtifactsFromWorkingTree = loadEntitiesFromWorkingTree;

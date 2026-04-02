@@ -101,11 +101,11 @@ export function eaSearchCommand(): Command {
       }
 
       if (results.length === 0) {
-        console.log(chalk.yellow(`No artifacts matching "${query}"`));
+        console.log(chalk.yellow(`No entities matching "${query}"`));
         return;
       }
 
-      console.log(chalk.blue(`Found ${results.length} artifact${results.length === 1 ? "" : "s"}:\n`));
+      console.log(chalk.blue(`Found ${results.length} entity${results.length === 1 ? "" : "s"}:\n`));
 
       for (const entity of results) {
         const kind = getEntityKind(entity);

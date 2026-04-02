@@ -9,7 +9,7 @@ export function makeEntity(
 ): BackstageEntity {
   return makeBackstageEntity({
     title: overrides.title ?? overrides.name ?? overrides.ref,
-    summary: "A well-described artifact for testing purposes.",
+    summary: "A well-described entity for testing purposes.",
     tags: [],
     confidence: "declared",
     status: "active",

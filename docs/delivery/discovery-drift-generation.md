@@ -8,7 +8,7 @@ audience:
 domain:
   - delivery
   - systems
-ea-artifacts:
+ea-entities:
   - component:discovery-and-resolvers
   - component:drift-and-reconcile
   - component:generator-pipeline

@@ -8,7 +8,7 @@ audience:
 domain:
   - information
   - delivery
-ea-artifacts:
+ea-entities:
   - component:docs-and-traceability
   - resource:documentation-set
   - capability:traceability
@@ -38,7 +38,7 @@ Architecture and guide documents should carry frontmatter that links them to ent
 type: architecture
 status: current
 audience: [architect, developer, agent]
-ea-artifacts:
+ea-entities:
   - component:docs-and-traceability
   - capability:traceability
 ---

@@ -9,8 +9,8 @@
   "required": ["baseline", "target", "milestones"],
   "properties": {
     "kind": { "const": "transition-plan" },
-    "baseline": { "type": "string", "description": "ID of the baseline artifact" },
-    "target": { "type": "string", "description": "ID of the target artifact" },
+    "baseline": { "type": "string", "description": "ID of the baseline entity" },
+    "target": { "type": "string", "description": "ID of the target entity" },
     "milestones": {
       "type": "array",
       "items": {
@@ -22,7 +22,7 @@
           "deliverables": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Artifact IDs delivered by this milestone"
+            "description": "Entity IDs delivered by this milestone"
           },
           "generates": {
             "type": "array",

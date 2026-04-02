@@ -8,7 +8,7 @@ audience:
 domain:
   - systems
   - delivery
-ea-artifacts:
+ea-entities:
   - domain:anchored-spec
   - system:anchored-spec-framework
   - component:cli-surface

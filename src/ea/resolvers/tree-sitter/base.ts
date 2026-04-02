@@ -298,9 +298,9 @@ export class TreeSitterDiscoveryResolver {
 
     if (allMatches.length === 0) return null;
 
-    // Aggregate matches into artifact drafts
+    // Aggregate matches into entity drafts
     const drafts = aggregateMatches(allMatches, ctx.entities);
-    ctx.logger.info(`Tree-sitter: aggregated into ${drafts.length} draft artifact(s)`);
+    ctx.logger.info(`Tree-sitter: aggregated into ${drafts.length} draft entity(s)`);
 
     return drafts.length > 0 ? drafts : null;
   }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { reconcileEaProject, renderReconcileOutput } from "../reconcile.js";
-import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, writeTextFile, writeManifestProject, } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, createTestWorkspace, makeEntity, writeTextFile, writeManifestProject, } from "../../test-helpers/workspace.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
     const dir = createTestWorkspace(prefix);
@@ -13,10 +13,10 @@ afterEach(() => {
     }
 });
 describe("reconcileEaProject", () => {
-    it("can validate a manifest project while skipping legacy generation expectations", async () => {
+    it("can validate a manifest project while skipping removed generation expectations", async () => {
         const dir = makeWorkspace("reconcile-validate");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         const report = await reconcileEaProject({
             projectRoot: dir,
@@ -30,7 +30,7 @@ describe("reconcileEaProject", () => {
     it("stops early when failFast is enabled and validation fails", async () => {
         const dir = makeWorkspace("reconcile-failfast");
         writeManifestProject(dir, [
-            makeArtifact({
+            makeEntity({
                 ref: "component:auth",
                 kind: "Component",
                 owner: "",
@@ -50,7 +50,7 @@ describe("reconcileEaProject", () => {
     it("includes the trace step for entity traceRefs and can skip it explicitly", async () => {
         const dir = makeWorkspace("reconcile-trace");
         writeManifestProject(dir, [
-            makeArtifact({
+            makeEntity({
                 ref: "component:auth",
                 kind: "Component",
                 type: "service",

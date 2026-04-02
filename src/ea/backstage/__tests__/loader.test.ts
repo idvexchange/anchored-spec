@@ -356,11 +356,11 @@ describe("loadBackstageEntities", () => {
   it("rejects unsupported entity modes", async () => {
     const config = {
       ...resolveConfigV1({}),
-      entityMode: "artifacts",
+      entityMode: "invalid-mode",
     } as unknown as Parameters<typeof loadBackstageEntities>[0];
 
     await expect(loadBackstageEntities(config, testDir)).rejects.toThrow(
-      "Unsupported entity mode: artifacts",
+      "Unsupported entity mode: invalid-mode",
     );
   });
 

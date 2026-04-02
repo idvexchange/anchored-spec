@@ -53,7 +53,7 @@ export function cliOutput(result: CliRunResult): string {
   return `${result.stdout}${result.stderr}`;
 }
 
-export function makeArtifact(
+export function makeEntity(
   overrides: EntityFixtureInput & Record<
       string,
       unknown

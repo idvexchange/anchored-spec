@@ -35,12 +35,12 @@ describe("runEaPluginChecks", () => {
             checks: [
                 {
                     id: "must-have-summary",
-                    description: "Artifacts must have a summary",
+                    description: "Entities must have a summary",
                     check: (ctx) => ctx.entities
                         .filter((entity) => !getEntityDescription(entity))
                         .map((entity) => ({
                         path: getEntityId(entity),
-                        message: `Artifact ${getEntityId(entity)} has no summary`,
+                        message: `Entity ${getEntityId(entity)} has no summary`,
                         severity: "warning" as const,
                         rule: "must-have-summary"
                     }))

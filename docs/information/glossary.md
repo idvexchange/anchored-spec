@@ -7,7 +7,7 @@ audience:
   - reviewer
 domain:
   - information
-ea-artifacts:
+ea-entities:
   - capability:manifest-authoring
   - capability:traceability
   - capability:governed-evolution

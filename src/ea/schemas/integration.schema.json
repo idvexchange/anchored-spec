@@ -10,11 +10,11 @@
     "kind": { "const": "integration" },
     "sourceSystem": {
       "type": "string",
-      "description": "Source system artifact ID"
+      "description": "Source system entity ID"
     },
     "targetSystem": {
       "type": "string",
-      "description": "Target system artifact ID"
+      "description": "Target system entity ID"
     },
     "pattern": {
       "type": "string",

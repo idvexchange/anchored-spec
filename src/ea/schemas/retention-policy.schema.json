@@ -13,7 +13,7 @@
       "type": "array",
       "items": { "type": "string" },
       "minItems": 1,
-      "description": "Artifact IDs this policy covers"
+      "description": "Entity IDs this policy covers"
     },
     "retention": {
       "type": "object",

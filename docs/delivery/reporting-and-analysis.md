@@ -8,7 +8,7 @@ audience:
 domain:
   - delivery
   - information
-ea-artifacts:
+ea-entities:
   - component:reporting-and-analysis
   - capability:ai-context-assembly
   - capability:traceability

@@ -2,7 +2,7 @@
  * Anchored Spec — EA Reports
  *
  * Report generators that produce cross-reference matrices and summaries
- * from loaded EA artifacts.
+ * from loaded EA entities.
  */
 
 import { RELATION_DEPENDS_ON, RELATION_OWNED_BY } from "@backstage/catalog-model";
@@ -17,7 +17,7 @@ import { detectEaDrift } from "./drift.js";
 
 function getFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
   return getEntitySpecRelations(entity).flatMap((r) =>
-    r.targets.map((t) => ({ type: r.legacyType, target: t })),
+    r.targets.map((t) => ({ type: r.type, target: t })),
   );
 }
 
@@ -62,9 +62,9 @@ export interface SystemDataMatrixReport {
  * Build a system-data matrix showing applications → data stores → logical models → classifications.
  *
  * Walks:
- *  1. All `application` artifacts
- *  2. Their `uses` relations targeting `data-store` artifacts
- *  3. Each data-store's `stores` relations targeting `logical-data-model` artifacts
+ *  1. All `application` entities
+ *  2. Their `uses` relations targeting `data-store` entities
+ *  3. Each data-store's `stores` relations targeting `logical-data-model` entities
  *  4. Each LDM's attributes' `classification` fields
  */
 export function buildSystemDataMatrix(entities: BackstageEntity[]): SystemDataMatrixReport {
@@ -259,7 +259,7 @@ export interface ClassificationCoverageReport {
  * Build a classification coverage report.
  *
  * For each classification:
- *  1. Find all entities/artifacts with classifiedAs → this classification
+ *  1. Find all entities/entities with classifiedAs → this classification
  *  2. For each entity, find downstream stores (via implementedBy or stores relation)
  *  3. Check if each store also carries classifiedAs → same classification
  *  4. Find exchanges that carry classified entities and check classificationLevel
@@ -284,7 +284,7 @@ export function buildClassificationCoverage(entities: BackstageEntity[]): Classi
   for (const cls of classifications) {
     const clsLevel = getSpecField<string>(cls, "level") ?? "";
 
-    // Find all artifacts that classifiedAs this classification
+    // Find all entities that classifiedAs this classification
     const coveredEntities: ClassifiedEntity[] = [];
     for (const a of entities) {
       const hasClassification = getFlatRelations(a).some(
@@ -406,7 +406,7 @@ export function renderClassificationCoverageMarkdown(report: ClassificationCover
 
   lines.push("# Classification Coverage Report");
   lines.push("");
-  lines.push(`> ${report.summary.classificationCount} classifications, ${report.summary.coveredEntityCount} classified artifacts, ${report.summary.gapCount} enforcement gaps`);
+  lines.push(`> ${report.summary.classificationCount} classifications, ${report.summary.coveredEntityCount} classified entities, ${report.summary.gapCount} enforcement gaps`);
   lines.push("");
 
   if (report.classifications.length === 0) {
@@ -421,12 +421,12 @@ export function renderClassificationCoverageMarkdown(report: ClassificationCover
     lines.push("");
 
     // Covered entities
-    lines.push("### Classified Artifacts");
+    lines.push("### Classified Entities");
     lines.push("");
     if (cls.coveredEntities.length === 0) {
-      lines.push("_No artifacts carry this classification._");
+      lines.push("_No entities carry this classification._");
     } else {
-      lines.push("| Artifact | Kind |");
+      lines.push("| Entity | Kind |");
       lines.push("|----------|------|");
       for (const e of cls.coveredEntities) {
         lines.push(`| ${e.entityTitle} (\`${e.entityId}\`) | ${e.kind} |`);
@@ -480,7 +480,7 @@ export function renderClassificationCoverageMarkdown(report: ClassificationCover
   lines.push(`| Metric | Value |`);
   lines.push(`|--------|-------|`);
   lines.push(`| Classifications | ${report.summary.classificationCount} |`);
-  lines.push(`| Classified artifacts | ${report.summary.coveredEntityCount} |`);
+  lines.push(`| Classified entities | ${report.summary.coveredEntityCount} |`);
   lines.push(`| Downstream stores | ${report.summary.totalStoreCount} |`);
   lines.push(`| Stores enforcing | ${report.summary.enforcedStoreCount} |`);
   lines.push(`| Enforcement gaps | ${report.summary.gapCount} |`);
@@ -545,12 +545,12 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
   for (const a of entities) byId.set(getEntityId(a), a);
 
   const capabilities = entities.filter((a) => hasEntitySchema(a, "capability"));
-  const missionArtifacts = entities.filter((a) => hasEntitySchema(a, "mission"));
+  const missionEntities = entities.filter((a) => hasEntitySchema(a, "mission"));
 
   // Build reverse indexes
   const realizesMap = new Map<string, string[]>();
   const supportsMap = new Map<string, string[]>();
-  const ownsReverseMap = new Map<string, string>(); // artifact → owner
+  const ownsReverseMap = new Map<string, string>(); // entity → owner
   const governedByMap = new Map<string, string[]>();
 
   for (const a of entities) {
@@ -576,7 +576,7 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
     }
   }
 
-  // Run drift to get per-artifact summaries
+  // Run drift to get per-entity summaries
   const driftResult = evaluateEaDrift(entities);
   const driftByCap = new Map<string, { errors: number; warnings: number }>();
   for (const e of driftResult.errors) {
@@ -594,8 +594,8 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
 
   // Find processes related to each capability (via realizes or supports)
   const capProcesses = new Map<string, string[]>();
-  const processArtifacts = entities.filter((a) => hasEntitySchema(a, "process"));
-  for (const proc of processArtifacts) {
+  const processEntities = entities.filter((a) => hasEntitySchema(a, "process"));
+  for (const proc of processEntities) {
     for (const rel of getFlatRelations(proc)) {
       if (rel.type === "realizes" || rel.type === "supports") {
         const target = byId.get(rel.target);
@@ -687,7 +687,7 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
   const mappedCapIds = new Set<string>();
   const missionEntries: CapabilityMapMission[] = [];
 
-  for (const mission of missionArtifacts) {
+  for (const mission of missionEntities) {
     const directCapIds = missionCaps.get(getEntityId(mission)) ?? new Set();
     const missionRoots: CapabilityMapNode[] = [];
 
@@ -852,7 +852,7 @@ function renderCapabilityTree(lines: string[], nodes: CapabilityMapNode[], inden
 
 // ─── Target Gap Analysis Report ─────────────────────────────────────────────────
 
-/** An artifact classified as new work (in target but not baseline). */
+/** An entity classified as new work (in target but not baseline). */
 export interface GapNewWorkItem {
   entityRef: string;
   status: string;
@@ -860,7 +860,7 @@ export interface GapNewWorkItem {
   wave?: string;
 }
 
-/** An artifact classified for retirement (in baseline but not target). */
+/** An entity classified for retirement (in baseline but not target). */
 export interface GapRetirementItem {
   entityRef: string;
   currentStatus: string;
@@ -947,7 +947,7 @@ export function buildGapAnalysis(
     normalizeRefList(getSpecField<string[]>(targetArt, "entityRefs")),
   );
 
-  // Classify artifacts
+  // Classify entities
   const newWorkIds = [...targetSet].filter((id) => !baselineSet.has(id));
   const retirementIds = [...baselineSet].filter((id) => !targetSet.has(id));
   const continuingIds = [...baselineSet].filter((id) => targetSet.has(id));
@@ -1020,7 +1020,7 @@ export function buildGapAnalysis(
       milestone: milestoneDeliverables.get(id),
       blocked,
       blockedReason: blocked
-        ? `${deps.join(", ")} still ${deps.length === 1 ? "depends" : "depend"} on this artifact`
+        ? `${deps.join(", ")} still ${deps.length === 1 ? "depends" : "depend"} on this entity`
         : undefined,
     };
   });
@@ -1123,7 +1123,7 @@ export function renderGapAnalysisMarkdown(report: GapAnalysisReport): string {
   if (report.newWork.length > 0) {
     lines.push("## New Work");
     lines.push("");
-    lines.push("| Artifact | Status | Milestone | Wave |");
+    lines.push("| Entity | Status | Milestone | Wave |");
     lines.push("|----------|--------|-----------|------|");
     for (const item of report.newWork) {
       const ms = item.milestone ?? "—";
@@ -1138,7 +1138,7 @@ export function renderGapAnalysisMarkdown(report: GapAnalysisReport): string {
   if (report.retirements.length > 0) {
     lines.push("## Retirements");
     lines.push("");
-    lines.push("| Artifact | Status | Blocked | Reason |");
+    lines.push("| Entity | Status | Blocked | Reason |");
     lines.push("|----------|--------|---------|--------|");
     for (const item of report.retirements) {
       const blocked = item.blocked ? "🔴 Yes" : "✅ No";
@@ -1192,7 +1192,7 @@ export interface ExceptionReportEntry {
   approvedAt: string;
   expiresAt: string;
   daysRemaining: number;
-  scopeArtifactCount: number;
+  scopeEntityCount: number;
   scopeRuleCount: number;
   scopeDomainCount: number;
   reviewSchedule: string | null;
@@ -1211,7 +1211,7 @@ export interface ExceptionReport {
 }
 
 /**
- * Build an exception report from loaded artifacts.
+ * Build an exception report from loaded entities.
  *
  * Classifies exceptions as:
  * - **expired**: expiresAt is in the past
@@ -1254,7 +1254,7 @@ export function buildExceptionReport(
       approvedAt: getSpecField<string>(exc, "approvedAt") ?? "",
       expiresAt,
       daysRemaining,
-      scopeArtifactCount: scope.entityRefs?.length ?? 0,
+      scopeEntityCount: scope.entityRefs?.length ?? 0,
       scopeRuleCount: scope.rules?.length ?? 0,
       scopeDomainCount: scope.domains?.length ?? 0,
       reviewSchedule: getSpecField<string>(exc, "reviewSchedule") ?? null,
@@ -1318,7 +1318,7 @@ export function renderExceptionReportMarkdown(report: ExceptionReport): string {
   for (const exc of report.exceptions) {
     const statusIcon = exc.status === "expired" ? "❌" : exc.status === "expiring-soon" ? "⚠️" : "✅";
     const scopeParts: string[] = [];
-    if (exc.scopeArtifactCount > 0) scopeParts.push(`${exc.scopeArtifactCount} artifacts`);
+    if (exc.scopeEntityCount > 0) scopeParts.push(`${exc.scopeEntityCount} entities`);
     if (exc.scopeRuleCount > 0) scopeParts.push(`${exc.scopeRuleCount} rules`);
     if (exc.scopeDomainCount > 0) scopeParts.push(`${exc.scopeDomainCount} domains`);
     const scope = scopeParts.length > 0 ? scopeParts.join(", ") : "—";
@@ -1346,7 +1346,7 @@ export interface ReportIndex {
   generatedAt: string;
   reports: ReportIndexEntry[];
   summary: {
-    totalArtifacts: number;
+    totalEntities: number;
     byDomain: Record<string, number>;
   };
 }
@@ -1432,11 +1432,11 @@ export function buildReportIndex(entities: BackstageEntity[]): ReportIndex {
   const ti = buildTraceabilityIndex(entities);
   reports.push({
     name: "traceability-index",
-    description: "Inverted traceRef index — documents → referencing artifacts",
+    description: "Inverted traceRef index — documents → referencing entities",
     stats: {
       documents: ti.summary.totalDocuments,
       traceRefs: ti.summary.totalTraceRefs,
-      artifacts: ti.summary.totalArtifacts,
+      entities: ti.summary.totalEntities,
     },
   });
 
@@ -1444,7 +1444,7 @@ export function buildReportIndex(entities: BackstageEntity[]): ReportIndex {
     generatedAt: new Date().toISOString(),
     reports,
     summary: {
-      totalArtifacts: entities.length,
+      totalEntities: entities.length,
       byDomain,
     },
   };
@@ -1468,7 +1468,7 @@ export interface DriftHeatmapReport {
 }
 
 /**
- * Build a drift heatmap report from loaded artifacts.
+ * Build a drift heatmap report from loaded entities.
  */
 export function buildDriftHeatmap(
   entities: BackstageEntity[],
@@ -1480,7 +1480,7 @@ export function buildDriftHeatmap(
   );
 
   const report = detectEaDrift({
-    artifacts: entities,
+    entities: entities,
     exceptions,
     ruleOverrides: options?.ruleOverrides,
   });
@@ -1557,7 +1557,7 @@ export function renderDriftHeatmapMarkdown(report: DriftHeatmapReport): string {
 
 // ─── Traceability Index Report ──────────────────────────────────────────────────
 
-/** A single artifact reference within a traceability document group. */
+/** A single entity reference within a traceability document group. */
 export interface TraceabilityIndexEntry {
   entityRef: string;
   kind: string;
@@ -1567,10 +1567,10 @@ export interface TraceabilityIndexEntry {
   label: string | null;
 }
 
-/** A document with all artifacts that reference it via traceRefs. */
+/** A document with all entities that reference it via traceRefs. */
 export interface TraceabilityDocumentGroup {
   path: string;
-  artifacts: TraceabilityIndexEntry[];
+  entities: TraceabilityIndexEntry[];
 }
 
 /** Full traceability index report. */
@@ -1579,15 +1579,15 @@ export interface TraceabilityIndexReport {
   summary: {
     totalDocuments: number;
     totalTraceRefs: number;
-    totalArtifacts: number;
+    totalEntities: number;
   };
   documents: TraceabilityDocumentGroup[];
 }
 
 /**
- * Build an inverted traceRef index: document path → referencing artifacts.
+ * Build an inverted traceRef index: document path → referencing entities.
  *
- * Scans all artifacts for traceRefs and groups them by target document,
+ * Scans all entities for traceRefs and groups them by target document,
  * sorted by reference count (most-referenced first).
  */
 export function buildTraceabilityIndex(
@@ -1595,7 +1595,7 @@ export function buildTraceabilityIndex(
 ): TraceabilityIndexReport {
   const docMap = new Map<string, TraceabilityIndexEntry[]>();
   let totalTraceRefs = 0;
-  const artifactsWithRefs = new Set<string>();
+  const entitiesWithRefs = new Set<string>();
 
   for (const a of entities) {
     const traceRefs = getEntityTraceRefs(a);
@@ -1603,7 +1603,7 @@ export function buildTraceabilityIndex(
 
     for (const ref of traceRefs) {
       totalTraceRefs++;
-      artifactsWithRefs.add(getEntityId(a));
+      entitiesWithRefs.add(getEntityId(a));
 
       const entry: TraceabilityIndexEntry = {
         entityRef: getEntityId(a),
@@ -1628,7 +1628,7 @@ export function buildTraceabilityIndex(
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
     .map(([path, entries]) => ({
       path,
-      artifacts: entries.sort((a, b) => a.entityRef.localeCompare(b.entityRef)),
+      entities: entries.sort((a, b) => a.entityRef.localeCompare(b.entityRef)),
     }));
 
   return {
@@ -1636,7 +1636,7 @@ export function buildTraceabilityIndex(
     summary: {
       totalDocuments: documents.length,
       totalTraceRefs,
-      totalArtifacts: artifactsWithRefs.size,
+      totalEntities: entitiesWithRefs.size,
     },
     documents,
   };
@@ -1652,11 +1652,11 @@ export function renderTraceabilityIndexMarkdown(
   lines.push("");
   lines.push(`> Generated: ${report.generatedAt}`);
   lines.push(">");
-  lines.push(`> ${report.summary.totalDocuments} documents referenced by ${report.summary.totalArtifacts} artifacts (${report.summary.totalTraceRefs} total traceRefs)`);
+  lines.push(`> ${report.summary.totalDocuments} documents referenced by ${report.summary.totalEntities} entities (${report.summary.totalTraceRefs} total traceRefs)`);
   lines.push("");
 
   if (report.documents.length === 0) {
-    lines.push("_No traceRefs found in any artifacts._");
+    lines.push("_No traceRefs found in any entities._");
     lines.push("");
     return lines.join("\n") + "\n";
   }
@@ -1667,7 +1667,7 @@ export function renderTraceabilityIndexMarkdown(
   lines.push("| Document | References |");
   lines.push("|----------|-----------|");
   for (const doc of report.documents.slice(0, 20)) {
-    lines.push(`| \`${doc.path}\` | ${doc.artifacts.length} |`);
+    lines.push(`| \`${doc.path}\` | ${doc.entities.length} |`);
   }
   if (report.documents.length > 20) {
     lines.push(`| _... ${report.documents.length - 20} more_ | |`);
@@ -1676,11 +1676,11 @@ export function renderTraceabilityIndexMarkdown(
 
   // Per-document detail
   for (const doc of report.documents) {
-    lines.push(`## ${doc.path} (${doc.artifacts.length} artifacts)`);
+    lines.push(`## ${doc.path} (${doc.entities.length} entities)`);
     lines.push("");
-    lines.push("| Artifact | Kind | Domain | Role |");
+    lines.push("| Entity | Kind | Domain | Role |");
     lines.push("|----------|------|--------|------|");
-    for (const entry of doc.artifacts) {
+    for (const entry of doc.entities) {
       lines.push(`| \`${entry.entityRef}\` | ${entry.kind} | ${entry.domain} | ${entry.role} |`);
     }
     lines.push("");

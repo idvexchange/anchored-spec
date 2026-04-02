@@ -24,7 +24,7 @@ describe("Phase 2B: New Relations", () => {
             expect(entry!.validTargetSchemas).toContain("physical-schema");
         });
         it("validates successfully for valid source/target", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:orders-db",
                     kind: "Resource",
@@ -33,12 +33,12 @@ describe("Phase 2B: New Relations", () => {
                 } as any),
                 makeEntity({ ref: "canonicalentity:order-entity", kind: "CanonicalEntity", type: "logical-data-model" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
         it("rejects invalid source kind", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:frontend",
                     kind: "Component",
@@ -47,7 +47,7 @@ describe("Phase 2B: New Relations", () => {
                 }),
                 makeEntity({ ref: "canonicalentity:order-entity", kind: "CanonicalEntity", type: "logical-data-model" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             expect(result.errors.find((e) => e.rule === "ea:relation:invalid-source")).toBeDefined();
         });
     });
@@ -61,7 +61,7 @@ describe("Phase 2B: New Relations", () => {
             expect(entry!.validTargetSchemas).toContain("cloud-resource");
         });
         it("validates successfully for data-store → cloud-resource", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:orders-db",
                     kind: "Resource",
@@ -70,7 +70,7 @@ describe("Phase 2B: New Relations", () => {
                 } as any),
                 makeEntity({ ref: "resource:rds-orders", kind: "Resource", type: "cloud-resource" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -90,7 +90,7 @@ describe("Phase 2B: New Relations", () => {
             expect(entry!.allowCycles).toBe(true);
         });
         it("validates for lineage → data-store", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exchange:etl-orders",
                     kind: "Exchange",
@@ -99,7 +99,7 @@ describe("Phase 2B: New Relations", () => {
                 } as any),
                 makeEntity({ ref: "resource:raw-orders", kind: "Resource", type: "database" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -115,7 +115,7 @@ describe("Phase 2B: New Relations", () => {
             expect(entry!.validTargetSchemas).toContain("application");
         });
         it("validates for LDM → physical-schema", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "canonicalentity:order",
                     kind: "CanonicalEntity",
@@ -124,7 +124,7 @@ describe("Phase 2B: New Relations", () => {
                 } as any),
                 makeEntity({ ref: "resource:orders-pg", kind: "Resource", type: "database-table" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -133,7 +133,7 @@ describe("Phase 2B: New Relations", () => {
 describe("Phase 2B: Extended Relations", () => {
     const registry = createDefaultRegistry();
     it("uses now accepts data-product as target", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:analytics",
                 kind: "Component",
@@ -142,7 +142,7 @@ describe("Phase 2B: Extended Relations", () => {
             }),
             makeEntity({ ref: "resource:customer-360", kind: "Resource", type: "data-product" }),
         ];
-        const result = validateEaRelations(artifacts, registry);
+        const result = validateEaRelations(entities, registry);
         const targetError = result.errors.find((e) => e.rule === "ea:relation:invalid-target");
         expect(targetError).toBeUndefined();
     });
@@ -151,7 +151,7 @@ describe("Phase 2B: Extended Relations", () => {
 describe("Phase 2B: Quality Rules", () => {
     describe("ea:quality:ldm-missing-attributes", () => {
         it("fires when LDM has no attributes", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "canonicalentity:empty",
                     kind: "CanonicalEntity",
@@ -159,11 +159,11 @@ describe("Phase 2B: Quality Rules", () => {
                     attributes: []
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.warnings.find((e) => e.rule === "ea:quality:ldm-missing-attributes")).toBeDefined();
         });
         it("does not fire when attributes present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "canonicalentity:full",
                     kind: "CanonicalEntity",
@@ -171,13 +171,13 @@ describe("Phase 2B: Quality Rules", () => {
                     attributes: [{ name: "id", type: "string" }]
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.warnings.find((e) => e.rule === "ea:quality:ldm-missing-attributes")).toBeUndefined();
         });
     });
     describe("ea:quality:physical-schema-missing-tables", () => {
         it("fires when schema has no tables", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:empty",
                     kind: "Resource",
@@ -186,11 +186,11 @@ describe("Phase 2B: Quality Rules", () => {
                     tables: []
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.warnings.find((e) => e.rule === "ea:quality:physical-schema-missing-tables")).toBeDefined();
         });
         it("does not fire when tables present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:orders",
                     kind: "Resource",
@@ -199,24 +199,24 @@ describe("Phase 2B: Quality Rules", () => {
                     tables: [{ name: "orders", columns: [{ name: "id", type: "uuid" }] }]
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.warnings.find((e) => e.rule === "ea:quality:physical-schema-missing-tables")).toBeUndefined();
         });
     });
     describe("ea:quality:data-store-missing-technology", () => {
         it("fires when data-store has no technology", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:no-tech",
                     kind: "Resource",
                     type: "database"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.errors.find((e) => e.rule === "ea:quality:data-store-missing-technology")).toBeDefined();
         });
         it("does not fire when technology present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:pg",
                     kind: "Resource",
@@ -224,13 +224,13 @@ describe("Phase 2B: Quality Rules", () => {
                     technology: { engine: "postgresql", category: "relational" }
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.errors.find((e) => e.rule === "ea:quality:data-store-missing-technology")).toBeUndefined();
         });
     });
     describe("ea:quality:lineage-missing-source-destination", () => {
         it("fires when lineage has no source", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exchange:broken",
                     kind: "Exchange",
@@ -239,11 +239,11 @@ describe("Phase 2B: Quality Rules", () => {
                     mechanism: "etl"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.errors.find((e) => e.rule === "ea:quality:lineage-missing-source-destination")).toBeDefined();
         });
         it("does not fire when both present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exchange:ok",
                     kind: "Exchange",
@@ -253,13 +253,13 @@ describe("Phase 2B: Quality Rules", () => {
                     mechanism: "etl"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.errors.find((e) => e.rule === "ea:quality:lineage-missing-source-destination")).toBeUndefined();
         });
     });
     describe("ea:quality:dqr-missing-assertion", () => {
         it("fires when DQR has no assertion", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "control:empty",
                     kind: "Control",
@@ -270,11 +270,11 @@ describe("Phase 2B: Quality Rules", () => {
                     onFailure: "alert"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.errors.find((e) => e.rule === "ea:quality:dqr-missing-assertion")).toBeDefined();
         });
         it("does not fire when assertion present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "control:valid",
                     kind: "Control",
@@ -285,13 +285,13 @@ describe("Phase 2B: Quality Rules", () => {
                     onFailure: "block"
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.errors.find((e) => e.rule === "ea:quality:dqr-missing-assertion")).toBeUndefined();
         });
     });
     describe("ea:quality:data-product-missing-output-ports", () => {
         it("fires when data product has no output ports", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:empty",
                     kind: "Resource",
@@ -300,11 +300,11 @@ describe("Phase 2B: Quality Rules", () => {
                     outputPorts: []
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.warnings.find((e) => e.rule === "ea:quality:data-product-missing-output-ports")).toBeDefined();
         });
         it("does not fire when output ports present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:valid",
                     kind: "Resource",
@@ -313,7 +313,7 @@ describe("Phase 2B: Quality Rules", () => {
                     outputPorts: [{ name: "orders-table", type: "table" }]
                 } as any),
             ];
-            const result = validateEntities(artifacts);
+            const result = validateEntities(entities);
             expect(result.warnings.find((e) => e.rule === "ea:quality:data-product-missing-output-ports")).toBeUndefined();
         });
     });
@@ -322,7 +322,7 @@ describe("Phase 2B: Quality Rules", () => {
 describe("Phase 2B: Drift Rules", () => {
     describe("ea:data/lineage-stale", () => {
         it("fires when lineage source does not exist", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exchange:broken",
                     kind: "Exchange",
@@ -333,14 +333,14 @@ describe("Phase 2B: Drift Rules", () => {
                 } as any),
                 makeEntity({ ref: "resource:target", kind: "Resource", type: "database" }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:data/lineage-stale");
             expect(warn).toBeDefined();
             expect(warn!.message).toContain("resource:default/deleted");
             expect(warn!.message).toContain("does not exist");
         });
         it("fires when lineage destination is retired", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exchange:old",
                     kind: "Exchange",
@@ -352,13 +352,13 @@ describe("Phase 2B: Drift Rules", () => {
                 makeEntity({ ref: "resource:src", kind: "Resource", type: "database" }),
                 makeEntity({ ref: "resource:retired", kind: "Resource", type: "database", status: "retired" }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const warn = result.warnings.find((e) => e.rule === "ea:data/lineage-stale");
             expect(warn).toBeDefined();
             expect(warn!.message).toContain("retired");
         });
         it("does not fire when both endpoints exist and are active", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exchange:ok",
                     kind: "Exchange",
@@ -370,13 +370,13 @@ describe("Phase 2B: Drift Rules", () => {
                 makeEntity({ ref: "resource:src", kind: "Resource", type: "database" }),
                 makeEntity({ ref: "resource:dst", kind: "Resource", type: "database" }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/lineage-stale")).toBeUndefined();
         });
     });
     describe("ea:data/orphan-store", () => {
         it("fires for disconnected data store", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:lonely",
                     kind: "Resource",
@@ -384,11 +384,11 @@ describe("Phase 2B: Drift Rules", () => {
                     technology: { engine: "pg", category: "relational" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/orphan-store")).toBeDefined();
         });
         it("does not fire when store has relations", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:connected",
                     kind: "Resource",
@@ -398,11 +398,11 @@ describe("Phase 2B: Drift Rules", () => {
                 } as any),
                 makeEntity({ ref: "component:aws", kind: "Component", type: "service" }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/orphan-store")).toBeUndefined();
         });
         it("does not fire when store is a lineage endpoint", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:in-lineage",
                     kind: "Resource",
@@ -419,7 +419,7 @@ describe("Phase 2B: Drift Rules", () => {
                 } as any),
                 makeEntity({ ref: "resource:target", kind: "Resource", type: "database" }),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             const orphanWarnings = result.warnings.filter((e) => e.rule === "ea:data/orphan-store");
             const storeInLineageOrphan = orphanWarnings.find((e) => e.path === "resource:in-lineage");
             expect(storeInLineageOrphan).toBeUndefined();
@@ -427,7 +427,7 @@ describe("Phase 2B: Drift Rules", () => {
     });
     describe("ea:data/shared-store-no-steward", () => {
         it("fires for shared store without MDM", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:shared-db",
                     kind: "Resource",
@@ -436,11 +436,11 @@ describe("Phase 2B: Drift Rules", () => {
                     isShared: true
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/shared-store-no-steward")).toBeDefined();
         });
         it("does not fire when MDM references shared store", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:shared-db",
                     kind: "Resource",
@@ -457,11 +457,11 @@ describe("Phase 2B: Drift Rules", () => {
                     goldenSource: "resource:shared-db"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/shared-store-no-steward")).toBeUndefined();
         });
         it("does not fire for non-shared stores", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:private-db",
                     kind: "Resource",
@@ -470,13 +470,13 @@ describe("Phase 2B: Drift Rules", () => {
                     isShared: false
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/shared-store-no-steward")).toBeUndefined();
         });
     });
     describe("ea:data/product-missing-sla", () => {
         it("fires for active data product without SLA", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:no-sla",
                     kind: "Resource",
@@ -486,11 +486,11 @@ describe("Phase 2B: Drift Rules", () => {
                     outputPorts: [{ name: "out", type: "table" }]
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-sla")).toBeDefined();
         });
         it("does not fire when SLA present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:with-sla",
                     kind: "Resource",
@@ -501,11 +501,11 @@ describe("Phase 2B: Drift Rules", () => {
                     sla: { freshness: "daily", availability: "99.9%" }
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-sla")).toBeUndefined();
         });
         it("does not fire for draft products", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:draft",
                     kind: "Resource",
@@ -515,13 +515,13 @@ describe("Phase 2B: Drift Rules", () => {
                     outputPorts: [{ name: "out", type: "table" }]
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-sla")).toBeUndefined();
         });
     });
     describe("ea:data/product-missing-quality-rules", () => {
         it("fires for active data product without quality rules", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:no-rules",
                     kind: "Resource",
@@ -532,11 +532,11 @@ describe("Phase 2B: Drift Rules", () => {
                     qualityRules: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-quality-rules")).toBeDefined();
         });
         it("does not fire when quality rules present", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "resource:with-rules",
                     kind: "Resource",
@@ -547,7 +547,7 @@ describe("Phase 2B: Drift Rules", () => {
                     qualityRules: ["control:not-null-id"]
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((e) => e.rule === "ea:data/product-missing-quality-rules")).toBeUndefined();
         });
     });

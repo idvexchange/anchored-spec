@@ -61,7 +61,7 @@
     "qualityRules": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "References to data quality rule artifact IDs"
+      "description": "References to data quality rule entity IDs"
     },
     "catalog": {
       "type": "object",

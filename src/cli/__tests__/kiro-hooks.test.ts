@@ -39,7 +39,7 @@ describe("Kiro Hooks", () => {
       expect(hooks.driftOnSave).toContain("reconcile");
     });
 
-    it("uses rootDir from config for artifact pattern", () => {
+    it("uses rootDir from config for entity pattern", () => {
       const customConfig = { rootDir: "architecture", domains: {} };
       const customHooks = generateKiroHooks(customConfig);
       expect(customHooks.validateOnSave).toContain("architecture/**/*.{yaml,yml,json}");
@@ -82,7 +82,7 @@ describe("Kiro Hooks", () => {
 
       // Hook files (new)
       const hooksDir = join(tempDir, ".kiro", "hooks");
-      expect(existsSync(join(hooksDir, "validate-artifact.yml"))).toBe(true);
+      expect(existsSync(join(hooksDir, "validate-entity.yml"))).toBe(true);
       expect(existsSync(join(hooksDir, "trace-integrity.yml"))).toBe(true);
       expect(existsSync(join(hooksDir, "drift-detection.yml"))).toBe(true);
 
@@ -98,7 +98,7 @@ describe("Kiro Hooks", () => {
       );
 
       const hooksDir = join(tempDir, ".kiro", "hooks");
-      const validate = readFileSync(join(hooksDir, "validate-artifact.yml"), "utf-8");
+      const validate = readFileSync(join(hooksDir, "validate-entity.yml"), "utf-8");
       expect(validate).toContain("trigger: onSave");
       expect(validate).toContain("docs/**/*.{yaml,yml,json}");
     });

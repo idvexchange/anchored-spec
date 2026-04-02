@@ -15,7 +15,7 @@
         "entityRefs": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Specific artifact IDs this exception applies to"
+          "description": "Specific entity IDs this exception applies to"
         },
         "rules": {
           "type": "array",

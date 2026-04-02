@@ -6,8 +6,7 @@
  * Spec-as-source enterprise architecture framework.
  * Usage: anchored-spec <command> [options]
  *
- * All commands operate on Backstage-aligned entities. Legacy core commands have been
- * replaced by their EA equivalents.
+ * All commands operate on Backstage-aligned entities.
  */
 
 import { Command } from "commander";

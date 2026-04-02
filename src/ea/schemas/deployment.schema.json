@@ -10,7 +10,7 @@
     "kind": { "const": "deployment" },
     "environment": {
       "type": "string",
-      "description": "Target environment name or artifact ID"
+      "description": "Target environment name or entity ID"
     },
     "replicas": {
       "type": "integer",

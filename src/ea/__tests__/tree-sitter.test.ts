@@ -37,7 +37,7 @@ function makeMatch(overrides: Partial<QueryMatch> = {}): QueryMatch {
   };
 }
 
-function makeArtifact(id: string, kind: string, title?: string): BackstageEntity {
+function makeEntity(id: string, kind: string, title?: string): BackstageEntity {
   return {
     apiVersion: "backstage.io/v1alpha1",
     kind: "Component",
@@ -250,7 +250,7 @@ describe("Aggregator: External Calls", () => {
 // ─── Aggregator: Deduplication ──────────────────────────────────────────────────
 
 describe("Aggregator: Deduplication", () => {
-  it("deduplicates against existing artifacts by ID", () => {
+  it("deduplicates against existing entities by ID", () => {
     const matches: QueryMatch[] = [
       makeMatch({
         pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
@@ -259,7 +259,7 @@ describe("Aggregator: Deduplication", () => {
       }),
     ];
 
-    const existing = [makeArtifact("API-api", "api-contract", "api API")];
+    const existing = [makeEntity("API-api", "api-contract", "api API")];
     const drafts = aggregateMatches(matches, existing);
     expect(drafts).toHaveLength(0); // Deduplicated via title match
   });
@@ -284,7 +284,7 @@ describe("Aggregator: Deduplication", () => {
     expect(drafts).toHaveLength(1);
   });
 
-  it("keeps drafts not matching any existing artifact", () => {
+  it("keeps drafts not matching any existing entity", () => {
     const matches: QueryMatch[] = [
       makeMatch({
         pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
@@ -293,7 +293,7 @@ describe("Aggregator: Deduplication", () => {
       }),
     ];
 
-    const existing = [makeArtifact("API-users", "api-contract")];
+    const existing = [makeEntity("API-users", "api-contract")];
     const drafts = aggregateMatches(matches, existing);
     expect(drafts.length).toBeGreaterThan(0);
   });
@@ -317,7 +317,7 @@ describe("Aggregator: Edge Cases", () => {
     ];
 
     const drafts = aggregateMatches(matches, []);
-    // Should not crash — might produce 0 artifacts since no routes extracted
+    // Should not crash — might produce 0 entities since no routes extracted
     expect(drafts).toBeDefined();
   });
 

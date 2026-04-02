@@ -1,7 +1,7 @@
 /**
  * Anchored Spec — Tree-sitter Discovery Resolver
  *
- * Language-agnostic code analysis for EA artifact discovery.
+ * Language-agnostic code analysis for EA entity discovery.
  */
 
 export { TreeSitterDiscoveryResolver, resetTreeSitterCache } from "./base.js";

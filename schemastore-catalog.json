@@ -21,8 +21,8 @@
       "url": "https://raw.githubusercontent.com/idvexchange/anchored-spec/main/src/ea/schemas/workflow-policy.schema.json"
     },
     {
-      "name": "Anchored Spec EA Artifact",
-      "description": "Enterprise architecture artifact for the anchored-spec framework (application, service, api-contract, etc.)",
+      "name": "Anchored Spec EA Entity",
+      "description": "Enterprise architecture entity for the anchored-spec framework (Component, API, Resource, Capability, etc.)",
       "fileMatch": [
         "ea/systems/*.json",
         "ea/systems/*.yaml",
@@ -39,7 +39,7 @@
         "ea/requirements/*.json",
         "ea/requirements/*.yaml"
       ],
-      "url": "https://raw.githubusercontent.com/idvexchange/anchored-spec/main/src/ea/schemas/artifact-base.schema.json"
+      "url": "https://raw.githubusercontent.com/idvexchange/anchored-spec/main/src/ea/schemas/entity-base.schema.json"
     }
   ]
 }

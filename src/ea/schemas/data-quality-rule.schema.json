@@ -18,7 +18,7 @@
       "type": "array",
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 },
-      "description": "Artifact IDs or field paths this rule applies to"
+      "description": "Entity IDs or field paths this rule applies to"
     },
     "assertion": {
       "type": "string",

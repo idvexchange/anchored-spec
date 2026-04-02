@@ -7,7 +7,7 @@ audience:
   - reviewer
 domain:
   - delivery
-ea-artifacts:
+ea-entities:
   - capability:drift-detection
   - capability:governed-evolution
   - component:governance-and-workflow
@@ -38,7 +38,7 @@ Good CI patterns for Anchored Spec repositories:
 
 - run `validate` on every PR
 - run `diff --compat --policy` when the PR changes architecture-sensitive files
-- publish graph or report outputs as CI artifacts
+- publish graph or report outputs as CI entities
 - keep `reconcile --include-trace --include-docs` available for stronger gates
 
 Useful stage-level recipes:
