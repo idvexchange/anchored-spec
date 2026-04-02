@@ -21,7 +21,7 @@ function makeTestGenerator(overrides?: Partial<EaGenerator>): EaGenerator {
                     relativePath: `${entityRefToFilenameSlug(getEntityId(entity))}.json`,
                     content: JSON.stringify({ title: getEntityTitle(entity), generated: true }, null, 2),
                     contentType: "json",
-                    sourceArtifactId: getEntityId(entity),
+                    sourceEntityRef: getEntityId(entity),
                     description: `Generated from ${getEntityTitle(entity)}`,
                     overwrite: true,
                 },
@@ -62,9 +62,9 @@ describe("runGenerators", () => {
             dryRun: true
         });
         expect(report.outputs.length).toBe(1);
-        expect(report.outputs[0]!.sourceArtifactId).toBe("api:default/orders");
+        expect(report.outputs[0]!.sourceEntityRef).toBe("api:default/orders");
         expect(report.summary.generatorsRun).toBe(1);
-        expect(report.summary.artifactsProcessed).toBe(1);
+        expect(report.summary.entitiesProcessed).toBe(1);
         expect(report.summary.filesGenerated).toBe(1);
     });
     it("should skip non-matching schema profiles", () => {
@@ -128,7 +128,7 @@ describe("runGenerators", () => {
                         relativePath: `${entityRefToFilenameSlug(getEntityId(entity))}.json`,
                         content: "new content",
                         contentType: "json",
-                        sourceArtifactId: getEntityId(entity),
+                        sourceEntityRef: getEntityId(entity),
                         description: "test",
                         overwrite: false,
                     },
@@ -178,7 +178,7 @@ describe("runGenerators", () => {
             dryRun: true,
             schemas: ["api-contract"]
         });
-        expect(report.summary.artifactsProcessed).toBe(1);
+        expect(report.summary.entitiesProcessed).toBe(1);
     });
     it("should process multiple artifacts", () => {
         const generator = makeTestGenerator();
@@ -197,7 +197,7 @@ describe("runGenerators", () => {
             dryRun: true
         });
         expect(report.outputs.length).toBe(3);
-        expect(report.summary.artifactsProcessed).toBe(3);
+        expect(report.summary.entitiesProcessed).toBe(3);
     });
 });
 // ─── Check Mode (Drift Detection) ──────────────────────────────────────────────
@@ -236,7 +236,7 @@ describe("runGenerators check mode", () => {
                     return [
                         {
                             filePath: `${entityRefToFilenameSlug(getEntityId(entity))}.json`,
-                            sourceArtifactId: getEntityId(entity),
+                            sourceEntityRef: getEntityId(entity),
                             message: "File has been manually modified",
                             suggestion: "review",
                         },
@@ -287,7 +287,7 @@ describe("renderGenerationReportMarkdown", () => {
                     relativePath: "orders.json",
                     content: "{}",
                     contentType: "json",
-                    sourceArtifactId: "api:default/orders",
+                    sourceEntityRef: "api:default/orders",
                     description: "Orders API stub",
                     overwrite: true
                 }
@@ -295,7 +295,7 @@ describe("renderGenerationReportMarkdown", () => {
             drifts: [],
             summary: {
                 generatorsRun: 1,
-                artifactsProcessed: 1,
+                entitiesProcessed: 1,
                 filesGenerated: 1,
                 filesWritten: 1,
                 filesSkipped: 0,
@@ -314,14 +314,14 @@ describe("renderGenerationReportMarkdown", () => {
             drifts: [
                 {
                     filePath: "orders.json",
-                    sourceArtifactId: "api:default/orders",
+                    sourceEntityRef: "api:default/orders",
                     message: "File manually modified",
                     suggestion: "review"
                 }
             ],
             summary: {
                 generatorsRun: 1,
-                artifactsProcessed: 1,
+                entitiesProcessed: 1,
                 filesGenerated: 0,
                 filesWritten: 0,
                 filesSkipped: 0,

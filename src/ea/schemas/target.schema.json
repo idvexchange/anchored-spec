@@ -4,9 +4,9 @@
   "title": "Anchored Spec — EA Target",
   "description": "A desired future architecture state with success metrics.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
-  "required": ["scope", "effectiveBy", "artifactRefs"],
+  "required": ["scope", "effectiveBy", "entityRefs"],
   "properties": {
     "kind": { "const": "target" },
     "scope": {
@@ -33,7 +33,7 @@
       "additionalProperties": false
     },
     "effectiveBy": { "type": "string", "description": "ISO 8601 date by which this target should be achieved" },
-    "artifactRefs": {
+    "entityRefs": {
       "type": "array",
       "items": { "type": "string" },
       "description": "IDs of artifacts in the target state"

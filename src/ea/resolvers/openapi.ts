@@ -12,7 +12,7 @@ import { join, extname, relative } from "node:path";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import type {
   EaResolver,
   EaResolverContext,
@@ -416,7 +416,7 @@ const CACHE_KEY_PREFIX = "openapi:specs";
 
 /**
  * OpenAPI Resolver — resolves API anchors, collects observed endpoint state,
- * and discovers api-contract artifacts from OpenAPI spec files.
+ * and discovers api-contract entities from OpenAPI spec files.
  *
  * Supports OpenAPI 3.0, 3.1, and Swagger 2.0 specs in YAML or JSON format.
  */
@@ -533,11 +533,11 @@ export class OpenApiResolver implements EaResolver {
    * Each OpenAPI spec file produces one draft entity with all its endpoints
    * listed as API anchors.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const specs = this.loadSpecs(ctx);
     if (specs.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const apiContract = getSchemaDescriptor("api-contract")!;
 

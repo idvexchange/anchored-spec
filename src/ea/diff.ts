@@ -20,7 +20,7 @@ import {
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 /** What kind of change occurred at the artifact level. */
-export type ArtifactChangeType = "added" | "removed" | "modified" | "unchanged";
+export type EntityChangeType = "added" | "removed" | "modified" | "unchanged";
 
 /**
  * Semantic classification of a field change.
@@ -54,12 +54,12 @@ export interface RelationDiff {
 }
 
 /** Per-artifact diff result. */
-export interface ArtifactDiff {
-  artifactId: string;
+export interface EntityDiff {
+  entityRef: string;
   kind: string;
   schema: string;
   domain: string;
-  changeType: ArtifactChangeType;
+  changeType: EntityChangeType;
   fieldChanges: FieldChange[];
   relationChanges: RelationDiff[];
 }
@@ -86,7 +86,7 @@ export interface EaDiffReport {
     bySemantic: Record<FieldSemantic, number>;
     byDomain: Record<string, DomainDiffSummary>;
   };
-  diffs: ArtifactDiff[];
+  diffs: EntityDiff[];
 }
 
 // ─── Field Semantic Mapping ─────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ function flattenSpecRelations(entity: BackstageEntity): SimplifiedRelation[] {
 /**
  * Compare two sets of BackstageEntity artifacts and produce a structured diff report.
  */
-export function diffEaArtifacts(
+export function diffEntities(
   base: BackstageEntity[],
   head: BackstageEntity[],
   options?: { baseRef?: string; headRef?: string },
@@ -218,14 +218,14 @@ export function diffEaArtifacts(
   const baseMap = new Map(base.map((a) => [getEntityId(a), a]));
   const headMap = new Map(head.map((a) => [getEntityId(a), a]));
 
-  const diffs: ArtifactDiff[] = [];
+  const diffs: EntityDiff[] = [];
 
   // Added: in head but not in base
   for (const [id, artifact] of headMap) {
     if (!baseMap.has(id)) {
       const schema = getEntitySchema(artifact);
       diffs.push({
-        artifactId: id,
+        entityRef: id,
         kind: getEntityKind(artifact),
         schema,
         domain: getEntityDescriptor(artifact)?.domain ?? "unknown",
@@ -241,7 +241,7 @@ export function diffEaArtifacts(
     if (!headMap.has(id)) {
       const schema = getEntitySchema(artifact);
       diffs.push({
-        artifactId: id,
+        entityRef: id,
         kind: getEntityKind(artifact),
         schema,
         domain: getEntityDescriptor(artifact)?.domain ?? "unknown",
@@ -263,14 +263,14 @@ export function diffEaArtifacts(
       flattenSpecRelations(headArtifact),
     );
 
-    const changeType: ArtifactChangeType =
+    const changeType: EntityChangeType =
       fieldChanges.length > 0 || relationChanges.length > 0
         ? "modified"
         : "unchanged";
 
     const schema = getEntitySchema(headArtifact);
     diffs.push({
-      artifactId: id,
+      entityRef: id,
       kind: getEntityKind(headArtifact),
       schema,
       domain: getEntityDescriptor(headArtifact)?.domain ?? "unknown",
@@ -281,7 +281,7 @@ export function diffEaArtifacts(
   }
 
   // Sort: added first, then removed, then modified, then unchanged
-  const order: Record<ArtifactChangeType, number> = {
+  const order: Record<EntityChangeType, number> = {
     added: 0,
     removed: 1,
     modified: 2,
@@ -537,7 +537,7 @@ function diffRelations(base: SimplifiedRelation[], head: SimplifiedRelation[]): 
 // ─── Report Builder ─────────────────────────────────────────────────────────────
 
 function buildDiffReport(
-  diffs: ArtifactDiff[],
+  diffs: EntityDiff[],
   baseRef: string,
   headRef: string,
 ): EaDiffReport {
@@ -653,7 +653,7 @@ export function renderDiffMarkdown(report: EaDiffReport): string {
     lines.push("| Artifact | Kind | Schema | Domain |");
     lines.push("|----------|------|--------|--------|");
     for (const d of added) {
-      lines.push(`| ${d.artifactId} | ${d.kind} | ${d.schema} | ${d.domain} |`);
+      lines.push(`| ${d.entityRef} | ${d.kind} | ${d.schema} | ${d.domain} |`);
     }
     lines.push("");
   }
@@ -666,7 +666,7 @@ export function renderDiffMarkdown(report: EaDiffReport): string {
     lines.push("| Artifact | Kind | Schema | Domain |");
     lines.push("|----------|------|--------|--------|");
     for (const d of removed) {
-      lines.push(`| ${d.artifactId} | ${d.kind} | ${d.schema} | ${d.domain} |`);
+      lines.push(`| ${d.entityRef} | ${d.kind} | ${d.schema} | ${d.domain} |`);
     }
     lines.push("");
   }
@@ -677,7 +677,7 @@ export function renderDiffMarkdown(report: EaDiffReport): string {
     lines.push(`## Modified (${modified.length})`);
     lines.push("");
     for (const d of modified) {
-      lines.push(`### ${d.artifactId} (${d.kind}, ${d.schema}, ${d.domain})`);
+      lines.push(`### ${d.entityRef} (${d.kind}, ${d.schema}, ${d.domain})`);
       lines.push("");
 
       if (d.fieldChanges.length > 0) {

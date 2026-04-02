@@ -3,7 +3,7 @@
  *
  * Reads `terraform show -json` state/plan output to validate infrastructure
  * anchors, collect observed cloud resource state, and discover delivery/data
- * layer artifacts.
+ * layer entities.
  *
  * Supports AWS, GCP, and Azure resource type mappings.
  *
@@ -12,7 +12,7 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
@@ -297,7 +297,7 @@ const CACHE_KEY_PREFIX = "terraform:state";
 
 /**
  * Terraform Resolver — resolves infra anchors against Terraform state,
- * collects observed cloud resource state, and discovers delivery/data artifacts.
+ * collects observed cloud resource state, and discovers delivery/data entities.
  *
  * Reads `terraform show -json` output (state or plan).
  */
@@ -413,11 +413,11 @@ export class TerraformResolver implements EaResolver {
    *
    * Maps cloud resources to EA schema profiles based on resource type patterns.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const resources = this.loadResources(ctx);
     if (resources.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
 

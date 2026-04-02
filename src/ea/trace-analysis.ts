@@ -28,24 +28,24 @@ function isMarkdownFile(filePath: string): boolean {
 // ─── Types ────────────────────────────────────────────────────────────
 
 export interface TraceLink {
-  artifactId: string;
+  entityRef: string;
   docPath: string;
   role?: string;
-  artifactToDoc: boolean;
-  docToArtifact: boolean;
+  entityToDoc: boolean;
+  docToEntity: boolean;
   fileExists: boolean;
   isUrl: boolean;
 }
 
 export interface TraceCheckReport {
-  brokenTraceRefs: { artifactId: string; path: string; reason: string }[];
-  oneWayArtifactToDoc: {
-    artifactId: string;
+  brokenTraceRefs: { entityRef: string; path: string; reason: string }[];
+  oneWayEntityToDoc: {
+    entityRef: string;
     path: string;
     severity: "warning" | "info";
     reason: string;
   }[];
-  oneWayDocToArtifact: { docPath: string; artifactId: string }[];
+  oneWayDocToEntity: { docPath: string; entityRef: string }[];
   bidirectionalCount: number;
 }
 
@@ -70,15 +70,15 @@ export function buildTraceLinks(
       const key = linkKey(entityId, ref.path);
       const existing = seen.get(key);
       if (existing) {
-        existing.artifactToDoc = true;
+        existing.entityToDoc = true;
         existing.isUrl = url;
       } else {
         seen.set(key, {
-          artifactId: entityId,
+          entityRef: entityId,
           docPath: ref.path,
           role: ref.role,
-          artifactToDoc: true,
-          docToArtifact: false,
+          entityToDoc: true,
+          docToEntity: false,
           fileExists: url ? false : existsSync(resolve(cwd, ref.path)),
           isUrl: url,
         });
@@ -86,20 +86,20 @@ export function buildTraceLinks(
     }
   }
 
-  // doc → artifact (frontmatter ea-artifacts)
+  // doc → entity (frontmatter ea-entities)
   for (const doc of docs) {
-    for (const aid of doc.artifactIds) {
+    for (const aid of doc.entityRefs) {
       const key = linkKey(aid, doc.relativePath);
       const existing = seen.get(key);
       if (existing) {
-        existing.docToArtifact = true;
+        existing.docToEntity = true;
       } else {
         seen.set(key, {
-          artifactId: aid,
+          entityRef: aid,
           docPath: doc.relativePath,
           role: undefined,
-          artifactToDoc: false,
-          docToArtifact: true,
+          entityToDoc: false,
+          docToEntity: true,
           fileExists: true, // doc was scanned, so it exists
           isUrl: false,
         });
@@ -115,46 +115,46 @@ export function buildTraceLinks(
  */
 export function buildTraceCheckReport(links: TraceLink[]): TraceCheckReport {
   const broken: TraceCheckReport["brokenTraceRefs"] = [];
-  const oneWayA2D: TraceCheckReport["oneWayArtifactToDoc"] = [];
-  const oneWayD2A: TraceCheckReport["oneWayDocToArtifact"] = [];
+  const oneWayA2D: TraceCheckReport["oneWayEntityToDoc"] = [];
+  const oneWayD2A: TraceCheckReport["oneWayDocToEntity"] = [];
   let bidir = 0;
 
   for (const l of links) {
-    if (l.artifactToDoc && l.isUrl) {
-      broken.push({ artifactId: l.artifactId, path: l.docPath, reason: "URL, skipped" });
+    if (l.entityToDoc && l.isUrl) {
+      broken.push({ entityRef: l.entityRef, path: l.docPath, reason: "URL, skipped" });
       continue;
     }
-    if (l.artifactToDoc && !l.fileExists) {
-      broken.push({ artifactId: l.artifactId, path: l.docPath, reason: "file not found" });
+    if (l.entityToDoc && !l.fileExists) {
+      broken.push({ entityRef: l.entityRef, path: l.docPath, reason: "file not found" });
       continue;
     }
-    if (l.artifactToDoc && l.docToArtifact) {
+    if (l.entityToDoc && l.docToEntity) {
       bidir++;
-    } else if (l.artifactToDoc && !l.docToArtifact) {
+    } else if (l.entityToDoc && !l.docToEntity) {
       if (isMarkdownFile(l.docPath)) {
         oneWayA2D.push({
-          artifactId: l.artifactId,
+          entityRef: l.entityRef,
           path: l.docPath,
           severity: "warning",
           reason: "missing frontmatter",
         });
       } else {
         oneWayA2D.push({
-          artifactId: l.artifactId,
+          entityRef: l.entityRef,
           path: l.docPath,
           severity: "info",
           reason: "non-markdown file",
         });
       }
-    } else if (!l.artifactToDoc && l.docToArtifact) {
-      oneWayD2A.push({ docPath: l.docPath, artifactId: l.artifactId });
+    } else if (!l.entityToDoc && l.docToEntity) {
+      oneWayD2A.push({ docPath: l.docPath, entityRef: l.entityRef });
     }
   }
 
   return {
     brokenTraceRefs: broken,
-    oneWayArtifactToDoc: oneWayA2D,
-    oneWayDocToArtifact: oneWayD2A,
+    oneWayEntityToDoc: oneWayA2D,
+    oneWayDocToEntity: oneWayD2A,
     bidirectionalCount: bidir,
   };
 }

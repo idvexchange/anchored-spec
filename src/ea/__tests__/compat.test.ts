@@ -2,7 +2,7 @@
  * Tests for the EA Compatibility Classifier
  */
 import { describe, it, expect } from "vitest";
-import { diffEaArtifacts } from "../diff.js";
+import { diffEntities } from "../diff.js";
 import { assessCompatibility, renderCompatSummary, renderCompatMarkdown, } from "../compat.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { makeEntity as _makeEntity } from "./helpers/make-entity.js";
@@ -20,7 +20,7 @@ function makeEntity(overrides: Parameters<typeof _makeEntity>[0]): BackstageEnti
     return entity;
 }
 function assess(base: BackstageEntity[], head: BackstageEntity[]) {
-    const diff = diffEaArtifacts(base, head);
+    const diff = diffEntities(base, head);
     return assessCompatibility(diff, { base, head });
 }
 // ─── assessCompatibility ────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ describe("assessCompatibility", () => {
         expect(report.overallLevel).toBe("breaking");
     });
     it("includes baseRef and headRef from diff report", () => {
-        const diff = diffEaArtifacts([], [], { baseRef: "v1.0", headRef: "v2.0" });
+        const diff = diffEntities([], [], { baseRef: "v1.0", headRef: "v2.0" });
         const report = assessCompatibility(diff);
         expect(report.baseRef).toBe("v1.0");
         expect(report.headRef).toBe("v2.0");
@@ -201,7 +201,7 @@ describe("renderCompatSummary", () => {
 // ─── renderCompatMarkdown ───────────────────────────────────────────────────────
 describe("renderCompatMarkdown", () => {
     it("renders header with refs", () => {
-        const diff = diffEaArtifacts([], [], { baseRef: "main", headRef: "dev" });
+        const diff = diffEntities([], [], { baseRef: "main", headRef: "dev" });
         const report = assessCompatibility(diff);
         const md = renderCompatMarkdown(report);
         expect(md).toContain("# Compatibility Assessment: main..dev");

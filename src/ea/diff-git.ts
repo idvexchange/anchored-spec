@@ -10,7 +10,7 @@ import { join, relative, resolve } from "node:path";
 import type { BackstageEntity } from "./backstage/types.js";
 import { parseBackstageYaml, parseFrontmatterEntity } from "./backstage/parser.js";
 import type { AnchoredSpecConfigV1 } from "./config.js";
-import { diffEaArtifacts } from "./diff.js";
+import { diffEntities } from "./diff.js";
 import type { EaDiffReport } from "./diff.js";
 
 function listFilesAtRef(
@@ -183,7 +183,7 @@ export function diffEaGitRefs(options: DiffGitOptions): EaGitDiffResult {
     : loadEntitiesFromWorkingTree(projectRoot, config);
 
   return {
-    report: diffEaArtifacts(baseEntities, headEntities, {
+    report: diffEntities(baseEntities, headEntities, {
       baseRef,
       headRef: headRef ?? "working-tree",
     }),

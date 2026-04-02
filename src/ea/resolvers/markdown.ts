@@ -9,7 +9,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, extname, relative, resolve } from "node:path";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import type { EaResolver, EaResolverContext, ResolverLogger } from "./types.js";
 import { silentLogger } from "./types.js";
 import type { FactManifest, ExtractedFact } from "../facts/types.js";
@@ -136,8 +136,8 @@ function slugify(value: string): string {
  * Convert extracted facts from manifests into EA entity drafts.
  * Maps event, endpoint, and entity facts to their corresponding schema profiles.
  */
-function factsToArtifactDrafts(manifests: FactManifest[]): EaArtifactDraft[] {
-  const drafts: EaArtifactDraft[] = [];
+function factsToArtifactDrafts(manifests: FactManifest[]): EntityDraft[] {
+  const drafts: EntityDraft[] = [];
   const now = new Date().toISOString();
   const seen = new Set<string>();
 
@@ -160,7 +160,7 @@ function factToDraft(
   fact: ExtractedFact,
   source: string,
   now: string,
-): EaArtifactDraft | null {
+): EntityDraft | null {
   const slug = slugify(fact.key);
   const eventContract = getSchemaDescriptor("event-contract")!;
   const apiContract = getSchemaDescriptor("api-contract")!;
@@ -215,7 +215,7 @@ function factToDraft(
       };
 
     default:
-      // Other fact kinds are not directly mappable to artifacts
+      // Other fact kinds are not directly mappable to entities
       return null;
   }
 }
@@ -270,7 +270,7 @@ export class MarkdownResolver implements EaResolver {
   readonly domains: EaResolver["domains"] = ["systems", "information"];
   readonly schemas = ["event-contract", "api-contract", "canonical-entity"];
 
-  /** Manifests from the last `discoverArtifacts` call (reusable for --write-facts). */
+  /** Manifests from the last `discoverEntities` call (reusable for --write-facts). */
   lastManifests: FactManifest[] = [];
 
   /**
@@ -279,7 +279,7 @@ export class MarkdownResolver implements EaResolver {
    * Scans `ctx.source` (or default doc directories) for `.md` files,
    * parses each, extracts facts, and converts relevant facts to entity drafts.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const cacheKey = `${CACHE_KEY_PREFIX}:${ctx.source ?? "default"}`;
     const cached = ctx.cache.get<FactManifest[]>(cacheKey);
 

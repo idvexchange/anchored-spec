@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Data Store",
   "description": "A data storage system (database, cache, object store, etc.).",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["technology"],
   "properties": {

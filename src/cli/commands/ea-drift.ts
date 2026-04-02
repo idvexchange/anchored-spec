@@ -136,7 +136,7 @@ export function eaDriftCommand(): Command {
           if (reconciliationReport) {
             console.log(`  Artifact reconciliation: ${reconciliationReport.passed ? "✅" : "❌"}`);
             console.log(`    Facts checked: ${reconciliationReport.factsChecked}`);
-            console.log(`    Artifacts checked: ${reconciliationReport.artifactsChecked}`);
+            console.log(`    Entities checked: ${reconciliationReport.entitiesChecked}`);
             console.log("");
           }
         }

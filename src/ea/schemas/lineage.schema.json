@@ -4,16 +4,16 @@
   "title": "Anchored Spec — EA Lineage",
   "description": "A data lineage path describing how data flows from source to destination.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["source", "destination", "mechanism"],
   "properties": {
     "kind": { "const": "lineage" },
     "source": {
       "type": "object",
-      "required": ["artifactId"],
+      "required": ["entityRef"],
       "properties": {
-        "artifactId": { "type": "string", "minLength": 1 },
+        "entityRef": { "type": "string", "minLength": 1 },
         "description": { "type": "string" }
       },
       "additionalProperties": false,
@@ -21,9 +21,9 @@
     },
     "destination": {
       "type": "object",
-      "required": ["artifactId"],
+      "required": ["entityRef"],
       "properties": {
-        "artifactId": { "type": "string", "minLength": 1 },
+        "entityRef": { "type": "string", "minLength": 1 },
         "description": { "type": "string" }
       },
       "additionalProperties": false,

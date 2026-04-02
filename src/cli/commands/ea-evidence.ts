@@ -177,8 +177,8 @@ export function eaEvidenceCommand(): Command {
       } else {
         console.log(chalk.blue("📊 EA Evidence Summary\n"));
         console.log(`  Total records: ${summary.totalRecords}`);
-        console.log(`  Covered entities: ${summary.coveredArtifacts}`);
-        console.log(`  Uncovered entities: ${summary.uncoveredArtifacts}`);
+        console.log(`  Covered entities: ${summary.coveredEntities}`);
+        console.log(`  Uncovered entities: ${summary.uncoveredEntities}`);
         console.log(`  Stale records: ${summary.staleCount}`);
         console.log("");
         console.log("  By evidence kind:");

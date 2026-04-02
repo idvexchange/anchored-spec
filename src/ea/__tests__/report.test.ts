@@ -411,8 +411,8 @@ describe("buildClassificationCoverage", () => {
                 ref: "exchange:onboarding",
                 kind: "Exchange",
                 title: "Customer Onboarding",
-                source: { artifactId: "component:frontend" },
-                destination: { artifactId: "component:backend" },
+                source: { entityRef: "component:frontend" },
+                destination: { entityRef: "component:backend" },
                 exchangedEntities: [canonicalEntityRef("customer")],
                 purpose: "Onboarding flow"
             }),
@@ -442,8 +442,8 @@ describe("buildClassificationCoverage", () => {
                 ref: "exchange:onboarding",
                 kind: "Exchange",
                 title: "Customer Onboarding",
-                source: { artifactId: "component:frontend" },
-                destination: { artifactId: "component:backend" },
+                source: { entityRef: "component:frontend" },
+                destination: { entityRef: "component:backend" },
                 exchangedEntities: [canonicalEntityRef("customer")],
                 purpose: "Onboarding flow",
                 classificationLevel: controlRef("pii")

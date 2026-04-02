@@ -7,13 +7,13 @@
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, extname } from "node:path";
-import { parseFrontmatter, extractArtifactIds } from "./frontmatter.js";
+import { parseFrontmatter, extractEntityRefs } from "./frontmatter.js";
 import type { DocFrontmatter } from "./frontmatter.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { parseEntityRef } from "../backstage/types.js";
 import { getEntityId } from "../backstage/accessors.js";
 import { normalizeKnownEntityRef } from "../backstage/ref-utils.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import { createDraft } from "../discovery.js";
 import type { DraftEntityDescriptor } from "../discovery.js";
 import { ENTITY_DESCRIPTOR_REGISTRY } from "../backstage/kind-mapping.js";
@@ -45,7 +45,7 @@ export interface ScannedDoc {
   /** Parsed frontmatter. */
   frontmatter: DocFrontmatter;
   /** EA entity refs referenced in frontmatter (convenience). */
-  artifactIds: string[];
+  entityRefs: string[];
 }
 
 /** Summary of a scan operation. */
@@ -55,14 +55,14 @@ export interface ScanResult {
   /** Total markdown files scanned. */
   totalScanned: number;
   /** Files that had frontmatter but no EA entity refs. */
-  withFrontmatterNoArtifacts: number;
+  withFrontmatterNoEntities: number;
 }
 
 /** Options for the scanner. */
 export interface ScanOptions {
   /** Directories to scan (relative to projectRoot). Defaults to common doc dirs. */
   dirs?: string[];
-  /** Whether to include docs that have frontmatter but no ea-artifacts. Default: false. */
+  /** Whether to include docs that have frontmatter but no ea-entities. Default: false. */
   includeAll?: boolean;
 }
 
@@ -111,7 +111,7 @@ function walkDir(dir: string, skipDirs: Set<string>): string[] {
  * Scan a project for markdown documents with EA-relevant frontmatter.
  *
  * Walks the specified directories recursively, parsing frontmatter from
- * each `.md` file. Returns only documents that have `ea-artifacts` (or
+ * each `.md` file. Returns only documents that have `ea-entities` (or
  * `anchored-spec`) frontmatter references by default.
  *
  * @param projectRoot - Absolute path to the project root.
@@ -148,7 +148,7 @@ export function scanDocs(projectRoot: string, options?: ScanOptions): ScanResult
 
   // Parse each file and filter
   const docs: ScannedDoc[] = [];
-  let withFrontmatterNoArtifacts = 0;
+  let withFrontmatterNoEntities = 0;
 
   for (const filePath of mdFiles) {
     let content: string;
@@ -161,10 +161,10 @@ export function scanDocs(projectRoot: string, options?: ScanOptions): ScanResult
     const parsed = parseFrontmatter(content);
     if (!parsed.hasFrontmatter) continue;
 
-    const artifactIds = extractArtifactIds(parsed.frontmatter);
+    const entityRefs = extractEntityRefs(parsed.frontmatter);
 
-    if (artifactIds.length === 0) {
-      withFrontmatterNoArtifacts++;
+    if (entityRefs.length === 0) {
+      withFrontmatterNoEntities++;
       if (!includeAll) continue;
     }
 
@@ -172,14 +172,14 @@ export function scanDocs(projectRoot: string, options?: ScanOptions): ScanResult
       path: filePath,
       relativePath: relative(root, filePath),
       frontmatter: parsed.frontmatter,
-      artifactIds,
+      entityRefs,
     });
   }
 
   return {
     docs,
     totalScanned: mdFiles.length,
-    withFrontmatterNoArtifacts,
+    withFrontmatterNoEntities,
   };
 }
 
@@ -191,7 +191,7 @@ export function buildDocIndex(docs: ScannedDoc[]): Map<string, ScannedDoc[]> {
   const index = new Map<string, ScannedDoc[]>();
 
   for (const doc of docs) {
-    for (const id of doc.artifactIds) {
+    for (const id of doc.entityRefs) {
       const existing = index.get(id);
       if (existing) {
         existing.push(doc);
@@ -233,7 +233,7 @@ function slugToTitle(slug: string): string {
 /** Result of document-driven discovery. */
 export interface DocDiscoveryResult {
   /** Draft entities scaffolded from doc frontmatter references. */
-  drafts: EaArtifactDraft[];
+  drafts: EntityDraft[];
   /** Entity refs that were already modeled (skipped). */
   alreadyExists: string[];
   /** Entity refs that were not valid Backstage entity refs. */
@@ -243,7 +243,7 @@ export interface DocDiscoveryResult {
 /**
  * Discover draft entities from document frontmatter.
  *
- * Scans docs for `ea-artifacts` references, identifies IDs that don't
+ * Scans docs for `ea-entities` references, identifies IDs that don't
  * match any existing entity, and scaffolds draft entities from the
  * authored entity descriptor and the doc context.
  *
@@ -261,11 +261,11 @@ export function discoverFromDocs(
   const existingIds = new Set(existingEntities.map((entity) => getEntityId(entity)));
   const alreadyExists: string[] = [];
   const invalidRefs: string[] = [];
-  const drafts: EaArtifactDraft[] = [];
+  const drafts: EntityDraft[] = [];
   const seen = new Set<string>();
 
   for (const doc of docs) {
-    for (const id of doc.artifactIds) {
+    for (const id of doc.entityRefs) {
       const normalizedId = normalizeKnownEntityRef(id, {
         defaultNamespace: "default",
       });

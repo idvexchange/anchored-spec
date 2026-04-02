@@ -9,7 +9,7 @@
 import { join } from "node:path";
 import type { EaResolverConfig } from "../config.js";
 import type { EaResolver, EaResolverContext } from "./types.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import { TreeSitterDiscoveryResolver } from "./tree-sitter/base.js";
 import { getQueryPacks } from "./tree-sitter/packs/index.js";
 
@@ -31,8 +31,8 @@ const BUILTIN_NAMES = new Set([
 export interface LoadedResolver {
   name: string;
   isAsync: boolean;
-  discoverSync?: (ctx: EaResolverContext) => EaArtifactDraft[] | null;
-  discoverAsync?: (ctx: EaResolverContext) => Promise<EaArtifactDraft[] | null>;
+  discoverSync?: (ctx: EaResolverContext) => EntityDraft[] | null;
+  discoverAsync?: (ctx: EaResolverContext) => Promise<EntityDraft[] | null>;
 }
 
 /**
@@ -76,7 +76,7 @@ export async function loadResolver(
       return {
         name: resolver.name,
         isAsync: true,
-        discoverAsync: (ctx) => resolver.discoverArtifacts(ctx),
+        discoverAsync: (ctx) => resolver.discoverEntities(ctx),
       };
     }
 
@@ -91,7 +91,7 @@ export async function loadResolver(
     return {
       name: resolver.name,
       isAsync: false,
-      discoverSync: (ctx) => resolver.discoverArtifacts?.(ctx) ?? null,
+      discoverSync: (ctx) => resolver.discoverEntities?.(ctx) ?? null,
     };
   }
 
@@ -126,7 +126,7 @@ export async function loadResolver(
     return {
       name: resolver.name,
       isAsync: false,
-      discoverSync: (ctx) => resolver.discoverArtifacts?.(ctx) ?? null,
+      discoverSync: (ctx) => resolver.discoverEntities?.(ctx) ?? null,
     };
   }
 

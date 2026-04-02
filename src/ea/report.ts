@@ -854,7 +854,7 @@ function renderCapabilityTree(lines: string[], nodes: CapabilityMapNode[], inden
 
 /** An artifact classified as new work (in target but not baseline). */
 export interface GapNewWorkItem {
-  artifactId: string;
+  entityRef: string;
   status: string;
   milestone?: string;
   wave?: string;
@@ -862,7 +862,7 @@ export interface GapNewWorkItem {
 
 /** An artifact classified for retirement (in baseline but not target). */
 export interface GapRetirementItem {
-  artifactId: string;
+  entityRef: string;
   currentStatus: string;
   dependedOnBy: string[];
   milestone?: string;
@@ -941,10 +941,10 @@ export function buildGapAnalysis(
   }
 
   const baselineSet = new Set(
-    normalizeRefList(getSpecField<string[]>(baselineArt, "artifactRefs")),
+    normalizeRefList(getSpecField<string[]>(baselineArt, "entityRefs")),
   );
   const targetSet = new Set(
-    normalizeRefList(getSpecField<string[]>(targetArt, "artifactRefs")),
+    normalizeRefList(getSpecField<string[]>(targetArt, "entityRefs")),
   );
 
   // Classify artifacts
@@ -998,7 +998,7 @@ export function buildGapAnalysis(
   const newWork: GapNewWorkItem[] = newWorkIds.map((id) => {
     const art = byId.get(id);
     return {
-      artifactId: id,
+      entityRef: id,
       status: art ? getEntityStatus(art) : "unknown",
       milestone: milestoneDeliverables.get(id),
       wave: waveCreates.get(id),
@@ -1014,7 +1014,7 @@ export function buildGapAnalysis(
     });
     const blocked = deps.length > 0;
     return {
-      artifactId: id,
+      entityRef: id,
       currentStatus: art ? getEntityStatus(art) : "unknown",
       dependedOnBy: deps,
       milestone: milestoneDeliverables.get(id),
@@ -1044,7 +1044,7 @@ export function buildGapAnalysis(
       }
       const total = ms.deliverables?.length ?? 0;
       const status = ms.status ?? (complete === total && total > 0 ? "complete" : pending === total ? "pending" : "in-progress");
-      const atRisk = retirements.some((r) => r.blocked && normalizedDeliverables.includes(r.artifactId));
+      const atRisk = retirements.some((r) => r.blocked && normalizedDeliverables.includes(r.entityRef));
       milestones.push({ id: ms.id, title: ms.title, status, deliverables: { total, complete, inProgress, pending }, atRisk });
     }
   }
@@ -1129,7 +1129,7 @@ export function renderGapAnalysisMarkdown(report: GapAnalysisReport): string {
       const ms = item.milestone ?? "—";
       const wave = item.wave ?? "—";
       const gap = !item.milestone && !item.wave ? " ⚠️" : "";
-      lines.push(`| \`${item.artifactId}\` | ${item.status} | ${ms} | ${wave} |${gap}`);
+      lines.push(`| \`${item.entityRef}\` | ${item.status} | ${ms} | ${wave} |${gap}`);
     }
     lines.push("");
   }
@@ -1143,7 +1143,7 @@ export function renderGapAnalysisMarkdown(report: GapAnalysisReport): string {
     for (const item of report.retirements) {
       const blocked = item.blocked ? "🔴 Yes" : "✅ No";
       const reason = item.blockedReason ?? "—";
-      lines.push(`| \`${item.artifactId}\` | ${item.currentStatus} | ${blocked} | ${reason} |`);
+      lines.push(`| \`${item.entityRef}\` | ${item.currentStatus} | ${blocked} | ${reason} |`);
     }
     lines.push("");
   }
@@ -1243,7 +1243,7 @@ export function buildExceptionReport(
       status = "active";
     }
 
-    const scope = getSpecField<{ artifactIds?: string[]; rules?: string[]; domains?: string[] }>(exc, "scope") ?? {};
+    const scope = getSpecField<{ entityRefs?: string[]; rules?: string[]; domains?: string[] }>(exc, "scope") ?? {};
 
     return {
       id: getEntityId(exc),
@@ -1254,7 +1254,7 @@ export function buildExceptionReport(
       approvedAt: getSpecField<string>(exc, "approvedAt") ?? "",
       expiresAt,
       daysRemaining,
-      scopeArtifactCount: scope.artifactIds?.length ?? 0,
+      scopeArtifactCount: scope.entityRefs?.length ?? 0,
       scopeRuleCount: scope.rules?.length ?? 0,
       scopeDomainCount: scope.domains?.length ?? 0,
       reviewSchedule: getSpecField<string>(exc, "reviewSchedule") ?? null,
@@ -1559,7 +1559,7 @@ export function renderDriftHeatmapMarkdown(report: DriftHeatmapReport): string {
 
 /** A single artifact reference within a traceability document group. */
 export interface TraceabilityIndexEntry {
-  artifactId: string;
+  entityRef: string;
   kind: string;
   schema: string;
   domain: string;
@@ -1606,7 +1606,7 @@ export function buildTraceabilityIndex(
       artifactsWithRefs.add(getEntityId(a));
 
       const entry: TraceabilityIndexEntry = {
-        artifactId: getEntityId(a),
+        entityRef: getEntityId(a),
         kind: getEntityKind(a),
         schema: getEntitySchema(a),
         domain: getEntityDomain(a) ?? "unknown",
@@ -1628,7 +1628,7 @@ export function buildTraceabilityIndex(
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
     .map(([path, entries]) => ({
       path,
-      artifacts: entries.sort((a, b) => a.artifactId.localeCompare(b.artifactId)),
+      artifacts: entries.sort((a, b) => a.entityRef.localeCompare(b.entityRef)),
     }));
 
   return {
@@ -1681,7 +1681,7 @@ export function renderTraceabilityIndexMarkdown(
     lines.push("| Artifact | Kind | Domain | Role |");
     lines.push("|----------|------|--------|------|");
     for (const entry of doc.artifacts) {
-      lines.push(`| \`${entry.artifactId}\` | ${entry.kind} | ${entry.domain} | ${entry.role} |`);
+      lines.push(`| \`${entry.entityRef}\` | ${entry.kind} | ${entry.domain} | ${entry.role} |`);
     }
     lines.push("");
   }

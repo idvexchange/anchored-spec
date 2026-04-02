@@ -67,7 +67,7 @@ describe("openapiGenerator", () => {
         const output = outputs[0]!;
         expect(output.relativePath).toBe("api-orders.openapi.yaml");
         expect(output.contentType).toBe("yaml");
-        expect(output.sourceArtifactId).toBe("api:default/orders");
+        expect(output.sourceEntityRef).toBe("api:default/orders");
         expect(output.overwrite).toBe(true);
         // Check content
         const content = output.content;
@@ -270,7 +270,7 @@ describe("Generator pipeline integration", () => {
         });
         expect(report.outputs.length).toBe(2);
         expect(report.summary.generatorsRun).toBe(2);
-        expect(report.summary.artifactsProcessed).toBe(2);
+        expect(report.summary.entitiesProcessed).toBe(2);
     });
     it("should write files in generate mode", () => {
         mkdirSync(TEST_ROOT, { recursive: true });

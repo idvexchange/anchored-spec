@@ -19,7 +19,7 @@ export interface EaResolverContext {
   /** Absolute path to project root. */
   projectRoot: string;
   /** All loaded EA entities. */
-  artifacts: BackstageEntity[];
+  entities: BackstageEntity[];
   /** Resolver cache for storing observed state across runs. */
   cache: ResolverCache;
   /** Resolver logger. */
@@ -95,8 +95,8 @@ export interface ObservedRelationship {
 
 // ─── Discovery Draft (re-export for convenience) ────────────────────────────────
 
-// We re-use EaArtifactDraft from discovery.ts
-export type { EaArtifactDraft } from "../discovery.js";
+// We re-use EntityDraft from discovery.ts
+export type { EntityDraft } from "../discovery.js";
 
 // ─── EaResolver Interface ───────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ export type { EaArtifactDraft } from "../discovery.js";
  * Each method is optional — a resolver can implement just one or all three:
  * - resolveAnchors: validate that declared anchors exist in real systems
  * - collectObservedState: enumerate entities from external sources
- * - discoverArtifacts: create draft EA entities from discovered entities
+ * - discoverEntities: create draft EA entities from discovered entities
  */
 export interface EaResolver {
   /** Unique resolver name. */
@@ -137,9 +137,9 @@ export interface EaResolver {
    * Discover new entities from an external system.
    * Returns null if no entities were discovered.
    */
-  discoverArtifacts?(
+  discoverEntities?(
     ctx: EaResolverContext,
-  ): import("../discovery.js").EaArtifactDraft[] | null;
+  ): import("../discovery.js").EntityDraft[] | null;
 }
 
 // ─── Console Logger (default) ───────────────────────────────────────────────────

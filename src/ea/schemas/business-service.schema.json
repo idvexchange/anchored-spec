@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Business Service",
   "description": "A business service delivered to customers, partners, or internal consumers.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["serviceType"],
   "properties": {

@@ -37,15 +37,15 @@ export const frontmatterExtractor: FactExtractor = {
     const docType = fm.type ?? "unknown";
 
     // Artifact references
-    const artifacts = Array.isArray(fm.eaArtifacts)
-      ? fm.eaArtifacts
-      : fm["ea-artifacts" as keyof DocFrontmatter];
-    const artifactIds = Array.isArray(artifacts)
+    const artifacts = Array.isArray(fm.eaEntities)
+      ? fm.eaEntities
+      : fm["ea-entities" as keyof DocFrontmatter];
+    const entityRefs = Array.isArray(artifacts)
       ? (artifacts as string[]).filter((s) => typeof s === "string" && s.length > 0)
       : [];
 
-    if (artifactIds.length > 0) {
-      const facts: ExtractedFact[] = artifactIds.map((id) => {
+    if (entityRefs.length > 0) {
+      const facts: ExtractedFact[] = entityRefs.map((id) => {
         const fields = { role: "trace", documentType: docType };
         return {
           key: id,

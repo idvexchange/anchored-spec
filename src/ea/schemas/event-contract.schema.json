@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Event Contract",
   "description": "An async event/message contract.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "properties": {
     "kind": { "const": "event-contract" },

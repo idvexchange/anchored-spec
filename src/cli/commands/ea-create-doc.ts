@@ -60,7 +60,7 @@ function parseAudience(audience: string): string[] {
 }
 
 /** Result of linking a single entity. */
-interface ArtifactLinkResult {
+interface EntityLinkResult {
   id: string;
   linked: boolean;
   reason?: string;
@@ -175,14 +175,14 @@ export function eaCreateDocCommand(): Command {
         domain: options.domain
           ? (options.domain as string).split(",").map((s) => s.trim())
           : undefined,
-        eaArtifacts: entityIds.length > 0 ? entityIds : undefined,
+        eaEntities: entityIds.length > 0 ? entityIds : undefined,
       };
 
       // ── Build markdown body ───────────────────────────────────────
       const bodyLines: string[] = [];
       bodyLines.push(`# ${title}`);
       bodyLines.push("");
-      bodyLines.push("> TODO: Document the specification for these artifacts.");
+      bodyLines.push("> TODO: Document the specification for these entities.");
       bodyLines.push("");
 
       if (entityIds.length > 0) {
@@ -211,7 +211,7 @@ export function eaCreateDocCommand(): Command {
       const relativeDocPath = relative(cwd, filePath);
 
       // ── Link back: add traceRefs to referenced entities ───────────
-      const linkResults: ArtifactLinkResult[] = [];
+      const linkResults: EntityLinkResult[] = [];
 
       if (options.linkBack && entityIds.length > 0) {
         const role = docTypeToRole(type);
@@ -224,7 +224,7 @@ export function eaCreateDocCommand(): Command {
           }
 
           try {
-            writeArtifactTraceRef(detail.filePath, relativeDocPath, role);
+            writeEntityTraceRef(detail.filePath, relativeDocPath, role);
             linkResults.push({ id, linked: true });
           } catch (err) {
             linkResults.push({
@@ -264,10 +264,10 @@ export function eaCreateDocCommand(): Command {
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 /**
- * Read an artifact file, append a new traceRef entry, and write it back
+ * Read an entity file, append a new traceRef entry, and write it back
  * in the same format (JSON or YAML).
  */
-function writeArtifactTraceRef(
+function writeEntityTraceRef(
   filePath: string,
   docPath: string,
   role: CreateDocTraceRole,
@@ -279,7 +279,7 @@ function writeArtifactTraceRef(
 function printHumanOutput(
   docPath: string,
   frontmatter: DocFrontmatter,
-  linkResults: ArtifactLinkResult[],
+  linkResults: EntityLinkResult[],
   missingIds: string[]
 ): void {
   console.log(chalk.green(`\nCreated: ${docPath}\n`));

@@ -39,7 +39,7 @@ export interface GeneratedOutput {
   /** Content type for logging/display. */
   contentType: "yaml" | "json" | "hcl" | "markdown" | "typescript" | "sql" | "other";
   /** The EA artifact ID this was generated from. */
-  sourceArtifactId: string;
+  sourceEntityRef: string;
   /** Human-readable description of what was generated. */
   description: string;
   /** Whether this output should overwrite existing files. */
@@ -51,7 +51,7 @@ export interface GenerationDrift {
   /** Path to the generated file that has drifted. */
   filePath: string;
   /** The EA artifact that should govern this file. */
-  sourceArtifactId: string;
+  sourceEntityRef: string;
   /** Description of the drift. */
   message: string;
   /** Suggested action. */
@@ -141,7 +141,7 @@ export interface GenerationReport {
   /** Summary statistics. */
   summary: {
     generatorsRun: number;
-    artifactsProcessed: number;
+    entitiesProcessed: number;
     filesGenerated: number;
     filesWritten: number;
     filesSkipped: number;
@@ -173,7 +173,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
   const outputs: GeneratedOutput[] = [];
   const drifts: GenerationDrift[] = [];
   let generatorsRun = 0;
-  let artifactsProcessed = 0;
+  let entitiesProcessed = 0;
   let filesWritten = 0;
   let filesSkipped = 0;
 
@@ -217,7 +217,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     });
 
     for (const entity of matchingArtifacts) {
-      artifactsProcessed++;
+      entitiesProcessed++;
 
       if (checkOnly && generator.diff) {
         // Check mode: compare existing vs what would be generated
@@ -231,7 +231,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
           } else {
             drifts.push({
               filePath: join(genOutputDir, output.relativePath),
-              sourceArtifactId: getEntityId(entity),
+              sourceEntityRef: getEntityId(entity),
               message: `Generated file does not exist: ${output.relativePath}`,
               suggestion: "regenerate",
             });
@@ -272,7 +272,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     drifts,
     summary: {
       generatorsRun,
-      artifactsProcessed,
+      entitiesProcessed,
       filesGenerated: outputs.length,
       filesWritten,
       filesSkipped,
@@ -295,7 +295,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     `| Metric | Count |`,
     `| --- | --- |`,
     `| Generators run | ${report.summary.generatorsRun} |`,
-    `| Artifacts processed | ${report.summary.artifactsProcessed} |`,
+    `| Artifacts processed | ${report.summary.entitiesProcessed} |`,
     `| Files generated | ${report.summary.filesGenerated} |`,
     `| Files written | ${report.summary.filesWritten} |`,
     `| Files skipped | ${report.summary.filesSkipped} |`,
@@ -307,7 +307,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     lines.push("## Generated Files", "");
     for (const output of report.outputs) {
       lines.push(`- **${output.relativePath}** (${output.contentType}) — ${output.description}`);
-      lines.push(`  Source: \`${output.sourceArtifactId}\``);
+      lines.push(`  Source: \`${output.sourceEntityRef}\``);
     }
     lines.push("");
   }
@@ -317,7 +317,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     for (const drift of report.drifts) {
       lines.push(`- **${drift.filePath}** [${drift.suggestion}]`);
       lines.push(`  ${drift.message}`);
-      lines.push(`  Source: \`${drift.sourceArtifactId}\``);
+      lines.push(`  Source: \`${drift.sourceEntityRef}\``);
     }
     lines.push("");
   }

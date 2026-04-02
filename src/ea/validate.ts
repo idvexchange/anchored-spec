@@ -45,7 +45,7 @@ let eaAjvInstance: Ajv | null = null;
 
 /** All EA schema names that can be validated against. */
 export type EaSchemaName =
-  | "artifact-base"
+  | "entity-base"
   | "relation"
   | "anchors"
   | "application"
@@ -102,7 +102,7 @@ export type EaSchemaName =
   | "ea-verification";
 
 const EA_NON_ENTITY_SCHEMA_NAMES = [
-  "artifact-base",
+  "entity-base",
   "relation",
   "anchors",
   "config-v1",
@@ -161,7 +161,7 @@ export interface EaValidationResult {
 
 /**
  * Validate an EA artifact against its schema-specific contract.
- * Falls back to artifact-base if no schema-specific contract exists.
+ * Falls back to entity-base if no schema-specific contract exists.
  */
 export function validateEaSchema(
   data: unknown,
@@ -253,7 +253,7 @@ function normalizeSchemaNode(
 
 /**
  * Resolve the schema name from the artifact's `kind` field.
- * Returns the kind name if a schema exists, otherwise falls back to "artifact-base".
+ * Returns the kind name if a schema exists, otherwise falls back to "entity-base".
  */
 function resolveSchemaName(data: unknown): EaSchemaName {
   if (typeof data === "object" && data !== null && "kind" in data) {
@@ -262,7 +262,7 @@ function resolveSchemaName(data: unknown): EaSchemaName {
       return kind as EaSchemaName;
     }
   }
-  return "artifact-base";
+  return "entity-base";
 }
 
 /**
@@ -322,7 +322,7 @@ function ruleSeverity(
  *   - `ea:quality:duplicate-id`        (error)   — No duplicate artifact IDs
  *   - `ea:quality:orphan-artifact`     (warning)  — Artifacts with zero relations
  */
-export function validateEaArtifacts(
+export function validateEntities(
   entities: BackstageEntity[],
   options?: EaValidationOptions
 ): EaValidationResult {
@@ -540,7 +540,7 @@ export function validateEaArtifacts(
     }
     if (schema === "baseline") {
       const blSev = ruleSeverity("ea:quality:baseline-empty-refs", "warning", q);
-      const ar = a.spec?.artifactRefs as unknown[] | undefined;
+      const ar = a.spec?.entityRefs as unknown[] | undefined;
       if (!ar || ar.length === 0) { push(blSev, "ea:quality:baseline-empty-refs", entityId, `Baseline "${entityId}" has no artifact references`); }
     }
     if (schema === "target") {
@@ -556,7 +556,7 @@ export function validateEaArtifacts(
     if (schema === "exception") {
       const excSev = ruleSeverity("ea:quality:exception-empty-scope", "error", q);
       const scope = a.spec?.scope as Record<string, unknown> | undefined;
-      const hs = ((scope?.artifactIds as unknown[] | undefined)?.length ?? 0) > 0 ||
+      const hs = ((scope?.entityRefs as unknown[] | undefined)?.length ?? 0) > 0 ||
         ((scope?.rules as unknown[] | undefined)?.length ?? 0) > 0 ||
         ((scope?.domains as unknown[] | undefined)?.length ?? 0) > 0;
       if (!hs) { push(excSev, "ea:quality:exception-empty-scope", entityId, `Exception "${entityId}" has empty scope (would suppress everything)`); }

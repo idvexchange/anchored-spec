@@ -64,7 +64,7 @@ describe("VitestEaAdapter", () => {
         const adapter = new VitestEaAdapter();
         const records = adapter.parse(reportPath, entities);
         expect(records).toHaveLength(1);
-        expect(records[0]!.artifactId).toBe("component:default/svc-auth");
+        expect(records[0]!.entityRef).toBe("component:default/svc-auth");
         expect(records[0]!.status).toBe("passed");
         expect(records[0]!.testFile).toBe("src/auth.test.ts");
     });
@@ -92,7 +92,7 @@ describe("VitestEaAdapter", () => {
         const adapter = new VitestEaAdapter();
         const records = adapter.parse(reportPath, entities);
         expect(records).toHaveLength(1);
-        expect(records[0]!.artifactId).toBe("component:default/svc-user");
+        expect(records[0]!.entityRef).toBe("component:default/svc-user");
     });
     it("skips tests that don't match any artifact", () => {
         const reportPath = writeVitestReport([
@@ -138,7 +138,7 @@ describe("collectEaTestEvidence", () => {
             name: "custom",
             parse: () => [
                 {
-                    artifactId: "custom-1",
+                    entityRef: "custom-1",
                     testFile: "test.ts",
                     kind: "unit",
                     status: "passed",
@@ -148,7 +148,7 @@ describe("collectEaTestEvidence", () => {
         };
         const result = collectEaTestEvidence("/fake", "custom", [], customAdapter);
         expect(result.records).toHaveLength(1);
-        expect(result.records[0]!.artifactId).toBe("custom-1");
+        expect(result.records[0]!.entityRef).toBe("custom-1");
     });
 });
 // ─── registerEvidenceAdapter / getAvailableAdapters ─────────────────────────────

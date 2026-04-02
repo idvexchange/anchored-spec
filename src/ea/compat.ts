@@ -8,7 +8,7 @@
  * Design reference: plan.md §S2-A
  */
 
-import type { EaDiffReport, ArtifactDiff, FieldChange } from "./diff.js";
+import type { EaDiffReport, EntityDiff, FieldChange } from "./diff.js";
 import type { BackstageEntity } from "./backstage/types.js";
 import { getEntityId, getEntityStatus } from "./backstage/accessors.js";
 
@@ -33,7 +33,7 @@ export interface CompatibilityReason {
 }
 
 export interface CompatibilityAssessment {
-  artifactId: string;
+  entityRef: string;
   kind: string;
   schema: string;
   domain: string;
@@ -56,7 +56,7 @@ export interface CompatibilityReport {
 interface CompatibilityRule {
   id: string;
   evaluate(
-    diff: ArtifactDiff,
+    diff: EntityDiff,
     ctx: RuleContext,
   ): CompatibilityReason[];
 }
@@ -83,7 +83,7 @@ const COMPAT_RULES: CompatibilityRule[] = [
           rule: "compat:artifact-removed",
           level: "breaking",
           field: "(artifact)",
-          message: `Artifact ${diff.artifactId} removed while in ${status} state`,
+          message: `Artifact ${diff.entityRef} removed while in ${status} state`,
         }];
       }
       return [];
@@ -98,7 +98,7 @@ const COMPAT_RULES: CompatibilityRule[] = [
           rule: "compat:artifact-removed-deprecated",
           level: "compatible",
           field: "(artifact)",
-          message: `Deprecated artifact ${diff.artifactId} removed`,
+          message: `Deprecated artifact ${diff.entityRef} removed`,
         }];
       }
       return [];
@@ -326,8 +326,8 @@ export function assessCompatibility(
     if (diff.changeType === "unchanged") continue;
 
     const ctx: RuleContext = {
-      baseEntity: baseMap.get(diff.artifactId),
-      headEntity: headMap.get(diff.artifactId),
+      baseEntity: baseMap.get(diff.entityRef),
+      headEntity: headMap.get(diff.entityRef),
     };
 
     const reasons: CompatibilityReason[] = [];
@@ -341,14 +341,14 @@ export function assessCompatibility(
         rule: "compat:artifact-added",
         level: "additive",
         field: "(artifact)",
-        message: `New artifact ${diff.artifactId} added`,
+        message: `New artifact ${diff.entityRef} added`,
       });
     }
 
     const level = worstLevel(reasons.map((r) => r.level));
 
     assessments.push({
-      artifactId: diff.artifactId,
+      entityRef: diff.entityRef,
       kind: diff.kind,
       schema: diff.schema,
       domain: diff.domain,
@@ -424,7 +424,7 @@ export function renderCompatMarkdown(report: CompatibilityReport): string {
     lines.push("|----------|------|--------|------|--------|");
     for (const item of items) {
       for (const reason of item.reasons.filter((r) => r.level === section.level)) {
-        lines.push(`| ${item.artifactId} | ${item.kind} | ${item.schema} | ${reason.rule} | ${reason.message} |`);
+        lines.push(`| ${item.entityRef} | ${item.kind} | ${item.schema} | ${reason.rule} | ${reason.message} |`);
       }
     }
     lines.push("");
@@ -436,7 +436,7 @@ export function renderCompatMarkdown(report: CompatibilityReport): string {
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 function findFieldChange(
-  diff: ArtifactDiff,
+  diff: EntityDiff,
   field: string,
   changeType: FieldChange["changeType"],
 ): FieldChange | undefined {

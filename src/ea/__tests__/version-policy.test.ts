@@ -2,7 +2,7 @@
  * Tests for the EA Version Policy Enforcement
  */
 import { describe, it, expect } from "vitest";
-import { diffEaArtifacts } from "../diff.js";
+import { diffEntities } from "../diff.js";
 import { assessCompatibility } from "../compat.js";
 import { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, renderPolicyMarkdown, } from "../version-policy.js";
 import type { VersionPolicyConfig } from "../version-policy.js";
@@ -20,7 +20,7 @@ function makePolicyEntity(overrides: Parameters<typeof makeEntity>[0]): Backstag
     });
 }
 function enforceWith(base: BackstageEntity[], head: BackstageEntity[], config?: VersionPolicyConfig) {
-    const diff = diffEaArtifacts(base, head);
+    const diff = diffEntities(base, head);
     const compat = assessCompatibility(diff, { base, head });
     return enforceVersionPolicies(compat, { base, head }, config);
 }
@@ -148,7 +148,7 @@ describe("enforceVersionPolicies", () => {
             perSchema: { "api-contract": { compatibility: "backward-only" } }
         });
         expect(report.passed).toBe(false);
-        expect(report.violations[0].artifactId).toBe("api:default/a");
+        expect(report.violations[0].entityRef).toBe("api:default/a");
     });
     it("uses artifact-level policy from extensions", () => {
         const base = [makePolicyEntity({
@@ -178,7 +178,7 @@ describe("enforceVersionPolicies", () => {
         expect(report.summary.byPolicy["backward-only"]).toBeGreaterThanOrEqual(1);
     });
     it("includes baseRef and headRef from compat report", () => {
-        const diff = diffEaArtifacts([], [], { baseRef: "v1.0", headRef: "v2.0" });
+        const diff = diffEntities([], [], { baseRef: "v1.0", headRef: "v2.0" });
         const compat = assessCompatibility(diff);
         const report = enforceVersionPolicies(compat, { base: [], head: [] });
         expect(report.baseRef).toBe("v1.0");
@@ -199,7 +199,7 @@ describe("renderPolicySummary", () => {
 });
 describe("renderPolicyMarkdown", () => {
     it("renders header", () => {
-        const diff = diffEaArtifacts([], [], { baseRef: "main", headRef: "dev" });
+        const diff = diffEntities([], [], { baseRef: "main", headRef: "dev" });
         const compat = assessCompatibility(diff);
         const report = enforceVersionPolicies(compat, { base: [], head: [] });
         const md = renderPolicyMarkdown(report);

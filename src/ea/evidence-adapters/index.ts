@@ -16,7 +16,7 @@ import { getEntityAnchors, getEntityId, getEntityTraceRefs } from "../backstage/
 
 export interface EaTestRecord {
   /** EA artifact ID this test relates to. */
-  artifactId: string;
+  entityRef: string;
   /** Test file path. */
   testFile: string;
   /** Test kind (unit, integration, e2e, contract, manual). */
@@ -66,15 +66,15 @@ interface VitestReport {
  */
 function buildTestToArtifactMap(
   entities: BackstageEntity[],
-): Map<string, Array<{ artifactId: string; kind: string }>> {
-  const map = new Map<string, Array<{ artifactId: string; kind: string }>>();
+): Map<string, Array<{ entityRef: string; kind: string }>> {
+  const map = new Map<string, Array<{ entityRef: string; kind: string }>>();
 
   for (const entity of entities) {
     // Map from traceRefs if present
     for (const ref of getEntityTraceRefs(entity)) {
         if (ref.role === "implementation" || ref.path.includes("test")) {
           const existing = map.get(ref.path) ?? [];
-          existing.push({ artifactId: getEntityId(entity), kind: "unit" });
+          existing.push({ entityRef: getEntityId(entity), kind: "unit" });
           map.set(ref.path, existing);
         }
     }
@@ -84,7 +84,7 @@ function buildTestToArtifactMap(
     if (anchors?.symbols) {
       for (const sym of anchors.symbols) {
         const existing = map.get(sym) ?? [];
-        existing.push({ artifactId: getEntityId(entity), kind: "unit" });
+        existing.push({ entityRef: getEntityId(entity), kind: "unit" });
         map.set(sym, existing);
       }
     }
@@ -114,7 +114,7 @@ export class VitestEaAdapter implements EvidenceAdapter {
 
     for (const result of report.testResults) {
       const normalizedName = result.name;
-      const matchingArtifacts: Array<{ artifactId: string; kind: string }> = [];
+      const matchingArtifacts: Array<{ entityRef: string; kind: string }> = [];
 
       for (const [pattern, refs] of testToArtifact) {
         if (normalizedName.endsWith(pattern) || normalizedName.includes(pattern)) {
@@ -122,7 +122,7 @@ export class VitestEaAdapter implements EvidenceAdapter {
         }
       }
 
-      for (const { artifactId, kind } of matchingArtifacts) {
+      for (const { entityRef, kind } of matchingArtifacts) {
         const status =
           result.status === "passed"
             ? "passed"
@@ -133,7 +133,7 @@ export class VitestEaAdapter implements EvidenceAdapter {
                 : "error";
 
         records.push({
-          artifactId,
+          entityRef,
           testFile: normalizedName,
           kind,
           status: status as EaTestRecord["status"],

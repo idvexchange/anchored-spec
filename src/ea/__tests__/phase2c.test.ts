@@ -12,7 +12,7 @@
  *  - 8 information drift rules including classification propagation
  */
 import { describe, it, expect } from "vitest";
-import { createDefaultRegistry, validateEaArtifacts, validateEaRelations, validateEaSchema, evaluateEaDrift, } from "../index.js";
+import { createDefaultRegistry, validateEntities, validateEaRelations, validateEaSchema, evaluateEaDrift, } from "../index.js";
 import { ENTITY_DESCRIPTOR_REGISTRY, getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import { makeEntity } from "./helpers/make-entity.js";
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
@@ -144,8 +144,8 @@ describe("Phase 2C: Schema Validation", () => {
                 summary: "Exchanges customer data during onboarding",
                 owners: ["team-data"],
                 confidence: "declared",
-                source: { artifactId: "component:frontend", role: "collector" },
-                destination: { artifactId: "component:backend", role: "processor" },
+                source: { entityRef: "component:frontend", role: "collector" },
+                destination: { entityRef: "component:backend", role: "processor" },
                 exchangedEntities: ["canonicalentity:customer"],
                 purpose: "Customer onboarding flow",
                 trigger: "request",
@@ -163,7 +163,7 @@ describe("Phase 2C: Schema Validation", () => {
                 summary: "Missing source",
                 owners: ["team"],
                 confidence: "declared",
-                destination: { artifactId: "component:backend" },
+                destination: { entityRef: "component:backend" },
                 exchangedEntities: ["canonicalentity:customer"],
                 purpose: "test"
             }, "information-exchange");
@@ -179,8 +179,8 @@ describe("Phase 2C: Schema Validation", () => {
                 summary: "Invalid trigger",
                 owners: ["team"],
                 confidence: "declared",
-                source: { artifactId: "component:frontend" },
-                destination: { artifactId: "component:backend" },
+                source: { entityRef: "component:frontend" },
+                destination: { entityRef: "component:backend" },
                 exchangedEntities: ["canonicalentity:customer"],
                 purpose: "test",
                 trigger: "invalid-trigger"
@@ -368,7 +368,7 @@ describe("Phase 2C: Quality Rules", () => {
                 attributes: []
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:ce-missing-attributes")).toBeDefined();
     });
     it("ea:quality:ce-attribute-missing-type — fires on attribute without type", () => {
@@ -379,7 +379,7 @@ describe("Phase 2C: Quality Rules", () => {
                 attributes: [{ name: "id", type: "" }]
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:ce-attribute-missing-type")).toBeDefined();
     });
     it("ea:quality:exchange-missing-source-destination — fires on missing source", () => {
@@ -387,12 +387,12 @@ describe("Phase 2C: Quality Rules", () => {
             makeEntity({
                 ref: "exchange:no-source",
                 kind: "Exchange",
-                destination: { artifactId: "component:backend" },
+                destination: { entityRef: "component:backend" },
                 exchangedEntities: ["canonicalentity:x"],
                 purpose: "test"
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:exchange-missing-source-destination")).toBeDefined();
     });
     it("ea:quality:exchange-missing-purpose — fires on empty purpose", () => {
@@ -400,13 +400,13 @@ describe("Phase 2C: Quality Rules", () => {
             makeEntity({
                 ref: "exchange:no-purpose",
                 kind: "Exchange",
-                source: { artifactId: "component:frontend" },
-                destination: { artifactId: "component:backend" },
+                source: { entityRef: "component:frontend" },
+                destination: { entityRef: "component:backend" },
                 exchangedEntities: ["canonicalentity:x"],
                 purpose: ""
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:exchange-missing-purpose")).toBeDefined();
     });
     it("ea:quality:classification-missing-controls — fires on empty controls", () => {
@@ -419,7 +419,7 @@ describe("Phase 2C: Quality Rules", () => {
                 requiredControls: []
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:classification-missing-controls")).toBeDefined();
     });
     it("ea:quality:retention-missing-duration — fires on missing duration", () => {
@@ -433,7 +433,7 @@ describe("Phase 2C: Quality Rules", () => {
                 disposal: { method: "delete" }
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:retention-missing-duration")).toBeDefined();
     });
     it("ea:quality:glossary-missing-definition — fires on empty definition", () => {
@@ -446,7 +446,7 @@ describe("Phase 2C: Quality Rules", () => {
                 domain: "commerce"
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         expect(result.errors.find((e) => e.rule === "ea:quality:glossary-missing-definition")).toBeDefined();
     });
     it("passes quality for well-formed information artifacts", () => {
@@ -465,7 +465,7 @@ describe("Phase 2C: Quality Rules", () => {
                 requiredControls: [{ control: "encryption", description: "Encrypt all PII" }]
             } as any),
         ];
-        const result = validateEaArtifacts(artifacts);
+        const result = validateEntities(artifacts);
         // No quality rule errors for these well-formed artifacts
         const infoRules = result.errors.filter((e) => e.rule?.startsWith("ea:quality:ce-") ||
             e.rule?.startsWith("ea:quality:exchange-") ||
@@ -631,8 +631,8 @@ describe("Phase 2C: Information Drift Rules", () => {
                 makeEntity({
                     ref: "exchange:bad",
                     kind: "Exchange",
-                    source: { artifactId: "component:a" },
-                    destination: { artifactId: "component:b" },
+                    source: { entityRef: "component:a" },
+                    destination: { entityRef: "component:b" },
                     exchangedEntities: ["canonicalentity:x"],
                     purpose: "test"
                 } as any),
@@ -645,8 +645,8 @@ describe("Phase 2C: Information Drift Rules", () => {
                 makeEntity({
                     ref: "exchange:good",
                     kind: "Exchange",
-                    source: { artifactId: "component:a" },
-                    destination: { artifactId: "component:b" },
+                    source: { entityRef: "component:a" },
+                    destination: { entityRef: "component:b" },
                     exchangedEntities: ["canonicalentity:x"],
                     purpose: "test",
                     implementingContracts: ["api:customer"]
@@ -825,8 +825,8 @@ describe("Phase 2C: Information Drift Rules", () => {
                 makeEntity({
                     ref: "exchange:onboarding",
                     kind: "Exchange",
-                    source: { artifactId: "component:frontend" },
-                    destination: { artifactId: "component:backend" },
+                    source: { entityRef: "component:frontend" },
+                    destination: { entityRef: "component:backend" },
                     exchangedEntities: ["canonicalentity:customer-entity"],
                     purpose: "Customer onboarding"
                 } as any),
@@ -845,8 +845,8 @@ describe("Phase 2C: Information Drift Rules", () => {
                 makeEntity({
                     ref: "exchange:onboarding",
                     kind: "Exchange",
-                    source: { artifactId: "component:frontend" },
-                    destination: { artifactId: "component:backend" },
+                    source: { entityRef: "component:frontend" },
+                    destination: { entityRef: "component:backend" },
                     exchangedEntities: ["canonicalentity:customer-entity"],
                     purpose: "Customer onboarding",
                     classificationLevel: "control:pii"

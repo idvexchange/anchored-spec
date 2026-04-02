@@ -101,7 +101,7 @@ describe("CLI v2 commands", () => {
         const compat = JSON.parse(diffResult.stdout) as {
             overallLevel: string;
             assessments: Array<{
-                artifactId: string;
+                entityRef: string;
                 level: string;
                 reasons: Array<{
                     rule: string;
@@ -111,7 +111,7 @@ describe("CLI v2 commands", () => {
         expect(compat.overallLevel).toBe("breaking");
         expect(compat.assessments).toEqual(expect.arrayContaining([
             expect.objectContaining({
-                artifactId: "component:default/auth",
+                entityRef: "component:default/auth",
                 level: "breaking",
                 reasons: expect.arrayContaining([
                     expect.objectContaining({ rule: "compat:artifact-removed" }),

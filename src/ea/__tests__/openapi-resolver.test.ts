@@ -20,7 +20,7 @@ const TEST_CACHE_ROOT = join(tmpdir(), `ea-openapi-test-${Date.now()}`);
 function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   return {
     projectRoot: FIXTURES_DIR,
-    artifacts: [],
+    entities: [],
     cache: new NoOpCache(),
     logger: silentLogger,
     ...overrides,
@@ -340,9 +340,9 @@ describe("OpenApiResolver.collectObservedState", () => {
   });
 });
 
-// ─── OpenApiResolver.discoverArtifacts ──────────────────────────────────────────
+// ─── OpenApiResolver.discoverEntities ──────────────────────────────────────────
 
-describe("OpenApiResolver.discoverArtifacts", () => {
+describe("OpenApiResolver.discoverEntities", () => {
   let resolver: OpenApiResolver;
 
   beforeEach(() => {
@@ -350,13 +350,13 @@ describe("OpenApiResolver.discoverArtifacts", () => {
   });
 
   it("should discover api-contract drafts from specs", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     expect(drafts).not.toBeNull();
     expect(drafts.length).toBe(3);
   });
 
   it("should create drafts with correct kind and status", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.kind).toBe("API");
       expect(draft.type).toBe("openapi");
@@ -368,7 +368,7 @@ describe("OpenApiResolver.discoverArtifacts", () => {
   });
 
   it("should populate schema-specific fields", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const petStore = drafts.find((d) => d.title === "Pet Store API");
     expect(petStore).toBeDefined();
     expect(petStore!.schemaFields?.protocol).toBe("rest");
@@ -378,25 +378,25 @@ describe("OpenApiResolver.discoverArtifacts", () => {
   });
 
   it("should include API endpoints as anchors", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const petStore = drafts.find((d) => d.title === "Pet Store API");
     expect(petStore!.anchors?.apis).toContain("GET /pets");
     expect(petStore!.anchors?.apis).toContain("POST /pets");
   });
 
   it("should generate slugified suggested IDs", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const petStore = drafts.find((d) => d.title === "Pet Store API");
     expect(petStore!.suggestedId).toBe("api:pet-store-api");
   });
 
   it("should return null when no specs found", () => {
     const ctx = makeCtx({ projectRoot: "/does/not/exist" });
-    expect(resolver.discoverArtifacts(ctx)).toBeNull();
+    expect(resolver.discoverEntities(ctx)).toBeNull();
   });
 
   it("should discover Swagger 2.0 specs", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const billing = drafts.find((d) => d.title === "Legacy Billing API");
     expect(billing).toBeDefined();
     expect(billing!.schemaFields?.version).toBe("1.5.0");

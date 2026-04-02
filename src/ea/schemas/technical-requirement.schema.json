@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Technical Requirement",
   "description": "A technical requirement for infrastructure, network, and delivery systems.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "properties": {
     "kind": { "const": "technical-requirement" },

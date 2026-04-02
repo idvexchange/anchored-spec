@@ -8,7 +8,7 @@
 import type { BackstageEntity } from "../../backstage/types.js";
 import { getSchemaDescriptor } from "../../backstage/kind-mapping.js";
 import { getEntityId, getEntityTitle } from "../../backstage/accessors.js";
-import type { EaArtifactDraft } from "../../discovery.js";
+import type { EntityDraft } from "../../discovery.js";
 import type { QueryMatch } from "./types.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ function now(): string {
 
 // ─── Route Aggregation ──────────────────────────────────────────────────────────
 
-function aggregateRoutes(matches: QueryMatch[]): EaArtifactDraft[] {
+function aggregateRoutes(matches: QueryMatch[]): EntityDraft[] {
   // Group routes by directory
   const groups = new Map<string, QueryMatch[]>();
   for (const match of matches) {
@@ -55,7 +55,7 @@ function aggregateRoutes(matches: QueryMatch[]): EaArtifactDraft[] {
     groups.set(key, existing);
   }
 
-  const drafts: EaArtifactDraft[] = [];
+  const drafts: EntityDraft[] = [];
 
   for (const [dirKey, groupMatches] of groups) {
     // Extract unique route paths
@@ -106,7 +106,7 @@ function aggregateRoutes(matches: QueryMatch[]): EaArtifactDraft[] {
 
 // ─── DB Access Aggregation ──────────────────────────────────────────────────────
 
-function aggregateDbAccess(matches: QueryMatch[]): EaArtifactDraft[] {
+function aggregateDbAccess(matches: QueryMatch[]): EntityDraft[] {
   // Group by table/model name
   const groups = new Map<string, QueryMatch[]>();
   for (const match of matches) {
@@ -118,7 +118,7 @@ function aggregateDbAccess(matches: QueryMatch[]): EaArtifactDraft[] {
     groups.set(key, existing);
   }
 
-  const drafts: EaArtifactDraft[] = [];
+  const drafts: EntityDraft[] = [];
 
   for (const [tableName, groupMatches] of groups) {
     const files = new Set<string>();
@@ -161,7 +161,7 @@ function aggregateDbAccess(matches: QueryMatch[]): EaArtifactDraft[] {
 
 // ─── Event Aggregation ──────────────────────────────────────────────────────────
 
-function aggregateEvents(matches: QueryMatch[]): EaArtifactDraft[] {
+function aggregateEvents(matches: QueryMatch[]): EntityDraft[] {
   // Group by event name
   const groups = new Map<string, QueryMatch[]>();
   for (const match of matches) {
@@ -173,7 +173,7 @@ function aggregateEvents(matches: QueryMatch[]): EaArtifactDraft[] {
     groups.set(key, existing);
   }
 
-  const drafts: EaArtifactDraft[] = [];
+  const drafts: EntityDraft[] = [];
 
   for (const [eventName, groupMatches] of groups) {
     const files = new Set<string>();
@@ -210,7 +210,7 @@ function aggregateEvents(matches: QueryMatch[]): EaArtifactDraft[] {
 
 // ─── External Call Aggregation ──────────────────────────────────────────────────
 
-function aggregateExternalCalls(matches: QueryMatch[]): EaArtifactDraft[] {
+function aggregateExternalCalls(matches: QueryMatch[]): EntityDraft[] {
   // Group by service/URL pattern
   const groups = new Map<string, QueryMatch[]>();
   for (const match of matches) {
@@ -222,7 +222,7 @@ function aggregateExternalCalls(matches: QueryMatch[]): EaArtifactDraft[] {
     groups.set(key, existing);
   }
 
-  const drafts: EaArtifactDraft[] = [];
+  const drafts: EntityDraft[] = [];
 
   for (const [serviceName, groupMatches] of groups) {
     const files = new Set<string>();
@@ -258,9 +258,9 @@ function aggregateExternalCalls(matches: QueryMatch[]): EaArtifactDraft[] {
 // ─── Deduplication ──────────────────────────────────────────────────────────────
 
 function deduplicateAgainstExisting(
-  drafts: EaArtifactDraft[],
+  drafts: EntityDraft[],
   existing: BackstageEntity[],
-): EaArtifactDraft[] {
+): EntityDraft[] {
   const existingIds = new Set(existing.map((a) => getEntityId(a)));
   const existingTitles = new Set(
     existing.map((a) => getEntityTitle(a).toLowerCase()),
@@ -288,7 +288,7 @@ function deduplicateAgainstExisting(
 export function aggregateMatches(
   matches: QueryMatch[],
   existingEntities: BackstageEntity[],
-): EaArtifactDraft[] {
+): EntityDraft[] {
   // Categorize matches
   const routes: QueryMatch[] = [];
   const dbAccess: QueryMatch[] = [];
@@ -317,7 +317,7 @@ export function aggregateMatches(
     }
   }
 
-  const allDrafts: EaArtifactDraft[] = [
+  const allDrafts: EntityDraft[] = [
     ...aggregateRoutes(routes),
     ...aggregateDbAccess(dbAccess),
     ...aggregateEvents(events),

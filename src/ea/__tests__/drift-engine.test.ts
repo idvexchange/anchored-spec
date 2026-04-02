@@ -68,7 +68,7 @@ describe("drift engine", () => {
                     kind: "Exception",
                     status: "active",
                     scope: {
-                        artifactIds: [finding!.artifactId],
+                        entityRefs: [finding!.entityRef],
                         rules: [finding!.rule]
                     },
                     approvedBy: "chief-architect",

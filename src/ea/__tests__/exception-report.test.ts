@@ -24,7 +24,7 @@ function makeException(ref: string, expiresAt: string) {
         approvedAt: "2025-01-01",
         expiresAt,
         reviewSchedule: "monthly",
-        scope: { artifactIds: ["component:auth"], rules: ["ea:systems/example"] }
+        scope: { entityRefs: ["component:auth"], rules: ["ea:systems/example"] }
     });
 }
 describe("exception reporting", () => {

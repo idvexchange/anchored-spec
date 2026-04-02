@@ -242,10 +242,10 @@ export class AnchorsResolver implements EaResolver {
   }
 
   async resolve(ctx: EaResolverContext): Promise<ObservedEaState> {
-    const entities: ObservedEntity[] = [];
-    const artifacts = ctx.artifacts ?? [];
+    const observedEntities: ObservedEntity[] = [];
+    const entities = ctx.entities ?? [];
 
-    for (const artifact of artifacts) {
+    for (const artifact of entities) {
       const entityAnchors = getEntityAnchors(artifact);
       if (!entityAnchors) continue;
 
@@ -269,7 +269,7 @@ export class AnchorsResolver implements EaResolver {
       const entityId = getEntityId(artifact);
       const schema = getEntitySchema(artifact);
       for (const match of result.matches) {
-        entities.push({
+        observedEntities.push({
           externalId: `${entityId}:anchor:${match.anchorType}:${match.anchorValue}`,
           inferredSchema: schema,
           matchedEntityId: entityId,
@@ -284,7 +284,7 @@ export class AnchorsResolver implements EaResolver {
       }
 
       for (const miss of result.missing) {
-        entities.push({
+        observedEntities.push({
           externalId: `${entityId}:anchor:${miss.anchorType}:${miss.anchorValue}`,
           inferredSchema: schema,
           matchedEntityId: entityId,
@@ -302,7 +302,7 @@ export class AnchorsResolver implements EaResolver {
     return {
       source: this.name,
       collectedAt: new Date().toISOString(),
-      entities,
+      entities: observedEntities,
       relationships: [],
     };
   }

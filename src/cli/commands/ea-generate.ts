@@ -103,7 +103,7 @@ export function eaGenerateCommand(): Command {
         console.log(`Dry run: ${report.outputs.length} file(s) would be generated.\n`);
         for (const output of report.outputs) {
           console.log(`  ${output.relativePath} (${output.contentType})`);
-          console.log(`    From: ${output.sourceArtifactId}`);
+          console.log(`    From: ${output.sourceEntityRef}`);
         }
       } else {
         console.log(renderGenerationReportMarkdown(report));

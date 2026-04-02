@@ -215,7 +215,7 @@ function runGenerateStep(
       errors: drifts,
       warnings: 0,
       details: passed
-        ? `${report.summary.generatorsRun} generators, ${report.summary.artifactsProcessed} artifacts — 0 drifts`
+        ? `${report.summary.generatorsRun} generators, ${report.summary.entitiesProcessed} artifacts — 0 drifts`
         : `${drifts} generation drift(s) detected`,
     },
     report,
@@ -350,12 +350,12 @@ function runTraceStep(
   const brokenFiles = report.brokenTraceRefs.filter(
     (b) => b.reason === "file not found",
   );
-  const actionableOneWay = report.oneWayArtifactToDoc.filter(
+  const actionableOneWay = report.oneWayEntityToDoc.filter(
     (o) => o.severity === "warning",
   );
 
   const errors = brokenFiles.length;
-  const warnings = actionableOneWay.length + report.oneWayDocToArtifact.length;
+  const warnings = actionableOneWay.length + report.oneWayDocToEntity.length;
   const failOnWarning = options.failOn === "warning";
   const passed = errors === 0 && (!failOnWarning || warnings === 0);
 
@@ -408,7 +408,7 @@ async function runDocConsistencyStep(
       passed: errors === 0,
       errors,
       warnings,
-      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.artifactsChecked} artifacts.`,
+      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.entitiesChecked} artifacts.`,
     },
   };
 }
@@ -470,8 +470,8 @@ function buildReport(
       driftFindings: driftReport?.findings.length ?? 0,
       traceIssues: traceReport
         ? traceReport.brokenTraceRefs.length +
-          traceReport.oneWayArtifactToDoc.length +
-          traceReport.oneWayDocToArtifact.length
+          traceReport.oneWayEntityToDoc.length +
+          traceReport.oneWayDocToEntity.length
         : 0,
       docConsistencyFindings: steps
         .filter(s => s.step === "docs")
@@ -509,12 +509,12 @@ export function renderReconcileOutput(report: ReconcileReport): string {
       }
       if (step.step === "drift" && report.driftReport) {
         for (const finding of report.driftReport.findings.filter((f) => !f.suppressed && f.severity === "error").slice(0, 5)) {
-          lines.push(`    → ${finding.artifactId}: ${finding.message} (${finding.rule})`);
+          lines.push(`    → ${finding.entityRef}: ${finding.message} (${finding.rule})`);
         }
       }
       if (step.step === "trace" && report.traceReport) {
         for (const broken of report.traceReport.brokenTraceRefs.filter((b) => b.reason === "file not found").slice(0, 5)) {
-          lines.push(`    → ${broken.artifactId}: traceRef "${broken.path}" — file not found`);
+          lines.push(`    → ${broken.entityRef}: traceRef "${broken.path}" — file not found`);
         }
       }
       if (step.step === "docs") {

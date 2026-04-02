@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createDraft, discoverArtifacts, matchDraftToExisting, renderDiscoveryReportMarkdown, type EaArtifactDraft, } from "../discovery.js";
+import { createDraft, discoverEntities, matchDraftToExisting, renderDiscoveryReportMarkdown, type EntityDraft, } from "../discovery.js";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import { resolveConfigV1 } from "../config.js";
 import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, readTextFile, runCli, writeTextFile } from "../../test-helpers/workspace.js";
@@ -14,7 +14,7 @@ afterEach(() => {
         cleanupTestWorkspace(dir);
     }
 });
-function makeDraft(overrides: Partial<EaArtifactDraft> = {}): EaArtifactDraft {
+function makeDraft(overrides: Partial<EntityDraft> = {}): EntityDraft {
     return {
         suggestedId: overrides.suggestedId ?? "component:payments",
         apiVersion: overrides.apiVersion ?? "backstage.io/v1alpha1",
@@ -72,7 +72,7 @@ describe("discovery helpers", () => {
     it("writes unmatched drafts into the configured entity storage", async () => {
         const dir = makeWorkspace("discovery-write");
         const config = resolveConfigV1();
-        const report = await discoverArtifacts({
+        const report = await discoverEntities({
             existingEntities: [
                 makeArtifact({
                     ref: "component:existing",

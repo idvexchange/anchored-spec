@@ -20,7 +20,7 @@ const TEST_CACHE_ROOT = join(tmpdir(), `ea-tf-test-${Date.now()}`);
 function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   return {
     projectRoot: FIXTURES_DIR,
-    artifacts: [],
+    entities: [],
     cache: new NoOpCache(),
     logger: silentLogger,
     source: "terraform",
@@ -232,23 +232,23 @@ describe("TerraformResolver.collectObservedState", () => {
   });
 });
 
-// ─── TerraformResolver.discoverArtifacts ────────────────────────────────────────
+// ─── TerraformResolver.discoverEntities ────────────────────────────────────────
 
-describe("TerraformResolver.discoverArtifacts", () => {
+describe("TerraformResolver.discoverEntities", () => {
   let resolver: TerraformResolver;
 
   beforeEach(() => {
     resolver = new TerraformResolver();
   });
 
-  it("should discover artifacts from Terraform state", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+  it("should discover entities from Terraform state", () => {
+    const drafts = resolver.discoverEntities(makeCtx())!;
     expect(drafts).not.toBeNull();
     expect(drafts.length).toBeGreaterThan(0);
   });
 
   it("should create drafts with correct status and confidence", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.status).toBe("draft");
       expect(draft.confidence).toBe("observed");
@@ -257,7 +257,7 @@ describe("TerraformResolver.discoverArtifacts", () => {
   });
 
   it("should create cloud-resource draft for RDS", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const rds = drafts.find((d) => d.schema === "cloud-resource" && d.title.includes("aws_rds_instance"));
     expect(rds).toBeDefined();
     expect(rds!.kind).toBe("Resource");
@@ -266,7 +266,7 @@ describe("TerraformResolver.discoverArtifacts", () => {
   });
 
   it("should create data-store draft for RDS (secondary)", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const store = drafts.find(
       (d) => d.schema === "data-store" && d.schemaFields?.derivedFrom === "aws_rds_instance.main",
     );
@@ -276,7 +276,7 @@ describe("TerraformResolver.discoverArtifacts", () => {
   });
 
   it("should create platform draft for ECS", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const ecs = drafts.find((d) => d.schema === "platform" && d.title.includes("aws_ecs_cluster"));
     expect(ecs).toBeDefined();
     expect(ecs!.kind).toBe("Component");
@@ -284,26 +284,26 @@ describe("TerraformResolver.discoverArtifacts", () => {
   });
 
   it("should create network-zone draft for security group", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const sg = drafts.find((d) => d.schema === "network-zone");
     expect(sg).toBeDefined();
   });
 
   it("should create identity-boundary draft for IAM role", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const iam = drafts.find((d) => d.schema === "identity-boundary");
     expect(iam).toBeDefined();
   });
 
   it("should include Terraform anchors", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.anchors?.infra?.some((a) => a.startsWith("terraform:"))).toBe(true);
     }
   });
 
   it("should discover child module resources", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const redis = drafts.find((d) =>
       d.anchors?.infra?.includes("terraform:module.cache.aws_elasticache_cluster.redis"),
     );
@@ -312,7 +312,7 @@ describe("TerraformResolver.discoverArtifacts", () => {
 
   it("should return null when no state found", () => {
     const ctx = makeCtx({ projectRoot: "/does/not/exist" });
-    expect(resolver.discoverArtifacts(ctx)).toBeNull();
+    expect(resolver.discoverEntities(ctx)).toBeNull();
   });
 });
 

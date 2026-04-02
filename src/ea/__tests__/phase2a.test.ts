@@ -9,7 +9,7 @@
  *  - 4 static-analysis drift rules
  */
 import { describe, it, expect } from "vitest";
-import { createDefaultRegistry, validateEaArtifacts, validateEaRelations, evaluateEaDrift, } from "../index.js";
+import { createDefaultRegistry, validateEntities, validateEaRelations, evaluateEaDrift, } from "../index.js";
 import { makeEntity } from "./helpers/make-entity.js";
 // ─── Phase 2A Relations ─────────────────────────────────────────────────────────
 describe("Phase 2A: New Relations", () => {
@@ -192,7 +192,7 @@ describe("Phase 2A: Quality Rules", () => {
                     ownership: "owned"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const err = result.errors.find((e) => e.rule === "ea:quality:system-interface-missing-direction");
             expect(err).toBeDefined();
         });
@@ -205,7 +205,7 @@ describe("Phase 2A: Quality Rules", () => {
                     ownership: "owned"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const err = result.errors.find((e) => e.rule === "ea:quality:system-interface-missing-direction");
             expect(err).toBeUndefined();
         });
@@ -221,7 +221,7 @@ describe("Phase 2A: Quality Rules", () => {
                     consumerType: "internal"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:consumer-missing-contract");
             expect(warn).toBeDefined();
         });
@@ -235,7 +235,7 @@ describe("Phase 2A: Quality Rules", () => {
                     consumerType: "external"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:consumer-missing-contract");
             expect(warn).toBeUndefined();
         });
@@ -250,7 +250,7 @@ describe("Phase 2A: Quality Rules", () => {
                     resourceType: "rds"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const err = result.errors.find((e) => e.rule === "ea:quality:cloud-resource-missing-provider");
             expect(err).toBeDefined();
         });
@@ -264,7 +264,7 @@ describe("Phase 2A: Quality Rules", () => {
                     resourceType: "rds"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const err = result.errors.find((e) => e.rule === "ea:quality:cloud-resource-missing-provider");
             expect(err).toBeUndefined();
         });
@@ -281,7 +281,7 @@ describe("Phase 2A: Quality Rules", () => {
                     accessLevel: "team"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:environment-production-not-restricted");
             expect(warn).toBeDefined();
         });
@@ -296,7 +296,7 @@ describe("Phase 2A: Quality Rules", () => {
                     accessLevel: "restricted"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:environment-production-not-restricted");
             expect(warn).toBeUndefined();
         });
@@ -310,7 +310,7 @@ describe("Phase 2A: Quality Rules", () => {
                     isProduction: true
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:environment-production-not-restricted");
             expect(warn).toBeUndefined();
         });
@@ -327,7 +327,7 @@ describe("Phase 2A: Quality Rules", () => {
                     reviewBy: "2020-01-01"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:technology-standard-expired-review");
             expect(warn).toBeDefined();
         });
@@ -342,7 +342,7 @@ describe("Phase 2A: Quality Rules", () => {
                     reviewBy: "2099-01-01"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:technology-standard-expired-review");
             expect(warn).toBeUndefined();
         });
@@ -357,7 +357,7 @@ describe("Phase 2A: Quality Rules", () => {
                     reviewBy: "2020-01-01"
                 } as any),
             ];
-            const result = validateEaArtifacts(artifacts);
+            const result = validateEntities(artifacts);
             const warn = result.warnings.find((e) => e.rule === "ea:quality:technology-standard-expired-review");
             expect(warn).toBeUndefined();
         });

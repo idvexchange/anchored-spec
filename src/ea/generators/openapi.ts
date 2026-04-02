@@ -95,7 +95,7 @@ export const openapiGenerator: EaGenerator = {
         relativePath: `${slug}.openapi.yaml`,
         content: lines.join("\n"),
         contentType: "yaml",
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         description: `OpenAPI 3.1 stub for ${getEntityTitle(entity)}`,
         overwrite: true,
       },
@@ -113,7 +113,7 @@ export const openapiGenerator: EaGenerator = {
     if (normalizeWhitespace(currentOutput) !== normalizeWhitespace(expectedContent)) {
       drifts.push({
         filePath: `${slug}.openapi.yaml`,
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         message: "OpenAPI spec has been manually modified and differs from what would be generated",
         suggestion: "review",
       });
