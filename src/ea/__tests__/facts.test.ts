@@ -13,7 +13,7 @@
  *  7. Orchestrator — buildFactManifest, extractFacts
  *  8. Consistency engine — cross-document value mismatch, naming, state conflicts
  *  9. Suppression engine — inline @anchored-spec:suppress matching
- * 10. Reconciler — fact↔artifact anchor reconciliation
+ * 10. Reconciler — fact↔entity anchor reconciliation
  */
 
 import { describe, it, expect } from "vitest";
@@ -29,7 +29,7 @@ import {
   checkConsistency,
   applySuppressions,
   collectSuppressions,
-  reconcileFactsWithArtifacts,
+  reconcileFactsWithEntities,
 } from "../facts/index.js";
 import type {
   FactManifest,
@@ -927,8 +927,8 @@ describe("collectSuppressions", () => {
 
 // ─── 10. Reconciler ─────────────────────────────────────────────────
 
-describe("reconcileFactsWithArtifacts", () => {
-  it("reports no findings when artifact anchor matches doc fact", () => {
+describe("reconcileFactsWithEntities", () => {
+  it("reports no findings when entity anchor matches doc fact", () => {
     const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const manifest = makeManifest("events.md", [
       makeBlock(
@@ -948,12 +948,12 @@ describe("reconcileFactsWithArtifacts", () => {
       anchors: { events: ["dossier.success"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
     expect(report.findings).toHaveLength(0);
     expect(report.passed).toBe(true);
   });
 
-  it("reports artifact-missing-fact when artifact declares anchor not in docs", () => {
+  it("reports entity-missing-fact when entity declares anchor not in docs", () => {
     const manifest = makeManifest("events.md", [
       makeBlock("event-table", [
         makeFact({
@@ -968,16 +968,16 @@ describe("reconcileFactsWithArtifacts", () => {
       anchors: { events: ["dossier.success", "dossier.unknown"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
     const missing = report.findings.find(
-      (f) => f.rule === "ea:docs/artifact-missing-fact",
+      (f) => f.rule === "ea:docs/entity-missing-fact",
     );
     expect(missing).toBeDefined();
     expect(missing!.severity).toBe("warning");
     expect(missing!.message).toContain("dossier.unknown");
   });
 
-  it("reports fact-missing-artifact when annotated doc fact has no artifact anchor", () => {
+  it("reports fact-missing-entity when annotated doc fact has no entity anchor", () => {
     const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const manifest = makeManifest("events.md", [
       makeBlock(
@@ -997,16 +997,16 @@ describe("reconcileFactsWithArtifacts", () => {
       anchors: { events: ["dossier.success"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
     const orphan = report.findings.find(
-      (f) => f.rule === "ea:docs/fact-missing-artifact",
+      (f) => f.rule === "ea:docs/fact-missing-entity",
     );
     expect(orphan).toBeDefined();
     expect(orphan!.severity).toBe("warning");
     expect(orphan!.message).toContain("dossier.orphan");
   });
 
-  it("reports artifact-mismatch for near-miss (same prefix, different suffix)", () => {
+  it("reports entity-mismatch for near-miss (same prefix, different suffix)", () => {
     const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const manifest = makeManifest("events.md", [
       makeBlock(
@@ -1026,9 +1026,9 @@ describe("reconcileFactsWithArtifacts", () => {
       anchors: { events: ["dossier.successful"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
     const mismatch = report.findings.find(
-      (f) => f.rule === "ea:docs/artifact-mismatch",
+      (f) => f.rule === "ea:docs/entity-mismatch",
     );
     expect(mismatch).toBeDefined();
     expect(mismatch!.severity).toBe("error");

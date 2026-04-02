@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { REPORT_VIEWS, buildDriftHeatmap, detectEaDrift, renderDriftHeatmapMarkdown, } from "../index.js";
-import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, runCli, writeManifestProject, writeTextFile, } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, createTestWorkspace, runCli, writeManifestProject, writeTextFile, } from "../../test-helpers/workspace.js";
 import { makeEntity } from "./helpers/make-entity.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
@@ -16,7 +16,7 @@ afterEach(() => {
 describe("drift engine", () => {
     it("detects contract version mismatches from entity-first inputs", () => {
         const report = detectEaDrift({
-            artifacts: [
+            entities: [
                 makeEntity({
                     ref: "api:orders",
                     kind: "API",
@@ -57,11 +57,11 @@ describe("drift engine", () => {
             contractVersion: "1.0.0",
             consumesContracts: ["api:orders"]
         });
-        const baseline = detectEaDrift({ artifacts: [api, consumer] });
+        const baseline = detectEaDrift({ entities: [api, consumer] });
         const finding = baseline.findings.find((entry) => entry.rule === "ea:systems/consumer-contract-version-mismatch");
         expect(finding).toBeDefined();
         const suppressed = detectEaDrift({
-            artifacts: [api, consumer],
+            entities: [api, consumer],
             exceptions: [
                 makeEntity({
                     ref: "exception:version-mismatch",
@@ -92,7 +92,7 @@ describe("drift CLI", () => {
     it("checks docs consistency with the top-level drift command", () => {
         const dir = makeWorkspace("drift-docs");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         writeTextFile(dir, "docs/api.md", `| Event | Trigger |\n|-------|---------|\n| dossier.success | Verification passed |\n`);
         writeTextFile(dir, "docs/guide.md", `| Event | Trigger |\n|-------|---------|\n| dossier.success | Identity verified |\n`);
@@ -112,7 +112,7 @@ describe("drift CLI", () => {
     it("generates the drift heatmap report view from current manifest entities", () => {
         const dir = makeWorkspace("drift-report-view");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         const result = runCli(["report", "--view", "drift-heatmap", "--format", "json"], dir);
         expect(result.exitCode).toBe(0);

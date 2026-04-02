@@ -224,7 +224,7 @@ export function extractReplicas(manifest: K8sManifest): number | undefined {
   return undefined;
 }
 
-/** Slugify a name for use as artifact ID. */
+/** Slugify a name for use as entity ID. */
 function slugify(name: string): string {
   return name
     .toLowerCase()

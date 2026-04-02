@@ -19,7 +19,7 @@
         "properties": {
           "control": { "type": "string", "minLength": 1, "description": "Control name" },
           "description": { "type": "string", "minLength": 1, "description": "Control description" },
-          "enforcedBy": { "type": "string", "description": "Reference to control artifact" }
+          "enforcedBy": { "type": "string", "description": "Reference to control entity" }
         },
         "additionalProperties": false
       },

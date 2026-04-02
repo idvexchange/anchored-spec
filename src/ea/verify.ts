@@ -5,7 +5,7 @@
  * This is the EA EA-native verification engine.
  *
  * Checks include:
- *   1. JSON Schema validation (per artifact)
+ *   1. JSON Schema validation (per entity)
  *   2. Quality rules (from validateEntities)
  *   3. Relation integrity (target exists)
  *   4. Cross-reference integrity (bidirectional references)
@@ -33,7 +33,7 @@ export interface EaVerificationSummary {
   passed: number;
   warnings: number;
   errors: number;
-  artifacts: {
+  entities: {
     total: number;
     byDomain: Record<string, number>;
   };
@@ -47,20 +47,20 @@ export interface EaVerificationResult {
 
 // ─── Cross-Reference Checks ─────────────────────────────────────────────────────
 
-/** Check that all relation targets point to existing artifact IDs. */
+/** Check that all relation targets point to existing entity IDs. */
 function checkRelationTargets(entities: BackstageEntity[]): EaValidationError[] {
   const errors: EaValidationError[] = [];
   const knownIds = new Set(entities.map((entity) => getEntityId(entity)));
 
   for (const entity of entities) {
     for (const rel of getEntitySpecRelations(entity)) {
-      if (rel.legacyType === "ownedBy") continue;
+      if (rel.type === "ownedBy") continue;
       for (const target of rel.targets) {
         if (!target.includes(":") && !target.includes("/")) continue;
         if (knownIds.has(target)) continue;
         errors.push({
           path: getEntityId(entity),
-          message: `Relation target "${target}" from "${getEntityId(entity)}" does not match any known artifact ID`,
+          message: `Relation target "${target}" from "${getEntityId(entity)}" does not match any known entity ID`,
           severity: "error",
           rule: "ea:verify:broken-relation-target",
         });
@@ -71,8 +71,8 @@ function checkRelationTargets(entities: BackstageEntity[]): EaValidationError[] 
   return errors;
 }
 
-/** Check for orphaned artifacts with no incoming or outgoing relations. */
-function checkOrphanArtifacts(entities: BackstageEntity[]): EaValidationError[] {
+/** Check for orphaned entities with no incoming or outgoing relations. */
+function checkOrphanEntities(entities: BackstageEntity[]): EaValidationError[] {
   const warnings: EaValidationError[] = [];
   const referencedIds = new Set<string>();
 
@@ -95,9 +95,9 @@ function checkOrphanArtifacts(entities: BackstageEntity[]): EaValidationError[] 
     if (!hasOutgoing && !hasIncoming) {
       warnings.push({
         path: entityId,
-        message: `Artifact "${entityId}" has no relations (orphaned)`,
+        message: `Entity "${entityId}" has no relations (orphaned)`,
         severity: "warning",
-        rule: "ea:verify:orphan-artifact",
+        rule: "ea:verify:orphan-entity",
       });
     }
   }
@@ -112,26 +112,26 @@ function checkLifecycleConsistency(entities: BackstageEntity[]): EaValidationErr
   for (const entity of entities) {
     const entityId = getEntityId(entity);
     const status = getEntityStatus(entity);
-    // Deprecated artifacts should indicate why
+    // Deprecated entities should indicate why
     if (status === "deprecated") {
       if (!entity.metadata.description?.toLowerCase().includes("deprecated") &&
           !entity.metadata.tags?.includes("deprecated")) {
         errors.push({
           path: entityId,
-          message: `Deprecated artifact "${entityId}" should explain why it is deprecated in its summary or tags`,
+          message: `Deprecated entity "${entityId}" should explain why it is deprecated in its summary or tags`,
           severity: "warning",
           rule: "ea:verify:deprecated-needs-reason",
         });
       }
     }
 
-    // Active artifacts in transitions domain must have a target date or link
+    // Active entities in transitions domain must have a target date or link
     if (status === "active" && getEntityDescriptor(entity)?.domain === "transitions") {
-      const hasTarget = getEntitySpecRelations(entity).some((rel) => rel.legacyType === "targets" || rel.legacyType === "implementedBy");
+      const hasTarget = getEntitySpecRelations(entity).some((rel) => rel.type === "targets" || rel.type === "implementedBy");
       if (!hasTarget) {
         errors.push({
           path: entityId,
-          message: `Active transition artifact "${entityId}" should have a "targets" or "implementedBy" relation`,
+          message: `Active transition entity "${entityId}" should have a "targets" or "implementedBy" relation`,
           severity: "warning",
           rule: "ea:verify:transition-needs-target",
         });
@@ -212,9 +212,9 @@ export async function runEaVerification(
     allFindings.push(...relationErrors);
   }
 
-  // 4. Orphan artifacts
+  // 4. Orphan entities
   totalChecks++;
-  const orphanWarnings = checkOrphanArtifacts(entities);
+  const orphanWarnings = checkOrphanEntities(entities);
   if (orphanWarnings.length === 0) {
     passedChecks++;
   } else {
@@ -295,7 +295,7 @@ export async function runEaVerification(
       passed: passedChecks,
       warnings: warnings.length,
       errors: errors.length,
-      artifacts: {
+      entities: {
         total: entities.length,
         byDomain,
       },

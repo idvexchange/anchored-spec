@@ -8,7 +8,7 @@ audience:
 domain:
   - transitions
   - delivery
-ea-artifacts:
+ea-entities:
   - component:governance-and-workflow
   - capability:governed-evolution
   - decision:repository-local-workflow

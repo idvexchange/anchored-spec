@@ -54,7 +54,7 @@ function writeVitestReport(records: Array<{
 }
 // ─── VitestEaAdapter ────────────────────────────────────────────────────────────
 describe("VitestEaAdapter", () => {
-    it("parses passed tests and maps to artifacts via anchors.symbols", () => {
+    it("parses passed tests and maps to entities via anchors.symbols", () => {
         const reportPath = writeVitestReport([
             { name: "src/auth.test.ts", status: "passed" },
         ]);
@@ -94,7 +94,7 @@ describe("VitestEaAdapter", () => {
         expect(records).toHaveLength(1);
         expect(records[0]!.entityRef).toBe("component:default/svc-user");
     });
-    it("skips tests that don't match any artifact", () => {
+    it("skips tests that don't match any entity", () => {
         const reportPath = writeVitestReport([
             { name: "src/unrelated.test.ts", status: "passed" },
         ]);

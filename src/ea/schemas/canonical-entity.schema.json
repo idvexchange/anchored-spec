@@ -20,7 +20,7 @@
           "type": { "type": "string", "minLength": 1, "description": "Attribute data type" },
           "required": { "type": "boolean", "description": "Whether the attribute is required" },
           "description": { "type": "string", "description": "Attribute description" },
-          "classification": { "type": "string", "description": "Reference to classification artifact" },
+          "classification": { "type": "string", "description": "Reference to classification entity" },
           "example": { "type": "string", "description": "Example value" }
         },
         "additionalProperties": false

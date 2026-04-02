@@ -50,7 +50,7 @@
     "alternatives": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Artifact IDs of alternative standards"
+      "description": "Entity IDs of alternative standards"
     },
     "rationale": {
       "type": "string",

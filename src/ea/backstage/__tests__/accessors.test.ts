@@ -372,7 +372,7 @@ describe("label accessors", () => {
 describe("relation accessors", () => {
   it("getEntitySpecRelations extracts relations from spec fields", () => {
     const relations = getEntitySpecRelations(component);
-    const dependsOn = relations.find((r) => r.legacyType === "dependsOn");
+    const dependsOn = relations.find((r) => r.type === "dependsOn");
     expect(dependsOn).toBeDefined();
     expect(dependsOn?.targets).toContain("component:default/database-core");
   });

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createDraft, discoverEntities, matchDraftToExisting, renderDiscoveryReportMarkdown, type EntityDraft, } from "../discovery.js";
 import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import { resolveConfigV1 } from "../config.js";
-import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, readTextFile, runCli, writeTextFile } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, createTestWorkspace, makeEntity, readTextFile, runCli, writeTextFile } from "../../test-helpers/workspace.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
     const dir = createTestWorkspace(prefix);
@@ -39,8 +39,8 @@ describe("discovery helpers", () => {
             anchors: { repositoryUrl: ["https://github.com/acme/payments"] }
         });
         const existing = [
-            makeArtifact({ ref: "component:title", kind: "Component", type: "website", title: "Payments" }),
-            makeArtifact({
+            makeEntity({ ref: "component:title", kind: "Component", type: "website", title: "Payments" }),
+            makeEntity({
                 ref: "component:anchor",
                 kind: "Component",
                 type: "website",
@@ -74,7 +74,7 @@ describe("discovery helpers", () => {
         const config = resolveConfigV1();
         const report = await discoverEntities({
             existingEntities: [
-                makeArtifact({
+                makeEntity({
                     ref: "component:existing",
                     kind: "Component",
                     type: "website",

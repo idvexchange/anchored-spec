@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { join } from "node:path";
 import { createEaEvidenceRecord, loadEaEvidence, mergeEaEvidence, summarizeEaEvidence, validateEaEvidence, writeEaEvidence, } from "../evidence.js";
-import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, readJsonFile, runCli, writeManifestProject, } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, createTestWorkspace, makeEntity, readJsonFile, runCli, writeManifestProject, } from "../../test-helpers/workspace.js";
 import { makeEntity } from "./helpers/make-entity.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
@@ -31,7 +31,7 @@ describe("evidence helpers", () => {
         expect(loaded?.records[0]?.summary).toBe("Regression suite failed");
     });
     it("validates freshness, failed statuses, and evidence coverage", () => {
-        const artifact = makeEntity({
+        const entity = makeEntity({
             ref: "component:auth",
             kind: "Component",
             type: "service",
@@ -44,7 +44,7 @@ describe("evidence helpers", () => {
             recordedAt: "2020-01-01T00:00:00.000Z",
             source: "ci"
         };
-        const coverageGapArtifact = makeEntity({
+        const coverageGapEntity = makeEntity({
             ref: "component:payments",
             kind: "Component",
             type: "website",
@@ -54,13 +54,13 @@ describe("evidence helpers", () => {
             generatedAt: new Date().toISOString(),
             records: [staleRecord]
         };
-        const issues = validateEaEvidence(evidence, [artifact, coverageGapArtifact], {
+        const issues = validateEaEvidence(evidence, [entity, coverageGapEntity], {
             freshnessWindowDays: 30
         });
         expect(issues.some((issue) => issue.rule === "ea:evidence/freshness")).toBe(true);
         expect(issues.some((issue) => issue.rule === "ea:evidence/status")).toBe(true);
         expect(issues.some((issue) => issue.rule === "ea:evidence/coverage")).toBe(true);
-        const summary = summarizeEaEvidence(evidence, [artifact, coverageGapArtifact], {
+        const summary = summarizeEaEvidence(evidence, [entity, coverageGapEntity], {
             freshnessWindowDays: 30
         });
         expect(summary.totalRecords).toBe(1);
@@ -73,7 +73,7 @@ describe("evidence CLI", () => {
     it("ingests evidence and summarizes it against a manifest project", () => {
         const dir = makeWorkspace("evidence-cli");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         const ingest = runCli([
             "evidence",
@@ -102,7 +102,7 @@ describe("evidence CLI", () => {
     it("fails validation when evidence contains current error records", () => {
         const dir = makeWorkspace("evidence-cli-validate");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         const evidencePath = join(dir, "docs", "evidence", "ea-evidence.json");
         writeEaEvidence({

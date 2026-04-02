@@ -68,9 +68,9 @@ describe("Tier 1 — Backstage built-in kind mappings", () => {
     ["org-unit", "Group", BACKSTAGE_API_VERSION, "team"],
   ];
 
-  for (const [legacy, expected, apiVer, specType] of builtinMappings) {
-    it(`maps "${legacy}" → ${expected} (${specType ?? "no type"})`, () => {
-      const mapping = getSchemaDescriptor(legacy);
+  for (const [schemaName, expected, apiVer, specType] of builtinMappings) {
+    it(`maps "${schemaName}" → ${expected} (${specType ?? "no type"})`, () => {
+      const mapping = getSchemaDescriptor(schemaName);
       expect(mapping).toBeDefined();
       expect(mapping!.kind).toBe(expected);
       expect(mapping!.apiVersion).toBe(apiVer);
@@ -120,9 +120,9 @@ describe("Tier 2 — Custom EA kind mappings", () => {
     ["business-service", "Capability", "business-service"],
   ];
 
-  for (const [legacy, expected, specType] of customMappings) {
-    it(`maps "${legacy}" → ${expected} (${specType ?? "default"})`, () => {
-      const mapping = getSchemaDescriptor(legacy);
+  for (const [schemaName, expected, specType] of customMappings) {
+    it(`maps "${schemaName}" → ${expected} (${specType ?? "default"})`, () => {
+      const mapping = getSchemaDescriptor(schemaName);
       expect(mapping).toBeDefined();
       expect(mapping!.kind).toBe(expected);
       expect(mapping!.apiVersion).toBe(ANCHORED_SPEC_API_VERSION);

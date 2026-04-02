@@ -636,7 +636,7 @@ export function eaTraceCommand(): Command {
 // ─── Fix-broken helper ─────────────────────────────────────────────
 
 /**
- * Read an artifact file, remove traceRefs matching the given paths,
+ * Read an entity file, remove traceRefs matching the given paths,
  * and write it back in the same format (JSON or YAML).
  */
 function removeBrokenTraceRefs(

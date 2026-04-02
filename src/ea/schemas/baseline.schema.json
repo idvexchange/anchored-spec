@@ -21,12 +21,12 @@
         "kinds": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Artifact kinds included"
+          "description": "Entity kinds included"
         },
         "tags": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Tags to filter included artifacts"
+          "description": "Tags to filter included entities"
         },
         "description": { "type": "string", "minLength": 1, "description": "Scope description" }
       },
@@ -36,7 +36,7 @@
     "entityRefs": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "IDs of artifacts included in this baseline"
+      "description": "IDs of entities included in this baseline"
     },
     "assumptions": {
       "type": "array",

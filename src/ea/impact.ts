@@ -2,8 +2,8 @@
  * Anchored Spec — EA Impact Analysis
  *
  * Computes transitive impact sets from the EA relation graph.
- * Given an artifact ID, finds everything that would be affected
- * by a change to that artifact, grouped by domain and severity.
+ * Given an entity ref, finds everything that would be affected
+ * by a change to that entity, grouped by domain and severity.
  *
  * Design reference: docs/delivery/reporting-and-analysis.md (impact workflow)
  */
@@ -13,18 +13,18 @@ import { normalizeKnownEntityRef } from "./backstage/ref-utils.js";
 
 // ─── Impact Analysis Types ──────────────────────────────────────────────────────
 
-export interface ImpactedArtifact {
-  /** Artifact ID. */
+export interface ImpactedEntity {
+  /** Entity ref. */
   id: string;
-  /** Artifact kind. */
+  /** Entity kind. */
   kind: string;
   /** Anchored-spec schema profile. */
   schema: string;
   /** EA domain. */
   domain: string;
-  /** Artifact title. */
+  /** Entity title. */
   title: string;
-  /** Shortest distance from the source artifact. */
+  /** Shortest distance from the source entity. */
   depth: number;
   /** The relation type(s) through which impact propagates. */
   viaRelations: string[];
@@ -33,35 +33,35 @@ export interface ImpactedArtifact {
 export interface ImpactDomainSummary {
   domain: string;
   count: number;
-  artifacts: ImpactedArtifact[];
+  entities: ImpactedEntity[];
 }
 
 export interface ImpactReport {
-  /** The artifact whose impact was analyzed. */
+  /** The entity whose impact was analyzed. */
   sourceId: string;
-  /** Source artifact kind. */
+  /** Source entity kind. */
   sourceKind: string;
-  /** Source artifact schema profile. */
+  /** Source entity schema profile. */
   sourceSchema: string;
-  /** Source artifact title. */
+  /** Source entity title. */
   sourceTitle: string;
-  /** Total number of impacted artifacts. */
+  /** Total number of impacted entities. */
   totalImpacted: number;
   /** Maximum depth of transitive impact. */
   maxDepth: number;
-  /** Impacted artifacts grouped by domain. */
+  /** Impacted entities grouped by domain. */
   byDomain: ImpactDomainSummary[];
-  /** All impacted artifacts in BFS order (closest first). */
-  impacted: ImpactedArtifact[];
+  /** All impacted entities in BFS order (closest first). */
+  impacted: ImpactedEntity[];
 }
 
 // ─── Impact Analysis ────────────────────────────────────────────────────────────
 
 /**
- * Compute a detailed impact report for a given artifact.
+ * Compute a detailed impact report for a given entity.
  *
- * Uses BFS over incoming edges to find all artifacts transitively
- * affected by changes to the source artifact.
+ * Uses BFS over incoming edges to find all entities transitively
+ * affected by changes to the source entity.
  */
 export function analyzeImpact(
   graph: RelationGraph,
@@ -86,7 +86,7 @@ export function analyzeImpact(
 
   const maxDepth = options?.maxDepth;
   const visited = new Set<string>();
-  const impacted: ImpactedArtifact[] = [];
+  const impacted: ImpactedEntity[] = [];
 
   // BFS with depth tracking
   const queue: Array<{ id: string; depth: number; viaRelation: string }> = [];
@@ -134,7 +134,7 @@ export function analyzeImpact(
   }
 
   // Group by domain
-  const domainMap = new Map<string, ImpactedArtifact[]>();
+  const domainMap = new Map<string, ImpactedEntity[]>();
   for (const a of impacted) {
     const list = domainMap.get(a.domain) ?? [];
     list.push(a);
@@ -142,7 +142,7 @@ export function analyzeImpact(
   }
 
   const byDomain: ImpactDomainSummary[] = Array.from(domainMap.entries())
-    .map(([domain, artifacts]) => ({ domain, count: artifacts.length, artifacts }))
+    .map(([domain, entities]) => ({ domain, count: entities.length, entities }))
     .sort((a, b) => b.count - a.count);
 
   return {
@@ -165,7 +165,7 @@ export function renderImpactReportMarkdown(report: ImpactReport): string {
   lines.push(`# Impact Analysis: ${report.sourceTitle}`);
   lines.push("");
   lines.push(`> Source: \`${report.sourceId}\` (${report.sourceKind}/${report.sourceSchema})`);
-  lines.push(`> Total impacted: ${report.totalImpacted} artifact(s), max depth: ${report.maxDepth}`);
+  lines.push(`> Total impacted: ${report.totalImpacted} entity(ies), max depth: ${report.maxDepth}`);
   lines.push("");
 
   if (report.totalImpacted === 0) {
@@ -185,7 +185,7 @@ export function renderImpactReportMarkdown(report: ImpactReport): string {
   lines.push("");
 
   // Detailed list
-  lines.push("## Impacted Artifacts");
+  lines.push("## Impacted Entities");
   lines.push("");
   lines.push("| Depth | ID | Kind | Domain | Via |");
   lines.push("|-------|----|------|--------|-----|");

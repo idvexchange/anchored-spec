@@ -672,7 +672,7 @@ describe("validateEaRelations", () => {
   });
 
   describe("ea:relation:retired-target", () => {
-    it("warns when targeting a retired artifact", () => {
+    it("warns when targeting a retired entity", () => {
       const entities = [
         makeEntity({ kind: "Component", name: "app-src", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-retired"] } }),
         makeEntity({ kind: "Component", name: "svc-retired", spec: { type: "service", lifecycle: "retired", owner: undefined,  } }),
@@ -683,7 +683,7 @@ describe("validateEaRelations", () => {
   });
 
   describe("ea:relation:draft-target", () => {
-    it("warns when active artifact references draft target", () => {
+    it("warns when active entity references draft target", () => {
       const entities = [
         makeEntity({ kind: "Component", name: "app-active", spec: { type: "website", lifecycle: "production", owner: undefined, dependsOn: ["component:svc-draft"] } }),
         makeEntity({ kind: "Component", name: "svc-draft", spec: { type: "service", lifecycle: "experimental", owner: undefined,  } }),
@@ -739,7 +739,7 @@ describe("validateEaRelations", () => {
 describe("Integration: graph from manifest fixture", () => {
   const projectRoot = join(__dirname, "..", "..", "..");
 
-  it("builds a graph from example artifacts", async () => {
+  it("builds a graph from example entities", async () => {
     const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();

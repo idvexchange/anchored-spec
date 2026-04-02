@@ -74,7 +74,7 @@ describe("openapiGenerator", () => {
         expect(content).toContain('openapi: "3.1.0"');
         expect(content).toContain('title: "Orders API"');
         expect(content).toContain('version: "2.0.0"');
-        expect(content).toContain('x-anchored-spec-artifact: "api:default/orders"');
+        expect(content).toContain('x-anchored-spec-entity: "api:default/orders"');
         expect(content).toContain("paths:");
         expect(content).toContain("  /orders:");
         expect(content).toContain("get:");
@@ -254,7 +254,7 @@ describe("Generator pipeline integration", () => {
             rmSync(TEST_ROOT, { recursive: true, force: true });
         }
     });
-    it("should run both generators on mixed artifacts", () => {
+    it("should run both generators on mixed entities", () => {
         const entities = [
             makeApiEntity({ anchors: { apis: ["GET /orders"] } }),
             makeCanonicalEntity({ attributes: [{ name: "id", type: "uuid", required: true }] }),

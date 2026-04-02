@@ -13,7 +13,7 @@ function makePolicyEntity(overrides: Parameters<typeof makeEntity>[0]): Backstag
     return makeEntity({
         title: overrides.title ?? overrides.name ?? overrides.ref,
         status: "active",
-        summary: "Test artifact",
+        summary: "Test entity",
         owner: "group:default/team-a",
         confidence: "declared",
         ...overrides
@@ -62,7 +62,7 @@ describe("resolveVersionPolicy", () => {
         });
         expect(policy.compatibility).toBe("frozen");
     });
-    it("artifact-level (extensions.versionPolicy) overrides everything", () => {
+    it("entity-level (extensions.versionPolicy) overrides everything", () => {
         const entity = makePolicyEntity({
             ref: "api:a",
             kind: "API",
@@ -134,8 +134,8 @@ describe("enforceVersionPolicies", () => {
         expect(report.passed).toBe(false);
     });
     it("passes when frozen policy sees no changes", () => {
-        const artifacts = [makePolicyEntity({ ref: "component:a", kind: "Component", type: "website" })];
-        const report = enforceWith(artifacts, [...artifacts], {
+        const entities = [makePolicyEntity({ ref: "component:a", kind: "Component", type: "website" })];
+        const report = enforceWith(entities, [...entities], {
             defaultCompatibility: "frozen"
         });
         expect(report.passed).toBe(true);
@@ -150,7 +150,7 @@ describe("enforceVersionPolicies", () => {
         expect(report.passed).toBe(false);
         expect(report.violations[0].entityRef).toBe("api:default/a");
     });
-    it("uses artifact-level policy from extensions", () => {
+    it("uses entity-level policy from extensions", () => {
         const base = [makePolicyEntity({
                 ref: "component:a",
                 kind: "Component",

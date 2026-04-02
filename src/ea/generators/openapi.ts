@@ -1,9 +1,9 @@
 /**
  * Anchored Spec — OpenAPI Generator
  *
- * Generates OpenAPI 3.1 YAML stubs from `api-contract` EA artifacts.
- * Builds paths from `anchors.apis`, sets info from artifact metadata,
- * and links back to the source artifact.
+ * Generates OpenAPI 3.1 YAML stubs from `api-contract` EA entities.
+ * Builds paths from `anchors.apis`, sets info from entity metadata,
+ * and links back to the source entity.
  *
  * Design reference: docs/delivery/discovery-drift-generation.md (OpenAPI Generator)
  */
@@ -27,12 +27,12 @@ interface ApiContractFields {
 }
 
 /**
- * OpenAPI Generator — generates OpenAPI 3.1 YAML stubs from api-contract artifacts.
+ * OpenAPI Generator — generates OpenAPI 3.1 YAML stubs from api-contract entities.
  *
  * - Builds paths from `anchors.apis` (e.g., "POST /orders" → paths./orders.post)
- * - Sets info.title, info.description, info.version from artifact fields
+ * - Sets info.title, info.description, info.version from entity fields
  * - Generates request/response stubs with TODO markers
- * - Links back via x-anchored-spec-artifact extension
+ * - Links back via x-anchored-spec-entity extension
  * - Only generates for protocol=rest and specFormat=openapi (or unset)
  */
 export const openapiGenerator: EaGenerator = {
@@ -67,7 +67,7 @@ export const openapiGenerator: EaGenerator = {
       `  title: "${escapeYaml(getEntityTitle(entity))}"`,
       `  description: "${escapeYaml(getEntityDescription(entity))}"`,
       `  version: "${escapeYaml(version)}"`,
-      `  x-anchored-spec-artifact: "${getEntityId(entity)}"`,
+      `  x-anchored-spec-entity: "${getEntityId(entity)}"`,
     ];
 
     if (Object.keys(paths).length > 0) {

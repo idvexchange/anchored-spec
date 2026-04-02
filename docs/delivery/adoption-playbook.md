@@ -8,7 +8,7 @@ audience:
 domain:
   - business
   - delivery
-ea-artifacts:
+ea-entities:
   - capability:manifest-authoring
   - capability:discovery
   - capability:drift-detection

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { EaRoot } from "../loader.js";
-import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, readJsonFile, writeInlineProject, writeManifestProject, writeTextFile, } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, createTestWorkspace, makeEntity, readJsonFile, writeInlineProject, writeManifestProject, writeTextFile, } from "../../test-helpers/workspace.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
     const dir = createTestWorkspace(prefix);
@@ -42,7 +42,7 @@ describe("EaRoot v2 loading", () => {
     it("loads policy and verification files from current v2 locations", () => {
         const dir = makeWorkspace("loader-policy");
         const config = writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         writeTextFile(dir, "docs/workflow-policy.yaml", "workflowVariants:\n  - id: default");
         writeTextFile(dir, "docs/transitions/wave-1/verification.yaml", "checks:\n  - id: smoke");
@@ -55,7 +55,7 @@ describe("EaRoot v2 loading", () => {
     it("computes quick summaries for manifest and inline projects", async () => {
         const manifestDir = makeWorkspace("loader-summary-manifest");
         const manifestConfig = writeManifestProject(manifestDir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         const manifestRoot = new EaRoot(manifestDir, manifestConfig);
         await manifestRoot.loadEntities();
@@ -68,12 +68,12 @@ describe("EaRoot v2 loading", () => {
         const inlineConfig = writeInlineProject(inlineDir, [
             {
                 path: "docs/auth.md",
-                entity: makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+                entity: makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
                 body: "# Auth\n"
             },
             {
                 path: "docs/payments.md",
-                entity: makeArtifact({ ref: "component:payments", kind: "Component", type: "website" }),
+                entity: makeEntity({ ref: "component:payments", kind: "Component", type: "website" }),
                 body: "# Payments\n"
             },
         ]);

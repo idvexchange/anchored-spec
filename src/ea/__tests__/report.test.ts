@@ -24,7 +24,7 @@ const controlRef = (name: string) => `control:default/${name}`;
 const canonicalEntityRef = (name: string) => `canonicalentity:default/${name}`;
 // ─── buildSystemDataMatrix ──────────────────────────────────────────────────────
 describe("buildSystemDataMatrix", () => {
-    it("returns empty matrix with no artifacts", () => {
+    it("returns empty matrix with no entities", () => {
         const report = buildSystemDataMatrix([]);
         expect(report.applications).toHaveLength(0);
         expect(report.dataStores).toHaveLength(0);
@@ -32,7 +32,7 @@ describe("buildSystemDataMatrix", () => {
         expect(report.summary.connectionCount).toBe(0);
     });
     it("finds app → data-store connections via uses relation", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:orders",
                 kind: "Component",
@@ -48,7 +48,7 @@ describe("buildSystemDataMatrix", () => {
                 technology: { engine: "postgresql", category: "relational" }
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.applications).toHaveLength(1);
         expect(report.dataStores).toHaveLength(1);
         expect(report.matrix).toHaveLength(1);
@@ -57,7 +57,7 @@ describe("buildSystemDataMatrix", () => {
         expect(report.summary.connectionCount).toBe(1);
     });
     it("includes logical models linked via stores relation", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:orders",
                 kind: "Component",
@@ -81,14 +81,14 @@ describe("buildSystemDataMatrix", () => {
                 ]
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.matrix[0].logicalModels).toHaveLength(1);
         expect(report.matrix[0].logicalModels[0].id).toBe(canonicalEntityRef("order"));
         expect(report.matrix[0].logicalModels[0].title).toBe("Order Entity");
         expect(report.matrix[0].logicalModels[0].classifications).toContain("PII");
     });
     it("collects classifications from LDM attributes", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:crm",
                 kind: "Component",
@@ -113,7 +113,7 @@ describe("buildSystemDataMatrix", () => {
                 ]
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.classifications).toContain("PII");
         expect(report.classifications).toContain("financial");
         expect(report.summary.classificationCount).toBe(2);
@@ -121,7 +121,7 @@ describe("buildSystemDataMatrix", () => {
         expect(report.matrix[0].logicalModels[0].classifications).toEqual(["PII", "financial"]);
     });
     it("handles multiple apps using same store", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:orders",
                 kind: "Component",
@@ -140,12 +140,12 @@ describe("buildSystemDataMatrix", () => {
                 type: "database"
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.matrix).toHaveLength(2);
         expect(report.summary.connectionCount).toBe(2);
     });
     it("handles app using multiple stores", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:monolith",
                 kind: "Component",
@@ -155,11 +155,11 @@ describe("buildSystemDataMatrix", () => {
             makeEntity({ ref: "resource:pg", kind: "Resource", type: "database" }),
             makeEntity({ ref: "resource:redis", kind: "Resource", type: "database" }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.matrix).toHaveLength(2);
     });
     it("ignores non-uses relations", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:orders",
                 kind: "Component",
@@ -168,11 +168,11 @@ describe("buildSystemDataMatrix", () => {
             }),
             makeEntity({ ref: "resource:orders-db", kind: "Resource", type: "database" }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.matrix).toHaveLength(0);
     });
     it("includes LDMs linked via implementedBy relation", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:orders",
                 kind: "Component",
@@ -193,12 +193,12 @@ describe("buildSystemDataMatrix", () => {
                 implementedBy: ["resource:orders-db"]
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.matrix[0].logicalModels).toHaveLength(1);
         expect(report.matrix[0].logicalModels[0].id).toBe(canonicalEntityRef("order"));
     });
     it("extracts technology from data-store", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "resource:pg",
                 kind: "Resource",
@@ -207,7 +207,7 @@ describe("buildSystemDataMatrix", () => {
                 technology: { engine: "postgresql", category: "relational" }
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         expect(report.dataStores[0].technology).toBe("postgresql");
     });
 });
@@ -221,7 +221,7 @@ describe("renderSystemDataMatrixMarkdown", () => {
         expect(md).toContain("No application");
     });
     it("renders table with connections", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:orders",
                 kind: "Component",
@@ -237,7 +237,7 @@ describe("renderSystemDataMatrixMarkdown", () => {
                 technology: { engine: "postgresql", category: "relational" }
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         const md = renderSystemDataMatrixMarkdown(report);
         expect(md).toContain("| Application |");
         expect(md).toContain("Order Service");
@@ -245,7 +245,7 @@ describe("renderSystemDataMatrixMarkdown", () => {
         expect(md).toContain("postgresql");
     });
     it("includes classifications section when present", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "component:crm",
                 kind: "Component",
@@ -266,7 +266,7 @@ describe("renderSystemDataMatrixMarkdown", () => {
                 attributes: [{ name: "ssn", type: "string", classification: "PII" }]
             }),
         ];
-        const report = buildSystemDataMatrix(artifacts);
+        const report = buildSystemDataMatrix(entities);
         const md = renderSystemDataMatrixMarkdown(report);
         expect(md).toContain("## Data Classifications");
         expect(md).toContain("- PII");
@@ -274,13 +274,13 @@ describe("renderSystemDataMatrixMarkdown", () => {
 });
 // ─── buildClassificationCoverage ────────────────────────────────────────────────
 describe("buildClassificationCoverage", () => {
-    it("returns empty report with no artifacts", () => {
+    it("returns empty report with no entities", () => {
         const report = buildClassificationCoverage([]);
         expect(report.classifications).toHaveLength(0);
         expect(report.summary.classificationCount).toBe(0);
     });
     it("finds entities classified under a classification", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -296,14 +296,14 @@ describe("buildClassificationCoverage", () => {
                 classifiedAs: ["control:pii"]
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.classifications).toHaveLength(1);
         expect(report.classifications[0].classificationId).toBe(controlRef("pii"));
         expect(report.classifications[0].coveredEntities).toHaveLength(1);
         expect(report.classifications[0].coveredEntities[0].entityId).toBe(canonicalEntityRef("customer"));
     });
     it("detects enforcement gap when store lacks classification", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -326,14 +326,14 @@ describe("buildClassificationCoverage", () => {
                 title: "Customers DB"
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.classifications[0].stores).toHaveLength(1);
         expect(report.classifications[0].stores[0].enforced).toBe(false);
         expect(report.classifications[0].enforcementGaps).toContain(resourceRef("customers"));
         expect(report.summary.gapCount).toBe(1);
     });
     it("detects no gap when store carries same classification", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -357,13 +357,13 @@ describe("buildClassificationCoverage", () => {
                 classifiedAs: ["control:pii"]
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.classifications[0].stores[0].enforced).toBe(true);
         expect(report.classifications[0].enforcementGaps).toHaveLength(0);
         expect(report.summary.gapCount).toBe(0);
     });
     it("finds stores via stores relation (reverse direction)", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -386,13 +386,13 @@ describe("buildClassificationCoverage", () => {
                 stores: ["canonicalentity:customer"]
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.classifications[0].stores).toHaveLength(1);
         expect(report.classifications[0].stores[0].storeId).toBe(resourceRef("orders"));
         expect(report.classifications[0].enforcementGaps).toContain(resourceRef("orders"));
     });
     it("detects exchange carrying classified entity without declaration", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -417,13 +417,13 @@ describe("buildClassificationCoverage", () => {
                 purpose: "Onboarding flow"
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.classifications[0].exchanges).toHaveLength(1);
         expect(report.classifications[0].exchanges[0].declaresClassification).toBe(false);
         expect(report.summary.exchangeGapCount).toBe(1);
     });
     it("reports no exchange gap when classificationLevel matches", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -449,12 +449,12 @@ describe("buildClassificationCoverage", () => {
                 classificationLevel: controlRef("pii")
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.classifications[0].exchanges[0].declaresClassification).toBe(true);
         expect(report.summary.exchangeGapCount).toBe(0);
     });
     it("handles multiple classifications with mixed enforcement", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -499,7 +499,7 @@ describe("buildClassificationCoverage", () => {
                 title: "Billing DB"
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         expect(report.summary.classificationCount).toBe(2);
         const pii = report.classifications.find((c) => c.classificationId === controlRef("pii"));
         expect(pii!.enforcementGaps).toHaveLength(0);
@@ -518,7 +518,7 @@ describe("renderClassificationCoverageMarkdown", () => {
         expect(md).toContain("No classifications found");
     });
     it("renders classification with entities and gaps", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -541,7 +541,7 @@ describe("renderClassificationCoverageMarkdown", () => {
                 title: "Customers DB"
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         const md = renderClassificationCoverageMarkdown(report);
         expect(md).toContain("# Classification Coverage Report");
         expect(md).toContain("PII Classification");
@@ -553,7 +553,7 @@ describe("renderClassificationCoverageMarkdown", () => {
         expect(md).toContain("## Summary");
     });
     it("shows enforced stores with checkmarks", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "control:pii",
                 kind: "Control",
@@ -577,7 +577,7 @@ describe("renderClassificationCoverageMarkdown", () => {
                 classifiedAs: ["control:pii"]
             }),
         ];
-        const report = buildClassificationCoverage(artifacts);
+        const report = buildClassificationCoverage(entities);
         const md = renderClassificationCoverageMarkdown(report);
         expect(md).toContain("✅");
         expect(md).not.toContain("Enforcement Gaps");

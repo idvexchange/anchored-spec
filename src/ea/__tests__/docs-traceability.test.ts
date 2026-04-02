@@ -99,14 +99,14 @@ describe("Document Traceability", () => {
     });
     // ─── extractEntityRefs ───────────────────────────────────────────
     describe("extractEntityRefs", () => {
-        it("returns artifact IDs from frontmatter", () => {
+        it("returns entity IDs from frontmatter", () => {
             const fm: DocFrontmatter = { eaEntities: ["component:web", "component:api"] };
             expect(extractEntityRefs(fm)).toEqual(["component:web", "component:api"]);
         });
         it("returns empty array when no eaEntities", () => {
             expect(extractEntityRefs({})).toEqual([]);
         });
-        it("deduplicates artifact IDs", () => {
+        it("deduplicates entity IDs", () => {
             const fm: DocFrontmatter = {
                 eaEntities: ["component:web", "component:web", "component:api"]
             };
@@ -261,7 +261,7 @@ describe("Document Traceability", () => {
             expect(index.get("DB-main")).toHaveLength(1);
             expect(index.get("DB-main")![0].relativePath).toBe("docs/b.md");
         });
-        it("handles docs with no artifact IDs", () => {
+        it("handles docs with no entity IDs", () => {
             const docs = [
                 {
                     path: "/p/docs/empty.md",
@@ -295,7 +295,7 @@ describe("Document Traceability", () => {
                 entityRefs
             };
         }
-        it("scaffolds drafts for missing artifacts", () => {
+        it("scaffolds drafts for missing entities", () => {
             const docs = [makeDoc("docs/auth.md", ["component:auth-core", "api:auth-v1"])];
             const existing = [];
             const result = discoverFromDocs(docs, existing);
@@ -309,7 +309,7 @@ describe("Document Traceability", () => {
             expect(result.alreadyExists).toHaveLength(0);
             expect(result.invalidRefs).toHaveLength(0);
         });
-        it("skips existing artifacts", () => {
+        it("skips existing entities", () => {
             const docs = [makeDoc("docs/arch.md", ["component:auth-core", "api:auth-v1"])];
             const existing = [makeEntity({ ref: "component:auth-core", kind: "Component", type: "service" })];
             const result = discoverFromDocs(docs, existing);
@@ -335,7 +335,7 @@ describe("Document Traceability", () => {
             expect(result.drafts).toHaveLength(1);
             expect(result.drafts[0]!.suggestedId).toBe("api:shared");
         });
-        it("preserves the exact artifact ID from frontmatter", () => {
+        it("preserves the exact entity ID from frontmatter", () => {
             const docs = [makeDoc("docs/api.md", ["api:orders-v2"])];
             const existing = [];
             const result = discoverFromDocs(docs, existing);

@@ -400,7 +400,7 @@ export function extractAllEndpoints(spec: OpenApiSpec): string[] {
   return endpoints.sort();
 }
 
-/** Slugify a title for use as artifact ID. */
+/** Slugify a title for use as entity ID. */
 function slugify(title: string): string {
   return title
     .toLowerCase()
@@ -426,7 +426,7 @@ export class OpenApiResolver implements EaResolver {
   readonly schemas = ["api-contract", "application", "service"];
 
   /**
-   * Resolve API anchors on an artifact against OpenAPI spec files.
+   * Resolve API anchors on an entity against OpenAPI spec files.
    *
    * Looks for anchors in the `apis` category and checks them against
    * all discovered OpenAPI specs. Each anchor should be in the format

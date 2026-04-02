@@ -89,7 +89,7 @@ interface RelatedEntityInfo {
 interface ContextResult {
   entity: EntityContextView;
   tracedDocs: TracedDoc[];
-  requiredDocs: RequiredDoc[];
+  requiredEntities: RequiredDoc[];
   relatedEntities: RelatedEntityInfo[];
   additionalRefs: string[];
   tokenEstimate: number;
@@ -130,9 +130,9 @@ function safeReadFile(filePath: string): string | undefined {
 // ─── Context assembly ─────────────────────────────────────────────────
 
 /**
- * Collect related artifact IDs by walking relations up to `maxDepth`
+ * Collect related entity IDs by walking relations up to `maxDepth`
  * levels.  Uses a visited set to avoid cycles and excludes the
- * source artifact itself.
+ * source entity itself.
  */
 function toEntityContextView(entity: BackstageEntity): EntityContextView {
   const entityRef = getEntityId(entity);
@@ -151,7 +151,7 @@ function toEntityContextView(entity: BackstageEntity): EntityContextView {
     traceRefs: getEntityTraceRefs(entity),
     relations: getEntitySpecRelations(entity).flatMap((relation) =>
       relation.targets.map((target) => ({
-        type: relation.legacyType,
+        type: relation.type,
         target,
       })),
     ),
@@ -221,7 +221,7 @@ function assembleContext(
   tracedDocs.sort((a, b) => rolePriority(a.role) - rolePriority(b.role));
 
   // ── 2. Transitive required documents ──────────────────────────────
-  const requiredDocs: RequiredDoc[] = [];
+  const requiredEntities: RequiredDoc[] = [];
   const seenRequired = new Set<string>();
 
   for (const td of tracedDocs) {
@@ -236,7 +236,7 @@ function assembleContext(
 
       const reqParsed = parseFrontmatter(content);
       const tokens = reqParsed.frontmatter.tokens ?? estimateTokens(content);
-      requiredDocs.push({ path: reqPath, content, tokens });
+      requiredEntities.push({ path: reqPath, content, tokens });
     }
   }
 
@@ -273,7 +273,7 @@ function assembleContext(
   // ── 5. Token estimate ─────────────────────────────────────────────
   let tokenEstimate = estimateTokens(JSON.stringify(target));
   for (const td of tracedDocs) tokenEstimate += td.tokens;
-  for (const rd of requiredDocs) tokenEstimate += rd.tokens;
+  for (const rd of requiredEntities) tokenEstimate += rd.tokens;
   for (const relatedEntity of relatedEntities) {
     tokenEstimate += estimateTokens(JSON.stringify(relatedEntity));
   }
@@ -281,7 +281,7 @@ function assembleContext(
   return {
     entity: target,
     tracedDocs,
-    requiredDocs,
+    requiredEntities,
     relatedEntities,
     additionalRefs,
     tokenEstimate,
@@ -299,7 +299,7 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
   // Always include the entity spec itself
   remaining -= estimateTokens(JSON.stringify(result.entity));
   if (remaining <= 0) {
-    return { ...result, tracedDocs: [], requiredDocs: [], relatedEntities: [], additionalRefs: [], tokenEstimate: maxTokens, truncated: true };
+    return { ...result, tracedDocs: [], requiredEntities: [], relatedEntities: [], additionalRefs: [], tokenEstimate: maxTokens, truncated: true };
   }
 
   // Traced docs in priority order (already sorted)
@@ -313,12 +313,12 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
 
   // Required docs
   const keptRequired: RequiredDoc[] = [];
-  for (const rd of result.requiredDocs) {
+  for (const rd of result.requiredEntities) {
     if (remaining - rd.tokens < 0) break;
     remaining -= rd.tokens;
     keptRequired.push(rd);
   }
-  const requiredTruncated = keptRequired.length < result.requiredDocs.length;
+  const requiredTruncated = keptRequired.length < result.requiredEntities.length;
 
   // Related entities (metadata only — cheap)
   const keptRelated: RelatedEntityInfo[] = [];
@@ -336,7 +336,7 @@ function applyTokenBudget(result: ContextResult, maxTokens: number): ContextResu
   return {
     ...result,
     tracedDocs: keptTraced,
-    requiredDocs: keptRequired,
+    requiredEntities: keptRequired,
     relatedEntities: keptRelated,
     tokenEstimate,
     truncated,
@@ -382,7 +382,7 @@ function formatAnchors(entity: EntityContextView): string[] {
 }
 
 function renderMarkdown(result: ContextResult): string {
-  const { entity, tracedDocs, requiredDocs, relatedEntities, additionalRefs, tokenEstimate, truncated } = result;
+  const { entity, tracedDocs, requiredEntities, relatedEntities, additionalRefs, tokenEstimate, truncated } = result;
   const lines: string[] = [];
 
   // ── Entity Specification ──────────────────────────────────────────
@@ -433,12 +433,12 @@ function renderMarkdown(result: ContextResult): string {
   }
 
   // ── Required Documents (transitive) ───────────────────────────────
-  if (requiredDocs.length > 0) {
+  if (requiredEntities.length > 0) {
     lines.push("");
     lines.push("---");
     lines.push("");
     lines.push("## Required Documents (transitive)");
-    for (const rd of requiredDocs) {
+    for (const rd of requiredEntities) {
       lines.push("");
       lines.push(`### ${rd.path}`);
       lines.push(rd.content);
@@ -500,7 +500,7 @@ function buildJsonOutput(result: ContextResult): Record<string, unknown> {
       content: td.content,
       tokens: td.tokens,
     })),
-    requiredDocs: result.requiredDocs.map((rd) => ({
+    requiredEntities: result.requiredEntities.map((rd) => ({
       path: rd.path,
       content: rd.content,
       tokens: rd.tokens,

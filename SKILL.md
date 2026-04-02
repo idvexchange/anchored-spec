@@ -156,7 +156,7 @@ npx anchored-spec link-docs --sync
 
 Agents should write documentation that reflects the current shipped framework.
 
-- describe entities, not “artifacts” unless referring to older historical examples
+- describe entities, not “entities” unless referring to older historical examples
 - use current command names only
 - do not describe removed migration commands as available
 - do not invent unsupported storage modes or generators
@@ -177,9 +177,9 @@ Do not:
 
 - create a second architecture format alongside the entity model
 - switch between inline and manifest storage without being asked
-- use old artifact IDs like `SVC-foo` as the main runtime identifier
+- use old entity IDs like `SVC-foo` as the main runtime identifier
 - claim remote descriptor substitution support by default
-- describe removed commands like `migrate-config`, `migrate-legacy`, `enrich`, or `move` as current
+- describe removed commands like `migrate-config`, `migrate-previous`, `enrich`, or `move` as current
 
 ## Safe completion checklist
 

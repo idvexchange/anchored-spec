@@ -7,8 +7,6 @@
 // Types
 export type {
   EaDomain,
-  ArtifactStatus,
-  ArtifactConfidence,
   EaAnchors,
   EaRelation,
   EaTraceRef,
@@ -57,7 +55,7 @@ export type { GraphNode, GraphEdge, MermaidOptions, DotOptions } from "./graph.j
 export { RelationGraph, buildRelationGraph } from "./graph.js";
 
 // Impact Analysis
-export type { ImpactedArtifact, ImpactDomainSummary, ImpactReport } from "./impact.js";
+export type { ImpactedEntity, ImpactDomainSummary, ImpactReport } from "./impact.js";
 export { analyzeImpact, renderImpactReportMarkdown } from "./impact.js";
 
 // Drift
@@ -90,7 +88,7 @@ export { runGenerators, renderGenerationReportMarkdown, registerGenerator, getGe
 
 // Policy Engine (EA-native)
 export type { EaWorkflowPolicy, EaWorkflowVariant, EaChangeRequiredRule, EaLifecycleRules, EaPolicyMatchResult, EaPolicyEvaluationResult, EaCheckResult } from "./policy.js";
-export { evaluateEaPolicy, checkEaPaths, isTrivialPath, matchRules, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeArtifact, loadEaWorkflowPolicy } from "./policy.js";
+export { evaluateEaPolicy, checkEaPaths, isTrivialPath, matchRules, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeEntity, loadEaWorkflowPolicy } from "./policy.js";
 
 // Plugin System (EA-native)
 export type { EaPlugin, EaPluginCheck, EaPluginHooks, EaPluginContext } from "./plugins.js";
@@ -110,7 +108,7 @@ export { diffEntities, renderDiffSummary, renderDiffMarkdown, getFieldSemantic, 
 
 // Diff — Git Integration
 export type { DiffGitOptions } from "./diff-git.js";
-export { loadArtifactsFromGitRef, loadArtifactsFromWorkingTree, diffEaGitRefs } from "./diff-git.js";
+export { loadEntitiesFromGitRef, loadEntitiesFromWorkingTree, diffEaGitRefs } from "./diff-git.js";
 
 // Compatibility Classifier
 export type { CompatibilityLevel, CompatibilityReason, CompatibilityAssessment, CompatibilityReport } from "./compat.js";
@@ -148,7 +146,7 @@ export {
   writeFactManifests,
   checkConsistency, groupFactsByKey,
   applySuppressions, collectSuppressions,
-  reconcileFactsWithArtifacts,
+  reconcileFactsWithEntities,
 } from "./facts/index.js";
 
 // ─── Backstage Entity Model (primary) ───────────────────────────────────────────
@@ -222,13 +220,13 @@ export type { RelationMappingEntry } from "./backstage/relation-mapping.js";
 
 export {
   RELATION_MAPPING_REGISTRY,
-  mapLegacyRelation,
+  mapRelationType,
   mapBackstageRelation,
   mapSpecField,
   getWellKnownRelations,
   getCustomRelations,
   isWellKnownRelation,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
   extractRelationsFromSpec,
 } from "./backstage/relation-mapping.js";
 

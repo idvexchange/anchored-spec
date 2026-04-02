@@ -30,7 +30,7 @@ import {
   checkConsistency,
   applySuppressions,
   collectSuppressions,
-  reconcileFactsWithArtifacts,
+  reconcileFactsWithEntities,
   writeFactManifests,
   suggestAnnotations,
 } from "../facts/index.js";
@@ -263,7 +263,7 @@ describe("real-world scenarios", () => {
     expect(report.findings.some(f => f.rule === "ea:docs/value-mismatch")).toBe(true);
   });
 
-  it("reconciles across multiple manifests and artifacts", () => {
+  it("reconciles across multiple manifests and entities", () => {
     const annotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const eventsManifest = makeManifest("events.md", [
       makeBlock("event-table", [
@@ -287,14 +287,14 @@ describe("real-world scenarios", () => {
       },
     });
 
-    const report = reconcileFactsWithArtifacts(
+    const report = reconcileFactsWithEntities(
       [eventsManifest, apiManifest],
       [svcEntity],
     );
 
-    // dossier.expired is in artifact but not in docs
+    // dossier.expired is in entity but not in docs
     expect(report.findings.some(f =>
-      f.rule === "ea:docs/artifact-missing-fact" &&
+      f.rule === "ea:docs/entity-missing-fact" &&
       f.message.includes("dossier.expired"),
     )).toBe(true);
   });
@@ -677,18 +677,18 @@ describe("reconciler edge cases", () => {
       name: "svc-x",
       anchors: { events: ["some.event"] },
     });
-    const report = reconcileFactsWithArtifacts([], [entity]);
-    expect(report.findings.some(f => f.rule === "ea:docs/artifact-missing-fact")).toBe(true);
+    const report = reconcileFactsWithEntities([], [entity]);
+    expect(report.findings.some(f => f.rule === "ea:docs/entity-missing-fact")).toBe(true);
   });
 
-  it("handles empty artifacts array", () => {
-    const report = reconcileFactsWithArtifacts([makeManifest("a.md", [])], []);
+  it("handles empty entities array", () => {
+    const report = reconcileFactsWithEntities([makeManifest("a.md", [])], []);
     expect(report.passed).toBe(true);
     expect(report.findings).toHaveLength(0);
   });
 
-  it("skips heuristic (non-annotated) blocks for fact-missing-artifact check", () => {
-    // Heuristic blocks should not generate fact-missing-artifact warnings
+  it("skips heuristic (non-annotated) blocks for fact-missing-entity check", () => {
+    // Heuristic blocks should not generate fact-missing-entity warnings
     const manifest = makeManifest("events.md", [
       makeBlock("event-table", [
         makeFact({ key: "dossier.orphan", kind: "event-table", source: { file: "events.md", line: 5 } }),
@@ -699,12 +699,12 @@ describe("reconciler edge cases", () => {
       anchors: { events: ["dossier.success"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    // Should not report fact-missing-artifact for non-annotated blocks
-    expect(report.findings.filter(f => f.rule === "ea:docs/fact-missing-artifact")).toHaveLength(0);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    // Should not report fact-missing-entity for non-annotated blocks
+    expect(report.findings.filter(f => f.rule === "ea:docs/fact-missing-entity")).toHaveLength(0);
   });
 
-  it("reconciles with artifact having multiple anchor types", () => {
+  it("reconciles with entity having multiple anchor types", () => {
     const evAnnotation = { kind: "events", raw: "<!-- @anchored-spec:events -->", line: 1 };
     const apiAnnotation = { kind: "endpoints", raw: "<!-- @anchored-spec:endpoints -->", line: 1 };
     const manifest = makeManifest("api-spec.md", [
@@ -724,16 +724,16 @@ describe("reconciler edge cases", () => {
       },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    // dossier.cancelled in artifact but not in docs
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    // dossier.cancelled in entity but not in docs
     expect(report.findings.some(f =>
-      f.rule === "ea:docs/artifact-missing-fact" &&
+      f.rule === "ea:docs/entity-missing-fact" &&
       f.message.includes("dossier.cancelled"),
     )).toBe(true);
     // POST /api/v1/dossiers matches — should not be flagged
     expect(report.findings.some(f =>
       f.message.includes("POST /api/v1/dossiers") &&
-      f.rule === "ea:docs/artifact-missing-fact",
+      f.rule === "ea:docs/entity-missing-fact",
     )).toBe(false);
   });
 });
@@ -981,7 +981,7 @@ describe("mapping table detection", () => {
   it("classifies table with Source/Target columns as mapping-table", () => {
     const md = `| Source Event | Target Event | Notes |
 |---|---|---|
-| order.placed | purchase.created | Legacy mapping |`;
+| order.placed | purchase.created | Explicit mapping |`;
 
     const doc = parseMarkdown(md, "mapping.md");
     const blocks = tableExtractor.extract(doc);
@@ -1035,7 +1035,7 @@ describe("mapping table detection", () => {
 // ═══════════════════════════════════════════════════════════════════════
 
 describe("status-enum and state-transition reconciliation", () => {
-  it("reconciles status-enum facts against artifact statuses anchor", () => {
+  it("reconciles status-enum facts against entity statuses anchor", () => {
     const annotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const manifest = makeManifest("statuses.md", [
       makeBlock("status-enum", [
@@ -1050,13 +1050,13 @@ describe("status-enum and state-transition reconciliation", () => {
       anchors: { statuses: ["open", "processing", "closed"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
     // All statuses match — no mismatches
-    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-mismatch")).toHaveLength(0);
-    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact")).toHaveLength(0);
+    expect(report.findings.filter(f => f.rule === "ea:docs/entity-mismatch")).toHaveLength(0);
+    expect(report.findings.filter(f => f.rule === "ea:docs/entity-missing-fact")).toHaveLength(0);
   });
 
-  it("detects artifact-missing-fact for status-enum not in docs", () => {
+  it("detects entity-missing-fact for status-enum not in docs", () => {
     const annotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const manifest = makeManifest("statuses.md", [
       makeBlock("status-enum", [
@@ -1069,15 +1069,15 @@ describe("status-enum and state-transition reconciliation", () => {
       anchors: { statuses: ["open", "processing", "closed"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    // "processing" and "closed" declared in artifact but missing from docs
-    const missing = report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact");
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    // "processing" and "closed" declared in entity but missing from docs
+    const missing = report.findings.filter(f => f.rule === "ea:docs/entity-missing-fact");
     expect(missing.length).toBeGreaterThanOrEqual(2);
     expect(missing.some(f => f.message.includes("processing"))).toBe(true);
     expect(missing.some(f => f.message.includes("closed"))).toBe(true);
   });
 
-  it("detects fact-missing-artifact for status-enum in docs but not in any artifact", () => {
+  it("detects fact-missing-entity for status-enum in docs but not in any entity", () => {
     const annotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const manifest = makeManifest("statuses.md", [
       makeBlock("status-enum", [
@@ -1091,12 +1091,12 @@ describe("status-enum and state-transition reconciliation", () => {
       anchors: { statuses: ["open"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    const factMissing = report.findings.filter(f => f.rule === "ea:docs/fact-missing-artifact");
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    const factMissing = report.findings.filter(f => f.rule === "ea:docs/fact-missing-entity");
     expect(factMissing.some(f => f.message.includes("archived"))).toBe(true);
   });
 
-  it("reconciles state-transition facts against artifact transitions anchor", () => {
+  it("reconciles state-transition facts against entity transitions anchor", () => {
     const annotation = { kind: "transitions", raw: "<!-- @anchored-spec:transitions -->", line: 1 };
     const manifest = makeManifest("workflow.md", [
       makeBlock("state-transition", [
@@ -1110,12 +1110,12 @@ describe("status-enum and state-transition reconciliation", () => {
       anchors: { transitions: ["open→processing", "processing→closed"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-mismatch")).toHaveLength(0);
-    expect(report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact")).toHaveLength(0);
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    expect(report.findings.filter(f => f.rule === "ea:docs/entity-mismatch")).toHaveLength(0);
+    expect(report.findings.filter(f => f.rule === "ea:docs/entity-missing-fact")).toHaveLength(0);
   });
 
-  it("detects artifact-missing-fact for transition in artifact but not in docs", () => {
+  it("detects entity-missing-fact for transition in entity but not in docs", () => {
     const annotation = { kind: "transitions", raw: "<!-- @anchored-spec:transitions -->", line: 1 };
     const manifest = makeManifest("workflow.md", [
       makeBlock("state-transition", [
@@ -1128,13 +1128,13 @@ describe("status-enum and state-transition reconciliation", () => {
       anchors: { transitions: ["open→processing", "processing→closed", "closed→archived"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    const missing = report.findings.filter(f => f.rule === "ea:docs/artifact-missing-fact");
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    const missing = report.findings.filter(f => f.rule === "ea:docs/entity-missing-fact");
     expect(missing.some(f => f.message.includes("processing→closed"))).toBe(true);
     expect(missing.some(f => f.message.includes("closed→archived"))).toBe(true);
   });
 
-  it("reconciles mixed statuses and transitions on same artifact", () => {
+  it("reconciles mixed statuses and transitions on same entity", () => {
     const stateAnnotation = { kind: "states", raw: "<!-- @anchored-spec:states -->", line: 1 };
     const transAnnotation = { kind: "transitions", raw: "<!-- @anchored-spec:transitions -->", line: 10 };
     const manifest = makeManifest("lifecycle.md", [
@@ -1155,14 +1155,14 @@ describe("status-enum and state-transition reconciliation", () => {
       },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    // "pending" in artifact but not in docs
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    // "pending" in entity but not in docs
     expect(report.findings.some(f =>
-      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("pending"),
+      f.rule === "ea:docs/entity-missing-fact" && f.message.includes("pending"),
     )).toBe(true);
     // Transition matches — no extra findings for transitions
     expect(report.findings.filter(f =>
-      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("→"),
+      f.rule === "ea:docs/entity-missing-fact" && f.message.includes("→"),
     )).toHaveLength(0);
   });
 
@@ -1183,10 +1183,10 @@ describe("status-enum and state-transition reconciliation", () => {
       anchors: { statuses: ["open", "processing", "closed", "archived"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    // "archived" in artifact but not in docs
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    // "archived" in entity but not in docs
     expect(report.findings.some(f =>
-      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("archived"),
+      f.rule === "ea:docs/entity-missing-fact" && f.message.includes("archived"),
     )).toBe(true);
   });
 
@@ -1207,10 +1207,10 @@ stateDiagram-v2
       anchors: { transitions: ["open→processing", "processing→closed", "closed→archived"] },
     });
 
-    const report = reconcileFactsWithArtifacts([manifest], [entity]);
-    // "closed→archived" in artifact but not in docs
+    const report = reconcileFactsWithEntities([manifest], [entity]);
+    // "closed→archived" in entity but not in docs
     expect(report.findings.some(f =>
-      f.rule === "ea:docs/artifact-missing-fact" && f.message.includes("closed→archived"),
+      f.rule === "ea:docs/entity-missing-fact" && f.message.includes("closed→archived"),
     )).toBe(true);
   });
 });

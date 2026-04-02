@@ -17,7 +17,7 @@ import type { BackstageEntity } from "../backstage/types.js";
 const BACKSTAGE_API = "backstage.io/v1alpha1";
 const ANCHORED_SPEC_API = "anchored-spec.dev/v1alpha1";
 
-/** Maps legacy kind names to BackstageEntity creation parameters. */
+/** Maps schema names to BackstageEntity creation parameters. */
 const KIND_MAP: Record<string, { apiVersion: string; kind: string; specType?: string }> = {
   "application":       { apiVersion: BACKSTAGE_API, kind: "Component", specType: "website" },
   "service":           { apiVersion: BACKSTAGE_API, kind: "Component", specType: "service" },
@@ -50,7 +50,7 @@ function makeEntity(opts: {
     metadata: {
       name: opts.name,
       title: opts.name,
-      description: "Test artifact",
+      description: "Test entity",
       ...(opts.tags && { tags: opts.tags }),
       annotations: {
         "anchored-spec.dev/confidence": "declared",
@@ -149,10 +149,10 @@ describe("getFieldSemantic", () => {
 
 describe("diffEntities", () => {
   it("returns empty report for identical sets", () => {
-    const artifacts = [
+    const entities = [
       makeEntity({ name: "APP-a", schemaName: "application" }),
     ];
-    const report = diffEntities(artifacts, [...artifacts]);
+    const report = diffEntities(entities, [...entities]);
     expect(report.summary.added).toBe(0);
     expect(report.summary.removed).toBe(0);
     expect(report.summary.modified).toBe(0);

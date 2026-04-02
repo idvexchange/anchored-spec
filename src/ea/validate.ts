@@ -1,7 +1,7 @@
 /**
  * Anchored Spec — EA Schema Validation
  *
- * Provides Ajv-based validation for EA artifacts against schema-specific contracts.
+ * Provides Ajv-based validation for EA entities against schema-specific contracts.
  * Follows the same pattern as core validate.ts but with EA-specific schemas.
  */
 
@@ -160,7 +160,7 @@ export interface EaValidationResult {
 }
 
 /**
- * Validate an EA artifact against its schema-specific contract.
+ * Validate an EA entity against its schema-specific contract.
  * Falls back to entity-base if no schema-specific contract exists.
  */
 export function validateEaSchema(
@@ -252,7 +252,7 @@ function normalizeSchemaNode(
 }
 
 /**
- * Resolve the schema name from the artifact's `kind` field.
+ * Resolve the schema name from the entity's `kind` field.
  * Returns the kind name if a schema exists, otherwise falls back to "entity-base".
  */
 function resolveSchemaName(data: unknown): EaSchemaName {
@@ -317,10 +317,10 @@ function ruleSeverity(
  * Run quality rules across a set of loaded EA entities.
  *
  * Rules:
- *   - `ea:quality:active-needs-owner`  (error)   — Active artifacts must have owners
- *   - `ea:quality:active-needs-summary`(warning)  — Active artifacts should have a summary
- *   - `ea:quality:duplicate-id`        (error)   — No duplicate artifact IDs
- *   - `ea:quality:orphan-artifact`     (warning)  — Artifacts with zero relations
+ *   - `ea:quality:active-needs-owner`  (error)   — Active entities must have owners
+ *   - `ea:quality:active-needs-summary`(warning)  — Active entities should have a summary
+ *   - `ea:quality:duplicate-id`        (error)   — No duplicate entity IDs
+ *   - `ea:quality:orphan-entity`     (warning)  — Entities with zero relations
  */
 export function validateEntities(
   entities: BackstageEntity[],
@@ -353,7 +353,7 @@ export function validateEntities(
     const entityId = getEntityId(a);
     const prev = seenIds.get(entityId);
     if (prev !== undefined) {
-      push(dupSev, "ea:quality:duplicate-id", entityId, `Duplicate artifact ID "${entityId}" (first seen at index ${prev})`);
+      push(dupSev, "ea:quality:duplicate-id", entityId, `Duplicate entity ID "${entityId}" (first seen at index ${prev})`);
     } else {
       seenIds.set(entityId, i);
     }
@@ -362,10 +362,10 @@ export function validateEntities(
   // Build relation target set for orphan check
   const allTargets = new Set<string>();
   for (const a of entities) {
-    for (const { legacyType, targets } of getEntitySpecRelations(a)) {
+    for (const { type, targets } of getEntitySpecRelations(a)) {
       for (const t of targets) {
         allTargets.add(t);
-        if (legacyType === RELATION_OWNED_BY) {
+        if (type === RELATION_OWNED_BY) {
           for (const candidate of resolveOwnerRefCandidates(t)) {
             allTargets.add(candidate);
           }
@@ -391,7 +391,7 @@ export function validateEntities(
       const owners = getEntityOwners(a);
       const isOwnershipPrincipal = entityKind === "Group" || entityKind === "User";
       if (!isOwnershipPrincipal && isActive && (owners.length === 0 || (owners.length === 1 && owners[0] === "unassigned"))) {
-        push(ownerSev, "ea:quality:active-needs-owner", entityId, `Active artifact "${entityId}" must have at least one owner`);
+        push(ownerSev, "ea:quality:active-needs-owner", entityId, `Active entity "${entityId}" must have at least one owner`);
       }
     }
 
@@ -399,7 +399,7 @@ export function validateEntities(
       const sumSev = ruleSeverity("ea:quality:active-needs-summary", "warning", q);
       const summary = getEntityDescription(a);
       if (isActive && (!summary || summary.trim().length < 10)) {
-        push(sumSev, "ea:quality:active-needs-summary", entityId, `Active artifact "${entityId}" should have a meaningful summary (≥10 chars)`);
+        push(sumSev, "ea:quality:active-needs-summary", entityId, `Active entity "${entityId}" should have a meaningful summary (≥10 chars)`);
       }
     }
 
@@ -529,19 +529,19 @@ export function validateEntities(
       if (!kr || kr.length === 0) { push(miSev, "ea:quality:mission-missing-key-results", entityId, `Mission "${entityId}" has no key results defined`); }
     }
     {
-      const orphanSev = ruleSeverity("ea:quality:orphan-artifact", "warning", q);
-      const specRels = getEntitySpecRelations(a).filter((r) => r.legacyType !== RELATION_OWNED_BY);
+      const orphanSev = ruleSeverity("ea:quality:orphan-entity", "warning", q);
+      const specRels = getEntitySpecRelations(a).filter((r) => r.type !== RELATION_OWNED_BY);
       const hasSystemRef = typeof getEntitySystem(a) === "string" && getEntitySystem(a)!.trim().length > 0;
       const hasDomainRef = typeof a.spec?.domain === "string" && a.spec.domain.trim().length > 0;
       const compRels = a.relations ?? [];
       const hasOwn = specRels.some(r => r.targets.length > 0) || hasSystemRef || hasDomainRef || compRels.length > 0;
       const isTargeted = allTargets.has(entityId);
-      if (!hasOwn && !isTargeted) { push(orphanSev, "ea:quality:orphan-artifact", entityId, `Artifact "${entityId}" has no relations and is not referenced by any other artifact`); }
+      if (!hasOwn && !isTargeted) { push(orphanSev, "ea:quality:orphan-entity", entityId, `Entity "${entityId}" has no relations and is not referenced by any other entity`); }
     }
     if (schema === "baseline") {
       const blSev = ruleSeverity("ea:quality:baseline-empty-refs", "warning", q);
       const ar = a.spec?.entityRefs as unknown[] | undefined;
-      if (!ar || ar.length === 0) { push(blSev, "ea:quality:baseline-empty-refs", entityId, `Baseline "${entityId}" has no artifact references`); }
+      if (!ar || ar.length === 0) { push(blSev, "ea:quality:baseline-empty-refs", entityId, `Baseline "${entityId}" has no entity references`); }
     }
     if (schema === "target") {
       const tgSev = ruleSeverity("ea:quality:target-missing-metrics", "warning", q);
@@ -578,13 +578,13 @@ export function validateEntities(
 
 /**
  * Extract a flat list of relations from a BackstageEntity.
- * Combines spec-field relations (mapped to legacy types) and computed relations.
+ * Combines spec-field relations (mapped to anchored-spec relation types) and computed relations.
  */
 function extractFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
   const result: Array<{ type: string; target: string }> = [];
-  for (const { legacyType, targets } of getEntitySpecRelations(entity)) {
+  for (const { type, targets } of getEntitySpecRelations(entity)) {
     for (const target of targets) {
-      result.push({ type: legacyType, target });
+      result.push({ type: type, target });
     }
   }
   for (const rel of entity.relations ?? []) {
@@ -666,7 +666,7 @@ export function validateEaRelations(
       const relKey = `${rel.type}→${rel.target}`;
 
       if (rel.target === aId) {
-        push(ruleSeverity("ea:relation:self-reference", "error", q), "ea:relation:self-reference", aId, `Artifact "${aId}" has a self-referencing relation of type "${rel.type}"`);
+        push(ruleSeverity("ea:relation:self-reference", "error", q), "ea:relation:self-reference", aId, `Entity "${aId}" has a self-referencing relation of type "${rel.type}"`);
         continue;
       }
 
@@ -674,9 +674,9 @@ export function validateEaRelations(
       if (!regEntry) {
         const canonicalEntry = registry.getCanonicalEntry(rel.type);
         if (canonicalEntry) {
-          push(ruleSeverity("ea:relation:unknown-type", "warning", q), "ea:relation:unknown-type", aId, `Artifact "${aId}" relation type "${rel.type}" is a virtual inverse — use "${canonicalEntry.type}" as the canonical direction instead`);
+          push(ruleSeverity("ea:relation:unknown-type", "warning", q), "ea:relation:unknown-type", aId, `Entity "${aId}" relation type "${rel.type}" is a virtual inverse — use "${canonicalEntry.type}" as the canonical direction instead`);
         } else {
-          push(ruleSeverity("ea:relation:unknown-type", "warning", q), "ea:relation:unknown-type", aId, `Artifact "${aId}" uses unregistered relation type "${rel.type}"`);
+          push(ruleSeverity("ea:relation:unknown-type", "warning", q), "ea:relation:unknown-type", aId, `Entity "${aId}" uses unregistered relation type "${rel.type}"`);
         }
         continue;
       }
@@ -690,7 +690,7 @@ export function validateEaRelations(
       }
 
       if (!target) {
-        push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Artifact "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
+        push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Entity "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
         continue;
       }
 
@@ -706,13 +706,13 @@ export function validateEaRelations(
       const targetStatus = getEntityStatus(target);
       if (targetStatus === "retired") {
         const sev = q?.strictMode ? "error" : "warning";
-        push(ruleSeverity("ea:relation:retired-target", sev as RuleSeverity, q), "ea:relation:retired-target", aId, `Artifact "${aId}" references retired artifact "${getEntityId(target)}" via "${rel.type}"`);
+        push(ruleSeverity("ea:relation:retired-target", sev as RuleSeverity, q), "ea:relation:retired-target", aId, `Entity "${aId}" references retired entity "${getEntityId(target)}" via "${rel.type}"`);
       } else if (targetStatus === "draft" && (aStatus === "active" || aStatus === "shipped")) {
-        push(ruleSeverity("ea:relation:draft-target", "warning", q), "ea:relation:draft-target", aId, `Active artifact "${aId}" references draft artifact "${getEntityId(target)}" via "${rel.type}"`);
+        push(ruleSeverity("ea:relation:draft-target", "warning", q), "ea:relation:draft-target", aId, `Active entity "${aId}" references draft entity "${getEntityId(target)}" via "${rel.type}"`);
       }
 
       if (seen.has(relKey)) {
-        push(ruleSeverity("ea:relation:duplicate", "warning", q), "ea:relation:duplicate", aId, `Artifact "${aId}" has duplicate relation "${rel.type}" → "${rel.target}"`);
+        push(ruleSeverity("ea:relation:duplicate", "warning", q), "ea:relation:duplicate", aId, `Entity "${aId}" has duplicate relation "${rel.type}" → "${rel.target}"`);
       }
       seen.add(relKey);
     }

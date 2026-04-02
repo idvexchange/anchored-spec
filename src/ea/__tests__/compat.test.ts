@@ -30,31 +30,31 @@ describe("assessCompatibility", () => {
         expect(report.overallLevel).toBe("none");
         expect(report.assessments).toHaveLength(0);
     });
-    it("returns 'none' for identical artifacts", () => {
-        const artifacts = [makeEntity({ ref: "component:a", kind: "Component", type: "website" })];
-        const report = assess(artifacts, [...artifacts]);
+    it("returns 'none' for identical entities", () => {
+        const entities = [makeEntity({ ref: "component:a", kind: "Component", type: "website" })];
+        const report = assess(entities, [...entities]);
         expect(report.overallLevel).toBe("none");
     });
-    it("classifies new artifacts as additive", () => {
+    it("classifies new entities as additive", () => {
         const head = [makeEntity({ ref: "component:new", kind: "Component", type: "website" })];
         const report = assess([], head);
         expect(report.overallLevel).toBe("additive");
         expect(report.summary.additive).toBe(1);
-        expect(report.assessments[0].reasons[0].rule).toBe("compat:artifact-added");
+        expect(report.assessments[0].reasons[0].rule).toBe("compat:entity-added");
     });
-    it("classifies removal of active artifact as breaking", () => {
+    it("classifies removal of active entity as breaking", () => {
         const base = [makeEntity({ ref: "component:a", kind: "Component", type: "website", status: "active" })];
         const report = assess(base, []);
         expect(report.overallLevel).toBe("breaking");
-        expect(report.assessments[0].reasons.some((r) => r.rule === "compat:artifact-removed")).toBe(true);
+        expect(report.assessments[0].reasons.some((r) => r.rule === "compat:entity-removed")).toBe(true);
     });
-    it("classifies removal of deprecated artifact as compatible", () => {
+    it("classifies removal of deprecated entity as compatible", () => {
         const base = [makeEntity({ ref: "component:a", kind: "Component", type: "website", status: "deprecated" })];
         const report = assess(base, []);
         expect(report.overallLevel).toBe("compatible");
-        expect(report.assessments[0].reasons.some((r) => r.rule === "compat:artifact-removed-deprecated")).toBe(true);
+        expect(report.assessments[0].reasons.some((r) => r.rule === "compat:entity-removed-deprecated")).toBe(true);
     });
-    it("classifies removal of retired artifact as no breaking impact", () => {
+    it("classifies removal of retired entity as no breaking impact", () => {
         const base = [makeEntity({ ref: "component:a", kind: "Component", type: "website", status: "retired" })];
         const report = assess(base, []);
         // retired → not in LIVE_STATUSES, not deprecated → no specific rule fires
@@ -125,7 +125,7 @@ describe("assessCompatibility", () => {
         const base = [makeEntity({ ref: "component:a", kind: "Component", type: "website", status: "active" })];
         const head = [makeEntity({ ref: "api:a", kind: "API", type: "openapi" })];
         const report = assess(base, head);
-        expect(report.assessments.some((a) => a.reasons.some((r) => r.rule === "compat:artifact-removed"))).toBe(true);
+        expect(report.assessments.some((a) => a.reasons.some((r) => r.rule === "compat:entity-removed"))).toBe(true);
         expect(report.overallLevel).toBe("breaking");
     });
     it("classifies metadata-only changes as none", () => {

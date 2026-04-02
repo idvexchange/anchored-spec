@@ -2,10 +2,10 @@
  * anchored-spec verify
  *
  * Run all spec validation checks:
- *   1. JSON Schema validation (per artifact)
+ *   1. JSON Schema validation (per entity)
  *   2. Quality rules (owners, summary, relations)
  *   3. Relation integrity (targets exist, types valid)
- *   4. Orphan artifact detection
+ *   4. Orphan entity detection
  *   5. Lifecycle consistency
  *   6. Plugin checks (if configured)
  */
@@ -79,7 +79,7 @@ function printResult(
 
   const { summary } = result;
   console.log(
-    `  ${summary.artifacts.total} artifacts | ` +
+    `  ${summary.entities.total} entities | ` +
     `${summary.totalChecks} checks | ` +
     `${summary.passed} passed | ` +
     `${summary.errors} error(s) | ` +

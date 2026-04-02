@@ -127,7 +127,7 @@ describe("findOpenApiFiles", () => {
   it("should find Swagger 2.0 files", () => {
     const files = findOpenApiFiles(FIXTURES_DIR);
     const basenames = files.map((f) => f.split("/").pop());
-    expect(basenames).toContain("legacy-billing.yaml");
+    expect(basenames).toContain("brownfield-billing.yaml");
   });
 
   it("should find all 3 fixture files", () => {
@@ -159,10 +159,10 @@ describe("loadOpenApiSpec", () => {
   });
 
   it("should load a Swagger 2.0 spec", () => {
-    const spec = loadOpenApiSpec(join(FIXTURES_DIR, "legacy-billing.yaml"), FIXTURES_DIR);
+    const spec = loadOpenApiSpec(join(FIXTURES_DIR, "brownfield-billing.yaml"), FIXTURES_DIR);
     expect(spec).not.toBeNull();
     expect(spec!.swagger).toBe("2.0");
-    expect(spec!.info?.title).toBe("Legacy Billing API");
+    expect(spec!.info?.title).toBe("Brownfield Billing API");
   });
 
   it("should return null for non-existent file", () => {
@@ -230,13 +230,13 @@ describe("OpenApiResolver.resolveAnchors", () => {
     resolver = new OpenApiResolver();
   });
 
-  it("should return null when artifact has no api anchors", () => {
+  it("should return null when entity has no api anchors", () => {
     const entity = makeEntity({ anchors: {} });
     const result = resolver.resolveAnchors(entity, makeCtx());
     expect(result).toBeNull();
   });
 
-  it("should return null when artifact has empty api anchors", () => {
+  it("should return null when entity has empty api anchors", () => {
     const entity = makeEntity({ anchors: { apis: [] } });
     const result = resolver.resolveAnchors(entity, makeCtx());
     expect(result).toBeNull();
@@ -313,7 +313,7 @@ describe("OpenApiResolver.collectObservedState", () => {
     expect(state).not.toBeNull();
     expect(state.source).toBe("openapi");
     expect(state.collectedAt).toBeDefined();
-    // petstore: 5 endpoints, user-service: 6, legacy-billing: 4
+    // petstore: 5 endpoints, user-service: 6, brownfield-billing: 4
     expect(state.entities.length).toBe(15);
   });
 
@@ -397,7 +397,7 @@ describe("OpenApiResolver.discoverEntities", () => {
 
   it("should discover Swagger 2.0 specs", () => {
     const drafts = resolver.discoverEntities(makeCtx())!;
-    const billing = drafts.find((d) => d.title === "Legacy Billing API");
+    const billing = drafts.find((d) => d.title === "Brownfield Billing API");
     expect(billing).toBeDefined();
     expect(billing!.schemaFields?.version).toBe("1.5.0");
   });

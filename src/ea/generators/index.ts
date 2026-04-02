@@ -1,8 +1,8 @@
 /**
  * Anchored Spec — EA Generator Framework
  *
- * Pipeline for generating implementation artifacts from EA specs.
- * Generators transform EA artifacts (e.g., api-contract → OpenAPI stub,
+ * Pipeline for generating implementation entities from EA specs.
+ * Generators transform EA entities (e.g., api-contract → OpenAPI stub,
  * canonical-entity → JSON Schema) and detect generation drift.
  *
  * Design reference: docs/delivery/discovery-drift-generation.md (Generator Interface)
@@ -38,7 +38,7 @@ export interface GeneratedOutput {
   content: string;
   /** Content type for logging/display. */
   contentType: "yaml" | "json" | "hcl" | "markdown" | "typescript" | "sql" | "other";
-  /** The EA artifact ID this was generated from. */
+  /** The EA entity ID this was generated from. */
   sourceEntityRef: string;
   /** Human-readable description of what was generated. */
   description: string;
@@ -50,7 +50,7 @@ export interface GeneratedOutput {
 export interface GenerationDrift {
   /** Path to the generated file that has drifted. */
   filePath: string;
-  /** The EA artifact that should govern this file. */
+  /** The EA entity that should govern this file. */
   sourceEntityRef: string;
   /** Description of the drift. */
   message: string;
@@ -73,7 +73,7 @@ export interface EaGenerator {
   outputFormat: string;
 
   /**
-   * Generate implementation artifacts from an EA entity.
+   * Generate implementation entities from an EA entity.
    * Returns one or more generated outputs.
    */
   generate(
@@ -196,27 +196,27 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     };
 
     // Find matching entities for the generator's schema profiles.
-    let matchingArtifacts = entities.filter((entity) =>
+    let matchingEntities = entities.filter((entity) =>
       generator.schemas.includes(getEntitySchema(entity)),
     );
     if (schemas && schemas.length > 0) {
-      matchingArtifacts = matchingArtifacts.filter((entity) =>
+      matchingEntities = matchingEntities.filter((entity) =>
         schemas.includes(getEntitySchema(entity)),
       );
     }
 
-    if (matchingArtifacts.length === 0) {
-      logger.debug(`Generator ${generator.name}: no matching artifacts`);
+    if (matchingEntities.length === 0) {
+      logger.debug(`Generator ${generator.name}: no matching entities`);
       continue;
     }
 
     generatorsRun++;
     logger.info(`Running generator: ${generator.name}`, {
-      artifacts: matchingArtifacts.length,
+      entities: matchingEntities.length,
       outputDir: genOutputDir,
     });
 
-    for (const entity of matchingArtifacts) {
+    for (const entity of matchingEntities) {
       entitiesProcessed++;
 
       if (checkOnly && generator.diff) {
@@ -295,7 +295,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     `| Metric | Count |`,
     `| --- | --- |`,
     `| Generators run | ${report.summary.generatorsRun} |`,
-    `| Artifacts processed | ${report.summary.entitiesProcessed} |`,
+    `| Entities processed | ${report.summary.entitiesProcessed} |`,
     `| Files generated | ${report.summary.filesGenerated} |`,
     `| Files written | ${report.summary.filesWritten} |`,
     `| Files skipped | ${report.summary.filesSkipped} |`,

@@ -76,17 +76,17 @@ export class RelationGraph {
     return all;
   }
 
-  /** Get a node by artifact ID. */
+  /** Get a node by entity ID. */
   node(id: string): GraphNode | undefined {
     return this.nodeMap.get(id);
   }
 
-  /** Get all outgoing edges from an artifact. */
+  /** Get all outgoing edges from an entity. */
   outgoing(id: string): GraphEdge[] {
     return this.outgoingMap.get(id) ?? [];
   }
 
-  /** Get all incoming edges to an artifact. */
+  /** Get all incoming edges to an entity. */
   incoming(id: string): GraphEdge[] {
     return this.incomingMap.get(id) ?? [];
   }
@@ -128,8 +128,8 @@ export class RelationGraph {
   }
 
   /**
-   * Compute all artifacts transitively impacted by changes to the given artifact.
-   * Follows all incoming edges (anything that depends on / references this artifact).
+   * Compute all entities transitively impacted by changes to the given entity.
+   * Follows all incoming edges (anything that depends on / references this entity).
    */
   impactSet(id: string): GraphNode[] {
     const visited = new Set<string>();
@@ -146,7 +146,7 @@ export class RelationGraph {
         if (node) result.push(node);
       }
 
-      // Follow incoming edges — anything that references this artifact is impacted
+      // Follow incoming edges — anything that references this entity is impacted
       for (const edge of this.incoming(current)) {
         if (!visited.has(edge.source)) {
           queue.push(edge.source);
@@ -159,7 +159,7 @@ export class RelationGraph {
 
   /**
    * Detect cycles for a given relation type.
-   * Returns arrays of artifact IDs forming each cycle.
+   * Returns arrays of entity IDs forming each cycle.
    */
   detectCycles(relationType: string): string[][] {
     const cycles: string[][] = [];
@@ -328,10 +328,10 @@ export function buildRelationGraph(
 
   // Extract relations from all entities (exclude ownership — it's metadata, not a dependency)
   const EXCLUDED_RELATION_TYPES = new Set([RELATION_OWNED_BY]);
-  const entityRelations = new Map<string, Array<{ legacyType: string; targets: string[] }>>();
+  const entityRelations = new Map<string, Array<{ type: string; targets: string[] }>>();
   for (const entity of entities) {
     const rels = getEntitySpecRelations(entity)
-      .filter((r) => !EXCLUDED_RELATION_TYPES.has(r.legacyType));
+      .filter((r) => !EXCLUDED_RELATION_TYPES.has(r.type));
     entityRelations.set(getEntityId(entity), rels);
   }
 
@@ -339,9 +339,9 @@ export function buildRelationGraph(
   const explicitInverses = new Map<string, GraphEdge>();
   for (const entity of entities) {
     const nodeId = getEntityId(entity);
-    for (const { legacyType, targets } of entityRelations.get(nodeId) ?? []) {
-      const entry = registry.getCanonicalEntry(legacyType);
-      if (entry && legacyType === entry.inverse) {
+    for (const { type, targets } of entityRelations.get(nodeId) ?? []) {
+      const entry = registry.getCanonicalEntry(type);
+      if (entry && type === entry.inverse) {
         for (const target of targets) {
           const key = `${target}→${entry.type}→${nodeId}`;
           explicitInverses.set(key, {
@@ -361,13 +361,13 @@ export function buildRelationGraph(
   // 2. Create forward edges + 3. Virtual inverses
   for (const entity of entities) {
     const nodeId = getEntityId(entity);
-    for (const { legacyType, targets } of entityRelations.get(nodeId) ?? []) {
-      const entry = registry.get(legacyType);
+    for (const { type, targets } of entityRelations.get(nodeId) ?? []) {
+      const entry = registry.get(type);
 
       // Skip explicit inverses (handled above)
       if (!entry) {
-        const canonical = registry.getCanonicalEntry(legacyType);
-        if (canonical && legacyType === canonical.inverse) continue;
+        const canonical = registry.getCanonicalEntry(type);
+        if (canonical && type === canonical.inverse) continue;
       }
 
       for (const target of targets) {
@@ -375,7 +375,7 @@ export function buildRelationGraph(
         graph.addEdge({
           source: nodeId,
           target,
-          type: legacyType,
+          type: type,
           isVirtual: false,
           criticality: "medium",
           confidence: getEntityConfidence(entity),

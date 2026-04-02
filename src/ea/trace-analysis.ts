@@ -52,7 +52,7 @@ export interface TraceCheckReport {
 // ─── Core analysis ────────────────────────────────────────────────────
 
 /**
- * Build the full set of {@link TraceLink}s from artifacts and scanned docs.
+ * Build the full set of {@link TraceLink}s from entities and scanned docs.
  */
 export function buildTraceLinks(
   entities: BackstageEntity[],

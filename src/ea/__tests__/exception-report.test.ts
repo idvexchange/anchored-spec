@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { REPORT_VIEWS, buildExceptionReport, buildReportIndex, renderExceptionReportMarkdown, } from "../report.js";
-import { cleanupTestWorkspace, createTestWorkspace, makeArtifact, readJsonFile, runCli, writeManifestProject } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, createTestWorkspace, makeEntity, readJsonFile, runCli, writeManifestProject } from "../../test-helpers/workspace.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
     const dir = createTestWorkspace(prefix);
@@ -15,7 +15,7 @@ afterEach(() => {
     }
 });
 function makeException(ref: string, expiresAt: string) {
-    return makeArtifact({
+    return makeEntity({
         ref,
         kind: "Exception",
         status: "active",
@@ -43,14 +43,14 @@ describe("exception reporting", () => {
         expect(report.summary.expired).toBe(1);
         expect(renderExceptionReportMarkdown(report)).toContain("# Exception Report");
     });
-    it("builds a current report index without legacy report aliases", () => {
+    it("builds a current report index without removed report aliases", () => {
         const entities = [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
             makeException("exception:active", "2099-01-01"),
         ];
         const index = buildReportIndex(entities);
         const names = index.reports.map((entry) => entry.name);
-        expect(index.summary.totalArtifacts).toBe(2);
+        expect(index.summary.totalEntities).toBe(2);
         expect(names).toContain("exceptions");
         expect(names).toContain("drift-heatmap");
         expect(names).toContain("traceability-index");
@@ -73,7 +73,7 @@ describe("report CLI", () => {
     it("writes the current --all report set plus the report index", () => {
         const dir = makeWorkspace("exceptions-all");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
             makeException("exception:active", "2099-01-01"),
         ]);
         const result = runCli(["report", "--all", "--format", "json", "--output-dir", "reports"], dir);

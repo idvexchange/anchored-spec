@@ -7,7 +7,7 @@ audience:
   - maintainer
 domain:
   - delivery
-ea-artifacts:
+ea-entities:
   - capability:manifest-authoring
   - capability:traceability
   - capability:governed-evolution

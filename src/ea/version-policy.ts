@@ -1,7 +1,7 @@
 /**
  * EA Version Policy Enforcement
  *
- * Declares compatibility policies per-artifact, per-schema, or globally,
+ * Declares compatibility policies per-entity, per-schema, or globally,
  * then enforces them against compatibility assessments from the compat module.
  *
  * Design reference: plan.md §S4
@@ -18,10 +18,10 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
-/** Compatibility mode for an artifact or group. */
+/** Compatibility mode for an entity or group. */
 export type CompatibilityMode = "backward-only" | "full" | "breaking-allowed" | "frozen";
 
-/** Policy for a single artifact or group. */
+/** Policy for a single entity or group. */
 export interface VersionPolicy {
   compatibility: CompatibilityMode;
   approvers?: string[];
@@ -71,8 +71,8 @@ const DEFAULT_POLICY: VersionPolicy = {
 // ─── Policy Resolution ──────────────────────────────────────────────────────────
 
 /**
- * Resolve the effective version policy for an artifact.
- * Priority: artifact-level > schema-level > domain-level > global default > breaking-allowed
+ * Resolve the effective version policy for an entity.
+ * Priority: entity-level > schema-level > domain-level > global default > breaking-allowed
  */
 export function resolveVersionPolicy(
   entity: BackstageEntity,
@@ -165,7 +165,7 @@ export function enforceVersionPolicies(
   };
 
   for (const assessment of compatReport.assessments) {
-    // Resolve policy from the head artifact (or base if removed)
+    // Resolve policy from the head entity (or base if removed)
     const entity = headMap.get(assessment.entityRef) ?? baseMap.get(assessment.entityRef);
     if (!entity) continue;
 
@@ -227,9 +227,9 @@ function buildViolationMessage(
 /** One-line policy enforcement summary. */
 export function renderPolicySummary(report: PolicyEnforcementReport): string {
   if (report.passed) {
-    return `PASSED: ${report.summary.entitiesChecked} artifacts checked, 0 violations`;
+    return `PASSED: ${report.summary.entitiesChecked} entities checked, 0 violations`;
   }
-  return `FAILED: ${report.summary.violations} violation(s) across ${report.summary.entitiesChecked} artifacts`;
+  return `FAILED: ${report.summary.violations} violation(s) across ${report.summary.entitiesChecked} entities`;
 }
 
 /** Full markdown policy enforcement report. */
@@ -255,7 +255,7 @@ export function renderPolicyMarkdown(report: PolicyEnforcementReport): string {
   if (report.violations.length > 0) {
     lines.push("## Violations");
     lines.push("");
-    lines.push("| Artifact | Kind | Schema | Domain | Compat Level | Policy | Reason |");
+    lines.push("| Entity | Kind | Schema | Domain | Compat Level | Policy | Reason |");
     lines.push("|----------|------|--------|--------|--------------|--------|--------|");
     for (const v of report.violations) {
       const reason = v.reasons.length > 0

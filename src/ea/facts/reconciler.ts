@@ -1,8 +1,8 @@
 /**
  * @module facts/reconciler
  *
- * Fact↔artifact reconciliation engine (Phase 3).
- * Compares extracted document facts against artifact anchor
+ * Fact↔entity reconciliation engine (Phase 3).
+ * Compares extracted document facts against entity anchor
  * declarations and reports mismatches.
  */
 
@@ -83,9 +83,9 @@ function collectFactIndex(
 // ─── Reconciliation Checks ──────────────────────────────────────────
 
 /**
- * Check for artifact anchors that don't appear in any document fact.
+ * Check for entity anchors that don't appear in any document fact.
  */
-function checkArtifactMissingFact(
+function checkEntityMissingFact(
   entities: BackstageEntity[],
   factIndex: Map<FactKind, Map<string, { file: string; line: number }[]>>,
 ): ConsistencyFinding[] {
@@ -102,9 +102,9 @@ function checkArtifactMissingFact(
         if (kindFacts?.has(anchorValue)) continue;
 
         findings.push({
-          rule: "ea:docs/artifact-missing-fact",
+          rule: "ea:docs/entity-missing-fact",
           severity: "warning",
-          message: `Artifact "${entityId}" declares ${anchorField} anchor "${anchorValue}" but no document contains a matching ${factKind} fact`,
+          message: `Entity "${entityId}" declares ${anchorField} anchor "${anchorValue}" but no document contains a matching ${factKind} fact`,
           locations: [
             {
               file: entityId,
@@ -122,11 +122,11 @@ function checkArtifactMissingFact(
 }
 
 /**
- * Check for document facts from annotated blocks that have no corresponding artifact.
+ * Check for document facts from annotated blocks that have no corresponding entity.
  */
-function checkFactMissingArtifact(
+function checkFactMissingEntity(
   manifests: FactManifest[],
-  artifactAnchorIndex: Map<FactKind, Set<string>>,
+  entityAnchorIndex: Map<FactKind, Set<string>>,
 ): ConsistencyFinding[] {
   const findings: ConsistencyFinding[] = [];
 
@@ -138,15 +138,15 @@ function checkFactMissingArtifact(
       const factKind = block.kind;
       if (!KIND_TO_ANCHOR_FIELD[factKind]) continue;
 
-      const anchorValues = artifactAnchorIndex.get(factKind);
+      const anchorValues = entityAnchorIndex.get(factKind);
 
       for (const fact of block.facts) {
         if (anchorValues?.has(fact.key)) continue;
 
         findings.push({
-          rule: "ea:docs/fact-missing-artifact",
+          rule: "ea:docs/fact-missing-entity",
           severity: "warning",
-          message: `Document fact "${fact.key}" (${factKind}) in "${manifest.source}" has no corresponding artifact anchor`,
+          message: `Document fact "${fact.key}" (${factKind}) in "${manifest.source}" has no corresponding entity anchor`,
           locations: [
             {
               file: manifest.source,
@@ -154,7 +154,7 @@ function checkFactMissingArtifact(
               value: fact.key,
             },
           ],
-          suggestion: `Add an artifact with a ${KIND_TO_ANCHOR_FIELD[factKind]!} anchor for "${fact.key}", or annotate the block with @anchored-spec:suppress`,
+          suggestion: `Add an entity with a ${KIND_TO_ANCHOR_FIELD[factKind]!} anchor for "${fact.key}", or annotate the block with @anchored-spec:suppress`,
         });
       }
     }
@@ -164,10 +164,10 @@ function checkFactMissingArtifact(
 }
 
 /**
- * Check for fact/artifact value mismatches.
- * Detects when a doc fact key and an artifact anchor are close but not identical.
+ * Check for fact/entity value mismatches.
+ * Detects when a doc fact key and an entity anchor are close but not identical.
  */
-function checkArtifactMismatches(
+function checkEntityMismatches(
   manifests: FactManifest[],
   entities: BackstageEntity[],
 ): ConsistencyFinding[] {
@@ -242,9 +242,9 @@ function checkArtifactMismatches(
             ];
 
             findings.push({
-              rule: "ea:docs/artifact-mismatch",
+              rule: "ea:docs/entity-mismatch",
               severity: "error",
-              message: `Document says "${fact.key}" but artifact declares "${anchor}" — possible mismatch in ${factKind}`,
+              message: `Document says "${fact.key}" but entity declares "${anchor}" — possible mismatch in ${factKind}`,
               locations,
               suggestion: `Verify whether "${fact.key}" and "${anchor}" refer to the same concept`,
             });
@@ -260,25 +260,25 @@ function checkArtifactMismatches(
 // ─── Main Entry Point ───────────────────────────────────────────────
 
 /**
- * Reconcile extracted document facts against artifact anchor declarations.
+ * Reconcile extracted document facts against entity anchor declarations.
  */
-export function reconcileFactsWithArtifacts(
+export function reconcileFactsWithEntities(
   manifests: FactManifest[],
   entities: BackstageEntity[],
 ): ReconciliationReport {
   const factIndex = collectFactIndex(manifests);
 
   // Build set of all anchor values per kind
-  const artifactAnchorIndex = new Map<FactKind, Set<string>>();
+  const entityAnchorIndex = new Map<FactKind, Set<string>>();
   for (const entity of entities) {
     for (const [kind] of Object.entries(KIND_TO_ANCHOR_FIELD)) {
       const factKind = kind as FactKind;
       const values = getAnchorValuesForEntity(entity, factKind);
       if (values.length === 0) continue;
-      let anchorSet = artifactAnchorIndex.get(factKind);
+      let anchorSet = entityAnchorIndex.get(factKind);
       if (!anchorSet) {
         anchorSet = new Set();
-        artifactAnchorIndex.set(factKind, anchorSet);
+        entityAnchorIndex.set(factKind, anchorSet);
       }
       for (const v of values) anchorSet.add(v);
     }
@@ -295,9 +295,9 @@ export function reconcileFactsWithArtifacts(
   );
 
   const findings: ConsistencyFinding[] = [
-    ...checkArtifactMissingFact(entities, factIndex),
-    ...checkFactMissingArtifact(manifests, artifactAnchorIndex),
-    ...checkArtifactMismatches(manifests, entities),
+    ...checkEntityMissingFact(entities, factIndex),
+    ...checkFactMissingEntity(manifests, entityAnchorIndex),
+    ...checkEntityMismatches(manifests, entities),
   ];
 
   const errors = findings.filter((f) => f.severity === "error").length;

@@ -13,7 +13,7 @@
       "type": "object",
       "required": ["entityRef"],
       "properties": {
-        "entityRef": { "type": "string", "minLength": 1, "description": "Source artifact ID" },
+        "entityRef": { "type": "string", "minLength": 1, "description": "Source entity ID" },
         "role": { "type": "string", "description": "Role of the source in this exchange" }
       },
       "additionalProperties": false,
@@ -23,7 +23,7 @@
       "type": "object",
       "required": ["entityRef"],
       "properties": {
-        "entityRef": { "type": "string", "minLength": 1, "description": "Destination artifact ID" },
+        "entityRef": { "type": "string", "minLength": 1, "description": "Destination entity ID" },
         "role": { "type": "string", "description": "Role of the destination in this exchange" }
       },
       "additionalProperties": false,
@@ -46,7 +46,7 @@
       "items": { "type": "string" },
       "description": "API or event contract IDs implementing this exchange"
     },
-    "classificationLevel": { "type": "string", "description": "Classification artifact reference" },
+    "classificationLevel": { "type": "string", "description": "Classification entity reference" },
     "legalBasis": { "type": "string", "description": "Consent or regulatory basis for this exchange" }
   }
 }

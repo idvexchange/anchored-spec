@@ -1,7 +1,7 @@
 /**
  * anchored-spec ea drift
  *
- * Run the EA drift engine against loaded artifacts.
+ * Run the EA drift engine against loaded entities.
  */
 
 import { Command } from "commander";
@@ -19,7 +19,7 @@ import { getEntitySchema } from "../../ea/backstage/accessors.js";
 import { extractFactsFromDocs } from "../../ea/resolvers/markdown.js";
 import { checkConsistency } from "../../ea/facts/consistency.js";
 import type { ConsistencyReport } from "../../ea/facts/consistency.js";
-import { reconcileFactsWithArtifacts } from "../../ea/facts/reconciler.js";
+import { reconcileFactsWithEntities } from "../../ea/facts/reconciler.js";
 import type { ReconciliationReport } from "../../ea/facts/reconciler.js";
 import { applySuppressions, collectSuppressions } from "../../ea/facts/suppression.js";
 import { CliError } from "../errors.js";
@@ -32,7 +32,7 @@ export function eaDriftCommand(): Command {
     .option("--json", "Output as JSON")
     .option("--fail-on-warning", "Exit with code 1 on warnings (not just errors)")
     .option("--kind <kind>", "Filter by fact kind (for docs domain): events, states, endpoints, etc.")
-    .option("--include-artifacts", "Include fact-to-artifact reconciliation (for docs domain)")
+    .option("--include-entities", "Include fact-to-entity reconciliation (for docs domain)")
     .option("--source <path>", "Source path to scan for docs domain")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
     .option("--no-cache", "Disable resolver cache")
@@ -80,10 +80,10 @@ export function eaDriftCommand(): Command {
         // Run consistency checks
         const consistencyReport: ConsistencyReport = checkConsistency(manifests, { kindFilter });
 
-        // Optionally run artifact reconciliation
+        // Optionally run entity reconciliation
         let reconciliationReport: ReconciliationReport | undefined;
-        if (options.includeArtifacts) {
-          reconciliationReport = reconcileFactsWithArtifacts(manifests, result.entities);
+        if (options.includeEntities) {
+          reconciliationReport = reconcileFactsWithEntities(manifests, result.entities);
         }
 
         // Apply suppressions from manifests (carried through from parsing)
@@ -131,7 +131,7 @@ export function eaDriftCommand(): Command {
           }
 
           if (reconciliationReport) {
-            console.log(`  Artifact reconciliation: ${reconciliationReport.passed ? "✅" : "❌"}`);
+            console.log(`  Entity reconciliation: ${reconciliationReport.passed ? "✅" : "❌"}`);
             console.log(`    Facts checked: ${reconciliationReport.factsChecked}`);
             console.log(`    Entities checked: ${reconciliationReport.entitiesChecked}`);
             console.log("");
@@ -176,7 +176,7 @@ export function eaDriftCommand(): Command {
       }
 
       const report = detectEaDrift({
-        artifacts: result.entities,
+        entities: result.entities,
         exceptions: exceptionEntities,
         domains: domainFilter ? [domainFilter] : undefined,
         includeResolverRules: !!options.fromSnapshot || options.cache !== false,

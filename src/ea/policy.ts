@@ -3,7 +3,7 @@
  *
  * EA-native wrapper around the core policy engine. Loads workflow policy
  * from EaRoot (JSON or YAML), evaluates path-based rules, validates
- * workflow entry against active change artifacts.
+ * workflow entry against active change entities.
  *
  * This is the EA EA-native workflow policy engine and src/core/check.ts.
  */
@@ -20,7 +20,7 @@ export interface EaChangeRequiredRule {
   description?: string;
   include: string[];
   exclude?: string[];
-  requiredDocs?: string[];
+  requiredEntities?: string[];
   requiredDriftChecks?: string[];
   commands?: string[];
 }
@@ -29,7 +29,7 @@ export interface EaWorkflowVariant {
   id: string;
   name: string;
   defaultTypes: string[];
-  artifacts: string[];
+  requiredSchemas: string[];
   skipSkillSequence?: boolean;
   verificationFocus?: string[];
 }
@@ -146,8 +146,8 @@ export function evaluateEaPolicy(
 
 // ─── Change Coverage ────────────────────────────────────────────────────────────
 
-/** Check if a path is covered by an active change artifact's scope. */
-export function isPathCoveredByChangeArtifact(
+/** Check if a path is covered by an active change entity's scope. */
+export function isPathCoveredByChangeEntity(
   path: string,
   entity: BackstageEntity,
 ): boolean {
@@ -166,7 +166,7 @@ export function isPathCoveredByChangeArtifact(
 }
 
 /**
- * Check whether governed paths are covered by active change artifacts.
+ * Check whether governed paths are covered by active change entities.
  */
 export function checkEaPaths(
   changedPaths: string[],
@@ -179,7 +179,7 @@ export function checkEaPaths(
   for (const result of evaluation.paths) {
     if (!result.requiresChange) continue;
     const covered = activeChanges.some(
-      (entity) => getEntityStatus(entity) === "active" && isPathCoveredByChangeArtifact(result.path, entity),
+      (entity) => getEntityStatus(entity) === "active" && isPathCoveredByChangeEntity(result.path, entity),
     );
     if (!covered) {
       uncoveredPaths.push(result.path);

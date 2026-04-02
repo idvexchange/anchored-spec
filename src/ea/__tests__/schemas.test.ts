@@ -6,7 +6,7 @@ beforeEach(() => {
   resetEaAjv();
 });
 
-// ─── Helper: minimal valid base artifact ────────────────────────────────────────
+// ─── Helper: minimal valid base entity ────────────────────────────────────────
 
 function validBase(kind: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -15,7 +15,7 @@ function validBase(kind: string, extra: Record<string, unknown> = {}): Record<st
     kind,
     title: `Test ${kind}`,
     status: "active",
-    summary: `A test ${kind} artifact for schema validation.`,
+    summary: `A test ${kind} entity for schema validation.`,
     owners: ["test-team"],
     confidence: "declared",
     ...extra,
@@ -52,7 +52,7 @@ describe("getSchemaForKind", () => {
 // ─── Base Schema Validation ─────────────────────────────────────────────────────
 
 describe("entity-base schema", () => {
-  it("accepts a valid base artifact", () => {
+  it("accepts a valid base entity", () => {
     const result = validateEaSchema(validBase("application"), "entity-base");
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
@@ -885,7 +885,7 @@ describe("workflow-policy schema", () => {
     const result = validateEaSchema(
       {
         workflowVariants: [
-          { id: "feature", name: "Feature", defaultTypes: ["feature"], artifacts: ["change"] },
+          { id: "feature", name: "Feature", defaultTypes: ["feature"], requiredSchemas: ["change"] },
         ],
         changeRequiredRules: [
           { id: "src-rule", include: ["src/**"] },

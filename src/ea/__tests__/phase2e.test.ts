@@ -5,7 +5,7 @@
  * Covers:
  *  - 5 transition-layer kinds in EA_KIND_REGISTRY
  *  - Schema validation for all 5 kinds
- *  - 5 quality rules for transition-layer artifacts
+ *  - 5 quality rules for transition-layer entities
  */
 import { describe, it, expect } from "vitest";
 import { createDefaultRegistry, validateEntities, validateEaRelations, validateEaSchema, getEaSchemaNames, evaluateEaDrift, buildGapAnalysis, renderGapAnalysisMarkdown, } from "../index.js";
@@ -51,7 +51,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
             confidence: "observed",
             status: "active",
             schemaVersion: "1.0.0",
-            scope: { description: "All systems domain artifacts", domains: ["systems"] },
+            scope: { description: "All systems domain entities", domains: ["systems"] },
             capturedAt: "2026-01-15",
             entityRefs: ["component:orders", "component:payments"]
         };
@@ -133,7 +133,7 @@ describe("Phase 2E: Transition Schema Validation", () => {
             transitionPlan: "transitionplan:cloud-migration",
             milestones: ["m1"],
             sequenceOrder: 1,
-            scope: { create: ["component:orders-v2"], modify: [], retire: ["component:orders-legacy"] },
+            scope: { create: ["component:orders-v2"], modify: [], retire: ["component:orders-sunset"] },
             preconditions: ["component:orders"],
             rollbackStrategy: "Blue-green deployment with instant rollback"
         };
@@ -143,19 +143,19 @@ describe("Phase 2E: Transition Schema Validation", () => {
     it("validates a valid exception", () => {
         const data = {
             apiVersion: "anchored-spec/ea/v1",
-            ref: "exception:legacy-api",
+            ref: "exception:sunset-api",
             kind: "Exception",
-            title: "Legacy API Exception",
-            summary: "Allow non-standard API for legacy system",
+            title: "Sunset API Exception",
+            summary: "Allow non-standard API for sunset system",
             owners: ["team-arch"],
             confidence: "declared",
             status: "active",
             schemaVersion: "1.0.0",
-            scope: { entityRefs: ["api:legacy-orders"], rules: ["ea:quality:api-missing-spec"] },
+            scope: { entityRefs: ["api:sunset-orders"], rules: ["ea:quality:api-missing-spec"] },
             approvedBy: "cto",
             approvedAt: "2026-01-15T00:00:00Z",
             expiresAt: "2026-06-15T00:00:00Z",
-            reason: "Legacy system being retired in Q2",
+            reason: "Sunset system being retired in Q2",
             reviewSchedule: "monthly"
         };
         const result = validateEaSchema(data, "exception");
@@ -168,8 +168,8 @@ describe("Phase 2E: Transition Schema Validation", () => {
 });
 // ─── Quality Rules ──────────────────────────────────────────────────────────────
 describe("Phase 2E: Transition Quality Rules", () => {
-    it("warns when baseline has no artifact refs", () => {
-        const artifacts = [
+    it("warns when baseline has no entity refs", () => {
+        const entities = [
             makeEntity({
                 ref: "transitionplan:empty",
                 kind: "TransitionPlan",
@@ -179,11 +179,11 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 entityRefs: []
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.warnings.find((w) => w.rule === "ea:quality:baseline-empty-refs")).toBeDefined();
     });
-    it("does not warn when baseline has artifact refs", () => {
-        const artifacts = [
+    it("does not warn when baseline has entity refs", () => {
+        const entities = [
             makeEntity({
                 ref: "transitionplan:good",
                 kind: "TransitionPlan",
@@ -193,11 +193,11 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 entityRefs: ["component:orders"]
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.warnings.find((w) => w.rule === "ea:quality:baseline-empty-refs")).toBeUndefined();
     });
     it("warns when target has no success metrics", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:no-metrics",
                 kind: "TransitionPlan",
@@ -207,11 +207,11 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 entityRefs: ["component:orders"]
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.warnings.find((w) => w.rule === "ea:quality:target-missing-metrics")).toBeDefined();
     });
     it("warns when transition plan has no milestones", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:empty",
                 kind: "TransitionPlan",
@@ -220,11 +220,11 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 milestones: []
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.warnings.find((w) => w.rule === "ea:quality:plan-empty-milestones")).toBeDefined();
     });
     it("errors when exception has empty scope", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "exception:wild",
                 kind: "Exception",
@@ -235,11 +235,11 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 reason: "Just because"
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.errors.find((e) => e.rule === "ea:quality:exception-empty-scope")).toBeDefined();
     });
     it("does not error when exception has scoped rules", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "exception:scoped",
                 kind: "Exception",
@@ -250,11 +250,11 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 reason: "Valid exception"
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.errors.find((e) => e.rule === "ea:quality:exception-empty-scope")).toBeUndefined();
     });
     it("warns when migration wave has empty scope", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:empty",
                 kind: "TransitionPlan",
@@ -265,7 +265,7 @@ describe("Phase 2E: Transition Quality Rules", () => {
                 scope: {}
             } as any),
         ];
-        const result = validateEntities(artifacts);
+        const result = validateEntities(entities);
         expect(result.warnings.find((w) => w.rule === "ea:quality:wave-empty-scope")).toBeDefined();
     });
 });
@@ -284,7 +284,7 @@ describe("Phase 2E: Transition Relations", () => {
             expect(entry!.validTargetSchemas).toBe("*");
         });
         it("validates app → app via supersedes", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:orders-v2",
                     kind: "Component",
@@ -293,7 +293,7 @@ describe("Phase 2E: Transition Relations", () => {
                 }),
                 makeEntity({ ref: "component:orders-v1", kind: "Component", type: "website", status: "retired" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -307,7 +307,7 @@ describe("Phase 2E: Transition Relations", () => {
             expect(entry!.validSourceSchemas).toContain("migration-wave");
         });
         it("validates plan → any via generates", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:migration",
                     kind: "TransitionPlan",
@@ -318,7 +318,7 @@ describe("Phase 2E: Transition Relations", () => {
                 } as any),
                 makeEntity({ ref: "component:orders-v2", kind: "Component", type: "website" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
@@ -332,43 +332,43 @@ describe("Phase 2E: Transition Relations", () => {
             expect(entry!.validTargetSchemas).toBe("*");
         });
         it("validates exception → any via mitigates", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
-                    ref: "exception:legacy",
+                    ref: "exception:sunset",
                     kind: "Exception",
-                    scope: { entityRefs: ["component:legacy"] },
+                    scope: { entityRefs: ["component:sunset"] },
                     approvedBy: "cto",
                     approvedAt: "2026-01-15",
                     expiresAt: "2027-01-15",
-                    reason: "Legacy system",
-                    mitigates: ["component:legacy"]
+                    reason: "Sunset system",
+                    mitigates: ["component:sunset"]
                 } as any),
-                makeEntity({ ref: "component:legacy", kind: "Component", type: "website" }),
+                makeEntity({ ref: "component:sunset", kind: "Component", type: "website" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             const relErrors = result.errors.filter((e) => e.rule !== "ea:relation:target-missing");
             expect(relErrors).toHaveLength(0);
         });
         it("rejects non-exception as source for mitigates", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "component:orders",
                     kind: "Component",
                     type: "website",
-                    mitigates: ["component:legacy"]
+                    mitigates: ["component:sunset"]
                 }),
-                makeEntity({ ref: "component:legacy", kind: "Component", type: "website" }),
+                makeEntity({ ref: "component:sunset", kind: "Component", type: "website" }),
             ];
-            const result = validateEaRelations(artifacts, registry);
+            const result = validateEaRelations(entities, registry);
             expect(result.errors.find((e) => e.rule === "ea:relation:invalid-source")).toBeDefined();
         });
     });
 });
 // ─── Phase 2E: Transition Drift Rules ───────────────────────────────────────────
 describe("Phase 2E: Transition Drift Rules", () => {
-    describe("ea:transition/baseline-missing-artifacts", () => {
-        it("fires when baseline references non-existent artifact", () => {
-            const artifacts = [
+    describe("ea:transition/baseline-missing-entities", () => {
+        it("fires when baseline references non-existent entity", () => {
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:q1",
                     kind: "TransitionPlan",
@@ -378,11 +378,11 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     entityRefs: ["component:nonexistent"]
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
-            expect(result.warnings.find((w) => w.rule === "ea:transition/baseline-missing-artifacts")).toBeDefined();
+            const result = evaluateEaDrift(entities);
+            expect(result.warnings.find((w) => w.rule === "ea:transition/baseline-missing-entities")).toBeDefined();
         });
         it("does not fire when all refs exist", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:q1",
                     kind: "TransitionPlan",
@@ -393,14 +393,14 @@ describe("Phase 2E: Transition Drift Rules", () => {
                 } as any),
                 makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
             ];
-            const result = evaluateEaDrift(artifacts);
-            expect(result.warnings.find((w) => w.rule === "ea:transition/baseline-missing-artifacts")).toBeUndefined();
+            const result = evaluateEaDrift(entities);
+            expect(result.warnings.find((w) => w.rule === "ea:transition/baseline-missing-entities")).toBeUndefined();
         });
     });
     describe("ea:transition/baseline-stale", () => {
         it("fires when baseline is older than 90 days", () => {
             const oldDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString();
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:old",
                     kind: "TransitionPlan",
@@ -410,13 +410,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     entityRefs: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((w) => w.rule === "ea:transition/baseline-stale")).toBeDefined();
         });
     });
     describe("ea:transition/invalid-target-reference", () => {
-        it("fires when target references non-existent artifact", () => {
-            const artifacts = [
+        it("fires when target references non-existent entity", () => {
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:cloud",
                     kind: "TransitionPlan",
@@ -426,13 +426,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     entityRefs: ["component:nonexistent"]
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.errors.find((e) => e.rule === "ea:transition/invalid-target-reference")).toBeDefined();
         });
     });
     describe("ea:transition/expired-target", () => {
         it("fires when target effectiveBy is in the past", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:old",
                     kind: "TransitionPlan",
@@ -442,13 +442,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     entityRefs: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((w) => w.rule === "ea:transition/expired-target")).toBeDefined();
         });
     });
     describe("ea:transition/missing-baseline", () => {
         it("fires when plan references non-existent baseline", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:migration",
                     kind: "TransitionPlan",
@@ -457,11 +457,11 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     milestones: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.errors.find((e) => e.rule === "ea:transition/missing-baseline")).toBeDefined();
         });
         it("does not fire when baseline exists", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:migration",
                     kind: "TransitionPlan",
@@ -472,13 +472,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     entityRefs: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.errors.find((e) => e.rule === "ea:transition/missing-baseline")).toBeUndefined();
         });
     });
     describe("ea:transition/missing-target", () => {
         it("fires when plan references non-existent target", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:migration",
                     kind: "TransitionPlan",
@@ -487,13 +487,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     milestones: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.errors.find((e) => e.rule === "ea:transition/missing-target")).toBeDefined();
         });
     });
-    describe("ea:transition/milestone-on-retired-artifact", () => {
-        it("fires when milestone delivers retired artifact", () => {
-            const artifacts = [
+    describe("ea:transition/milestone-on-retired-entity", () => {
+        it("fires when milestone delivers retired entity", () => {
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:migration",
                     kind: "TransitionPlan",
@@ -503,13 +503,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                 } as any),
                 makeEntity({ ref: "component:retired", kind: "Component", type: "website", status: "retired" }),
             ];
-            const result = evaluateEaDrift(artifacts);
-            expect(result.errors.find((e) => e.rule === "ea:transition/milestone-on-retired-artifact")).toBeDefined();
+            const result = evaluateEaDrift(entities);
+            expect(result.errors.find((e) => e.rule === "ea:transition/milestone-on-retired-entity")).toBeDefined();
         });
     });
     describe("ea:transition/orphan-wave", () => {
         it("fires when wave has no plan reference", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:orphan",
                     kind: "TransitionPlan",
@@ -520,11 +520,11 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     scope: {}
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((w) => w.rule === "ea:transition/orphan-wave")).toBeDefined();
         });
         it("does not fire when wave references existing plan", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:good",
                     kind: "TransitionPlan",
@@ -540,13 +540,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     milestones: []
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((w) => w.rule === "ea:transition/orphan-wave")).toBeUndefined();
         });
     });
     describe("ea:exception/expired", () => {
         it("fires when exception is past expiry", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exception:old",
                     kind: "Exception",
@@ -557,12 +557,12 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     reason: "test"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((w) => w.rule === "ea:exception/expired")).toBeDefined();
         });
         it("does not fire when exception is still valid", () => {
             const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exception:valid",
                     kind: "Exception",
@@ -573,13 +573,13 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     reason: "test"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.warnings.find((w) => w.rule === "ea:exception/expired")).toBeUndefined();
         });
     });
     describe("ea:exception/missing-scope", () => {
         it("fires when exception has empty scope", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "exception:wild",
                     kind: "Exception",
@@ -590,7 +590,7 @@ describe("Phase 2E: Transition Drift Rules", () => {
                     reason: "test"
                 } as any),
             ];
-            const result = evaluateEaDrift(artifacts);
+            const result = evaluateEaDrift(entities);
             expect(result.errors.find((e) => e.rule === "ea:exception/missing-scope")).toBeDefined();
         });
     });
@@ -608,7 +608,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
         expect(report.summary.retirements).toBe(0);
     });
     it("classifies new work (in target but not baseline)", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:q1",
                 kind: "TransitionPlan",
@@ -628,7 +628,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
             makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
             makeEntity({ ref: "component:payments", kind: "Component", type: "website", status: "draft" }),
         ];
-        const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
+        const report = buildGapAnalysis(entities, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
         expect(report.summary.newWork).toBe(1);
         expect(report.summary.continuing).toBe(1);
         expect(report.summary.retirements).toBe(0);
@@ -636,14 +636,14 @@ describe("Phase 2E: Gap Analysis Report", () => {
         expect(report.newWork[0].status).toBe("draft");
     });
     it("classifies retirements (in baseline but not target)", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:q1",
                 kind: "TransitionPlan",
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                entityRefs: ["component:orders", "component:legacy"]
+                entityRefs: ["component:orders", "component:sunset"]
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -654,22 +654,22 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 entityRefs: ["component:orders"]
             } as any),
             makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
-            makeEntity({ ref: "component:legacy", kind: "Component", type: "website" }),
+            makeEntity({ ref: "component:sunset", kind: "Component", type: "website" }),
         ];
-        const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
+        const report = buildGapAnalysis(entities, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
         expect(report.summary.retirements).toBe(1);
-        expect(report.retirements[0].entityRef).toBe("component:default/legacy");
+        expect(report.retirements[0].entityRef).toBe("component:default/sunset");
         expect(report.retirements[0].blocked).toBe(false);
     });
     it("detects blocked retirements", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:q1",
                 kind: "TransitionPlan",
                 type: "baseline",
                 scope: { description: "test" },
                 capturedAt: "2026-01-15",
-                entityRefs: ["component:orders", "exchange:legacy-bridge"]
+                entityRefs: ["component:orders", "exchange:sunset-bridge"]
             } as any),
             makeEntity({
                 ref: "transitionplan:q4",
@@ -683,17 +683,17 @@ describe("Phase 2E: Gap Analysis Report", () => {
                 ref: "component:orders",
                 kind: "Component",
                 type: "website",
-                dependsOn: ["exchange:legacy-bridge"]
+                dependsOn: ["exchange:sunset-bridge"]
             }),
-            makeEntity({ ref: "exchange:legacy-bridge", kind: "Exchange", type: "integration" }),
+            makeEntity({ ref: "exchange:sunset-bridge", kind: "Exchange", type: "integration" }),
         ];
-        const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
+        const report = buildGapAnalysis(entities, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
         expect(report.summary.blockedRetirements).toBe(1);
         expect(report.retirements[0].blocked).toBe(true);
         expect(report.retirements[0].dependedOnBy).toContain("component:default/orders");
     });
     it("flags unplanned gaps (new work with no milestone or wave)", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:q1",
                 kind: "TransitionPlan",
@@ -712,11 +712,11 @@ describe("Phase 2E: Gap Analysis Report", () => {
             } as any),
             makeEntity({ ref: "component:new-service", kind: "Component", type: "website", status: "draft" }),
         ];
-        const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
+        const report = buildGapAnalysis(entities, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
         expect(report.summary.unplannedGaps).toBe(1);
     });
     it("includes milestone status from transition plan", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:q1",
                 kind: "TransitionPlan",
@@ -746,7 +746,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
             makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
             makeEntity({ ref: "component:payments", kind: "Component", type: "website", status: "draft" }),
         ];
-        const report = buildGapAnalysis(artifacts, {
+        const report = buildGapAnalysis(entities, {
             baselineId: "transitionplan:q1",
             targetId: "transitionplan:q4",
             planId: "transitionplan:migration"
@@ -760,7 +760,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
         expect(report.successMetrics[0].currentValue).toBe("50%");
     });
     it("tracks wave assignments for new work", () => {
-        const artifacts = [
+        const entities = [
             makeEntity({
                 ref: "transitionplan:q1",
                 kind: "TransitionPlan",
@@ -795,7 +795,7 @@ describe("Phase 2E: Gap Analysis Report", () => {
             } as any),
             makeEntity({ ref: "component:payments", kind: "Component", type: "website", status: "draft" }),
         ];
-        const report = buildGapAnalysis(artifacts, {
+        const report = buildGapAnalysis(entities, {
             baselineId: "transitionplan:q1",
             targetId: "transitionplan:q4",
             planId: "transitionplan:migration"
@@ -813,14 +813,14 @@ describe("Phase 2E: Gap Analysis Report", () => {
             expect(md).toContain("transitionplan:y");
         });
         it("renders full report with all sections", () => {
-            const artifacts = [
+            const entities = [
                 makeEntity({
                     ref: "transitionplan:q1",
                     kind: "TransitionPlan",
                     type: "baseline",
                     scope: { description: "test" },
                     capturedAt: "2026-01-15",
-                    entityRefs: ["component:orders", "component:legacy"]
+                    entityRefs: ["component:orders", "component:sunset"]
                 } as any),
                 makeEntity({
                     ref: "transitionplan:q4",
@@ -832,15 +832,15 @@ describe("Phase 2E: Gap Analysis Report", () => {
                     successMetrics: [{ ref: "sm1", metric: "Uptime", target: "99.9%", currentValue: "99.5%" }]
                 } as any),
                 makeEntity({ ref: "component:orders", kind: "Component", type: "website" }),
-                makeEntity({ ref: "component:legacy", kind: "Component", type: "website" }),
+                makeEntity({ ref: "component:sunset", kind: "Component", type: "website" }),
                 makeEntity({ ref: "component:payments", kind: "Component", type: "website", status: "draft" }),
             ];
-            const report = buildGapAnalysis(artifacts, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
+            const report = buildGapAnalysis(entities, { baselineId: "transitionplan:q1", targetId: "transitionplan:q4" });
             const md = renderGapAnalysisMarkdown(report);
             expect(md).toContain("## New Work");
             expect(md).toContain("component:default/payments");
             expect(md).toContain("## Retirements");
-            expect(md).toContain("component:default/legacy");
+            expect(md).toContain("component:default/sunset");
             expect(md).toContain("## Success Metrics");
             expect(md).toContain("Uptime");
         });

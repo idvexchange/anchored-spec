@@ -379,7 +379,7 @@ export interface EntitySourceLocation {
   /** Zero-based line number where this entity starts in the file. */
   startLine?: number;
   /** Storage mode this entity was loaded from. */
-  mode: "artifacts" | "manifest" | "inline";
+  mode: "manifest" | "inline";
 }
 
 /**

@@ -320,9 +320,9 @@ export function getLabels(entity: BackstageEntity): Record<string, string> {
 /**
  * Get entity relations extracted from spec fields.
  *
- * Returns spec-derived relations as `{ legacyType, targets }[]`.
+ * Returns spec-derived relations as `{ type, targets }[]`.
  */
-export function getEntitySpecRelations(entity: BackstageEntity): Array<{ legacyType: string; targets: string[] }> {
+export function getEntitySpecRelations(entity: BackstageEntity): Array<{ type: string; targets: string[] }> {
   return extractRelationsFromSpec(entity.spec ?? {});
 }
 

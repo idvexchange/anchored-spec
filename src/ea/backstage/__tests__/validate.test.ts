@@ -244,7 +244,7 @@ describe("validateBackstageEntity", () => {
       {
         apiVersion: "anchored-spec.dev/v1alpha1",
         kind: "Exception",
-        metadata: { name: "legacy-db-exception" },
+        metadata: { name: "sunset-db-exception" },
         spec: { owner: "team-a" },
       },
     ];

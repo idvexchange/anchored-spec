@@ -36,12 +36,12 @@ export const frontmatterExtractor: FactExtractor = {
     const source = makeSource(doc);
     const docType = fm.type ?? "unknown";
 
-    // Artifact references
-    const artifacts = Array.isArray(fm.eaEntities)
+    // Entity references
+    const entities = Array.isArray(fm.eaEntities)
       ? fm.eaEntities
       : fm["ea-entities" as keyof DocFrontmatter];
-    const entityRefs = Array.isArray(artifacts)
-      ? (artifacts as string[]).filter((s) => typeof s === "string" && s.length > 0)
+    const entityRefs = Array.isArray(entities)
+      ? (entities as string[]).filter((s) => typeof s === "string" && s.length > 0)
       : [];
 
     if (entityRefs.length > 0) {

@@ -52,7 +52,7 @@
     },
     "supersededBy": {
       "type": "string",
-      "description": "ID of the artifact that supersedes this one"
+      "description": "ID of the entity that supersedes this one"
     },
     "statusReason": {
       "type": "string",

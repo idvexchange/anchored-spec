@@ -116,7 +116,7 @@ export function makeBackstageEntity(input: EntityFixtureInput): BackstageEntity 
       description:
         input.description ??
         input.summary ??
-        "A well-described artifact for testing purposes.",
+        "A well-described entity for testing purposes.",
       tags: input.tags ?? [],
       ...(Object.keys(annotations).length > 0 ? { annotations } : {}),
       ...(input.labels ? { labels: input.labels } : {}),

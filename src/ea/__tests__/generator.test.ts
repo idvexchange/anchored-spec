@@ -49,7 +49,7 @@ describe("runGenerators", () => {
             rmSync(TEST_ROOT, { recursive: true, force: true });
         }
     });
-    it("should generate outputs for matching artifacts", () => {
+    it("should generate outputs for matching entities", () => {
         const generator = makeTestGenerator();
         const entity = makeGeneratorEntity();
         const report = runGenerators({
@@ -180,7 +180,7 @@ describe("runGenerators", () => {
         });
         expect(report.summary.entitiesProcessed).toBe(1);
     });
-    it("should process multiple artifacts", () => {
+    it("should process multiple entities", () => {
         const generator = makeTestGenerator();
         const entities = [
             makeGeneratorEntity({ ref: "api:a", title: "A" }),

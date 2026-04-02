@@ -15,7 +15,7 @@ import {
   extractMarkdownBody,
   getEntityId,
   getEntitySpecRelations,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
   parseBackstageYaml,
   parseFrontmatterEntity,
   resolveConfigV1,
@@ -69,7 +69,7 @@ export function eaLinkCommand(): Command {
       const existingRelations = getEntitySpecRelations(sourceEntity);
       const duplicate = existingRelations.find(
         (r) =>
-          r.legacyType === options.type &&
+          r.type === options.type &&
           r.targets.some((target) => target === targetEntityRef),
       );
       if (duplicate) {
@@ -101,7 +101,7 @@ export function eaLinkCommand(): Command {
         targetEntityRef,
       );
 
-      // Read and update the artifact file
+      // Read and update the entity file
       const filePath = join(cwd, sourceDetail.relativePath);
       const raw = readFileSync(filePath, "utf-8");
       persistUpdatedEntity(filePath, raw, authoredSourceEntity, updatedEntity);
@@ -116,7 +116,7 @@ function withAuthoredRelation(
   relationType: string,
   targetEntityRef: string,
 ): BackstageEntity {
-  const specEntry = legacyRelationToSpecEntry(relationType, targetEntityRef);
+  const specEntry = relationTypeToSpecEntry(relationType, targetEntityRef);
   if (!specEntry) {
     throw new CliError(
       `Relation type "${relationType}" is not supported as authored Backstage YAML. Use a supported relation that maps to standard spec fields.`,

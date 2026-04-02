@@ -1,7 +1,7 @@
 /**
  * anchored-spec ea generate
  *
- * Run EA generators to produce implementation artifacts from EA specs.
+ * Run EA generators to produce implementation entities from EA specs.
  */
 
 import { Command } from "commander";
@@ -17,7 +17,7 @@ import { silentLogger } from "../../ea/resolvers/types.js";
 
 export function eaGenerateCommand(): Command {
   return new Command("generate")
-    .description("Generate implementation artifacts from EA specs")
+    .description("Generate implementation entities from EA specs")
     .option("--generator <name>", "Run a specific generator")
     .option("--schema <schema>", "Filter to specific schema profiles (comma-separated)")
     .option("--check", "Check for generation drift without generating")

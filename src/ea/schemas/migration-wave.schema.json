@@ -26,17 +26,17 @@
         "create": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Artifact IDs to be created"
+          "description": "Entity IDs to be created"
         },
         "modify": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Artifact IDs to be modified"
+          "description": "Entity IDs to be modified"
         },
         "retire": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Artifact IDs to be retired"
+          "description": "Entity IDs to be retired"
         }
       },
       "additionalProperties": false
@@ -44,7 +44,7 @@
     "preconditions": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Precondition artifact IDs that must exist before this wave"
+      "description": "Precondition entity IDs that must exist before this wave"
     },
     "rollbackStrategy": { "type": "string", "description": "Description of rollback approach" }
   }

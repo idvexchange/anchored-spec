@@ -31,7 +31,7 @@ export interface RelationRegistryEntry {
   /** Whether cycles are allowed in this relation type. */
   allowCycles: boolean;
 
-  /** Whether the target artifact can store an explicit inverse override. */
+  /** Whether the target entity can store an explicit inverse override. */
   allowExplicitInverse: boolean;
 
   /** Which drift resolver strategy applies to this relation family. */
@@ -166,7 +166,7 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
-    description: "Source artifact depends on target artifact for functionality.",
+    description: "Source entity depends on target entity for functionality.",
   },
   {
     type: "deploys",
@@ -176,7 +176,7 @@ const PHASE_A_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: true,
     driftStrategy: "anchor-resolution",
-    description: "Deployment artifact deploys an application or service.",
+    description: "Deployment entity deploys an application or service.",
   },
   {
     type: "runsOn",
@@ -241,7 +241,7 @@ const PHASE_2A_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: true,
     driftStrategy: "graph-integrity",
-    description: "Technology standard governs the technology choices of target artifacts.",
+    description: "Technology standard governs the technology choices of target entities.",
   },
   {
     type: "providedBy",
@@ -296,7 +296,7 @@ const PHASE_2B_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "anchor-resolution",
-    description: "Logical data model or information concept is implemented by a physical artifact.",
+    description: "Logical data model or information concept is implemented by a physical entity.",
   },
 ];
 
@@ -315,7 +315,7 @@ const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
-    description: "Source data artifact is classified under a data classification category.",
+    description: "Source data entity is classified under a data classification category.",
   },
   {
     type: "exchangedVia",
@@ -335,7 +335,7 @@ const PHASE_2C_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
-    description: "Data in the source artifact is subject to the target retention policy.",
+    description: "Data in the source entity is subject to the target retention policy.",
   },
 ];
 
@@ -370,7 +370,7 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
-    description: "Source artifact is governed by a policy objective or control.",
+    description: "Source entity is governed by a policy objective or control.",
   },
   {
     type: RELATION_OWNED_BY,
@@ -380,7 +380,7 @@ const PHASE_2D_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
-    description: "Artifact is owned by the target organization unit or user.",
+    description: "Entity is owned by the target organization unit or user.",
   },
 ];
 
@@ -395,7 +395,7 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
-    description: "Source artifact supersedes target (newer version or replacement).",
+    description: "Source entity supersedes target (newer version or replacement).",
   },
   {
     type: "generates",
@@ -415,7 +415,7 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "none",
-    description: "Exception mitigates (suppresses) drift findings for target artifacts.",
+    description: "Exception mitigates (suppresses) drift findings for target entities.",
   },
   {
     type: "targets",
@@ -425,7 +425,7 @@ const PHASE_2E_RELATIONS: RelationRegistryEntry[] = [
     allowCycles: false,
     allowExplicitInverse: false,
     driftStrategy: "graph-integrity",
-    description: "Transition artifact targets a future-state artifact or goal.",
+    description: "Transition entity targets a future-state entity or goal.",
   },
 ];
 

@@ -215,7 +215,7 @@ function runGenerateStep(
       errors: drifts,
       warnings: 0,
       details: passed
-        ? `${report.summary.generatorsRun} generators, ${report.summary.entitiesProcessed} artifacts — 0 drifts`
+        ? `${report.summary.generatorsRun} generators, ${report.summary.entitiesProcessed} entities — 0 drifts`
         : `${drifts} generation drift(s) detected`,
     },
     report,
@@ -271,7 +271,7 @@ async function runValidateStep(
       errors: allErrors.length,
       warnings: allWarnings.length,
       details: passed
-        ? `${entities.length} artifacts validated — ${allErrors.length} errors, ${allWarnings.length} warnings`
+        ? `${entities.length} entities validated — ${allErrors.length} errors, ${allWarnings.length} warnings`
         : `${allErrors.length} errors, ${allWarnings.length} warnings`,
     },
     result,
@@ -288,7 +288,7 @@ function runDriftStep(
   options: ReconcileOptions,
 ): DriftStepOutput {
   const report = detectEaDrift({
-    artifacts: entities,
+    entities: entities,
     domains: options.domains,
   });
 
@@ -385,12 +385,12 @@ async function runDocConsistencyStep(
 ): Promise<DocConsistencyStepOutput> {
   const { extractFactsFromDocs } = await import("./resolvers/markdown.js");
   const { checkConsistency } = await import("./facts/consistency.js");
-  const { reconcileFactsWithArtifacts } = await import("./facts/reconciler.js");
+  const { reconcileFactsWithEntities } = await import("./facts/reconciler.js");
   const { applySuppressions, collectSuppressions } = await import("./facts/suppression.js");
 
   const manifests = await extractFactsFromDocs(projectRoot);
   const consistency = checkConsistency(manifests);
-  const reconciliation = reconcileFactsWithArtifacts(manifests, entities);
+  const reconciliation = reconcileFactsWithEntities(manifests, entities);
 
   // Apply suppressions from manifests
   const suppressions = collectSuppressions(manifests);
@@ -408,7 +408,7 @@ async function runDocConsistencyStep(
       passed: errors === 0,
       errors,
       warnings,
-      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.entitiesChecked} artifacts.`,
+      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.entitiesChecked} entities.`,
     },
   };
 }

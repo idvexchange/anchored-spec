@@ -92,13 +92,13 @@ export type { RelationMappingEntry } from "./relation-mapping.js";
 
 export {
   RELATION_MAPPING_REGISTRY,
-  mapLegacyRelation,
+  mapRelationType,
   mapBackstageRelation,
   mapSpecField,
   getWellKnownRelations,
   getCustomRelations,
   isWellKnownRelation,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
   extractRelationsFromSpec,
 } from "./relation-mapping.js";
 

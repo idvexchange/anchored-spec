@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanupTestWorkspace, cliOutput, createTestWorkspace, makeArtifact, readTextFile, runCli, writeManifestProject, } from "../../test-helpers/workspace.js";
+import { cleanupTestWorkspace, cliOutput, createTestWorkspace, makeEntity, readTextFile, runCli, writeManifestProject, } from "../../test-helpers/workspace.js";
 const workspaces: string[] = [];
 function makeWorkspace(prefix: string): string {
     const dir = createTestWorkspace(prefix);
@@ -15,7 +15,7 @@ describe("status and transition", () => {
     it("summarizes entity-first projects in status JSON", () => {
         const dir = makeWorkspace("status-json");
         writeManifestProject(dir, [
-            makeArtifact({
+            makeEntity({
                 ref: "component:payments",
                 kind: "Component",
                 type: "website",
@@ -23,7 +23,7 @@ describe("status and transition", () => {
                 anchors: { symbols: ["PaymentsController"] },
                 uses: ["component:auth"]
             }),
-            makeArtifact({
+            makeEntity({
                 ref: "component:auth",
                 kind: "Component",
                 type: "service",
@@ -57,7 +57,7 @@ describe("status and transition", () => {
     it("advances a manifest-backed entity to its next lifecycle status", () => {
         const dir = makeWorkspace("transition-success");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:draft", kind: "Component", type: "website", status: "draft" }),
+            makeEntity({ ref: "component:draft", kind: "Component", type: "website", status: "draft" }),
         ]);
         const result = runCli(["transition", "component:draft", "--force"], dir);
         expect(result.exitCode).toBe(0);
@@ -68,7 +68,7 @@ describe("status and transition", () => {
     it("suggests similar ids when a target entity is missing", () => {
         const dir = makeWorkspace("transition-missing");
         writeManifestProject(dir, [
-            makeArtifact({ ref: "component:auth", kind: "Component", type: "service" }),
+            makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
         const result = runCli(["transition", "missing-auth"], dir);
         expect(result.exitCode).not.toBe(0);

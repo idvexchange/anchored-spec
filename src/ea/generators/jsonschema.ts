@@ -1,9 +1,9 @@
 /**
  * Anchored Spec — JSON Schema Generator
  *
- * Generates JSON Schema from `canonical-entity` EA artifacts.
+ * Generates JSON Schema from `canonical-entity` EA entities.
  * Maps attributes to JSON Schema properties with type mapping,
- * required array, and links back to the source artifact.
+ * required array, and links back to the source entity.
  *
  * Design reference: docs/delivery/discovery-drift-generation.md (JSON Schema Generator)
  */
@@ -58,12 +58,12 @@ const TYPE_MAP: Record<string, { type: string; format?: string }> = {
 };
 
 /**
- * JSON Schema Generator — generates JSON Schema from canonical-entity artifacts.
+ * JSON Schema Generator — generates JSON Schema from canonical-entity entities.
  *
  * - Maps each attribute to a JSON Schema property
  * - Maps attribute type fields to JSON Schema types
  * - Sets required array from attributes with required: true
- * - Adds title and description from artifact fields
+ * - Adds title and description from entity fields
  * - Links back via $comment
  */
 export const jsonSchemaGenerator: EaGenerator = {
@@ -99,7 +99,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       $id: `https://anchored-spec.dev/schemas/entities/${slugify(getEntityId(entity))}.schema.json`,
       title: getEntityTitle(entity),
       description: getEntityDescription(entity),
-      $comment: `Generated from EA artifact: ${getEntityId(entity)}`,
+      $comment: `Generated from EA entity: ${getEntityId(entity)}`,
       type: "object",
       properties,
     };
