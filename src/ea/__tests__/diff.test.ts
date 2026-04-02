@@ -28,14 +28,14 @@ const KIND_MAP: Record<string, { apiVersion: string; kind: string; specType?: st
 
 function makeEntity(opts: {
   name: string;
-  legacyKind?: string;
+  schemaName?: string;
   lifecycle?: string;
   tags?: string[];
   spec?: Record<string, unknown>;
   annotations?: Record<string, string>;
 }): BackstageEntity {
-  const legacyKind = opts.legacyKind ?? "application";
-  const kindInfo = KIND_MAP[legacyKind] ?? { apiVersion: BACKSTAGE_API, kind: "Component", specType: "website" };
+  const schemaName = opts.schemaName ?? "application";
+  const kindInfo = KIND_MAP[schemaName] ?? { apiVersion: BACKSTAGE_API, kind: "Component", specType: "website" };
 
   const spec: Record<string, unknown> = {
     lifecycle: opts.lifecycle ?? "production",
@@ -150,7 +150,7 @@ describe("getFieldSemantic", () => {
 describe("diffEaArtifacts", () => {
   it("returns empty report for identical sets", () => {
     const artifacts = [
-      makeEntity({ name: "APP-a", legacyKind: "application" }),
+      makeEntity({ name: "APP-a", schemaName: "application" }),
     ];
     const report = diffEaArtifacts(artifacts, [...artifacts]);
     expect(report.summary.added).toBe(0);
@@ -163,8 +163,8 @@ describe("diffEaArtifacts", () => {
 
   it("detects all added when base is empty", () => {
     const head = [
-      makeEntity({ name: "APP-a", legacyKind: "application" }),
-      makeEntity({ name: "SVC-b", legacyKind: "service" }),
+      makeEntity({ name: "APP-a", schemaName: "application" }),
+      makeEntity({ name: "SVC-b", schemaName: "service" }),
     ];
     const report = diffEaArtifacts([], head);
     expect(report.summary.added).toBe(2);
@@ -174,8 +174,8 @@ describe("diffEaArtifacts", () => {
 
   it("detects all removed when head is empty", () => {
     const base = [
-      makeEntity({ name: "APP-a", legacyKind: "application" }),
-      makeEntity({ name: "SVC-b", legacyKind: "service" }),
+      makeEntity({ name: "APP-a", schemaName: "application" }),
+      makeEntity({ name: "SVC-b", schemaName: "service" }),
     ];
     const report = diffEaArtifacts(base, []);
     expect(report.summary.removed).toBe(2);
@@ -184,8 +184,8 @@ describe("diffEaArtifacts", () => {
   });
 
   it("detects field modifications", () => {
-    const base = [makeEntity({ name: "APP-a", legacyKind: "application", lifecycle: "development" })];
-    const head = [makeEntity({ name: "APP-a", legacyKind: "application", lifecycle: "production" })];
+    const base = [makeEntity({ name: "APP-a", schemaName: "application", lifecycle: "development" })];
+    const head = [makeEntity({ name: "APP-a", schemaName: "application", lifecycle: "production" })];
     const report = diffEaArtifacts(base, head);
 
     expect(report.summary.modified).toBe(1);
@@ -201,10 +201,10 @@ describe("diffEaArtifacts", () => {
   });
 
   it("detects added and removed fields", () => {
-    const base = [makeEntity({ name: "APP-a", legacyKind: "application", tags: ["v1"] })];
+    const base = [makeEntity({ name: "APP-a", schemaName: "application", tags: ["v1"] })];
     const head = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: { compliance: { frameworks: ["SOC2"] } },
     })];
     const report = diffEaArtifacts(base, head);
@@ -217,7 +217,7 @@ describe("diffEaArtifacts", () => {
   it("diffs relations using set semantics", () => {
     const base = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: {
         uses: ["SVC-b"],
         dependsOn: ["APP-c"],
@@ -225,7 +225,7 @@ describe("diffEaArtifacts", () => {
     })];
     const head = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: {
         uses: ["SVC-b", "SVC-d"],
       },
@@ -239,8 +239,8 @@ describe("diffEaArtifacts", () => {
   });
 
   it("diffs string arrays (tags) with set semantics", () => {
-    const base = [makeEntity({ name: "APP-a", legacyKind: "application", tags: ["a", "b", "c"] })];
-    const head = [makeEntity({ name: "APP-a", legacyKind: "application", tags: ["b", "c", "d"] })];
+    const base = [makeEntity({ name: "APP-a", schemaName: "application", tags: ["a", "b", "c"] })];
+    const head = [makeEntity({ name: "APP-a", schemaName: "application", tags: ["b", "c", "d"] })];
     const report = diffEaArtifacts(base, head);
 
     const diff = report.diffs.find((d) => d.changeType === "modified")!;
@@ -253,7 +253,7 @@ describe("diffEaArtifacts", () => {
   it("diffs traceRefs using path as key", () => {
     const base = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: {
         traceRefs: [
           { path: "docs/spec.md", role: "specification" },
@@ -263,7 +263,7 @@ describe("diffEaArtifacts", () => {
     })];
     const head = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: {
         traceRefs: [
           { path: "docs/spec.md", role: "evidence" },
@@ -282,14 +282,14 @@ describe("diffEaArtifacts", () => {
   it("diffs anchors sub-fields", () => {
     const base = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: {
         anchors: { symbols: ["ClassA", "ClassB"], apis: ["GET /health"] },
       },
     })];
     const head = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: {
         anchors: { symbols: ["ClassB", "ClassC"], events: ["order.created"] },
       },
@@ -303,15 +303,15 @@ describe("diffEaArtifacts", () => {
     expect(diff.fieldChanges.some((fc) => fc.field === "anchors.events" && fc.changeType === "added")).toBe(true);
   });
 
-  it("classifies kind-specific fields as contractual", () => {
+  it("classifies schema-specific fields as contractual", () => {
     const base = [makeEntity({
       name: "API-a",
-      legacyKind: "api-contract",
+      schemaName: "api-contract",
       spec: { protocol: "rest" },
     })];
     const head = [makeEntity({
       name: "API-a",
-      legacyKind: "api-contract",
+      schemaName: "api-contract",
       spec: { protocol: "grpc" },
     })];
 
@@ -324,12 +324,12 @@ describe("diffEaArtifacts", () => {
 
   it("computes domain summary correctly", () => {
     const base = [
-      makeEntity({ name: "APP-a", legacyKind: "application" }),
-      makeEntity({ name: "CE-b", legacyKind: "canonical-entity" }),
+      makeEntity({ name: "APP-a", schemaName: "application" }),
+      makeEntity({ name: "CE-b", schemaName: "canonical-entity" }),
     ];
     const head = [
-      makeEntity({ name: "APP-a", legacyKind: "application", lifecycle: "deprecated" }),
-      makeEntity({ name: "CAP-c", legacyKind: "capability" }),
+      makeEntity({ name: "APP-a", schemaName: "application", lifecycle: "deprecated" }),
+      makeEntity({ name: "CAP-c", schemaName: "capability" }),
     ];
     const report = diffEaArtifacts(base, head);
 
@@ -341,14 +341,14 @@ describe("diffEaArtifacts", () => {
 
   it("sorts diffs: added → removed → modified → unchanged", () => {
     const base = [
-      makeEntity({ name: "APP-a", legacyKind: "application" }),
-      makeEntity({ name: "APP-b", legacyKind: "application" }),
-      makeEntity({ name: "APP-c", legacyKind: "application" }),
+      makeEntity({ name: "APP-a", schemaName: "application" }),
+      makeEntity({ name: "APP-b", schemaName: "application" }),
+      makeEntity({ name: "APP-c", schemaName: "application" }),
     ];
     const head = [
-      makeEntity({ name: "APP-a", legacyKind: "application" }),
-      makeEntity({ name: "APP-b", legacyKind: "application", lifecycle: "deprecated" }),
-      makeEntity({ name: "APP-d", legacyKind: "application" }),
+      makeEntity({ name: "APP-a", schemaName: "application" }),
+      makeEntity({ name: "APP-b", schemaName: "application", lifecycle: "deprecated" }),
+      makeEntity({ name: "APP-d", schemaName: "application" }),
     ];
     const report = diffEaArtifacts(base, head);
     const types = report.diffs.map((d) => d.changeType);
@@ -373,13 +373,13 @@ describe("diffEaArtifacts", () => {
   it("counts semantic totals", () => {
     const base = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       lifecycle: "development",
       tags: ["old"],
     })];
     const head = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       lifecycle: "production",
       tags: ["new"],
       spec: { uses: ["SVC-b"] },
@@ -401,10 +401,10 @@ describe("renderDiffSummary", () => {
   });
 
   it("summarizes changes", () => {
-    const base = [makeEntity({ name: "APP-a", legacyKind: "application" })];
+    const base = [makeEntity({ name: "APP-a", schemaName: "application" })];
     const head = [
-      makeEntity({ name: "APP-a", legacyKind: "application", lifecycle: "deprecated" }),
-      makeEntity({ name: "APP-b", legacyKind: "application" }),
+      makeEntity({ name: "APP-a", schemaName: "application", lifecycle: "deprecated" }),
+      makeEntity({ name: "APP-b", schemaName: "application" }),
     ];
     const summary = renderDiffSummary(diffEaArtifacts(base, head));
     expect(summary).toContain("1 added");
@@ -422,34 +422,34 @@ describe("renderDiffMarkdown", () => {
   });
 
   it("renders added section", () => {
-    const head = [makeEntity({ name: "APP-new", legacyKind: "application" })];
+    const head = [makeEntity({ name: "APP-new", schemaName: "application" })];
     const md = renderDiffMarkdown(diffEaArtifacts([], head));
     expect(md).toContain("## Added (1)");
-    expect(md).toContain("APP-new");
+    expect(md).toContain("component:default/app-new");
   });
 
   it("renders removed section", () => {
-    const base = [makeEntity({ name: "APP-old", legacyKind: "application" })];
+    const base = [makeEntity({ name: "APP-old", schemaName: "application" })];
     const md = renderDiffMarkdown(diffEaArtifacts(base, []));
     expect(md).toContain("## Removed (1)");
-    expect(md).toContain("APP-old");
+    expect(md).toContain("component:default/app-old");
   });
 
   it("renders modified section with field changes", () => {
-    const base = [makeEntity({ name: "APP-a", legacyKind: "application", lifecycle: "development" })];
-    const head = [makeEntity({ name: "APP-a", legacyKind: "application", lifecycle: "production" })];
+    const base = [makeEntity({ name: "APP-a", schemaName: "application", lifecycle: "development" })];
+    const head = [makeEntity({ name: "APP-a", schemaName: "application", lifecycle: "production" })];
     const md = renderDiffMarkdown(diffEaArtifacts(base, head));
     expect(md).toContain("## Modified (1)");
-    expect(md).toContain("APP-a");
+    expect(md).toContain("component:default/app-a");
     expect(md).toContain("lifecycle");
     expect(md).toContain("behavioral");
   });
 
   it("renders relation changes table", () => {
-    const base = [makeEntity({ name: "APP-a", legacyKind: "application" })];
+    const base = [makeEntity({ name: "APP-a", schemaName: "application" })];
     const head = [makeEntity({
       name: "APP-a",
-      legacyKind: "application",
+      schemaName: "application",
       spec: { uses: ["SVC-b"] },
     })];
     const md = renderDiffMarkdown(diffEaArtifacts(base, head));

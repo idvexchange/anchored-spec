@@ -12,6 +12,18 @@
  * handles the mapping between both representations.
  */
 
+import {
+  RELATION_API_CONSUMED_BY,
+  RELATION_API_PROVIDED_BY,
+  RELATION_CONSUMES_API,
+  RELATION_DEPENDENCY_OF,
+  RELATION_DEPENDS_ON,
+  RELATION_OWNED_BY,
+  RELATION_OWNER_OF,
+  RELATION_PROVIDES_API,
+} from "@backstage/catalog-model";
+import { normalizeEntityRef } from "./types.js";
+
 // ─── Relation Tiers ─────────────────────────────────────────────────────────────
 
 /**
@@ -47,8 +59,8 @@ const WELL_KNOWN_RELATIONS: RelationMappingEntry[] = [
   {
     legacyType: "dependsOn",
     legacyInverse: "dependedOnBy",
-    backstageType: "dependsOn",
-    backstageInverse: "dependencyOf",
+    backstageType: RELATION_DEPENDS_ON,
+    backstageInverse: RELATION_DEPENDENCY_OF,
     isWellKnown: true,
     placement: "spec-field",
     specField: "dependsOn",
@@ -57,8 +69,8 @@ const WELL_KNOWN_RELATIONS: RelationMappingEntry[] = [
   {
     legacyType: "ownedBy",
     legacyInverse: "ownerOf",
-    backstageType: "ownedBy",
-    backstageInverse: "ownerOf",
+    backstageType: RELATION_OWNED_BY,
+    backstageInverse: RELATION_OWNER_OF,
     isWellKnown: true,
     placement: "spec-field",
     specField: "owner",
@@ -67,8 +79,8 @@ const WELL_KNOWN_RELATIONS: RelationMappingEntry[] = [
   {
     legacyType: "exposes",
     legacyInverse: "exposedBy",
-    backstageType: "providesApi",
-    backstageInverse: "apiProvidedBy",
+    backstageType: RELATION_PROVIDES_API,
+    backstageInverse: RELATION_API_PROVIDED_BY,
     isWellKnown: true,
     placement: "spec-field",
     specField: "providesApis",
@@ -77,8 +89,8 @@ const WELL_KNOWN_RELATIONS: RelationMappingEntry[] = [
   {
     legacyType: "consumes",
     legacyInverse: "consumedBy",
-    backstageType: "consumesApi",
-    backstageInverse: "apiConsumedBy",
+    backstageType: RELATION_CONSUMES_API,
+    backstageInverse: RELATION_API_CONSUMED_BY,
     isWellKnown: true,
     placement: "spec-field",
     specField: "consumesApis",
@@ -442,6 +454,24 @@ export function extractRelationsFromSpec(
 ): Array<{ legacyType: string; backstageType: string; targets: string[] }> {
   const results: Array<{ legacyType: string; backstageType: string; targets: string[] }> = [];
 
+  const normalizeSpecTarget = (specField: string, target: string): string => {
+    switch (specField) {
+      case "owner":
+        return normalizeEntityRef(target, {
+          defaultKind: "Group",
+          defaultNamespace: "default",
+        });
+      case "providesApis":
+      case "consumesApis":
+        return normalizeEntityRef(target, {
+          defaultKind: "API",
+          defaultNamespace: "default",
+        });
+      default:
+        return normalizeEntityRef(target, { defaultNamespace: "default" });
+    }
+  };
+
   for (const entry of RELATION_MAPPING_REGISTRY) {
     if (!entry.specField) continue;
 
@@ -451,14 +481,29 @@ export function extractRelationsFromSpec(
     // `owner` is a single string, all others are string arrays
     if (entry.specField === "owner") {
       if (typeof value === "string") {
+        const target = (() => {
+          try {
+            return normalizeSpecTarget(entry.specField, value);
+          } catch {
+            return value;
+          }
+        })();
         results.push({
           legacyType: entry.legacyType,
           backstageType: entry.backstageType,
-          targets: [value],
+          targets: [target],
         });
       }
     } else if (Array.isArray(value)) {
-      const targets = value.filter((v): v is string => typeof v === "string");
+      const targets = value
+        .filter((v): v is string => typeof v === "string")
+        .map((target) => {
+          try {
+            return normalizeSpecTarget(entry.specField!, target);
+          } catch {
+            return target;
+          }
+        });
       if (targets.length > 0) {
         results.push({
           legacyType: entry.legacyType,

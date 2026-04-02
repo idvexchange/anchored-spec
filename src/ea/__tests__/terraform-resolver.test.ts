@@ -190,10 +190,10 @@ describe("TerraformResolver.collectObservedState", () => {
   it("should map RDS to cloud-resource and data-store", () => {
     const state = resolver.collectObservedState(makeCtx())!;
     const rdsCloud = state.entities.find(
-      (e) => e.externalId === "aws_rds_instance.main" && e.inferredKind === "cloud-resource",
+      (e) => e.externalId === "aws_rds_instance.main" && e.inferredSchema === "cloud-resource",
     );
     const rdsStore = state.entities.find(
-      (e) => e.externalId === "aws_rds_instance.main:data-store" && e.inferredKind === "data-store",
+      (e) => e.externalId === "aws_rds_instance.main:data-store" && e.inferredSchema === "data-store",
     );
     expect(rdsCloud).toBeDefined();
     expect(rdsCloud!.inferredDomain).toBe("delivery");
@@ -204,19 +204,19 @@ describe("TerraformResolver.collectObservedState", () => {
   it("should map ECS to platform", () => {
     const state = resolver.collectObservedState(makeCtx())!;
     const ecs = state.entities.find((e) => e.externalId === "aws_ecs_cluster.main");
-    expect(ecs?.inferredKind).toBe("platform");
+    expect(ecs?.inferredSchema).toBe("platform");
   });
 
   it("should map security group to network-zone", () => {
     const state = resolver.collectObservedState(makeCtx())!;
     const sg = state.entities.find((e) => e.externalId === "aws_security_group.web");
-    expect(sg?.inferredKind).toBe("network-zone");
+    expect(sg?.inferredSchema).toBe("network-zone");
   });
 
   it("should map IAM role to identity-boundary", () => {
     const state = resolver.collectObservedState(makeCtx())!;
     const iam = state.entities.find((e) => e.externalId === "aws_iam_role.app");
-    expect(iam?.inferredKind).toBe("identity-boundary");
+    expect(iam?.inferredSchema).toBe("identity-boundary");
   });
 
   it("should include metadata", () => {
@@ -258,37 +258,40 @@ describe("TerraformResolver.discoverArtifacts", () => {
 
   it("should create cloud-resource draft for RDS", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const rds = drafts.find((d) => d.kind === "cloud-resource" && d.title.includes("aws_rds_instance"));
+    const rds = drafts.find((d) => d.schema === "cloud-resource" && d.title.includes("aws_rds_instance"));
     expect(rds).toBeDefined();
-    expect(rds!.suggestedId).toContain("delivery/CLOUD-");
+    expect(rds!.kind).toBe("Resource");
+    expect(rds!.suggestedId).toContain("resource:");
     expect(rds!.anchors?.infra).toContain("terraform:aws_rds_instance.main");
   });
 
   it("should create data-store draft for RDS (secondary)", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
     const store = drafts.find(
-      (d) => d.kind === "data-store" && d.kindSpecificFields?.derivedFrom === "aws_rds_instance.main",
+      (d) => d.schema === "data-store" && d.schemaFields?.derivedFrom === "aws_rds_instance.main",
     );
     expect(store).toBeDefined();
-    expect(store!.suggestedId).toContain("data/STORE-");
+    expect(store!.kind).toBe("Resource");
+    expect(store!.suggestedId).toContain("resource:");
   });
 
   it("should create platform draft for ECS", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const ecs = drafts.find((d) => d.kind === "platform" && d.title.includes("aws_ecs_cluster"));
+    const ecs = drafts.find((d) => d.schema === "platform" && d.title.includes("aws_ecs_cluster"));
     expect(ecs).toBeDefined();
-    expect(ecs!.suggestedId).toContain("delivery/PLAT-");
+    expect(ecs!.kind).toBe("Component");
+    expect(ecs!.suggestedId).toContain("component:");
   });
 
   it("should create network-zone draft for security group", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const sg = drafts.find((d) => d.kind === "network-zone");
+    const sg = drafts.find((d) => d.schema === "network-zone");
     expect(sg).toBeDefined();
   });
 
   it("should create identity-boundary draft for IAM role", () => {
     const drafts = resolver.discoverArtifacts(makeCtx())!;
-    const iam = drafts.find((d) => d.kind === "identity-boundary");
+    const iam = drafts.find((d) => d.schema === "identity-boundary");
     expect(iam).toBeDefined();
   });
 
@@ -357,12 +360,12 @@ describe("TerraformResolver metadata", () => {
     expect(domains).toContain("data");
   });
 
-  it("should handle infrastructure-related kinds", () => {
-    const kinds = new TerraformResolver().kinds!;
-    expect(kinds).toContain("cloud-resource");
-    expect(kinds).toContain("data-store");
-    expect(kinds).toContain("platform");
-    expect(kinds).toContain("network-zone");
-    expect(kinds).toContain("identity-boundary");
+  it("should handle infrastructure-related schemas", () => {
+    const schemas = new TerraformResolver().schemas!;
+    expect(schemas).toContain("cloud-resource");
+    expect(schemas).toContain("data-store");
+    expect(schemas).toContain("platform");
+    expect(schemas).toContain("network-zone");
+    expect(schemas).toContain("identity-boundary");
   });
 });

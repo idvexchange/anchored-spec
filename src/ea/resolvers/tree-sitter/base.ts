@@ -3,7 +3,7 @@
  *
  * Language-agnostic code analysis resolver using web-tree-sitter (WASM).
  * Parses source files and runs declarative query packs to discover
- * EA artifacts from code patterns (routes, DB access, events, etc.).
+ * EA entities from code patterns (routes, DB access, events, etc.).
  *
  * web-tree-sitter is an optional peer dependency. If not installed,
  * this resolver throws a helpful error on first use.

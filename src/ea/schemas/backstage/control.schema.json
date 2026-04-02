@@ -3,7 +3,7 @@
   "$id": "https://anchored-spec.dev/schemas/backstage/control.schema.json",
   "title": "Anchored Spec — Control Entity",
   "description": "A governance or security control.",
-  "allOf": [{ "$ref": "https://anchored-spec.dev/schemas/backstage/entity-envelope.schema.json" }],
+  "type": "object",
   "properties": {
     "apiVersion": { "const": "anchored-spec.dev/v1alpha1" },
     "kind": { "const": "Control" },

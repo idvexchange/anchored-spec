@@ -10,6 +10,7 @@
 
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityDescription, getEntityId, getEntityTitle, getSpecField } from "../backstage/accessors.js";
+import { entityRefToFilenameSlug } from "../backstage/ref-utils.js";
 import type {
   EaGenerator,
   EaGeneratorContext,
@@ -67,7 +68,7 @@ const TYPE_MAP: Record<string, { type: string; format?: string }> = {
  */
 export const jsonSchemaGenerator: EaGenerator = {
   name: "jsonschema",
-  kinds: ["canonical-entity"],
+  schemas: ["canonical-entity"],
   outputFormat: "json-schema",
 
   generate(entity: BackstageEntity, _ctx: EaGeneratorContext): GeneratedOutput[] {
@@ -110,7 +111,7 @@ export const jsonSchemaGenerator: EaGenerator = {
     schema.additionalProperties = false;
 
     const content = JSON.stringify(schema, null, 2) + "\n";
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
 
     return [
       {
@@ -129,7 +130,7 @@ export const jsonSchemaGenerator: EaGenerator = {
     const generated = this.generate(entity, ctx);
     if (generated.length === 0) return [];
 
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
 
     try {
       const currentParsed = JSON.parse(currentOutput);

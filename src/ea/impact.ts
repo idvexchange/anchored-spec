@@ -9,6 +9,7 @@
  */
 
 import type { RelationGraph } from "./graph.js";
+import { normalizeKnownEntityRef } from "./backstage/ref-utils.js";
 
 // ─── Impact Analysis Types ──────────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export interface ImpactedArtifact {
   id: string;
   /** Artifact kind. */
   kind: string;
+  /** Anchored-spec schema profile. */
+  schema: string;
   /** EA domain. */
   domain: string;
   /** Artifact title. */
@@ -38,6 +41,8 @@ export interface ImpactReport {
   sourceId: string;
   /** Source artifact kind. */
   sourceKind: string;
+  /** Source artifact schema profile. */
+  sourceSchema: string;
   /** Source artifact title. */
   sourceTitle: string;
   /** Total number of impacted artifacts. */
@@ -63,12 +68,15 @@ export function analyzeImpact(
   sourceId: string,
   options?: { maxDepth?: number },
 ): ImpactReport {
-  const sourceNode = graph.node(sourceId);
+  const resolvedSourceId =
+    normalizeKnownEntityRef(sourceId, { defaultNamespace: "default" }) ?? sourceId;
+  const sourceNode = graph.node(resolvedSourceId);
   if (!sourceNode) {
     return {
-      sourceId,
+      sourceId: resolvedSourceId,
       sourceKind: "unknown",
-      sourceTitle: sourceId,
+      sourceSchema: "unknown",
+      sourceTitle: resolvedSourceId,
       totalImpacted: 0,
       maxDepth: 0,
       byDomain: [],
@@ -84,8 +92,8 @@ export function analyzeImpact(
   const queue: Array<{ id: string; depth: number; viaRelation: string }> = [];
 
   // Seed with direct dependents (incoming edges to sourceId)
-  visited.add(sourceId);
-  for (const edge of graph.incoming(sourceId)) {
+  visited.add(resolvedSourceId);
+  for (const edge of graph.incoming(resolvedSourceId)) {
     if (!visited.has(edge.source)) {
       queue.push({ id: edge.source, depth: 1, viaRelation: edge.type });
     }
@@ -109,6 +117,7 @@ export function analyzeImpact(
     impacted.push({
       id: node.id,
       kind: node.kind,
+      schema: node.schema,
       domain: node.domain,
       title: node.title,
       depth,
@@ -137,8 +146,9 @@ export function analyzeImpact(
     .sort((a, b) => b.count - a.count);
 
   return {
-    sourceId,
+    sourceId: sourceNode.id,
     sourceKind: sourceNode.kind,
+    sourceSchema: sourceNode.schema,
     sourceTitle: sourceNode.title,
     totalImpacted: impacted.length,
     maxDepth: impacted.reduce((max, a) => Math.max(max, a.depth), 0),
@@ -154,7 +164,7 @@ export function renderImpactReportMarkdown(report: ImpactReport): string {
 
   lines.push(`# Impact Analysis: ${report.sourceTitle}`);
   lines.push("");
-  lines.push(`> Source: \`${report.sourceId}\` (${report.sourceKind})`);
+  lines.push(`> Source: \`${report.sourceId}\` (${report.sourceKind}/${report.sourceSchema})`);
   lines.push(`> Total impacted: ${report.totalImpacted} artifact(s), max depth: ${report.maxDepth}`);
   lines.push("");
 

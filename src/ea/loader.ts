@@ -16,7 +16,8 @@ import {
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityDomain,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntitySpecRelations,
   getEntityStatus,
 } from "./backstage/accessors.js";
@@ -43,6 +44,7 @@ export interface EaEntitySummary {
   totalEntities: number;
   byDomain: Record<string, number>;
   byKind: Record<string, number>;
+  bySchema: Record<string, number>;
   byStatus: Record<string, number>;
   errorCount: number;
   relationCount: number;
@@ -211,15 +213,18 @@ export class EaRoot {
 
     const byDomain: Record<string, number> = {};
     const byKind: Record<string, number> = {};
+    const bySchema: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
     let relationCount = 0;
 
     for (const entity of entities) {
       const domain = getEntityDomain(entity) ?? "unknown";
-      const kind = getEntityLegacyKind(entity);
+      const kind = getEntityKind(entity);
+      const schema = getEntitySchema(entity);
       const status = getEntityStatus(entity);
       byDomain[domain] = (byDomain[domain] ?? 0) + 1;
       byKind[kind] = (byKind[kind] ?? 0) + 1;
+      bySchema[schema] = (bySchema[schema] ?? 0) + 1;
       byStatus[status] = (byStatus[status] ?? 0) + 1;
       relationCount += getEntitySpecRelations(entity).reduce((count, relation) => count + relation.targets.length, 0);
     }
@@ -228,6 +233,7 @@ export class EaRoot {
       totalEntities: entities.length,
       byDomain,
       byKind,
+      bySchema,
       byStatus,
       errorCount: errors.length,
       relationCount,

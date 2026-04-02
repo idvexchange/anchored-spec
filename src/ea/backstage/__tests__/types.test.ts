@@ -4,9 +4,11 @@ import {
   ANCHORED_SPEC_API_VERSION,
   ANNOTATION_KEYS,
   ANNOTATION_PREFIX,
+  normalizeEntityRef,
   parseEntityRef,
-  formatEntityRef,
-  formatFullEntityRef,
+  parseLocationRef,
+  stringifyEntityRef,
+  stringifyLocationRef,
   type BackstageEntity,
   type EntityRef,
 } from "../types.js";
@@ -35,21 +37,15 @@ describe("Annotation keys", () => {
     expect(ANNOTATION_KEYS.COMPLIANCE).toBe("anchored-spec.dev/compliance");
     expect(ANNOTATION_KEYS.RISK).toBe("anchored-spec.dev/risk");
     expect(ANNOTATION_KEYS.SUPPRESS).toBe("anchored-spec.dev/suppress");
-    expect(ANNOTATION_KEYS.LEGACY_KIND).toBe("anchored-spec.dev/legacy-kind");
   });
 });
 
 // ─── Entity Reference Parsing ───────────────────────────────────────────────────
 
 describe("parseEntityRef", () => {
-  it("parses bare name", () => {
-    const ref = parseEntityRef("verifier-core");
-    expect(ref).toEqual({ name: "verifier-core" });
-  });
-
   it("parses kind:name", () => {
     const ref = parseEntityRef("component:verifier-core");
-    expect(ref).toEqual({ kind: "component", name: "verifier-core" });
+    expect(ref).toEqual({ kind: "component", namespace: "default", name: "verifier-core" });
   });
 
   it("parses kind:namespace/name", () => {
@@ -57,19 +53,9 @@ describe("parseEntityRef", () => {
     expect(ref).toEqual({ kind: "component", namespace: "default", name: "verifier-core" });
   });
 
-  it("parses namespace/name (no kind)", () => {
-    const ref = parseEntityRef("default/verifier-core");
-    expect(ref).toEqual({ namespace: "default", name: "verifier-core" });
-  });
-
-  it("lowercases kind", () => {
+  it("preserves kind casing until stringified by Backstage", () => {
     const ref = parseEntityRef("Component:verifier-core");
-    expect(ref.kind).toBe("component");
-  });
-
-  it("preserves name case", () => {
-    const ref = parseEntityRef("MyService");
-    expect(ref.name).toBe("MyService");
+    expect(ref.kind).toBe("Component");
   });
 
   it("trims whitespace", () => {
@@ -82,6 +68,22 @@ describe("parseEntityRef", () => {
     expect(ref).toEqual({ kind: "api", namespace: "production", name: "rest-api-v1" });
   });
 
+  it("supports Backstage context defaults", () => {
+    const ref = parseEntityRef("platform-team", {
+      defaultKind: "Group",
+      defaultNamespace: "default",
+    });
+    expect(ref).toEqual({ kind: "Group", namespace: "default", name: "platform-team" });
+  });
+
+  it("rejects bare names without context", () => {
+    expect(() => parseEntityRef("verifier-core")).toThrow("missing or empty kind");
+  });
+
+  it("rejects namespace/name without kind", () => {
+    expect(() => parseEntityRef("default/verifier-core")).toThrow("missing or empty kind");
+  });
+
   it("throws on empty string", () => {
     expect(() => parseEntityRef("")).toThrow("must not be empty");
   });
@@ -90,69 +92,64 @@ describe("parseEntityRef", () => {
     expect(() => parseEntityRef("   ")).toThrow("must not be empty");
   });
 
-  it("throws on empty kind (leading colon)", () => {
-    expect(() => parseEntityRef(":name")).toThrow("empty kind");
-  });
-
-  it("throws on empty namespace (double slash)", () => {
-    expect(() => parseEntityRef("/name")).toThrow("empty namespace");
-  });
-
-  it("throws on empty name (trailing colon)", () => {
-    expect(() => parseEntityRef("kind:")).toThrow("empty name");
-  });
-
-  it("throws on empty name after namespace", () => {
-    expect(() => parseEntityRef("kind:ns/")).toThrow("empty name");
-  });
-
-  // Ensures that properties aren't present as undefined
-  it("omits kind property when not provided", () => {
-    const ref = parseEntityRef("verifier-core");
-    expect("kind" in ref).toBe(false);
-  });
-
-  it("omits namespace property when not provided", () => {
-    const ref = parseEntityRef("component:verifier-core");
-    expect("namespace" in ref).toBe(false);
+  it("throws on malformed refs", () => {
+    expect(() => parseEntityRef(":name")).toThrow("was not on the form");
+    expect(() => parseEntityRef("/name")).toThrow("was not on the form");
+    expect(() => parseEntityRef("kind:")).toThrow("was not on the form");
+    expect(() => parseEntityRef("kind:ns/")).toThrow("was not on the form");
   });
 });
 
 // ─── Entity Reference Formatting ────────────────────────────────────────────────
 
-describe("formatEntityRef", () => {
-  it("formats bare name", () => {
-    expect(formatEntityRef(undefined, undefined, "verifier-core")).toBe("verifier-core");
+describe("stringifyEntityRef", () => {
+  it("formats canonical full refs", () => {
+    expect(stringifyEntityRef({
+      kind: "Component",
+      namespace: "default",
+      name: "verifier-core",
+    })).toBe("component:default/verifier-core");
   });
 
-  it("formats kind:name", () => {
-    expect(formatEntityRef("Component", undefined, "verifier-core")).toBe("component:verifier-core");
+  it("fills in the default namespace", () => {
+    expect(stringifyEntityRef({
+      kind: "API",
+      name: "rest-v1",
+    })).toBe("api:default/rest-v1");
   });
 
-  it("formats kind:namespace/name", () => {
-    expect(formatEntityRef("Component", "production", "verifier-core")).toBe("component:production/verifier-core");
-  });
-
-  it("omits default namespace", () => {
-    expect(formatEntityRef("Component", "default", "verifier-core")).toBe("component:verifier-core");
-  });
-
-  it("lowercases kind in output", () => {
-    expect(formatEntityRef("API", undefined, "rest-v1")).toBe("api:rest-v1");
+  it("normalizes case", () => {
+    expect(stringifyEntityRef({
+      kind: "Component",
+      namespace: "Production",
+      name: "Verifier-Core",
+    })).toBe("component:production/verifier-core");
   });
 });
 
-describe("formatFullEntityRef", () => {
-  it("always includes kind and namespace", () => {
-    expect(formatFullEntityRef("Component", "default", "verifier-core")).toBe("component:default/verifier-core");
+describe("normalizeEntityRef", () => {
+  it("normalizes partial refs using context defaults", () => {
+    expect(normalizeEntityRef("platform-team", {
+      defaultKind: "Group",
+      defaultNamespace: "default",
+    })).toBe("group:default/platform-team");
   });
 
-  it("defaults namespace to 'default'", () => {
-    expect(formatFullEntityRef("API", undefined, "rest-v1")).toBe("api:default/rest-v1");
+  it("normalizes already-qualified refs to canonical form", () => {
+    expect(normalizeEntityRef("component:verifier-core", {
+      defaultNamespace: "default",
+    })).toBe("component:default/verifier-core");
   });
+});
 
-  it("uses provided namespace", () => {
-    expect(formatFullEntityRef("Resource", "production", "postgres")).toBe("resource:production/postgres");
+describe("location refs", () => {
+  it("parses and stringifies location refs", () => {
+    const parsed = parseLocationRef("url:https://example.com/catalog-info.yaml");
+    expect(parsed).toEqual({
+      type: "url",
+      target: "https://example.com/catalog-info.yaml",
+    });
+    expect(stringifyLocationRef(parsed)).toBe("url:https://example.com/catalog-info.yaml");
   });
 });
 
@@ -160,11 +157,8 @@ describe("formatFullEntityRef", () => {
 
 describe("entity ref round-trip", () => {
   const cases: Array<[string, EntityRef, EntityRef]> = [
-    // [input, expected parsed, expected after round-trip (formatEntityRef normalizes "default" away)]
-    ["verifier-core", { name: "verifier-core" }, { name: "verifier-core" }],
-    ["component:verifier-core", { kind: "component", name: "verifier-core" }, { kind: "component", name: "verifier-core" }],
-    // Note: formatEntityRef omits "default" namespace, so round-trip normalizes it away
-    ["component:default/verifier-core", { kind: "component", namespace: "default", name: "verifier-core" }, { kind: "component", name: "verifier-core" }],
+    ["component:verifier-core", { kind: "component", namespace: "default", name: "verifier-core" }, { kind: "component", namespace: "default", name: "verifier-core" }],
+    ["component:default/verifier-core", { kind: "component", namespace: "default", name: "verifier-core" }, { kind: "component", namespace: "default", name: "verifier-core" }],
     ["api:production/rest-api-v1", { kind: "api", namespace: "production", name: "rest-api-v1" }, { kind: "api", namespace: "production", name: "rest-api-v1" }],
   ];
 
@@ -172,7 +166,7 @@ describe("entity ref round-trip", () => {
     it(`round-trips "${input}"`, () => {
       const parsed = parseEntityRef(input);
       expect(parsed).toEqual(expectedParsed);
-      const formatted = formatEntityRef(parsed.kind, parsed.namespace, parsed.name);
+      const formatted = stringifyEntityRef(parsed);
       const reparsed = parseEntityRef(formatted);
       expect(reparsed).toEqual(expectedRoundTrip);
     });

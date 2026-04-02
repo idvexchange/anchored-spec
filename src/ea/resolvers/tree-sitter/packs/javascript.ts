@@ -1,7 +1,7 @@
 /**
  * Anchored Spec — JavaScript/TypeScript Query Packs
  *
- * Tree-sitter query patterns for discovering EA artifacts from
+ * Tree-sitter query patterns for discovering EA entities from
  * JavaScript and TypeScript codebases.
  *
  * Covers: Express/Fastify/Hono routes, Prisma/TypeORM DB access,
@@ -31,7 +31,7 @@ const expressRoutes: QueryPack = {
         { capture: "@method", role: "method" },
         { capture: "@route.path", role: "anchor" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -49,7 +49,7 @@ const expressRoutes: QueryPack = {
         { capture: "@method", role: "method" },
         { capture: "@route.path", role: "anchor" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -72,7 +72,7 @@ const nextjsRoutes: QueryPack = {
       captures: [
         { capture: "@method", role: "method" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -88,7 +88,7 @@ const nextjsRoutes: QueryPack = {
       captures: [
         { capture: "@method", role: "method" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -116,7 +116,7 @@ const prismaAccess: QueryPack = {
         { capture: "@model", role: "table" },
         { capture: "@operation", role: "metadata" },
       ],
-      inferredKind: "physical-schema",
+      inferredSchema: "physical-schema",
       inferredDomain: "data",
       category: "db-access",
     },
@@ -137,7 +137,7 @@ const typeormAccess: QueryPack = {
           (#eq? @_decorator "Entity"))
       `,
       captures: [],
-      inferredKind: "physical-schema",
+      inferredSchema: "physical-schema",
       inferredDomain: "data",
       category: "db-access",
     },
@@ -164,7 +164,7 @@ const eventEmitter: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -181,7 +181,7 @@ const eventEmitter: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -206,7 +206,7 @@ const bullQueue: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -223,7 +223,7 @@ const bullQueue: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -249,7 +249,7 @@ const fetchCalls: QueryPack = {
       captures: [
         { capture: "@url", role: "service" },
       ],
-      inferredKind: "service",
+      inferredSchema: "service",
       inferredDomain: "systems",
       category: "external-call",
     },
@@ -265,7 +265,7 @@ const fetchCalls: QueryPack = {
       captures: [
         { capture: "@url", role: "service" },
       ],
-      inferredKind: "service",
+      inferredSchema: "service",
       inferredDomain: "systems",
       category: "external-call",
     },
@@ -292,7 +292,7 @@ const axiosCalls: QueryPack = {
         { capture: "@url", role: "service" },
         { capture: "@method", role: "method" },
       ],
-      inferredKind: "service",
+      inferredSchema: "service",
       inferredDomain: "systems",
       category: "external-call",
     },

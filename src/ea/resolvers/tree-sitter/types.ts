@@ -25,8 +25,8 @@ export interface QueryPattern {
   query: string;
   /** How to interpret query captures. */
   captures: CaptureMapping[];
-  /** EA artifact kind this pattern produces (e.g. "api-contract"). */
-  inferredKind: string;
+  /** Schema profile this pattern produces (e.g. "api-contract"). */
+  inferredSchema: string;
   /** EA domain for produced artifacts. */
   inferredDomain: EaDomain;
   /** Optional: category for aggregation grouping. */

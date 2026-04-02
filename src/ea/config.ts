@@ -125,7 +125,7 @@ export interface AnchoredSpecConfigV1 {
   /** Version compatibility policy enforcement configuration. */
   versionPolicy?: {
     defaultCompatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen";
-    perKind?: Record<string, { compatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen"; deprecationWindow?: string }>;
+    perSchema?: Record<string, { compatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen"; deprecationWindow?: string }>;
     perDomain?: Record<string, { compatibility?: "backward-only" | "full" | "breaking-allowed" | "frozen"; deprecationWindow?: string }>;
   };
 

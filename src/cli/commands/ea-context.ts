@@ -22,8 +22,10 @@ import {
   getEntityConfidence,
   getEntityDescription,
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntityOwnerRef,
+  getEntitySpecType,
   getEntitySpecRelations,
   getEntityStatus,
   getEntityTags,
@@ -62,6 +64,8 @@ interface RequiredDoc {
 interface EntityContextView {
   entityRef: string;
   kind: string;
+  type?: string;
+  schema: string;
   status: string;
   summary: string;
   owners: string[];
@@ -75,6 +79,8 @@ interface EntityContextView {
 interface RelatedEntityInfo {
   entityRef: string;
   kind: string;
+  type?: string;
+  schema: string;
   status: string;
   summary: string;
   owners: string[];
@@ -134,7 +140,9 @@ function toEntityContextView(entity: BackstageEntity): EntityContextView {
 
   return {
     entityRef,
-    kind: getEntityLegacyKind(entity),
+    kind: getEntityKind(entity),
+    type: getEntitySpecType(entity),
+    schema: getEntitySchema(entity),
     status: getEntityStatus(entity),
     summary: getEntityDescription(entity),
     owners: ownerRef ? [ownerRef] : [],
@@ -239,12 +247,14 @@ function assembleContext(
   for (const relatedId of relatedIds) {
     const relatedEntity = entityMap.get(relatedId);
     if (!relatedEntity) continue;
-    relatedEntities.push({
-      entityRef: relatedEntity.entityRef,
-      kind: relatedEntity.kind,
-      status: relatedEntity.status,
-      summary: relatedEntity.summary,
-      owners: relatedEntity.owners,
+      relatedEntities.push({
+        entityRef: relatedEntity.entityRef,
+        kind: relatedEntity.kind,
+        type: relatedEntity.type,
+        schema: relatedEntity.schema,
+        status: relatedEntity.status,
+        summary: relatedEntity.summary,
+        owners: relatedEntity.owners,
     });
   }
 
@@ -380,7 +390,8 @@ function renderMarkdown(result: ContextResult): string {
   lines.push("");
   lines.push("## Entity Specification");
   lines.push(`- ${chalk.bold("Entity Ref")}: ${entity.entityRef}`);
-  lines.push(`- ${chalk.bold("Kind")}: ${entity.kind}`);
+  lines.push(`- ${chalk.bold("Kind")}: ${entity.kind}${entity.type ? `/${entity.type}` : ""}`);
+  lines.push(`- ${chalk.bold("Schema")}: ${entity.schema}`);
   lines.push(`- ${chalk.bold("Status")}: ${entity.status}`);
   lines.push(`- ${chalk.bold("Summary")}: ${entity.summary}`);
   lines.push(`- ${chalk.bold("Owners")}: ${entity.owners.join(", ")}`);
@@ -442,7 +453,7 @@ function renderMarkdown(result: ContextResult): string {
     lines.push("## Related Entities");
     for (const relatedEntity of relatedEntities) {
       lines.push("");
-      lines.push(`### ${relatedEntity.entityRef} (${relatedEntity.kind}, ${relatedEntity.status})`);
+      lines.push(`### ${relatedEntity.entityRef} (${relatedEntity.kind}${relatedEntity.type ? `/${relatedEntity.type}` : ""}, ${relatedEntity.schema}, ${relatedEntity.status})`);
       lines.push(`- ${chalk.bold("Summary")}: ${relatedEntity.summary}`);
       lines.push(`- ${chalk.bold("Owners")}: ${relatedEntity.owners.join(", ")}`);
     }
@@ -475,6 +486,8 @@ function buildJsonOutput(result: ContextResult): Record<string, unknown> {
     entity: {
       entityRef: result.entity.entityRef,
       kind: result.entity.kind,
+      type: result.entity.type,
+      schema: result.entity.schema,
       status: result.entity.status,
       summary: result.entity.summary,
       owners: result.entity.owners,
@@ -495,6 +508,8 @@ function buildJsonOutput(result: ContextResult): Record<string, unknown> {
     relatedEntities: result.relatedEntities.map((relatedEntity) => ({
       entityRef: relatedEntity.entityRef,
       kind: relatedEntity.kind,
+      type: relatedEntity.type,
+      schema: relatedEntity.schema,
       status: relatedEntity.status,
       summary: relatedEntity.summary,
     })),

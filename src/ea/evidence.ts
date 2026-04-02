@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { BackstageEntity } from "./backstage/types.js";
 import { getEntityId, getSpecField } from "./backstage/accessors.js";
+import { normalizeKnownEntityRef } from "./backstage/ref-utils.js";
 
 // ─── EA Evidence Types ──────────────────────────────────────────────────────────
 
@@ -168,8 +169,12 @@ export function validateEaEvidence(
 
   // Check each evidence record
   for (const record of evidence.records) {
+    const artifactId =
+      normalizeKnownEntityRef(record.artifactId, { defaultNamespace: "default" }) ??
+      record.artifactId;
+
     // Artifact reference exists
-    if (!entityIds.has(record.artifactId)) {
+    if (!entityIds.has(artifactId)) {
       issues.push({
         path: record.artifactId,
         message: `Evidence references artifact "${record.artifactId}" which does not exist`,
@@ -213,9 +218,12 @@ export function validateEaEvidence(
   // Check artifacts that produce evidence but have no records
   const evidenceByArtifact = new Map<string, EaEvidenceRecord[]>();
   for (const r of evidence.records) {
-    const list = evidenceByArtifact.get(r.artifactId) ?? [];
+    const artifactId =
+      normalizeKnownEntityRef(r.artifactId, { defaultNamespace: "default" }) ??
+      r.artifactId;
+    const list = evidenceByArtifact.get(artifactId) ?? [];
     list.push(r);
-    evidenceByArtifact.set(r.artifactId, list);
+    evidenceByArtifact.set(artifactId, list);
   }
 
   for (const entity of entities) {
@@ -238,7 +246,7 @@ export function validateEaEvidence(
 
 export interface EaEvidenceSummary {
   totalRecords: number;
-  byKind: Record<string, number>;
+  byEvidenceKind: Record<string, number>;
   byStatus: Record<string, number>;
   staleCount: number;
   coveredArtifacts: number;
@@ -256,15 +264,18 @@ export function summarizeEaEvidence(
   const freshnessMs = (options?.freshnessWindowDays ?? 30) * 24 * 60 * 60 * 1000;
   const now = Date.now();
 
-  const byKind: Record<string, number> = {};
+  const byEvidenceKind: Record<string, number> = {};
   const byStatus: Record<string, number> = {};
   let staleCount = 0;
   const coveredIds = new Set<string>();
 
   for (const r of evidence.records) {
-    byKind[r.kind] = (byKind[r.kind] ?? 0) + 1;
+    byEvidenceKind[r.kind] = (byEvidenceKind[r.kind] ?? 0) + 1;
     byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
-    coveredIds.add(r.artifactId);
+    coveredIds.add(
+      normalizeKnownEntityRef(r.artifactId, { defaultNamespace: "default" }) ??
+        r.artifactId,
+    );
 
     const recordDate = new Date(r.recordedAt).getTime();
     if (!isNaN(recordDate) && now - recordDate > freshnessMs) {
@@ -281,7 +292,7 @@ export function summarizeEaEvidence(
 
   return {
     totalRecords: evidence.records.length,
-    byKind,
+    byEvidenceKind,
     byStatus,
     staleCount,
     coveredArtifacts: coveredIds.size,

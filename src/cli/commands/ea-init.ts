@@ -30,7 +30,7 @@ export function eaInitCommand(): Command {
     .option("--no-ide", "Skip VS Code integration files")
     .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, speckit, all)")
     .option("--ci", "Generate CI integration recipes (GitHub Actions workflow + pre-commit hook)")
-    .option("--version-policy-defaults", "Bootstrap sensible version policy defaults per artifact kind")
+    .option("--version-policy-defaults", "Bootstrap sensible version policy defaults per schema profile")
     .action((options) => {
       const cwd = process.cwd();
       const rootDir = options.rootDir as string;
@@ -66,7 +66,7 @@ export function eaInitCommand(): Command {
       if (options.versionPolicyDefaults) {
         v1Config.versionPolicy = {
           defaultCompatibility: "breaking-allowed",
-          perKind: {
+          perSchema: {
             "api-contract": { compatibility: "backward-only", deprecationWindow: "90d" },
             "event-contract": { compatibility: "backward-only", deprecationWindow: "90d" },
             "canonical-entity": { compatibility: "full", deprecationWindow: "30d" },
@@ -223,8 +223,8 @@ export function eaInitCommand(): Command {
 
       console.log(chalk.blue("\n✅ Project initialized with anchored-spec v1.0!"));
       console.log(chalk.dim("\nNext steps:"));
-      console.log(chalk.dim("  1. Create an artifact:    anchored-spec create application --title \"My App\""));
-      console.log(chalk.dim("  2. Validate artifacts:    anchored-spec validate"));
+      console.log(chalk.dim("  1. Create an entity:      anchored-spec create --kind Component --type website --title \"My App\""));
+      console.log(chalk.dim("  2. Validate entities:     anchored-spec validate"));
       console.log(chalk.dim("  3. Run full verification: anchored-spec verify"));
       console.log(chalk.dim("  4. Visualize graph:       anchored-spec graph --format mermaid"));
       if (!options.withPolicy) {
@@ -278,7 +278,7 @@ function createWorkflowPolicy(
   }
 
   const policyContent = `# Anchored Spec — Workflow Policy
-# Defines governance rules for artifact lifecycle transitions.
+# Defines governance rules for entity lifecycle transitions.
 
 workflowVariants:
   - id: feature-behavior-first

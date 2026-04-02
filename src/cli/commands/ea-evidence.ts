@@ -181,8 +181,8 @@ export function eaEvidenceCommand(): Command {
         console.log(`  Uncovered entities: ${summary.uncoveredArtifacts}`);
         console.log(`  Stale records: ${summary.staleCount}`);
         console.log("");
-        console.log("  By kind:");
-        for (const [kind, count] of Object.entries(summary.byKind)) {
+        console.log("  By evidence kind:");
+        for (const [kind, count] of Object.entries(summary.byEvidenceKind)) {
           console.log(`    ${kind}: ${count}`);
         }
         console.log("");

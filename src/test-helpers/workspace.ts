@@ -6,8 +6,8 @@ import { stringify } from "yaml";
 import type { BackstageEntity } from "../ea/backstage/types.js";
 import { resolveConfigV1, type AnchoredSpecConfigV1 } from "../ea/config.js";
 import {
-  legacyFixtureToEntity,
-  type LegacyEntityFixture,
+  makeBackstageEntity,
+  type EntityFixtureInput,
 } from "./entity-fixtures.js";
 
 const REPO_ROOT = process.cwd();
@@ -19,9 +19,7 @@ export interface CliRunResult {
   exitCode: number;
 }
 
-export type EntityInput =
-  | BackstageEntity
-  | LegacyEntityFixture;
+export type EntityInput = BackstageEntity;
 
 export function createTestWorkspace(prefix: string): string {
   const dir = join(
@@ -56,27 +54,19 @@ export function cliOutput(result: CliRunResult): string {
 }
 
 export function makeArtifact(
-  overrides: Partial<LegacyEntityFixture> & { id: string; kind: string } & Record<
+  overrides: EntityFixtureInput & Record<
       string,
       unknown
     >,
-): LegacyEntityFixture {
-  return {
-    ...overrides,
-    id: overrides.id,
-    kind: overrides.kind,
-    title: overrides.title ?? overrides.id,
+): BackstageEntity {
+  return makeBackstageEntity({
+    title: overrides.title ?? overrides.name ?? overrides.ref,
     summary: overrides.summary ?? "A sufficiently detailed test summary.",
-    owners: overrides.owners ?? ["team-platform"],
-    tags: overrides.tags ?? [],
     confidence: overrides.confidence ?? "declared",
     status: overrides.status ?? "active",
-    relations: overrides.relations ?? [],
-  };
-}
-
-export function toBackstageEntity(input: EntityInput): BackstageEntity {
-  return isBackstageEntity(input) ? input : legacyFixtureToEntity(input);
+    owner: overrides.owner ?? "group:default/team-test",
+    ...overrides,
+  });
 }
 
 export function writeTextFile(
@@ -119,7 +109,7 @@ export function writeManifestProject(
   mkdirSync(join(dir, config.generatedDir), { recursive: true });
 
   const manifestDocs = inputs
-    .map((input) => `---\n${stringify(toBackstageEntity(input)).trimEnd()}\n`)
+    .map((input) => `---\n${stringify(input).trimEnd()}\n`)
     .join("");
   writeTextFile(
     dir,
@@ -150,21 +140,10 @@ export function writeInlineProject(
 
   for (const doc of docs) {
     const frontmatter = doc.entity
-      ? `---\n${stringify(toBackstageEntity(doc.entity)).trimEnd()}\n---\n\n`
+      ? `---\n${stringify(doc.entity).trimEnd()}\n---\n\n`
       : "";
     writeTextFile(dir, doc.path, `${frontmatter}${doc.body ?? ""}`);
   }
 
   return config;
-}
-
-function isBackstageEntity(input: EntityInput): input is BackstageEntity {
-  return (
-    "metadata" in input &&
-    typeof input.metadata === "object" &&
-    input.metadata !== null &&
-    "spec" in input &&
-    typeof input.spec === "object" &&
-    input.spec !== null
-  );
 }

@@ -20,7 +20,7 @@ function makePattern(overrides: Partial<QueryPattern> = {}): QueryPattern {
     name: "test-pattern",
     query: "(identifier) @name",
     captures: [],
-    inferredKind: "api-contract",
+    inferredSchema: "api-contract",
     inferredDomain: "systems",
     ...overrides,
   };
@@ -116,7 +116,7 @@ describe("JavaScript Query Packs", () => {
       for (const pattern of pack.patterns) {
         expect(pattern.name).toBeTruthy();
         expect(pattern.query).toBeTruthy();
-        expect(pattern.inferredKind).toBeTruthy();
+        expect(pattern.inferredSchema).toBeTruthy();
         expect(pattern.inferredDomain).toBeTruthy();
       }
     }
@@ -129,17 +129,17 @@ describe("Aggregator: Route Aggregation", () => {
   it("aggregates routes by directory", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/users.ts",
         captures: { "@route.path": "/users", "@method": "get" },
       }),
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/users.ts",
         captures: { "@route.path": "/users/:id", "@method": "get" },
       }),
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/orders.ts",
         captures: { "@route.path": "/orders", "@method": "post" },
       }),
@@ -147,7 +147,8 @@ describe("Aggregator: Route Aggregation", () => {
 
     const drafts = aggregateMatches(matches, []);
     expect(drafts.length).toBe(1); // Same directory group (src/api)
-    expect(drafts[0].kind).toBe("api-contract");
+    expect(drafts[0].kind).toBe("API");
+    expect(drafts[0].schema).toBe("api-contract");
     expect(drafts[0].confidence).toBe("observed");
     expect(drafts[0].anchors?.apis).toContain("/users");
     expect(drafts[0].anchors?.apis).toContain("/users/:id");
@@ -157,12 +158,12 @@ describe("Aggregator: Route Aggregation", () => {
   it("separates routes in different directories", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/users.ts",
         captures: { "@route.path": "/users", "@method": "get" },
       }),
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/webhooks/handler.ts",
         captures: { "@route.path": "/webhooks", "@method": "post" },
       }),
@@ -180,12 +181,12 @@ describe("Aggregator: DB Access", () => {
   it("aggregates DB access by model name", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "db-access", inferredKind: "physical-schema", inferredDomain: "data" }),
+        pattern: makePattern({ category: "db-access", inferredSchema: "physical-schema", inferredDomain: "data" }),
         file: "src/api/users.ts",
         captures: { "@model": "user", "@operation": "findMany" },
       }),
       makeMatch({
-        pattern: makePattern({ category: "db-access", inferredKind: "physical-schema", inferredDomain: "data" }),
+        pattern: makePattern({ category: "db-access", inferredSchema: "physical-schema", inferredDomain: "data" }),
         file: "src/api/users.ts",
         captures: { "@model": "user", "@operation": "create" },
       }),
@@ -193,7 +194,8 @@ describe("Aggregator: DB Access", () => {
 
     const drafts = aggregateMatches(matches, []);
     expect(drafts).toHaveLength(1);
-    expect(drafts[0].kind).toBe("physical-schema");
+    expect(drafts[0].kind).toBe("Resource");
+    expect(drafts[0].schema).toBe("physical-schema");
     expect(drafts[0].summary).toContain("user");
     expect(drafts[0].summary).toContain("findMany");
   });
@@ -205,12 +207,12 @@ describe("Aggregator: Events", () => {
   it("aggregates events by name", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "event", inferredKind: "event-contract" }),
+        pattern: makePattern({ category: "event", inferredSchema: "event-contract" }),
         file: "src/services/orders.ts",
         captures: { "@event.name": "order.created" },
       }),
       makeMatch({
-        pattern: makePattern({ category: "event", inferredKind: "event-contract" }),
+        pattern: makePattern({ category: "event", inferredSchema: "event-contract" }),
         file: "src/workers/notifications.ts",
         captures: { "@event.name": "order.created" },
       }),
@@ -218,7 +220,8 @@ describe("Aggregator: Events", () => {
 
     const drafts = aggregateMatches(matches, []);
     expect(drafts).toHaveLength(1);
-    expect(drafts[0].kind).toBe("event-contract");
+    expect(drafts[0].kind).toBe("API");
+    expect(drafts[0].schema).toBe("event-contract");
     expect(drafts[0].anchors?.events).toContain("order.created");
     expect(drafts[0].anchors?.files).toHaveLength(2);
   });
@@ -230,7 +233,7 @@ describe("Aggregator: External Calls", () => {
   it("aggregates external service calls", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "external-call", inferredKind: "service" }),
+        pattern: makePattern({ category: "external-call", inferredSchema: "service" }),
         file: "src/clients/payments.ts",
         captures: { "@url": "https://api.stripe.com/v1/charges" },
       }),
@@ -238,7 +241,8 @@ describe("Aggregator: External Calls", () => {
 
     const drafts = aggregateMatches(matches, []);
     expect(drafts).toHaveLength(1);
-    expect(drafts[0].kind).toBe("service");
+    expect(drafts[0].kind).toBe("Component");
+    expect(drafts[0].schema).toBe("service");
     expect(drafts[0].confidence).toBe("inferred");
   });
 });
@@ -249,7 +253,7 @@ describe("Aggregator: Deduplication", () => {
   it("deduplicates against existing artifacts by ID", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/users.ts",
         captures: { "@route.path": "/users", "@method": "get" },
       }),
@@ -262,7 +266,7 @@ describe("Aggregator: Deduplication", () => {
 
   it("deduplicates within results by suggested ID", () => {
     // Two matches that would produce the same suggested ID
-    const pattern = makePattern({ category: "event", inferredKind: "event-contract" });
+    const pattern = makePattern({ category: "event", inferredSchema: "event-contract" });
     const matches: QueryMatch[] = [
       makeMatch({
         pattern,
@@ -283,7 +287,7 @@ describe("Aggregator: Deduplication", () => {
   it("keeps drafts not matching any existing artifact", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/payments.ts",
         captures: { "@route.path": "/payments", "@method": "post" },
       }),
@@ -306,7 +310,7 @@ describe("Aggregator: Edge Cases", () => {
   it("handles matches with missing captures gracefully", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ category: "route", inferredKind: "api-contract" }),
+        pattern: makePattern({ category: "route", inferredSchema: "api-contract" }),
         file: "src/api/test.ts",
         captures: {}, // No route.path captured
       }),
@@ -320,7 +324,7 @@ describe("Aggregator: Edge Cases", () => {
   it("handles uncategorized patterns", () => {
     const matches: QueryMatch[] = [
       makeMatch({
-        pattern: makePattern({ name: "custom-thing", inferredKind: "service" }),
+        pattern: makePattern({ name: "custom-thing", inferredSchema: "service" }),
         file: "src/custom.ts",
         captures: { "@name": "my-service" },
       }),

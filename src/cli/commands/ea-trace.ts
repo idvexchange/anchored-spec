@@ -23,7 +23,9 @@ import type { AnchoredSpecConfigV1 } from "../../ea/config.js";
 import type { BackstageEntity } from "../../ea/backstage/types.js";
 import {
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
+  getEntitySpecType,
   getEntityStatus,
   getEntityTraceRefs,
 } from "../../ea/backstage/accessors.js";
@@ -35,6 +37,8 @@ import { CliError } from "../errors.js";
 interface TraceEntityView {
   entityRef: string;
   kind: string;
+  type?: string;
+  schema: string;
   status: string;
   traceRefs: Array<{ path: string; role?: string }>;
 }
@@ -89,7 +93,7 @@ function renderTargetEntity(
 
   lines.push(
     chalk.bold(`${entity.entityRef}`) +
-      chalk.dim(` (${entity.kind}, ${entity.status})`),
+      chalk.dim(` (${entity.kind}${entity.type ? `/${entity.type}` : ""}, ${entity.schema}, ${entity.status})`),
   );
 
   // traceRefs
@@ -335,7 +339,9 @@ function renderSummary(report: SummaryReport): string {
 function toTraceEntityView(entity: BackstageEntity): TraceEntityView {
   return {
     entityRef: getEntityId(entity),
-    kind: getEntityLegacyKind(entity),
+    kind: getEntityKind(entity),
+    type: getEntitySpecType(entity),
+    schema: getEntitySchema(entity),
     status: getEntityStatus(entity),
     traceRefs: getEntityTraceRefs(entity),
   };
@@ -564,6 +570,8 @@ export function eaTraceCommand(): Command {
                   entity: {
                     entityRef: entity.entityRef,
                     kind: entity.kind,
+                    type: entity.type ?? null,
+                    schema: entity.schema,
                     status: entity.status,
                   },
                   traceRefs: (entity.traceRefs ?? []).map((r) => ({

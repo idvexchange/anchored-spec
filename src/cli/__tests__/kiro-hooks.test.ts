@@ -20,7 +20,7 @@ describe("Kiro Hooks", () => {
 
     it("generates validate-on-save hook with correct trigger and pattern", () => {
       expect(hooks.validateOnSave).toContain("trigger: onSave");
-      expect(hooks.validateOnSave).toContain("ea/**/*.{yaml,yml,json}");
+      expect(hooks.validateOnSave).toContain("docs/**/*.{yaml,yml,json}");
       expect(hooks.validateOnSave).toContain("npx anchored-spec validate");
       expect(hooks.validateOnSave).toContain("throttle:");
     });
@@ -100,7 +100,7 @@ describe("Kiro Hooks", () => {
       const hooksDir = join(tempDir, ".kiro", "hooks");
       const validate = readFileSync(join(hooksDir, "validate-artifact.yml"), "utf-8");
       expect(validate).toContain("trigger: onSave");
-      expect(validate).toContain("ea/**/*.{yaml,yml,json}");
+      expect(validate).toContain("docs/**/*.{yaml,yml,json}");
     });
 
     it("skips existing hook files on second write", () => {

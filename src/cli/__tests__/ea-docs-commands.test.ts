@@ -34,12 +34,13 @@ describe("docs-oriented CLI commands", () => {
 
     const payload = JSON.parse(result.stdout) as {
       resolversUsed: string[];
-      summary: { newArtifacts: number };
-      newArtifacts: Array<{ kind: string }>;
+      summary: { newEntities: number };
+      newEntities: Array<{ kind: string; schema: string }>;
     };
     expect(payload.resolversUsed).toContain("markdown");
-    expect(payload.summary.newArtifacts).toBeGreaterThanOrEqual(1);
-    expect(payload.newArtifacts[0]?.kind).toBe("event-contract");
+    expect(payload.summary.newEntities).toBeGreaterThanOrEqual(1);
+    expect(payload.newEntities[0]?.kind).toBe("API");
+    expect(payload.newEntities[0]?.schema).toBe("event-contract");
   });
 
   it("reports document drift conflicts in JSON", () => {

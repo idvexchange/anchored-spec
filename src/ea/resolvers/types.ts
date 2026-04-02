@@ -2,8 +2,8 @@
  * Anchored Spec — EA Resolver Types
  *
  * Core interfaces for the EA resolver framework. Resolvers bridge declared
- * EA artifacts with live infrastructure by resolving anchors, collecting
- * observed state, and discovering new artifacts.
+ * EA entities with live infrastructure by resolving anchors, collecting
+ * observed state, and discovering new entities.
  *
  * Design reference: docs/delivery/discovery-drift-generation.md
  */
@@ -66,7 +66,7 @@ export interface ObservedEaState {
   source: string;
   /** ISO 8601 timestamp of collection. */
   collectedAt: string;
-  /** Observed entities (potential EA artifacts). */
+  /** Observed entities (potential EA entities). */
   entities: ObservedEntity[];
   /** Observed relationships between entities. */
   relationships: ObservedRelationship[];
@@ -76,12 +76,12 @@ export interface ObservedEaState {
 export interface ObservedEntity {
   /** External system identifier. */
   externalId: string;
-  /** Inferred EA kind. */
-  inferredKind?: string;
+  /** Inferred schema profile. */
+  inferredSchema?: string;
   /** Inferred EA domain. */
   inferredDomain?: EaDomain;
-  /** If matched to an existing EA artifact, its ID. */
-  matchedArtifactId?: string;
+  /** If matched to an existing EA entity, its ID. */
+  matchedEntityId?: string;
   /** Arbitrary metadata from the source. */
   metadata?: Record<string, unknown>;
 }
@@ -93,7 +93,7 @@ export interface ObservedRelationship {
   type: string;
 }
 
-// ─── Artifact Draft (re-export for convenience) ─────────────────────────────────
+// ─── Discovery Draft (re-export for convenience) ────────────────────────────────
 
 // We re-use EaArtifactDraft from discovery.ts
 export type { EaArtifactDraft } from "../discovery.js";
@@ -101,23 +101,23 @@ export type { EaArtifactDraft } from "../discovery.js";
 // ─── EaResolver Interface ───────────────────────────────────────────────────────
 
 /**
- * An EA Resolver bridges declared EA artifacts with live infrastructure.
+ * An EA Resolver bridges declared EA entities with live infrastructure.
  *
  * Each method is optional — a resolver can implement just one or all three:
  * - resolveAnchors: validate that declared anchors exist in real systems
  * - collectObservedState: enumerate entities from external sources
- * - discoverArtifacts: create draft EA artifacts from discovered entities
+ * - discoverArtifacts: create draft EA entities from discovered entities
  */
 export interface EaResolver {
   /** Unique resolver name. */
   name: string;
   /** Which EA domains this resolver handles. */
   domains?: EaDomain[];
-  /** Which EA kinds this resolver handles. */
-  kinds?: string[];
+  /** Which schema profiles this resolver handles. */
+  schemas?: string[];
 
   /**
-   * Resolve anchors on an artifact against real infrastructure.
+   * Resolve anchors on an entity against real infrastructure.
    * Returns null to defer to the next resolver in the chain.
    */
   resolveAnchors?(
@@ -134,8 +134,8 @@ export interface EaResolver {
   ): ObservedEaState | null;
 
   /**
-   * Discover new artifacts from an external system.
-   * Returns null if no artifacts were discovered.
+   * Discover new entities from an external system.
+   * Returns null if no entities were discovered.
    */
   discoverArtifacts?(
     ctx: EaResolverContext,

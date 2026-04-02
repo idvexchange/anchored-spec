@@ -1,170 +1,174 @@
-import type { BackstageEntity } from "../ea/backstage/types.js";
+import { ANNOTATION_KEYS } from "../ea/backstage/index.js";
 import {
-  ANNOTATION_KEYS,
-  BACKSTAGE_API_VERSION,
   ANCHORED_SPEC_API_VERSION,
-  formatEntityRef,
+  BACKSTAGE_API_VERSION,
+  normalizeEntityRef,
   parseEntityRef,
-} from "../ea/backstage/index.js";
-import {
-  legacyIdToEntityName,
-  mapLegacyKind,
-  mapLegacyPrefix,
-} from "../ea/backstage/kind-mapping.js";
-import { legacyRelationToSpecEntry } from "../ea/backstage/relation-mapping.js";
-import type {
-  ArtifactConfidence,
-  ArtifactStatus,
-  EaAnchors,
-  EaComplianceMetadata,
-  EaRelation,
-  EaRiskAssessment,
-  EaTraceRef,
-} from "../ea/types.js";
+} from "../ea/backstage/types.js";
+import type { BackstageEntity } from "../ea/backstage/types.js";
+import { looksLikeEntityRef } from "../ea/backstage/ref-utils.js";
 
-export interface LegacyEntityFixture extends Record<string, unknown> {
-  id: string;
-  kind: string;
-  title?: string;
-  summary?: string;
-  owners?: string[];
-  tags?: string[];
-  confidence?: ArtifactConfidence;
-  status?: ArtifactStatus;
-  relations?: EaRelation[];
-  anchors?: EaAnchors;
-  traceRefs?: EaTraceRef[];
-  risk?: EaRiskAssessment;
-  compliance?: EaComplianceMetadata;
-  extensions?: Record<string, unknown>;
-}
-
-const BASE_KEYS = new Set([
-  "id",
-  "kind",
-  "title",
-  "summary",
-  "owners",
-  "tags",
-  "confidence",
-  "status",
-  "relations",
-  "anchors",
-  "traceRefs",
-  "risk",
-  "compliance",
-  "extensions",
+const BACKSTAGE_KINDS = new Set([
+  "Component",
+  "API",
+  "Resource",
+  "System",
+  "Domain",
+  "Group",
+  "User",
+  "Location",
 ]);
 
-export function legacyFixtureToEntity(input: LegacyEntityFixture): BackstageEntity {
-  const mapping = mapLegacyKind(input.kind);
-  if (!mapping) {
-    throw new Error(`Unsupported legacy fixture kind: ${input.kind}`);
-  }
+const FIXTURE_KEYS = new Set([
+  "ref",
+  "apiVersion",
+  "kind",
+  "namespace",
+  "name",
+  "title",
+  "summary",
+  "description",
+  "tags",
+  "annotations",
+  "labels",
+  "links",
+  "spec",
+  "type",
+  "owner",
+  "lifecycle",
+  "status",
+  "confidence",
+]);
+
+export interface EntityFixtureInput extends Record<string, unknown> {
+  ref: string;
+  kind: string;
+  apiVersion?: string;
+  namespace?: string;
+  name?: string;
+  title?: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  annotations?: Record<string, string>;
+  labels?: Record<string, string>;
+  links?: Array<{ url: string; title?: string; icon?: string; type?: string }>;
+  spec?: Record<string, unknown>;
+  type?: string;
+  owner?: string;
+  lifecycle?: string;
+  status?: string;
+  confidence?: "declared" | "observed" | "inferred";
+}
+
+export function makeBackstageEntity(input: EntityFixtureInput): BackstageEntity {
+  const apiVersion = input.apiVersion ?? inferApiVersion(input.kind);
+  const parsedRef = parseEntityRef(input.ref, {
+    defaultKind: input.kind,
+    defaultNamespace: input.namespace ?? "default",
+  });
 
   const spec: Record<string, unknown> = {
-    ...(mapping.specType ? { type: mapping.specType } : {}),
-    status: input.status ?? "active",
-    lifecycle: statusToLifecycle(input.status ?? "active"),
+    ...(input.spec ?? {}),
+    ...collectSpecFields(input),
   };
-  if (input.owners) {
-    if (input.owners[0]) {
-      spec.owner = input.owners[0];
-    }
-  } else {
-    spec.owner = "group:default/team-test";
+
+  if (input.type !== undefined && spec.type === undefined) {
+    spec.type = input.type;
   }
 
-  if (input.anchors) spec.anchors = input.anchors;
-  if (input.traceRefs) spec.traceRefs = input.traceRefs;
-  if (input.extensions) Object.assign(spec, input.extensions);
-
-  for (const relation of input.relations ?? []) {
-    const mapped = legacyRelationToSpecEntry(
-      relation.type,
-      normalizeTargetRef(relation.target),
-    );
-    if (!mapped) continue;
-    if (mapped.specField === "owner") {
-      spec.owner = mapped.targetRef;
-      continue;
-    }
-    const current = spec[mapped.specField];
-    spec[mapped.specField] = Array.isArray(current)
-      ? [...current, mapped.targetRef]
-      : [mapped.targetRef];
+  if (input.owner !== undefined && spec.owner === undefined) {
+    spec.owner = input.owner;
   }
 
-  for (const [key, value] of Object.entries(input)) {
-    if (!BASE_KEYS.has(key) && value !== undefined) {
-      spec[key] = normalizeSpecValue(value);
+  if (apiVersion === BACKSTAGE_API_VERSION) {
+    if (input.lifecycle !== undefined && spec.lifecycle === undefined) {
+      spec.lifecycle = input.lifecycle;
     }
+    if (spec.lifecycle === undefined && input.status !== undefined) {
+      spec.lifecycle = statusToLifecycle(input.status);
+    }
+    if (spec.lifecycle === undefined) {
+      spec.lifecycle = "production";
+    }
+  } else if (input.status !== undefined && spec.status === undefined) {
+    spec.status = input.status;
+  } else if (spec.status === undefined) {
+    spec.status = "active";
   }
 
   const annotations: Record<string, string> = {
-    [ANNOTATION_KEYS.CONFIDENCE]: input.confidence ?? "declared",
-    [ANNOTATION_KEYS.LEGACY_KIND]: input.kind,
+    ...(input.annotations ?? {}),
   };
-  if (input.risk?.level) {
-    annotations[ANNOTATION_KEYS.RISK] = input.risk.level;
+  if (input.confidence !== undefined) {
+    annotations[ANNOTATION_KEYS.CONFIDENCE] = input.confidence;
+  } else {
+    annotations[ANNOTATION_KEYS.CONFIDENCE] = "declared";
   }
-  if (input.compliance?.frameworks?.length) {
-    annotations[ANNOTATION_KEYS.COMPLIANCE] = input.compliance.frameworks.join(",");
-  }
-  if (input.traceRefs?.[0]?.path) {
-    annotations[ANNOTATION_KEYS.SOURCE] = input.traceRefs[0].path;
-  }
-
-  const metadataName = isEntityRef(input.id)
-    ? parseEntityRef(input.id).name
-    : legacyIdToEntityName(input.id);
 
   return {
-    apiVersion:
-      mapping.apiVersion === BACKSTAGE_API_VERSION
-        ? BACKSTAGE_API_VERSION
-        : ANCHORED_SPEC_API_VERSION,
-    kind: mapping.backstageKind,
+    apiVersion,
+    kind: input.kind,
     metadata: {
-      name: metadataName,
-      title: input.title ?? input.id,
-      description: input.summary ?? "A well-described test entity.",
+      namespace: parsedRef.namespace,
+      name: input.name ?? parsedRef.name,
+      title: input.title ?? input.name ?? parsedRef.name,
+      description:
+        input.description ??
+        input.summary ??
+        "A well-described artifact for testing purposes.",
       tags: input.tags ?? [],
-      annotations,
+      ...(Object.keys(annotations).length > 0 ? { annotations } : {}),
+      ...(input.labels ? { labels: input.labels } : {}),
+      ...(input.links ? { links: input.links } : {}),
     },
     spec,
   };
 }
 
-function normalizeTargetRef(target: string): string {
-  if (isEntityRef(target)) {
-    const parsed = parseEntityRef(target);
-    return formatEntityRef(parsed.kind, parsed.namespace, parsed.name);
-  }
-
-  const localId = target.includes("/") ? target.split("/").pop() ?? target : target;
-  const dashIdx = localId.indexOf("-");
-  if (dashIdx < 1) return target;
-
-  const prefix = localId.slice(0, dashIdx);
-  const slug = localId.slice(dashIdx + 1);
-  const mapping = mapLegacyPrefix(prefix);
-  if (!mapping) return target;
-
-  return formatEntityRef(mapping.backstageKind, "default", legacyIdToEntityName(`${prefix}-${slug}`));
+function inferApiVersion(kind: string): string {
+  return BACKSTAGE_KINDS.has(kind)
+    ? BACKSTAGE_API_VERSION
+    : ANCHORED_SPEC_API_VERSION;
 }
 
-function isEntityRef(value: string): boolean {
-  if (!value.includes(":")) return false;
-  try {
-    parseEntityRef(value);
-    return true;
-  } catch {
-    return false;
+function collectSpecFields(input: EntityFixtureInput): Record<string, unknown> {
+  const specFields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!FIXTURE_KEYS.has(key) && value !== undefined) {
+      specFields[key] = normalizeSpecValue(value);
+    }
   }
+  return specFields;
 }
 
-function statusToLifecycle(status: ArtifactStatus): string {
+function normalizeSpecValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (!looksLikeEntityRef(value)) {
+      return value;
+    }
+
+    try {
+      return normalizeEntityRef(value, { defaultNamespace: "default" });
+    } catch {
+      return value;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeSpecValue(item));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, normalizeSpecValue(nested)]),
+    );
+  }
+
+  return value;
+}
+
+function statusToLifecycle(status: string): string {
   switch (status) {
     case "draft":
       return "experimental";
@@ -178,19 +182,4 @@ function statusToLifecycle(status: ArtifactStatus): string {
     default:
       return "production";
   }
-}
-
-function normalizeSpecValue(value: unknown): unknown {
-  if (typeof value === "string") {
-    return normalizeTargetRef(value);
-  }
-  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
-    return value.map((item) => normalizeTargetRef(item));
-  }
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [key, normalizeSpecValue(nested)]),
-    );
-  }
-  return value;
 }

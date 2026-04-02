@@ -10,13 +10,15 @@
 
 import type { BackstageEntity } from "./backstage/types.js";
 import type { EntityStatus } from "./backstage/accessors.js";
+import { RELATION_OWNED_BY } from "@backstage/catalog-model";
 import {
-  getEntityKindMapping,
+  getEntityDescriptor,
+  getEntityKind,
   getEntityId,
   getEntityTitle,
   getEntityStatus,
   getEntityConfidence,
-  getEntityLegacyKind,
+  getEntitySchema,
   getEntitySpecRelations,
 } from "./backstage/accessors.js";
 import type { EaDomain } from "./types.js";
@@ -27,6 +29,7 @@ import type { RelationRegistry } from "./relation-registry.js";
 export interface GraphNode {
   id: string;
   kind: string;
+  schema: string;
   domain: EaDomain | "unknown";
   status: EntityStatus;
   title: string;
@@ -224,7 +227,7 @@ export class RelationGraph {
     // Node declarations
     for (const node of this.nodeMap.values()) {
       const safeId = sanitizeMermaidId(node.id);
-      lines.push(`  ${safeId}["${node.title}<br/>(${node.kind})"]`);
+      lines.push(`  ${safeId}["${node.title}<br/>(${node.kind}/${node.schema})"]`);
     }
 
     lines.push("");
@@ -253,7 +256,7 @@ export class RelationGraph {
     // Node declarations
     for (const node of this.nodeMap.values()) {
       const safeId = sanitizeDotId(node.id);
-      lines.push(`  ${safeId} [label="${node.title}\\n(${node.kind})"];`);
+      lines.push(`  ${safeId} [label="${node.title}\\n(${node.kind}/${node.schema})"];`);
     }
 
     // Edge declarations
@@ -310,12 +313,13 @@ export function buildRelationGraph(
   // 1. Create nodes — use entity ref as node ID
   for (const entity of entities) {
     const nodeId = getEntityId(entity);
-    const legacyKind = getEntityLegacyKind(entity);
+    const schema = getEntitySchema(entity);
     entityMap.set(nodeId, entity);
     graph.addNode({
       id: nodeId,
-      kind: legacyKind,
-      domain: getEntityKindMapping(entity)?.domain ?? "unknown",
+      kind: getEntityKind(entity),
+      schema,
+      domain: getEntityDescriptor(entity)?.domain ?? "unknown",
       status: getEntityStatus(entity),
       title: getEntityTitle(entity),
       confidence: getEntityConfidence(entity),
@@ -323,7 +327,7 @@ export function buildRelationGraph(
   }
 
   // Extract relations from all entities (exclude ownership — it's metadata, not a dependency)
-  const EXCLUDED_RELATION_TYPES = new Set(["ownedBy"]);
+  const EXCLUDED_RELATION_TYPES = new Set([RELATION_OWNED_BY]);
   const entityRelations = new Map<string, Array<{ legacyType: string; targets: string[] }>>();
   for (const entity of entities) {
     const rels = getEntitySpecRelations(entity)

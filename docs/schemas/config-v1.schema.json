@@ -200,7 +200,7 @@
           "default": "breaking-allowed",
           "description": "Default compatibility mode for all artifacts."
         },
-        "perKind": {
+        "perSchema": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
@@ -217,7 +217,7 @@
             },
             "additionalProperties": false
           },
-          "description": "Per-kind compatibility policy overrides."
+          "description": "Per-schema compatibility policy overrides."
         },
         "perDomain": {
           "type": "object",

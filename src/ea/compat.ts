@@ -35,6 +35,7 @@ export interface CompatibilityReason {
 export interface CompatibilityAssessment {
   artifactId: string;
   kind: string;
+  schema: string;
   domain: string;
   level: CompatibilityLevel;
   reasons: CompatibilityReason[];
@@ -349,6 +350,7 @@ export function assessCompatibility(
     assessments.push({
       artifactId: diff.artifactId,
       kind: diff.kind,
+      schema: diff.schema,
       domain: diff.domain,
       level,
       reasons,
@@ -418,11 +420,11 @@ export function renderCompatMarkdown(report: CompatibilityReport): string {
 
     lines.push(`### ${section.icon} ${section.title} (${items.length})`);
     lines.push("");
-    lines.push("| Artifact | Kind | Rule | Reason |");
-    lines.push("|----------|------|------|--------|");
+    lines.push("| Artifact | Kind | Schema | Rule | Reason |");
+    lines.push("|----------|------|--------|------|--------|");
     for (const item of items) {
       for (const reason of item.reasons.filter((r) => r.level === section.level)) {
-        lines.push(`| ${item.artifactId} | ${item.kind} | ${reason.rule} | ${reason.message} |`);
+        lines.push(`| ${item.artifactId} | ${item.kind} | ${item.schema} | ${reason.rule} | ${reason.message} |`);
       }
     }
     lines.push("");

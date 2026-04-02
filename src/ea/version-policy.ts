@@ -1,7 +1,7 @@
 /**
  * EA Version Policy Enforcement
  *
- * Declares compatibility policies per-artifact, per-kind, or globally,
+ * Declares compatibility policies per-artifact, per-schema, or globally,
  * then enforces them against compatibility assessments from the compat module.
  *
  * Design reference: plan.md §S4
@@ -11,8 +11,8 @@ import type { CompatibilityReport, CompatibilityLevel, CompatibilityReason } fro
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityId,
-  getEntityKindMapping,
-  getEntityLegacyKind,
+  getEntityDescriptor,
+  getEntitySchema,
   getSpec,
 } from "./backstage/accessors.js";
 
@@ -31,7 +31,7 @@ export interface VersionPolicy {
 /** Global version policy config (from .anchored-spec/config.json). */
 export interface VersionPolicyConfig {
   defaultCompatibility?: CompatibilityMode;
-  perKind?: Record<string, Partial<VersionPolicy>>;
+  perSchema?: Record<string, Partial<VersionPolicy>>;
   perDomain?: Record<string, Partial<VersionPolicy>>;
 }
 
@@ -39,6 +39,7 @@ export interface VersionPolicyConfig {
 export interface PolicyViolation {
   artifactId: string;
   kind: string;
+  schema: string;
   domain: string;
   policy: VersionPolicy;
   compatLevel: CompatibilityLevel;
@@ -71,7 +72,7 @@ const DEFAULT_POLICY: VersionPolicy = {
 
 /**
  * Resolve the effective version policy for an artifact.
- * Priority: artifact-level > kind-level > domain-level > global default > breaking-allowed
+ * Priority: artifact-level > schema-level > domain-level > global default > breaking-allowed
  */
 export function resolveVersionPolicy(
   entity: BackstageEntity,
@@ -88,18 +89,18 @@ export function resolveVersionPolicy(
 
   if (!config) return DEFAULT_POLICY;
 
-  // 2. Kind-level
-  const kindPolicy = config.perKind?.[getEntityLegacyKind(entity)];
-  if (kindPolicy?.compatibility) {
+  // 2. Schema-level
+  const schemaPolicy = config.perSchema?.[getEntitySchema(entity)];
+  if (schemaPolicy?.compatibility) {
     return {
       ...DEFAULT_POLICY,
-      ...kindPolicy,
-      compatibility: kindPolicy.compatibility,
+      ...schemaPolicy,
+      compatibility: schemaPolicy.compatibility,
     };
   }
 
   // 3. Domain-level
-  const domain = getEntityKindMapping(entity)?.domain ?? "unknown";
+  const domain = getEntityDescriptor(entity)?.domain ?? "unknown";
   const domainPolicy = config.perDomain?.[domain];
   if (domainPolicy?.compatibility) {
     return {
@@ -179,6 +180,7 @@ export function enforceVersionPolicies(
       violations.push({
         artifactId: assessment.artifactId,
         kind: assessment.kind,
+        schema: assessment.schema,
         domain: assessment.domain,
         policy,
         compatLevel: assessment.level,
@@ -253,14 +255,14 @@ export function renderPolicyMarkdown(report: PolicyEnforcementReport): string {
   if (report.violations.length > 0) {
     lines.push("## Violations");
     lines.push("");
-    lines.push("| Artifact | Kind | Domain | Compat Level | Policy | Reason |");
-    lines.push("|----------|------|--------|--------------|--------|--------|");
+    lines.push("| Artifact | Kind | Schema | Domain | Compat Level | Policy | Reason |");
+    lines.push("|----------|------|--------|--------|--------------|--------|--------|");
     for (const v of report.violations) {
       const reason = v.reasons.length > 0
         ? v.reasons.map((r) => r.message).join("; ")
         : v.message;
       lines.push(
-        `| ${v.artifactId} | ${v.kind} | ${v.domain} | ${v.compatLevel} | ${v.policy.compatibility} | ${reason} |`,
+        `| ${v.artifactId} | ${v.kind} | ${v.schema} | ${v.domain} | ${v.compatLevel} | ${v.policy.compatibility} | ${reason} |`,
       );
     }
     lines.push("");
