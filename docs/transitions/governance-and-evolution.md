@@ -9,10 +9,10 @@ domain:
   - transitions
   - delivery
 ea-entities:
-  - component:governance-and-workflow
-  - capability:governed-evolution
-  - decision:repository-local-workflow
-  - decision:dual-storage-modes
+  - component:default/governance-and-workflow
+  - capability:default/governed-evolution
+  - decision:default/repository-local-workflow
+  - decision:default/dual-storage-modes
 ---
 
 # Governance and Evolution

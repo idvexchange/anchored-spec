@@ -9,10 +9,10 @@ domain:
   - delivery
   - information
 ea-entities:
-  - component:reporting-and-analysis
-  - capability:ai-context-assembly
-  - capability:traceability
-  - capability:governed-evolution
+  - component:default/reporting-and-analysis
+  - capability:default/ai-context-assembly
+  - capability:default/traceability
+  - capability:default/governed-evolution
 ---
 
 # Reporting and Analysis

@@ -8,9 +8,9 @@ audience:
 domain:
   - information
 ea-entities:
-  - capability:manifest-authoring
-  - capability:traceability
-  - capability:governed-evolution
+  - capability:default/manifest-authoring
+  - capability:default/traceability
+  - capability:default/governed-evolution
 ---
 
 # Glossary

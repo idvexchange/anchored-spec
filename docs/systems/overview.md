@@ -9,17 +9,17 @@ domain:
   - systems
   - delivery
 ea-entities:
-  - domain:anchored-spec
-  - system:anchored-spec-framework
-  - component:cli-surface
-  - component:entity-loading-and-modeling
-  - component:backstage-entity-mapping
-  - component:docs-and-traceability
-  - component:discovery-and-resolvers
-  - component:drift-and-reconcile
-  - component:generator-pipeline
-  - component:governance-and-workflow
-  - component:reporting-and-analysis
+  - domain:default/anchored-spec
+  - system:default/anchored-spec-framework
+  - component:default/cli-surface
+  - component:default/entity-loading-and-modeling
+  - component:default/backstage-entity-mapping
+  - component:default/docs-and-traceability
+  - component:default/discovery-and-resolvers
+  - component:default/drift-and-reconcile
+  - component:default/generator-pipeline
+  - component:default/governance-and-workflow
+  - component:default/reporting-and-analysis
 ---
 
 # Architecture Overview
@@ -67,7 +67,7 @@ Manifest mode is the normative layout for this repo:
 ├── src/
 │   ├── cli/
 │   └── ea/
-└── ea/generated/
+└── docs/generated/
 ```
 
 `catalog-info.yaml` is the machine-readable architecture source. The markdown documents explain how that model works, why decisions were made, and how maintainers should evolve it. Each document lives in one authoritative domain folder, while frontmatter records any secondary domains it also belongs to.

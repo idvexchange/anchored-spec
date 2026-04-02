@@ -7,9 +7,10 @@ audience:
 domain:
   - delivery
 ea-entities:
-  - system:anchored-spec-framework
-  - api:cli-command-surface
-  - api:node-library-api
+  - group:default/platform-maintainers
+  - system:default/anchored-spec-framework
+  - api:default/cli-command-surface
+  - api:default/node-library-api
 ---
 
 # Contributing
