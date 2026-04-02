@@ -538,7 +538,7 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
   // Build reverse indexes
   const realizesMap = new Map<string, string[]>();
   const supportsMap = new Map<string, string[]>();
-  const ownsReverseMap = new Map<string, string>(); // target → org-unit
+  const ownsReverseMap = new Map<string, string>(); // artifact → owner
   const governedByMap = new Map<string, string[]>();
 
   for (const a of entities) {
@@ -552,9 +552,6 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
         const list = supportsMap.get(getEntityId(a)) ?? [];
         list.push(rel.target);
         supportsMap.set(getEntityId(a), list);
-      }
-      if (rel.type === "owns") {
-        ownsReverseMap.set(rel.target, getEntityId(a));
       }
       if (rel.type === "ownedBy") {
         ownsReverseMap.set(getEntityId(a), rel.target);

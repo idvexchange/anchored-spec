@@ -72,11 +72,13 @@ describe("well-known Backstage relations", () => {
     expect(entry!.specField).toBe("dependsOn");
   });
 
-  it("owns maps to ownerOf", () => {
-    const entry = mapLegacyRelation("owns");
+  it("ownedBy maps to Backstage ownership relations", () => {
+    const entry = mapLegacyRelation("ownedBy");
     expect(entry).toBeDefined();
-    expect(entry!.backstageType).toBe("ownerOf");
-    expect(entry!.backstageInverse).toBe("ownedBy");
+    expect(entry!.legacyType).toBe("ownedBy");
+    expect(entry!.legacyInverse).toBe("ownerOf");
+    expect(entry!.backstageType).toBe("ownedBy");
+    expect(entry!.backstageInverse).toBe("ownerOf");
     expect(entry!.isWellKnown).toBe(true);
     expect(entry!.specField).toBe("owner");
   });

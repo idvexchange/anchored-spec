@@ -32,7 +32,7 @@ export function eaLinkCommand(): Command {
     .description("Create a relation between two EA artifacts")
     .argument("<from>", "Source entity ref")
     .argument("<to>", "Target entity ref")
-    .option("--type <type>", "Relation type (e.g., uses, owns, implements)", "uses")
+    .option("--type <type>", "Relation type (e.g., uses, ownedBy, implements)", "uses")
     .option("--description <desc>", "Optional description of the relationship")
     .option("--root-dir <path>", "EA root directory", "docs")
     .option("--dry-run", "Show what would change without writing")

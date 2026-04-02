@@ -8,7 +8,7 @@
  *  - Schema validation for all 8 kinds
  *  - 7 quality rules for business-layer artifacts
  *  - realizes relation extension (business-service → capability/mission)
- *  - 4 new relations (supports, performedBy, governedBy, owns)
+ *  - 4 new relations (supports, performedBy, governedBy, ownedBy)
  *  - 10 business drift rules including retired-system-dependency
  */
 
@@ -541,38 +541,38 @@ describe("Phase 2D: New Relations", () => {
     });
   });
 
-  describe("owns", () => {
-    it("is registered with org-unit source and wildcard target", () => {
-      const entry = registry.get("owns");
+  describe("ownedBy", () => {
+    it("is registered with wildcard source and org-unit/user target", () => {
+      const entry = registry.get("ownedBy");
       expect(entry).toBeDefined();
-      expect(entry!.validSourceKinds).toEqual(["org-unit"]);
-      expect(entry!.validTargetKinds).toBe("*");
+      expect(entry!.validSourceKinds).toBe("*");
+      expect(entry!.validTargetKinds).toEqual(["org-unit", "user"]);
     });
 
-    it("validates org-unit → application via owns", () => {
+    it("validates application → org-unit via ownedBy", () => {
       const artifacts = [
         makeEntity({
-          id: "ORG-eng",
-          kind: "org-unit",
-          relations: [{ type: "owns", target: "APP-orders" }],
+          id: "APP-orders",
+          kind: "application",
+          relations: [{ type: "ownedBy", target: "ORG-eng" }],
         }),
-        makeEntity({ id: "APP-orders", kind: "application" }),
+        makeEntity({ id: "ORG-eng", kind: "org-unit" }),
       ];
       const result = validateEaRelations(artifacts, registry);
       expect(result.errors).toHaveLength(0);
     });
 
-    it("rejects non-org-unit as source for owns", () => {
+    it("rejects non-owner target for ownedBy", () => {
       const artifacts = [
         makeEntity({
           id: "APP-orders",
           kind: "application",
-          relations: [{ type: "owns", target: "APP-billing" }],
+          relations: [{ type: "ownedBy", target: "APP-billing" }],
         }),
         makeEntity({ id: "APP-billing", kind: "application" }),
       ];
       const result = validateEaRelations(artifacts, registry);
-      expect(result.errors.find((e) => e.rule === "ea:relation:invalid-source")).toBeDefined();
+      expect(result.errors.find((e) => e.rule === "ea:relation:invalid-target")).toBeDefined();
     });
   });
 });
@@ -868,14 +868,15 @@ describe("Phase 2D: Capability Map Report", () => {
     expect(report.unmappedCapabilities[0].controls).toEqual(["control:latency"]);
   });
 
-  it("enriches capabilities with owning org via owns", () => {
+  it("enriches capabilities with owning org via ownedBy", () => {
     const artifacts = [
-      makeEntity({ id: "CAP-orders", kind: "capability", level: 1 } as any),
       makeEntity({
-        id: "ORG-eng",
-        kind: "org-unit",
-        relations: [{ type: "owns", target: "CAP-orders" }],
-      }),
+        id: "CAP-orders",
+        kind: "capability",
+        level: 1,
+        relations: [{ type: "ownedBy", target: "ORG-eng" }],
+      } as any),
+      makeEntity({ id: "ORG-eng", kind: "org-unit" }),
     ];
     const report = buildCapabilityMap(artifacts);
     expect(report.unmappedCapabilities[0].owningOrg).toBe("group:eng");
