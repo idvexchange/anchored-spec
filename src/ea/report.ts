@@ -556,6 +556,9 @@ export function buildCapabilityMap(entities: BackstageEntity[]): CapabilityMapRe
       if (rel.type === "owns") {
         ownsReverseMap.set(rel.target, getEntityId(a));
       }
+      if (rel.type === "ownedBy") {
+        ownsReverseMap.set(getEntityId(a), rel.target);
+      }
       if (rel.type === "governedBy") {
         const list = governedByMap.get(getEntityId(a)) ?? [];
         list.push(rel.target);

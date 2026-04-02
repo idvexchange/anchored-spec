@@ -183,7 +183,10 @@ describe("mapSpecField", () => {
   it("maps owner field", () => {
     const entry = mapSpecField("owner");
     expect(entry).toBeDefined();
-    expect(entry!.legacyType).toBe("owns");
+    expect(entry!.legacyType).toBe("ownedBy");
+    expect(entry!.legacyInverse).toBe("ownerOf");
+    expect(entry!.backstageType).toBe("ownedBy");
+    expect(entry!.backstageInverse).toBe("ownerOf");
   });
 
   it("returns undefined for non-relation field", () => {
@@ -197,12 +200,13 @@ describe("isWellKnownRelation", () => {
     expect(isWellKnownRelation("dependsOn")).toBe(true);
     expect(isWellKnownRelation("providesApi")).toBe(true);
     expect(isWellKnownRelation("consumesApi")).toBe(true);
-    expect(isWellKnownRelation("ownerOf")).toBe(true);
+    expect(isWellKnownRelation("ownedBy")).toBe(true);
   });
 
   it("returns true for well-known inverse types", () => {
     expect(isWellKnownRelation("dependencyOf")).toBe(true);
     expect(isWellKnownRelation("apiProvidedBy")).toBe(true);
+    expect(isWellKnownRelation("ownerOf")).toBe(true);
   });
 
   it("returns false for custom types", () => {
@@ -269,9 +273,10 @@ describe("extractRelationsFromSpec", () => {
     };
 
     const relations = extractRelationsFromSpec(spec);
-    const ownerRelation = relations.find((r) => r.backstageType === "ownerOf");
+    const ownerRelation = relations.find((r) => r.backstageType === "ownedBy");
     expect(ownerRelation).toBeDefined();
     expect(ownerRelation!.targets).toEqual(["group:default/platform-team"]);
+    expect(ownerRelation!.legacyType).toBe("ownedBy");
   });
 
   it("extracts multiple relation types", () => {

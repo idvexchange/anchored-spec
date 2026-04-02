@@ -19,6 +19,7 @@ import {
   getEntityOwners,
   getEntitySpecRelations,
 } from "./backstage/accessors.js";
+import { formatEntityRef, parseEntityRef } from "./backstage/types.js";
 import type { EaQualityConfig } from "./config.js";
 import type { RelationRegistry } from "./relation-registry.js";
 
@@ -353,8 +354,15 @@ export function validateEaArtifacts(
   // Build relation target set for orphan check
   const allTargets = new Set<string>();
   for (const a of entities) {
-    for (const { targets } of getEntitySpecRelations(a)) {
-      for (const t of targets) { allTargets.add(t); }
+    for (const { legacyType, targets } of getEntitySpecRelations(a)) {
+      for (const t of targets) {
+        allTargets.add(t);
+        if (legacyType === "ownedBy") {
+          for (const candidate of resolveOwnerRefCandidates(t)) {
+            allTargets.add(candidate);
+          }
+        }
+      }
     }
     for (const rel of a.relations ?? []) { allTargets.add(rel.targetRef); }
   }
@@ -368,7 +376,8 @@ export function validateEaArtifacts(
     if (q?.requireOwners !== false) {
       const ownerSev = ruleSeverity("ea:quality:active-needs-owner", "error", q);
       const owners = getEntityOwners(a);
-      if (isActive && (owners.length === 0 || (owners.length === 1 && owners[0] === "unassigned"))) {
+      const isOwnershipPrincipal = kind === "org-unit" || kind === "user";
+      if (!isOwnershipPrincipal && isActive && (owners.length === 0 || (owners.length === 1 && owners[0] === "unassigned"))) {
         push(ownerSev, "ea:quality:active-needs-owner", entityId, `Active artifact "${entityId}" must have at least one owner`);
       }
     }
@@ -556,18 +565,34 @@ export function validateEaArtifacts(
  * Extract a flat list of relations from a BackstageEntity.
  * Combines spec-field relations (mapped to legacy types) and computed relations.
  */
-function extractFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string }> {
-  const result: Array<{ type: string; target: string }> = [];
+function extractFlatRelations(entity: BackstageEntity): Array<{ type: string; target: string; isBackstageOwner?: boolean }> {
+  const result: Array<{ type: string; target: string; isBackstageOwner?: boolean }> = [];
   for (const { legacyType, targets } of getEntitySpecRelations(entity)) {
     for (const target of targets) {
-      if (legacyType === "owns" && !target.includes(":") && !target.includes("/")) continue;
-      result.push({ type: legacyType, target });
+      result.push({
+        type: legacyType,
+        target,
+        ...(legacyType === "ownedBy" && { isBackstageOwner: true }),
+      });
     }
   }
   for (const rel of entity.relations ?? []) {
     result.push({ type: rel.type, target: rel.targetRef });
   }
   return result;
+}
+
+function resolveOwnerRefCandidates(ownerRef: string): string[] {
+  const parsed = parseEntityRef(ownerRef);
+
+  if (parsed.kind) {
+    return [formatEntityRef(parsed.kind, parsed.namespace ?? "default", parsed.name)];
+  }
+
+  return [
+    formatEntityRef("group", parsed.namespace ?? "default", parsed.name),
+    formatEntityRef("user", parsed.namespace ?? "default", parsed.name),
+  ];
 }
 
 /**
@@ -608,9 +633,37 @@ export function validateEaRelations(
         continue;
       }
 
-      const target = entityById.get(rel.target);
+      let target = entityById.get(rel.target);
+      if (!target && rel.isBackstageOwner) {
+        for (const candidate of resolveOwnerRefCandidates(rel.target)) {
+          target = entityById.get(candidate);
+          if (target) break;
+        }
+      }
+
       if (!target) {
         push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Artifact "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
+        continue;
+      }
+
+      if (rel.isBackstageOwner) {
+        const targetKind = getEntityLegacyKind(target);
+        if (targetKind !== "org-unit" && targetKind !== "user") {
+          push(ruleSeverity("ea:relation:invalid-target", "error", q), "ea:relation:invalid-target", aId, `Kind "${targetKind}" is not a valid target for relation type "${rel.type}" (target: "${getEntityId(target)}")`);
+        }
+
+        const targetStatus = getEntityStatus(target);
+        if (targetStatus === "retired") {
+          const sev = q?.strictMode ? "error" : "warning";
+          push(ruleSeverity("ea:relation:retired-target", sev as RuleSeverity, q), "ea:relation:retired-target", aId, `Artifact "${aId}" references retired artifact "${getEntityId(target)}" via "${rel.type}"`);
+        } else if (targetStatus === "draft" && (aStatus === "active" || aStatus === "shipped")) {
+          push(ruleSeverity("ea:relation:draft-target", "warning", q), "ea:relation:draft-target", aId, `Active artifact "${aId}" references draft artifact "${getEntityId(target)}" via "${rel.type}"`);
+        }
+
+        if (seen.has(relKey)) {
+          push(ruleSeverity("ea:relation:duplicate", "warning", q), "ea:relation:duplicate", aId, `Artifact "${aId}" has duplicate relation "${rel.type}" → "${rel.target}"`);
+        }
+        seen.add(relKey);
         continue;
       }
 
