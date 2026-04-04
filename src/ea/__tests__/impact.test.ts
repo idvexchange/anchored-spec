@@ -6,7 +6,7 @@ import { createDefaultRegistry } from "../relation-registry.js";
 import {
   cleanupTestWorkspace,
   createTestWorkspace,
-  makeArtifact,
+  makeEntity,
   runCli,
   writeManifestProject,
 } from "../../test-helpers/workspace.js";
@@ -27,15 +27,15 @@ afterEach(() => {
 
 function makeGraphArtifacts() {
   return [
-    makeArtifact({ ref: "component:auth", kind: "Component", type: "service", title: "Auth Service" }),
-    makeArtifact({
+    makeEntity({ ref: "component:auth", kind: "Component", type: "service", title: "Auth Service" }),
+    makeEntity({
       ref: "component:payments",
       kind: "Component",
       type: "website",
       title: "Payments App",
       uses: ["component:auth"],
     }),
-    makeArtifact({
+    makeEntity({
       ref: "component:portal",
       kind: "Component",
       type: "website",
@@ -47,30 +47,30 @@ function makeGraphArtifacts() {
 
 function makeExtendedGraph() {
   return [
-    makeArtifact({ ref: "service:auth", kind: "service", title: "Auth Service" }),
-    makeArtifact({
+    makeEntity({ ref: "service:auth", kind: "service", title: "Auth Service" }),
+    makeEntity({
       ref: "application:payments",
       kind: "application",
       title: "Payments App",
-      relations: [{ type: "uses", target: "service:auth" }],
+      uses: ["service:auth"],
     }),
-    makeArtifact({
+    makeEntity({
       ref: "application:portal",
       kind: "application",
       title: "Portal App",
-      relations: [{ type: "uses", target: "application:payments" }],
+      uses: ["application:payments"],
     }),
-    makeArtifact({
+    makeEntity({
       ref: "api-contract:payments",
       kind: "api-contract",
       title: "Payments API",
-      relations: [{ type: "dependsOn", target: "service:auth" }],
+      dependsOn: ["service:auth"],
     }),
-    makeArtifact({
+    makeEntity({
       ref: "requirement:security",
       kind: "requirement",
       title: "Security Requirement",
-      relations: [{ type: "governedBy", target: "service:auth" }],
+      governedBy: ["service:auth"],
     }),
   ];
 }

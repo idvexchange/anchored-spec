@@ -128,7 +128,7 @@ function buildGraph(artifacts: ReturnType<typeof makeArtifact>[]) {
 describe("extractConstraints", () => {
   it("extracts Decision and Requirement entities from graph", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], {
+    const results = extractConstraints(graph, ["component:default/auth"], {
       entities,
     });
 
@@ -139,38 +139,38 @@ describe("extractConstraints", () => {
     expect(kinds).toContain("Requirement");
 
     const refs = results.map((r) => r.ref);
-    expect(refs).toContain("decision:auth-policy");
-    expect(refs).toContain("requirement:security");
+    expect(refs).toContain("decision:default/auth-policy");
+    expect(refs).toContain("requirement:default/security");
   });
 
   it("deduplicates constraints from multiple subjects keeping shortest path", () => {
     const { graph, entities } = buildGraph(makeMultiSubjectGraph());
     const results = extractConstraints(
       graph,
-      ["component:auth", "component:billing"],
+      ["component:default/auth", "component:default/billing"],
       { entities },
     );
 
     // shared-policy is reachable from both subjects — should appear once
-    const sharedResults = results.filter((r) => r.ref === "decision:shared-policy");
+    const sharedResults = results.filter((r) => r.ref === "decision:default/shared-policy");
     expect(sharedResults.length).toBe(1);
 
     // auth-only is reachable only from auth
-    const authOnly = results.filter((r) => r.ref === "requirement:auth-only");
+    const authOnly = results.filter((r) => r.ref === "requirement:default/auth-only");
     expect(authOnly.length).toBe(1);
-    expect(authOnly[0].sourceEntityRef).toBe("component:auth");
+    expect(authOnly[0].sourceEntityRef).toBe("component:default/auth");
   });
 
   it("respects maxDepth limit", () => {
     const { graph, entities } = buildGraph(makeDeepGraph());
 
     // Depth 1: only directly connected constraints
-    const shallow = extractConstraints(graph, ["component:gateway"], {
+    const shallow = extractConstraints(graph, ["component:default/gateway"], {
       maxDepth: 1,
       entities,
     });
     // At depth 1 from gateway, we can reach auth (via uses inverse), but not the decision
-    const deep = extractConstraints(graph, ["component:gateway"], {
+    const deep = extractConstraints(graph, ["component:default/gateway"], {
       maxDepth: 3,
       entities,
     });
@@ -180,7 +180,7 @@ describe("extractConstraints", () => {
 
   it("returns empty when no constraints reachable", () => {
     const { graph, entities } = buildGraph(makeNoConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], {
+    const results = extractConstraints(graph, ["component:default/auth"], {
       entities,
     });
 
@@ -189,7 +189,7 @@ describe("extractConstraints", () => {
 
   it("includes accurate path evidence", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], {
+    const results = extractConstraints(graph, ["component:default/auth"], {
       entities,
     });
 
@@ -209,11 +209,11 @@ describe("extractConstraints", () => {
   it("filters with contract profile (narrower edge types)", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
 
-    const strictResults = extractConstraints(graph, ["component:auth"], {
+    const strictResults = extractConstraints(graph, ["component:default/auth"], {
       profile: "strict",
       entities,
     });
-    const contractResults = extractConstraints(graph, ["component:auth"], {
+    const contractResults = extractConstraints(graph, ["component:default/auth"], {
       profile: "contract",
       entities,
     });
@@ -222,16 +222,11 @@ describe("extractConstraints", () => {
     expect(contractResults.length).toBeLessThanOrEqual(strictResults.length);
   });
 
-  it("works without entities (uses graph node info only)", () => {
+  it("requires entity metadata for constraint kind detection", () => {
     const { graph } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"]);
+    const results = extractConstraints(graph, ["component:default/auth"]);
 
-    // Should still find constraints using legacy kind detection
-    expect(results.length).toBe(2);
-    // Without entities, description is empty
-    for (const r of results) {
-      expect(r.description).toBe("");
-    }
+    expect(results).toEqual([]);
   });
 
   it("populates relatedDocs from entity traceRefs", () => {
@@ -248,20 +243,20 @@ describe("extractConstraints", () => {
     const entities = artifacts.map((a) => toBackstageEntity(a));
     const graph = buildRelationGraph(entities, createDefaultRegistry());
 
-    const results = extractConstraints(graph, ["component:auth"], { entities });
-    const decision = results.find((r) => r.ref === "decision:auth-policy");
+    const results = extractConstraints(graph, ["component:default/auth"], { entities });
+    const decision = results.find((r) => r.ref === "decision:default/auth-policy");
     expect(decision).toBeDefined();
     expect(decision!.relatedDocs).toContain("docs/adr/001-auth.md");
   });
 
   it("records sourceEntityRef for each constraint", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], {
+    const results = extractConstraints(graph, ["component:default/auth"], {
       entities,
     });
 
     for (const r of results) {
-      expect(r.sourceEntityRef).toBe("component:auth");
+      expect(r.sourceEntityRef).toBe("component:default/auth");
     }
   });
 });
@@ -271,23 +266,23 @@ describe("extractConstraints", () => {
 describe("renderConstraintsMarkdown", () => {
   it("renders heading and subject info", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], { entities });
-    const md = renderConstraintsMarkdown(results, ["component:auth"]);
+    const results = extractConstraints(graph, ["component:default/auth"], { entities });
+    const md = renderConstraintsMarkdown(results, ["component:default/auth"]);
 
     expect(md).toContain("# Governing Constraints");
-    expect(md).toContain("`component:auth`");
+    expect(md).toContain("`component:default/auth`");
     expect(md).toContain("Found: 2 constraints");
   });
 
   it("renders empty state", () => {
-    const md = renderConstraintsMarkdown([], ["component:auth"]);
+    const md = renderConstraintsMarkdown([], ["component:default/auth"]);
     expect(md).toContain("No governing constraints found.");
   });
 
   it("renders constraint details with path", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], { entities });
-    const md = renderConstraintsMarkdown(results, ["component:auth"]);
+    const results = extractConstraints(graph, ["component:default/auth"], { entities });
+    const md = renderConstraintsMarkdown(results, ["component:default/auth"]);
 
     expect(md).toContain("**Kind:**");
     expect(md).toContain("**Ref:**");
@@ -297,7 +292,7 @@ describe("renderConstraintsMarkdown", () => {
 
   it("renders JSON format as structured array", () => {
     const { graph, entities } = buildGraph(makeConstraintGraph());
-    const results = extractConstraints(graph, ["component:auth"], {
+    const results = extractConstraints(graph, ["component:default/auth"], {
       format: "json",
       entities,
     });
@@ -334,8 +329,8 @@ describe("constraints CLI", () => {
     expect(parsed.length).toBe(2);
 
     const refs = parsed.map((c) => c.ref);
-    expect(refs).toContain("decision:auth-policy");
-    expect(refs).toContain("requirement:security");
+    expect(refs).toContain("decision:default/auth-policy");
+    expect(refs).toContain("requirement:default/security");
   });
 
   it("outputs markdown by default", () => {

@@ -11,6 +11,7 @@ ea-entities:
   - capability:default/manifest-authoring
   - capability:default/traceability
   - capability:default/governed-evolution
+  - capability:default/ai-context-assembly
   - api:default/anchored-spec-cli-api
   - component:default/anchored-spec-cli
 ---
@@ -65,6 +66,7 @@ For human-authored docs, keep the frontmatter and the linked entity refs current
 ```bash
 npx anchored-spec validate
 npx anchored-spec trace --summary
+npx anchored-spec diagrams render backstage --focus component:default/orders-service --depth 1
 npx anchored-spec drift
 npx anchored-spec report --view traceability-index
 ```
@@ -73,5 +75,8 @@ When a change affects contracts or lifecycle, add:
 
 ```bash
 npx anchored-spec diff --base main --compat --policy
+npx anchored-spec impact --from-diff HEAD~1 --format markdown
+npx anchored-spec constraints --from-diff HEAD~1 --format markdown
+npx anchored-spec context component:default/orders-service --tier standard
 npx anchored-spec reconcile --include-trace --include-docs
 ```

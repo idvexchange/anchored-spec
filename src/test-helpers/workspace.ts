@@ -69,6 +69,102 @@ export function makeEntity(
   });
 }
 
+type LegacyRelationInput = { type: string; target: string };
+
+function normalizeFixtureKindAndType(kind: string): { kind: string; type?: string } {
+  switch (kind) {
+    case "service":
+    case "application":
+    case "consumer":
+    case "platform":
+      return { kind: "Component", type: kind };
+    case "decision":
+      return { kind: "Decision" };
+    case "requirement":
+      return { kind: "Requirement" };
+    case "api-contract":
+      return { kind: "API", type: kind };
+    case "data-store":
+      return { kind: "Resource", type: kind };
+    default:
+      return { kind };
+  }
+}
+
+function normalizeLegacyIdToRef(id: string, kindHint?: string): string {
+  if (id.includes(":")) return id;
+
+  const prefixMap: Record<string, string> = {
+    SVC: "component",
+    APP: "component",
+    ADR: "decision",
+    REQ: "requirement",
+    API: "api",
+    RES: "resource",
+    DOC: "requirement",
+  };
+
+  const match = id.match(/^([A-Z]+)-(.+)$/);
+  if (match) {
+    const prefix = match[1]!;
+    const slug = match[2]!;
+    return `${prefixMap[prefix] ?? (kindHint ? normalizeFixtureKindAndType(kindHint).kind.toLowerCase() : "component")}:${slug}`;
+  }
+
+  if (kindHint) {
+    const normalized = normalizeFixtureKindAndType(kindHint);
+    return `${normalized.kind.toLowerCase()}:${id}`;
+  }
+
+  return `component:${id}`;
+}
+
+function normalizeLegacyTarget(target: string): string {
+  return target.includes(":") ? target : normalizeLegacyIdToRef(target);
+}
+
+function relationListToSpecFields(relations: LegacyRelationInput[] | undefined): Record<string, unknown> {
+  if (!relations || relations.length === 0) return {};
+
+  const specFields = new Map<string, string[]>();
+  for (const relation of relations) {
+    const values = specFields.get(relation.type) ?? [];
+    values.push(normalizeLegacyTarget(relation.target));
+    specFields.set(relation.type, values);
+  }
+
+  return Object.fromEntries(specFields.entries());
+}
+
+export function makeArtifact(
+  overrides: (EntityFixtureInput & Record<string, unknown>) & {
+    id?: string;
+    relations?: LegacyRelationInput[];
+  },
+): BackstageEntity {
+  const { id, relations, ...rest } = overrides;
+  const normalizedKind = normalizeFixtureKindAndType(rest.kind);
+  const ref = rest.ref ?? (id ? normalizeLegacyIdToRef(id, rest.kind) : undefined);
+
+  if (!ref) {
+    throw new Error("makeArtifact requires either ref or id");
+  }
+
+  const relationFields = relationListToSpecFields(relations);
+
+  return makeEntity({
+    ...rest,
+    ref,
+    kind: normalizedKind.kind,
+    type: rest.type ?? normalizedKind.type,
+    ...relationFields,
+  });
+}
+
+export function toBackstageEntity(entity: BackstageEntity): BackstageEntity {
+  return entity;
+}
+
 export function writeTextFile(
   dir: string,
   relativePath: string,

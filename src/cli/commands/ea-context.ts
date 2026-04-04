@@ -270,7 +270,7 @@ function toEntityContextView(entity: BackstageEntity): EntityContextView {
     traceRefs: getEntityTraceRefs(entity),
     relations: getEntitySpecRelations(entity).flatMap((relation) =>
       relation.targets.map((target) => ({
-        type: relation.legacyType,
+        type: relation.type,
         target,
       })),
     ),

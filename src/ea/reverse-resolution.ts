@@ -3,7 +3,7 @@
  *
  * Maps file paths, symbols, and git diffs back to entity refs.
  * Four resolution strategies ordered by confidence:
- *   1. Doc frontmatter ea-artifacts → entity refs (high)
+ *   1. Doc frontmatter ea-entities → entity refs (high)
  *   2. Source @anchored-spec annotations → entity refs (high)
  *   3. Entity spec.anchors reverse matching → entity refs (medium)
  *   4. Heuristic path prefix / naming convention → entity refs (low)
@@ -116,11 +116,11 @@ export function buildReverseIndex(
   // Strategy 1: Doc frontmatter (high confidence)
   if (docs) {
     for (const doc of docs) {
-      for (const artifactId of doc.artifactIds) {
+      for (const entityRef of doc.entityRefs) {
         addFile(doc.relativePath, {
-          entityRef: artifactId,
+          entityRef,
           confidence: "high",
-          evidence: `doc frontmatter ea-artifacts includes "${artifactId}"`,
+          evidence: `doc frontmatter ea-entities includes "${entityRef}"`,
           strategy: "doc-frontmatter",
         });
       }
@@ -324,7 +324,7 @@ export function extractChangedFiles(
   }
 
   if (input.refRange) {
-    if (!/^[a-zA-Z0-9_.\-\/~^@{}]+(\.\.[a-zA-Z0-9_.\-\/~^@{}]+)?$/.test(input.refRange)) {
+    if (!/^[a-zA-Z0-9_.\-/~^@{}]+(\.\.[a-zA-Z0-9_.\-/~^@{}]+)?$/.test(input.refRange)) {
       throw new Error(`Invalid git ref range: ${input.refRange}`);
     }
     const output = execFileSync("git", ["diff", "--name-only", input.refRange], execOpts);

@@ -653,31 +653,31 @@ function traceLinksToExplainableItems(
   entityMap: Map<string, TraceEntityView>,
 ): ExplainableItem[] {
   return links.map((link) => {
-    const entity = entityMap.get(link.artifactId);
-    const bidir = link.artifactToDoc && link.docToArtifact;
-    const direction = link.artifactToDoc && link.docToArtifact
+    const entity = entityMap.get(link.entityRef);
+    const bidir = link.entityToDoc && link.docToEntity;
+    const direction = link.entityToDoc && link.docToEntity
       ? "bidirectional"
-      : link.artifactToDoc
+      : link.entityToDoc
         ? "entity→doc"
         : "doc→entity";
 
-    const source = link.artifactToDoc
+    const source = link.entityToDoc
       ? "traceRef in entity spec"
-      : "ea-artifacts frontmatter in doc";
+      : "ea-entities frontmatter in doc";
 
     const reason = bidir
-      ? `Bidirectional link between ${link.artifactId} and ${link.docPath}`
-      : `One-way ${direction} link from ${link.artifactToDoc ? link.artifactId : link.docPath} to ${link.artifactToDoc ? link.docPath : link.artifactId}`;
+      ? `Bidirectional link between ${link.entityRef} and ${link.docPath}`
+      : `One-way ${direction} link from ${link.entityToDoc ? link.entityRef : link.docPath} to ${link.entityToDoc ? link.docPath : link.entityRef}`;
 
     const evidence: string[] = [];
     evidence.push(`Direction: ${direction}`);
     evidence.push(`Link source: ${source}`);
     if (link.isUrl) evidence.push("Target is a URL (not a local file)");
-    if (!link.isUrl && link.artifactToDoc) evidence.push(`File exists: ${link.fileExists}`);
+    if (!link.isUrl && link.entityToDoc) evidence.push(`File exists: ${link.fileExists}`);
     if (bidir) evidence.push("Bidirectional: entity traceRef ↔ doc frontmatter");
 
     return {
-      ref: link.artifactId,
+      ref: link.entityRef,
       kind: entity?.kind ?? "unknown",
       title: link.docPath,
       reason,

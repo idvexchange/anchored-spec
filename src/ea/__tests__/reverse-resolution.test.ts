@@ -48,7 +48,7 @@ function makeEntity(
   };
 }
 
-function makeDoc(overrides: Partial<ScannedDoc> & Pick<ScannedDoc, "relativePath" | "artifactIds">): ScannedDoc {
+function makeDoc(overrides: Partial<ScannedDoc> & Pick<ScannedDoc, "relativePath" | "entityRefs">): ScannedDoc {
   return {
     path: `/project/${overrides.relativePath}`,
     frontmatter: {},
@@ -75,7 +75,7 @@ describe("buildReverseIndex", () => {
 
     expect(index.fileToEntities.get("src/orders/handler.ts")).toEqual([
       {
-        entityRef: "component:order-service",
+        entityRef: "component:default/order-service",
         confidence: "high",
         evidence: "traceRef[role=implementation]",
         strategy: "source-annotation",
@@ -83,7 +83,7 @@ describe("buildReverseIndex", () => {
     ]);
     expect(index.fileToEntities.get("docs/orders.md")).toEqual([
       {
-        entityRef: "component:order-service",
+        entityRef: "component:default/order-service",
         confidence: "high",
         evidence: "traceRef[role=specification]",
         strategy: "source-annotation",
@@ -94,16 +94,16 @@ describe("buildReverseIndex", () => {
   it("builds file index from doc frontmatter", () => {
     const doc = makeDoc({
       relativePath: "docs/api.md",
-      artifactIds: ["API:dossier-lifecycle"],
+      entityRefs: ["api:default/dossier-lifecycle"],
     });
 
     const index = buildReverseIndex([], [doc]);
 
     expect(index.fileToEntities.get("docs/api.md")).toEqual([
       {
-        entityRef: "API:dossier-lifecycle",
+        entityRef: "api:default/dossier-lifecycle",
         confidence: "high",
-        evidence: 'doc frontmatter ea-artifacts includes "API:dossier-lifecycle"',
+        evidence: 'doc frontmatter ea-entities includes "api:default/dossier-lifecycle"',
         strategy: "doc-frontmatter",
       },
     ]);
@@ -126,7 +126,7 @@ describe("buildReverseIndex", () => {
 
     expect(index.symbolToEntities.get("AuthController")).toEqual([
       {
-        entityRef: "component:auth-service",
+        entityRef: "component:default/auth-service",
         confidence: "medium",
         evidence: "anchor:symbols",
         strategy: "anchor-match",
@@ -134,7 +134,7 @@ describe("buildReverseIndex", () => {
     ]);
     expect(index.symbolToEntities.get("/api/v1/login")).toEqual([
       {
-        entityRef: "component:auth-service",
+        entityRef: "component:default/auth-service",
         confidence: "medium",
         evidence: "anchor:apis",
         strategy: "anchor-match",
@@ -142,7 +142,7 @@ describe("buildReverseIndex", () => {
     ]);
     expect(index.symbolToEntities.get("user.login")).toEqual([
       {
-        entityRef: "component:auth-service",
+        entityRef: "component:default/auth-service",
         confidence: "medium",
         evidence: "anchor:events",
         strategy: "anchor-match",
@@ -166,7 +166,7 @@ describe("buildReverseIndex", () => {
     // "schemas/billing.json" has "/" so it should be in fileToEntities
     expect(index.fileToEntities.get("schemas/billing.json")).toEqual([
       {
-        entityRef: "component:billing",
+        entityRef: "component:default/billing",
         confidence: "medium",
         evidence: "anchor:schemas",
         strategy: "anchor-match",
@@ -235,7 +235,7 @@ describe("buildReverseIndex", () => {
 
     expect(index.symbolToEntities.get("rds:us-east-1:prod-db")).toEqual([
       {
-        entityRef: "resource:db-cluster",
+        entityRef: "resource:default/db-cluster",
         confidence: "medium",
         evidence: "anchor:infra",
         strategy: "anchor-match",
@@ -284,7 +284,7 @@ describe("resolveFromFiles", () => {
 
   const doc = makeDoc({
     relativePath: "docs/api.md",
-    artifactIds: ["API:dossier-lifecycle"],
+    entityRefs: ["api:default/dossier-lifecycle"],
   });
 
   it("resolves file to entity via traceRef (high confidence)", () => {
@@ -297,7 +297,7 @@ describe("resolveFromFiles", () => {
     expect(results[0]).toMatchObject({
       inputKind: "file",
       inputValue: "src/orders/handler.ts",
-      resolvedEntityRef: "component:order-service",
+      resolvedEntityRef: "component:default/order-service",
       confidence: "high",
       strategy: "source-annotation",
     });
@@ -310,7 +310,7 @@ describe("resolveFromFiles", () => {
     expect(results[0]).toMatchObject({
       inputKind: "file",
       inputValue: "docs/api.md",
-      resolvedEntityRef: "API:dossier-lifecycle",
+      resolvedEntityRef: "api:default/dossier-lifecycle",
       confidence: "high",
       strategy: "doc-frontmatter",
     });
@@ -349,8 +349,8 @@ describe("resolveFromFiles", () => {
 
     expect(results.length).toBeGreaterThanOrEqual(2);
     const refs = results.map((r) => r.resolvedEntityRef);
-    expect(refs).toContain("component:order-service");
-    expect(refs).toContain("api:order-api");
+    expect(refs).toContain("component:default/order-service");
+    expect(refs).toContain("api:default/order-api");
   });
 
   it("sorts results by confidence (high first)", () => {
@@ -389,7 +389,7 @@ describe("resolveFromFiles", () => {
       inputKind: "file",
       confidence: "low",
       strategy: "heuristic",
-      resolvedEntityRef: "component:payments",
+      resolvedEntityRef: "component:default/payments",
     });
   });
 
@@ -424,7 +424,7 @@ describe("resolveFromSymbols", () => {
     expect(results[0]).toMatchObject({
       inputKind: "symbol",
       inputValue: "AuthController",
-      resolvedEntityRef: "component:auth-service",
+      resolvedEntityRef: "component:default/auth-service",
       confidence: "medium",
       strategy: "anchor-match",
       evidence: "anchor:symbols",
@@ -438,7 +438,7 @@ describe("resolveFromSymbols", () => {
     expect(results[0]).toMatchObject({
       inputKind: "symbol",
       inputValue: "/api/v1/login",
-      resolvedEntityRef: "component:auth-service",
+      resolvedEntityRef: "component:default/auth-service",
     });
   });
 
@@ -482,7 +482,7 @@ describe("resolveFromDiff", () => {
     expect(results[0]).toMatchObject({
       inputKind: "diff",
       inputValue: "src/orders/handler.ts",
-      resolvedEntityRef: "component:order-service",
+      resolvedEntityRef: "component:default/order-service",
       confidence: "high",
     });
   });

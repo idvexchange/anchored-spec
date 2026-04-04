@@ -28,7 +28,7 @@ The normal long-term pattern is mixed: bootstrap from reality where helpful, nor
 - [Choosing a modeling approach](delivery/choosing-a-modeling-approach.md) — decision table for when to use bottom-up, top-down, or mixed adoption
 - [Testing and CI](delivery/testing-and-ci.md) — local checks, CI gates, and review-friendly outputs
 - [Discovery, drift, and generation](delivery/discovery-drift-generation.md) — resolvers, observed facts, drift analysis, generators, and reconcile
-- [Reporting and analysis](delivery/reporting-and-analysis.md) — graph, report, impact, search, status, and AI context workflows
+- [Reporting and analysis](delivery/reporting-and-analysis.md) — graph, diagrams, report, impact, constraints, search, status, and AI context workflows
 - [Adoption playbook](delivery/adoption-playbook.md) — rollout patterns and operating guidance
 
 ## Business

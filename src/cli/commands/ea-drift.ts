@@ -268,7 +268,7 @@ export function eaDriftCommand(): Command {
 interface DriftFindingLike {
   rule: string;
   severity: string;
-  artifactId: string;
+  entityRef: string;
   path: string;
   domain: string;
   message: string;
@@ -285,7 +285,7 @@ function driftFindingsToExplainableItems(findings: DriftFindingLike[]): Explaina
     if (f.suggestion) evidence.push(`Suggestion: ${f.suggestion}`);
 
     return {
-      ref: f.artifactId,
+      ref: f.entityRef,
       kind: f.domain,
       reason: f.message,
       evidence,

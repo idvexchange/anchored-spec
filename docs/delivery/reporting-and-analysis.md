@@ -18,7 +18,7 @@ ea-entities:
 
 # Reporting and Analysis
 
-The reporting layer turns the catalog into something teams can review and act on.
+The reporting layer turns the catalog into something teams can review, gate, and act on during normal delivery.
 
 Like discovery and governance, reporting is treated as behavior of the shipped library and CLI surfaces rather than as a standalone catalog component.
 
@@ -33,8 +33,9 @@ Key analytical outputs include:
 - drift summaries
 - traceability indexes
 - impact analysis
+- governing constraints and decisions
 - lifecycle and ownership status views
-- search and context bundles
+- search views and context bundles
 
 These outputs serve different audiences, but they all depend on the same entity graph.
 
@@ -42,11 +43,18 @@ These outputs serve different audiences, but they all depend on the same entity 
 
 The most useful reviewer-facing patterns are:
 
-- `graph --format mermaid` for topology review
+- `graph --format mermaid` for raw relation topology review
+- `diagrams render backstage --focus system:default/payments --depth 1` for semantic Backstage system views
 - `report --view ...` for focused architecture slices
-- `impact <entity-ref>` for downstream effect analysis
+- `impact <entity-ref>` or `impact --from-diff <ref>` for downstream effect analysis
+- `constraints <entity-ref>` or `constraints --from-diff <ref>` for governance checks
 - `status` and `search` for catalog navigation
-- `context <entity-ref>` for AI or deep human review
+- `context <entity-ref> --tier llm` for AI review packages
+- `context <entity-ref> --tier deep --why-included` for deep human review
+
+## Change-Aware Analysis
+
+Impact, constraints, and context workflows all benefit from the same reverse-resolution path from files or diffs back to entity refs. That keeps review automation tied to changed source paths instead of forcing CI jobs or bots to guess the right entity identifiers up front.
 
 The important point is consistency: each command reads the same model instead of inventing its own interpretation of the repo.
 

@@ -6,7 +6,7 @@
 
 > Backstage-aligned, spec-as-source architecture for repositories that want entities, relations, drift detection, and traceability in version control.
 
-Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in either `catalog-info.yaml` or Markdown frontmatter, then use the CLI to validate them, visualize the graph, discover missing model coverage, detect drift against code and infrastructure, reconcile docs, and assemble context for humans and AI agents.
+Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in either `catalog-info.yaml` or Markdown frontmatter, then use the CLI to validate them, visualize raw relation graphs and semantic diagrams, discover missing model coverage, detect drift against code and infrastructure, reconcile docs, and assemble context for humans and AI agents.
 
 This repository is the canonical manifest-mode example: a root `catalog-info.yaml` and linked markdown documentation organized by primary EA domain under `docs/`.
 
@@ -97,6 +97,7 @@ npx anchored-spec init --mode manifest
 npx anchored-spec create application --title "Orders Service"
 npx anchored-spec validate
 npx anchored-spec graph --format mermaid
+npx anchored-spec diagrams render backstage --focus system:default/commerce-platform --depth 1
 npx anchored-spec drift
 npx anchored-spec report --view traceability-index
 npx anchored-spec context component:default/orders-service
@@ -104,30 +105,31 @@ npx anchored-spec context component:default/orders-service
 
 ## CLI commands
 
-| Command | Purpose |
-|---|---|
-| `init` | Scaffold config, storage mode, examples, AI files, IDE files, and CI helpers |
-| `create` | Create a new entity in the project storage mode |
-| `validate` | Validate entities, relations, and quality rules |
-| `verify` | Run broader project verification checks |
-| `graph` | Export architecture graphs in Mermaid, DOT, or JSON |
-| `report` | Generate report views or a full report set |
-| `discover` | Discover draft entities from configured or explicit resolvers |
-| `drift` | Compare authored architecture to observed reality |
-| `generate` | Run OpenAPI and JSON Schema generators |
-| `evidence` | Ingest, validate, and summarize evidence records |
-| `impact` | Calculate downstream impact for an entity |
-| `status` | Summarize lifecycle, domain, and confidence status |
-| `transition` | Advance lifecycle state with policy gates |
-| `diff` | Compare git revisions with semantic compatibility checks |
-| `reconcile` | Run generate, validate, drift, trace, and docs checks together |
-| `trace` | Show traceability between entities and docs |
-| `link-docs` | Sync doc frontmatter refs and entity trace refs |
-| `context` | Build context bundles for AI or human review |
-| `create-doc` | Create pre-linked architecture documentation |
-| `link` | Add a relation between two entities |
-| `search` | Search entities by ref, kind, domain, status, tags, and text |
-| `batch-update` | Bulk-update entity `status` or `confidence` |
+| Command        | Purpose                                                                      |
+| -------------- | ---------------------------------------------------------------------------- |
+| `init`         | Scaffold config, storage mode, examples, AI files, IDE files, and CI helpers |
+| `create`       | Create a new entity in the project storage mode                              |
+| `validate`     | Validate entities, relations, and quality rules                              |
+| `verify`       | Run broader project verification checks                                      |
+| `graph`        | Export architecture graphs in Mermaid, DOT, or JSON                          |
+| `diagrams`     | Render semantic diagram views such as Backstage system views                 |
+| `report`       | Generate report views or a full report set                                   |
+| `discover`     | Discover draft entities from configured or explicit resolvers                |
+| `drift`        | Compare authored architecture to observed reality                            |
+| `generate`     | Run OpenAPI and JSON Schema generators                                       |
+| `evidence`     | Ingest, validate, and summarize evidence records                             |
+| `impact`       | Calculate downstream impact for an entity                                    |
+| `status`       | Summarize lifecycle, domain, and confidence status                           |
+| `transition`   | Advance lifecycle state with policy gates                                    |
+| `diff`         | Compare git revisions with semantic compatibility checks                     |
+| `reconcile`    | Run generate, validate, drift, trace, and docs checks together               |
+| `trace`        | Show traceability between entities and docs                                  |
+| `link-docs`    | Sync doc frontmatter refs and entity trace refs                              |
+| `context`      | Build context bundles for AI or human review                                 |
+| `create-doc`   | Create pre-linked architecture documentation                                 |
+| `link`         | Add a relation between two entities                                          |
+| `search`       | Search entities by ref, kind, domain, status, tags, and text                 |
+| `batch-update` | Bulk-update entity `status` or `confidence`                                  |
 
 ## Project layout
 

@@ -21,6 +21,10 @@ spec:
       role: context
     - path: docs/systems/federation-and-boundaries.md
       role: context
+    - path: docs/delivery/reporting-and-analysis.md
+      role: context
+    - path: docs/delivery/testing-and-ci.md
+      role: context
     - path: docs/delivery/bottom-up-discovery.md
       role: context
     - path: docs/delivery/top-down-authoring.md
@@ -60,7 +64,7 @@ kind: Component
 metadata:
   name: anchored-spec-library
   title: Anchored Spec Node Library
-  description: Published Node.js library surface for loading, validating, discovering, tracing, drifting, reporting on, and generating Backstage-aligned entity models.
+  description: Published Node.js library surface for loading, validating, discovering, tracing, drifting, analyzing impact, evaluating constraints, assembling context, reporting on, and generating Backstage-aligned entity models.
   annotations:
     anchored-spec.dev/source: docs/contributing.md
     anchored-spec.dev/confidence: "1.0"
@@ -111,7 +115,7 @@ kind: Component
 metadata:
   name: anchored-spec-cli
   title: Anchored Spec CLI
-  description: Shipped command-line surface for initializing, authoring, validating, tracing, diffing, drifting, reporting on, and reconciling the architecture model.
+  description: Shipped command-line surface for initializing, authoring, validating, tracing, diffing, drifting, reporting on, analyzing impact, evaluating constraints, assembling context, generating derived artifacts, and reconciling the architecture model.
   annotations:
     anchored-spec.dev/source: docs/delivery/getting-started.md
     anchored-spec.dev/confidence: "1.0"
@@ -129,8 +133,10 @@ spec:
     - capability:default/manifest-authoring
     - capability:default/discovery
     - capability:default/drift-detection
+    - capability:default/derived-output-generation
     - capability:default/traceability
     - capability:default/governed-evolution
+    - capability:default/ai-context-assembly
   traceRefs:
     - path: docs/delivery/getting-started.md
       role: specification
@@ -160,7 +166,7 @@ kind: API
 metadata:
   name: anchored-spec-node-api
   title: Anchored Spec Node API
-  description: Programmatic Node.js API exported by the package root for entity modeling, validation, discovery, traceability, reporting, generation, and governance workflows.
+  description: Programmatic Node.js API exported by the package root for entity modeling, validation, discovery, traceability, impact analysis, constraint evaluation, context assembly, reporting, generation, and governance workflows.
   annotations:
     anchored-spec.dev/source: docs/contributing.md
     anchored-spec.dev/confidence: "1.0"
@@ -172,14 +178,19 @@ spec:
   definition: |
     The published Node.js package exports the Backstage-aligned entity model,
     validators, loaders, relation and schema helpers, discovery resolvers,
-    drift and reconcile workflows, reporting views, generators, policy helpers,
-    evidence utilities, and traceability functions.
+    reverse-resolution helpers, impact and constraints workflows, context
+    assembly, drift and reconcile workflows, reporting views, generators,
+    policy helpers, evidence utilities, and traceability functions.
   traceRefs:
     - path: docs/contributing.md
       role: specification
     - path: docs/systems/entity-model.md
       role: context
     - path: docs/systems/overview.md
+      role: context
+    - path: docs/delivery/reporting-and-analysis.md
+      role: context
+    - path: docs/delivery/testing-and-ci.md
       role: context
 ---
 apiVersion: backstage.io/v1alpha1
@@ -198,11 +209,15 @@ spec:
   system: system:default/anchored-spec-framework
   definition: |
     The CLI covers repo initialization, entity authoring, validation,
-    traceability, discovery, drift analysis, reporting, semantic diff,
-    reconcile, and linked-document workflows.
+    traceability, discovery, drift analysis, impact analysis, constraint
+    checks, reporting, search and status views, semantic diff, context
+    assembly, generators, evidence handling, reconcile, and linked-document
+    workflows.
   traceRefs:
     - path: docs/delivery/getting-started.md
       role: specification
+    - path: docs/delivery/reporting-and-analysis.md
+      role: context
     - path: docs/delivery/testing-and-ci.md
       role: context
     - path: docs/contributing.md
@@ -425,7 +440,7 @@ kind: Capability
 metadata:
   name: governed-evolution
   title: Governed Evolution
-  description: Capability to review architectural change through validation, semantic diff, lifecycle policy, and evidence-aware workflows.
+  description: Capability to review architectural change through validation, semantic diff, constraints, lifecycle policy, and evidence-aware workflows.
   annotations:
     anchored-spec.dev/source: docs/transitions/governance-and-evolution.md
     anchored-spec.dev/confidence: "1.0"
@@ -476,6 +491,8 @@ spec:
     - path: docs/delivery/reporting-and-analysis.md
       role: specification
     - path: docs/information/docs-and-traceability.md
+      role: context
+    - path: docs/delivery/testing-and-ci.md
       role: context
     - path: docs/business/capabilities-and-operating-model.md
       role: context

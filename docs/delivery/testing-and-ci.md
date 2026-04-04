@@ -10,6 +10,7 @@ domain:
 ea-entities:
   - capability:default/drift-detection
   - capability:default/governed-evolution
+  - capability:default/ai-context-assembly
   - api:default/anchored-spec-cli-api
   - component:default/anchored-spec-library
   - component:default/anchored-spec-cli
@@ -39,7 +40,7 @@ Good CI patterns for Anchored Spec repositories:
 
 - run `validate` on every PR
 - run `diff --compat --policy` when the PR changes architecture-sensitive files
-- publish graph or report outputs as CI entities
+- publish graph or report outputs as CI artifacts
 - keep `reconcile --include-trace --include-docs` available for stronger gates
 
 Useful stage-level recipes:
@@ -189,7 +190,7 @@ jobs:
       - name: Drift detection
         run: pnpm exec anchored-spec drift --explain
 
-      - name: Generate context bundle
+      - name: Generate impact report artifact
         if: always()
         run: pnpm exec anchored-spec impact --from-diff origin/main --format json --output impact-report.json
 
