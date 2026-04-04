@@ -163,7 +163,7 @@ export async function reconcileEaProject(
   // ── VCS warnings ─────────────────────────────────────────────────────
   const vcsWarnings: string[] = [];
   if (!options.checkOnly) {
-    const generatedDir = options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated";
+    const generatedDir = options.generatedDir ?? eaConfig.generatedDir ?? "docs/generated";
     const warning = checkGeneratedDirInGitignore(projectRoot, generatedDir);
     if (warning) vcsWarnings.push(warning);
   }
@@ -191,7 +191,7 @@ function runGenerateStep(
 
   const generatorConfigs = generatorNames.map((name) => ({
     name,
-    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated",
+    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "docs/generated",
   }));
 
   const report = runGenerators({
@@ -199,7 +199,7 @@ function runGenerateStep(
     generators,
     generatorConfigs,
     projectRoot,
-    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated",
+    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "docs/generated",
     logger: silentLogger,
     checkOnly: options.checkOnly !== false, // default to check mode
     dryRun: false,

@@ -26,7 +26,9 @@ export function generateVscodeSettings(_config: {
     "yaml.schemas": {},
     "json.schemas": jsonSchemas,
     "files.associations": {
-      "ea/**/*.yaml": "yaml",
+      "catalog-info.yaml": "yaml",
+      "catalog/**/*.yaml": "yaml",
+      "catalog/**/*.yml": "yaml",
     },
   };
 }

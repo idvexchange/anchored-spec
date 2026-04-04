@@ -9,7 +9,7 @@ domain:
   - information
   - delivery
 ea-entities:
-  - component:default/docs-and-traceability
+  - component:default/anchored-spec-library
   - resource:default/documentation-set
   - capability:default/traceability
   - capability:default/ai-context-assembly
@@ -39,7 +39,8 @@ type: architecture
 status: current
 audience: [architect, developer, agent]
 ea-entities:
-  - component:default/docs-and-traceability
+  - component:default/anchored-spec-library
+  - resource:default/documentation-set
   - capability:default/traceability
 ---
 ```
@@ -57,11 +58,14 @@ Use one primary source path and then add trace refs only when an entity truly sp
 
 ## Source-Aware Workflows
 
+Traceability is not limited to markdown. Source files can also participate through inline `@anchored-spec` annotations that point back to canonical entity refs.
+
 The traceability subsystem powers several core workflows:
 
 - `create-doc` for pre-linked markdown
 - `link-docs` for synchronization and annotation suggestions
 - `trace` for reviewer-friendly trace summaries
+- source annotation scanning for code-to-entity trace links
 - `context` for assembling entity-centric bundles for humans or agents
 
 The framework is opinionated here: documentation is not secondary evidence. It is part of the authored architecture surface and must stay in sync with the model.

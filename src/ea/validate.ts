@@ -8,7 +8,7 @@
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { RELATION_OWNED_BY } from "@backstage/catalog-model";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BackstageEntity } from "./backstage/types.js";
@@ -113,6 +113,8 @@ const EA_NON_ENTITY_SCHEMA_NAMES = [
 
 const EA_ENTITY_SCHEMA_NAMES = ENTITY_DESCRIPTOR_REGISTRY.map(
   (entry) => entry.schema,
+).filter(
+  (name): name is EaSchemaName => existsSync(join(SCHEMAS_DIR, `${name}.schema.json`)),
 ) as EaSchemaName[];
 
 const EA_SCHEMA_NAMES: EaSchemaName[] = [

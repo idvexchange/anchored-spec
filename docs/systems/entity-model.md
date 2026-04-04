@@ -9,8 +9,9 @@ domain:
   - systems
   - information
 ea-entities:
-  - component:default/entity-loading-and-modeling
-  - component:default/backstage-entity-mapping
+  - resource:default/descriptor-schema-pack
+  - component:default/anchored-spec-library
+  - api:default/anchored-spec-node-api
   - capability:default/manifest-authoring
   - decision:default/backstage-aligned-entity-envelope
   - decision:default/dual-storage-modes
@@ -24,14 +25,14 @@ Anchored Spec standardizes on the Backstage entity envelope:
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: cli-surface
-  title: CLI Surface
-  description: Command entrypoint and user workflow layer.
+  name: anchored-spec-cli
+  title: Anchored Spec CLI
+  description: Shipped command-line workflow surface for the framework.
 spec:
   type: service
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
 ```
 
 That decision gives the framework one authored format for CLI workflows, validation, graph analysis, traceability, and future Backstage interoperability.
@@ -53,16 +54,17 @@ Common custom kinds:
 - `Decision` for long-lived architectural reasoning
 - `Requirement`, `Control`, `TransitionPlan`, and the other custom kinds when a repo needs deeper EA modeling
 
-This repo uses built-ins for the framework structure and custom kinds for capabilities and decisions.
+This repo uses built-ins for the shipped framework structure and custom kinds for the business and architectural rationale layered above it.
 
 ## Canonical References
 
 Every workflow uses canonical entity refs such as:
 
-- `component:cli-surface`
-- `api:node-library-api`
-- `capability:traceability`
-- `decision:repository-local-workflow`
+- `component:default/anchored-spec-cli`
+- `component:default/anchored-spec-library`
+- `api:default/anchored-spec-node-api`
+- `capability:default/traceability`
+- `decision:default/repository-local-workflow`
 
 Use canonical refs consistently in docs, commands, traces, and relations. That keeps every downstream workflow aligned on one identifier format.
 
@@ -83,7 +85,7 @@ Prefer the smallest relation that communicates the architectural fact:
 
 - `dependsOn` when one component needs another component or resource to function
 - `providesApis` and `consumesApis` for API exposure and consumption
-- `supports` on components when they realize a capability
+- `supports` on runtime components when they explain why a shipped surface exists
 - `dependsOn` on `Decision` entities for the decisions or constraints they build on
 
 Do not use relations as a generic dumping ground. They should encode behaviorally useful structure, not just adjacency.

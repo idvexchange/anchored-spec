@@ -9,7 +9,8 @@ domain:
   - transitions
   - delivery
 ea-entities:
-  - component:default/governance-and-workflow
+  - component:default/anchored-spec-library
+  - component:default/anchored-spec-cli
   - capability:default/governed-evolution
   - decision:default/repository-local-workflow
   - decision:default/dual-storage-modes
@@ -18,6 +19,8 @@ ea-entities:
 # Governance and Evolution
 
 Anchored Spec is designed to make architecture change review operational, not ceremonial.
+
+Those governance behaviors ship through the same library and CLI surfaces as the rest of the framework rather than through a separate top-level catalog component.
 
 ## Core Governance Workflows
 

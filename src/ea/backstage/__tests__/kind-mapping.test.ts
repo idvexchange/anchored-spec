@@ -15,8 +15,8 @@ import { BACKSTAGE_API_VERSION, ANCHORED_SPEC_API_VERSION } from "../types.js";
 // ─── Registry Coverage ──────────────────────────────────────────────────────────
 
 describe("ENTITY_DESCRIPTOR_REGISTRY", () => {
-  it("contains the full 48-kind descriptor set", () => {
-    expect(ENTITY_DESCRIPTOR_REGISTRY).toHaveLength(48);
+  it("contains the full 50-kind descriptor set", () => {
+    expect(ENTITY_DESCRIPTOR_REGISTRY).toHaveLength(50);
   });
 
   it("carries domain metadata for every mapping", () => {
@@ -65,6 +65,8 @@ describe("Tier 1 — Backstage built-in kind mappings", () => {
     ["network-zone", "Resource", BACKSTAGE_API_VERSION, "network-zone"],
     ["deployment", "Resource", BACKSTAGE_API_VERSION, "deployment"],
     ["environment", "Resource", BACKSTAGE_API_VERSION, "environment"],
+    ["system", "System", BACKSTAGE_API_VERSION],
+    ["domain", "Domain", BACKSTAGE_API_VERSION],
     ["org-unit", "Group", BACKSTAGE_API_VERSION, "team"],
   ];
 
@@ -164,6 +166,18 @@ describe("getEntityDescriptorForEntity (reverse lookup)", () => {
     const entry = getEntityDescriptorForEntity(BACKSTAGE_API_VERSION, "API", "asyncapi");
     expect(entry).toBeDefined();
     expect(entry!.schema).toBe("event-contract");
+  });
+
+  it("resolves System without type → system", () => {
+    const entry = getEntityDescriptorForEntity(BACKSTAGE_API_VERSION, "System");
+    expect(entry).toBeDefined();
+    expect(entry!.schema).toBe("system");
+  });
+
+  it("resolves Domain without type → domain", () => {
+    const entry = getEntityDescriptorForEntity(BACKSTAGE_API_VERSION, "Domain");
+    expect(entry).toBeDefined();
+    expect(entry!.schema).toBe("domain");
   });
 
   it("resolves Requirement + security → security-requirement", () => {

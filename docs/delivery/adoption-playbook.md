@@ -44,6 +44,12 @@ Start with the resolvers that already reflect trusted sources:
 
 Use dry runs first. Discovery should improve authored truth, not replace human review.
 
+For copy-paste discovery recipes by source stack, see `docs/delivery/bottom-up-discovery.md`.
+
+For the deliberate entity-first path, see `docs/delivery/top-down-authoring.md`.
+
+For a decision table on when to use bottom-up, top-down, or mixed, see `docs/delivery/choosing-a-modeling-approach.md`.
+
 ## Add Governance Gradually
 
 Early governance usually means:

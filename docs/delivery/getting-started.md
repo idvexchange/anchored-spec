@@ -11,12 +11,15 @@ ea-entities:
   - capability:default/manifest-authoring
   - capability:default/traceability
   - capability:default/governed-evolution
-  - api:default/cli-command-surface
+  - api:default/anchored-spec-cli-api
+  - component:default/anchored-spec-cli
 ---
 
 # Getting Started
 
 This guide shows the preferred manifest-mode workflow.
+
+For a more opinionated path, use `docs/delivery/top-down-authoring.md` when you want to author the target model intentionally, `docs/delivery/bottom-up-discovery.md` when you want to bootstrap from code, contracts, or infrastructure, and `docs/delivery/choosing-a-modeling-approach.md` when you need to decide between the two.
 
 ## 1. Install
 

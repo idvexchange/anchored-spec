@@ -9,7 +9,8 @@ domain:
   - delivery
   - information
 ea-entities:
-  - component:default/reporting-and-analysis
+  - component:default/anchored-spec-library
+  - component:default/anchored-spec-cli
   - capability:default/ai-context-assembly
   - capability:default/traceability
   - capability:default/governed-evolution
@@ -18,6 +19,10 @@ ea-entities:
 # Reporting and Analysis
 
 The reporting layer turns the catalog into something teams can review and act on.
+
+Like discovery and governance, reporting is treated as behavior of the shipped library and CLI surfaces rather than as a standalone catalog component.
+
+The internal implementation split behind those reporting surfaces is documented in `docs/systems/framework-internals.md`.
 
 ## Primary Outputs
 

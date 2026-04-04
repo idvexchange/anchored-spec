@@ -47,6 +47,8 @@ export const ENTITY_DESCRIPTOR_REGISTRY: readonly EntityDescriptor[] = [
   { schema: "deployment", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "deployment", description: "A deployed instance" },
   { schema: "environment", domain: "delivery", apiVersion: BACKSTAGE_API_VERSION, kind: "Resource", specType: "environment", description: "A deployment environment" },
 
+  { schema: "system", domain: "systems", apiVersion: BACKSTAGE_API_VERSION, kind: "System", description: "A bounded system made up of related components, APIs, and resources" },
+  { schema: "domain", domain: "business", apiVersion: BACKSTAGE_API_VERSION, kind: "Domain", description: "A business or architecture domain that groups related systems" },
   { schema: "org-unit", domain: "business", apiVersion: BACKSTAGE_API_VERSION, kind: "Group", specType: "team", description: "An organizational unit" },
 
   { schema: "requirement", domain: "business", apiVersion: ANCHORED_SPEC_API_VERSION, kind: "Requirement", specType: "functional", description: "A behavioral software requirement" },

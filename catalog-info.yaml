@@ -1,10 +1,258 @@
 ---
 apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: documentation-set
+  title: Linked Documentation Set
+  description: Markdown documentation under `docs/` that explains the catalog model, workflows, and enterprise architecture guidance for Anchored Spec.
+  annotations:
+    anchored-spec.dev/source: docs/information/docs-and-traceability.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  type: documentation
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  provider: internal
+  traceRefs:
+    - path: docs/information/docs-and-traceability.md
+      role: specification
+    - path: docs/systems/overview.md
+      role: context
+    - path: docs/systems/federation-and-boundaries.md
+      role: context
+    - path: docs/delivery/bottom-up-discovery.md
+      role: context
+    - path: docs/delivery/top-down-authoring.md
+      role: context
+    - path: docs/delivery/choosing-a-modeling-approach.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: descriptor-schema-pack
+  title: Descriptor Schema Pack
+  description: Built-in JSON schemas for Backstage descriptors and Anchored Spec custom kinds used by validation and authoring workflows.
+  annotations:
+    anchored-spec.dev/source: docs/systems/entity-model.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  type: schema-pack
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  provider: internal
+  traceRefs:
+    - path: docs/systems/entity-model.md
+      role: specification
+    - path: docs/contributing.md
+      role: context
+    - path: docs/systems/overview.md
+      role: context
+    - path: docs/systems/federation-and-boundaries.md
+      role: context
+    - path: docs/systems/framework-internals.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-library
+  title: Anchored Spec Node Library
+  description: Published Node.js library surface for loading, validating, discovering, tracing, drifting, reporting on, and generating Backstage-aligned entity models.
+  annotations:
+    anchored-spec.dev/source: docs/contributing.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  dependsOn:
+    - resource:default/descriptor-schema-pack
+    - resource:default/documentation-set
+  providesApis:
+    - api:default/anchored-spec-node-api
+  supports:
+    - capability:default/manifest-authoring
+    - capability:default/discovery
+    - capability:default/drift-detection
+    - capability:default/derived-output-generation
+    - capability:default/traceability
+    - capability:default/governed-evolution
+    - capability:default/ai-context-assembly
+  traceRefs:
+    - path: docs/contributing.md
+      role: specification
+    - path: docs/systems/overview.md
+      role: context
+    - path: docs/systems/entity-model.md
+      role: context
+    - path: docs/systems/framework-internals.md
+      role: context
+    - path: docs/delivery/discovery-drift-generation.md
+      role: context
+    - path: docs/delivery/bottom-up-discovery.md
+      role: context
+    - path: docs/delivery/reporting-and-analysis.md
+      role: context
+    - path: docs/delivery/testing-and-ci.md
+      role: context
+    - path: docs/information/docs-and-traceability.md
+      role: context
+    - path: docs/transitions/governance-and-evolution.md
+      role: context
+    - path: docs/systems/relation-cheat-sheet.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-cli
+  title: Anchored Spec CLI
+  description: Shipped command-line surface for initializing, authoring, validating, tracing, diffing, drifting, reporting on, and reconciling the architecture model.
+  annotations:
+    anchored-spec.dev/source: docs/delivery/getting-started.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  dependsOn:
+    - component:default/anchored-spec-library
+    - resource:default/documentation-set
+  providesApis:
+    - api:default/anchored-spec-cli-api
+  supports:
+    - capability:default/manifest-authoring
+    - capability:default/discovery
+    - capability:default/drift-detection
+    - capability:default/traceability
+    - capability:default/governed-evolution
+  traceRefs:
+    - path: docs/delivery/getting-started.md
+      role: specification
+    - path: docs/systems/overview.md
+      role: context
+    - path: docs/contributing.md
+      role: context
+    - path: docs/systems/framework-internals.md
+      role: context
+    - path: docs/delivery/discovery-drift-generation.md
+      role: context
+    - path: docs/delivery/bottom-up-discovery.md
+      role: context
+    - path: docs/delivery/top-down-authoring.md
+      role: context
+    - path: docs/delivery/choosing-a-modeling-approach.md
+      role: context
+    - path: docs/delivery/reporting-and-analysis.md
+      role: context
+    - path: docs/delivery/testing-and-ci.md
+      role: context
+    - path: docs/transitions/governance-and-evolution.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: anchored-spec-node-api
+  title: Anchored Spec Node API
+  description: Programmatic Node.js API exported by the package root for entity modeling, validation, discovery, traceability, reporting, generation, and governance workflows.
+  annotations:
+    anchored-spec.dev/source: docs/contributing.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  definition: |
+    The published Node.js package exports the Backstage-aligned entity model,
+    validators, loaders, relation and schema helpers, discovery resolvers,
+    drift and reconcile workflows, reporting views, generators, policy helpers,
+    evidence utilities, and traceability functions.
+  traceRefs:
+    - path: docs/contributing.md
+      role: specification
+    - path: docs/systems/entity-model.md
+      role: context
+    - path: docs/systems/overview.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: anchored-spec-cli-api
+  title: Anchored Spec CLI API
+  description: Public command surface exposed through the `anchored-spec` executable for repository-local architecture workflows.
+  annotations:
+    anchored-spec.dev/source: docs/delivery/getting-started.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  type: cli
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  definition: |
+    The CLI covers repo initialization, entity authoring, validation,
+    traceability, discovery, drift analysis, reporting, semantic diff,
+    reconcile, and linked-document workflows.
+  traceRefs:
+    - path: docs/delivery/getting-started.md
+      role: specification
+    - path: docs/delivery/testing-and-ci.md
+      role: context
+    - path: docs/contributing.md
+      role: context
+    - path: docs/systems/overview.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: anchored-spec-framework
+  title: Anchored Spec Framework
+  description: Repository-local architecture framework composed of a schema pack, linked documentation, a Node library, and a CLI over one Backstage-aligned entity model.
+  annotations:
+    anchored-spec.dev/source: docs/systems/overview.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  owner: group:default/platform-maintainers
+  domain: domain:default/anchored-spec
+  traceRefs:
+    - path: docs/systems/overview.md
+      role: specification
+    - path: docs/systems/federation-and-boundaries.md
+      role: context
+    - path: docs/contributing.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: anchored-spec
+  title: Anchored Spec
+  description: Domain for repository-native enterprise architecture modeled with Backstage primitives first and extended EA kinds only where the model needs deeper intent.
+  annotations:
+    anchored-spec.dev/source: docs/systems/overview.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  owner: group:default/platform-maintainers
+  traceRefs:
+    - path: docs/systems/overview.md
+      role: specification
+    - path: docs/business/capabilities-and-operating-model.md
+      role: context
+---
+apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
   name: platform-maintainers
   title: Platform Maintainers
-  description: Team responsible for the Anchored Spec framework and its canonical example model.
+  description: Team responsible for the Anchored Spec framework, its catalog model, and its example architecture.
   annotations:
     anchored-spec.dev/source: docs/contributing.md
     anchored-spec.dev/confidence: "1.0"
@@ -17,349 +265,7 @@ spec:
     - path: docs/business/capabilities-and-operating-model.md
       role: context
     - path: docs/contributing.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Domain
-metadata:
-  name: anchored-spec
-  title: Anchored Spec
-  description: Repository-native enterprise architecture domain modeled by this manifest-mode example repository.
-  annotations:
-    anchored-spec.dev/source: docs/systems/overview.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  owner: group:default/platform-maintainers
-  traceRefs:
-    - path: docs/systems/overview.md
       role: specification
----
-apiVersion: backstage.io/v1alpha1
-kind: System
-metadata:
-  name: anchored-spec-framework
-  title: Anchored Spec Framework
-  description: Canonical system model for the Anchored Spec CLI, Node library, and architecture workflows.
-  annotations:
-    anchored-spec.dev/source: docs/systems/overview.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  owner: group:default/platform-maintainers
-  domain: anchored-spec
-  traceRefs:
-    - path: docs/systems/overview.md
-      role: specification
-    - path: docs/systems/federation-and-boundaries.md
-      role: context
-    - path: docs/contributing.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: API
-metadata:
-  name: cli-command-surface
-  title: CLI Command Surface
-  description: Public command-line interface for initializing, validating, tracing, diffing, drifting, and reporting on
-    the architecture model.
-  annotations:
-    anchored-spec.dev/source: docs/delivery/getting-started.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: cli
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  definition: |
-    The Anchored Spec CLI surface exposed through the `anchored-spec` executable.
-    It covers repository initialization, entity authoring, validation, traceability,
-    discovery, drift analysis, reporting, diff, and reconcile workflows.
-  traceRefs:
-    - path: docs/delivery/getting-started.md
-      role: specification
-    - path: docs/contributing.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: API
-metadata:
-  name: node-library-api
-  title: Node Library API
-  description: Programmatic Node.js API for loading, validating, analyzing, and generating anchored-spec models.
-  annotations:
-    anchored-spec.dev/source: docs/contributing.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  definition: |
-    The published Node.js library surface exported by the package, including
-    entity loading, validation, reporting, drift, generation, and related helpers.
-  traceRefs:
-    - path: docs/contributing.md
-      role: specification
----
-apiVersion: backstage.io/v1alpha1
-kind: Resource
-metadata:
-  name: documentation-set
-  title: Documentation Set
-  description: Linked markdown documentation that explains the system model, operating workflow, and traceability conventions.
-  annotations:
-    anchored-spec.dev/source: docs/information/docs-and-traceability.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: documentation
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  provider: other
-  traceRefs:
-    - path: docs/information/docs-and-traceability.md
-      role: specification
-    - path: docs/systems/federation-and-boundaries.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: cli-surface
-  title: CLI Surface
-  description: Top-level command UX, scaffolding, and entrypoints for the Anchored Spec command-line workflow.
-  annotations:
-    anchored-spec.dev/source: docs/systems/overview.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: service
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:entity-loading-and-modeling
-    - component:discovery-and-resolvers
-    - component:drift-and-reconcile
-    - component:governance-and-workflow
-    - component:reporting-and-analysis
-    - component:docs-and-traceability
-  providesApis:
-    - api:cli-command-surface
-  supports:
-    - capability:manifest-authoring
-    - capability:discovery
-    - capability:drift-detection
-    - capability:traceability
-    - capability:governed-evolution
-  traceRefs:
-    - path: docs/systems/overview.md
-      role: specification
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: entity-loading-and-modeling
-  title: Entity Loading and Modeling
-  description: Config resolution, project-root loading, and graph normalization for the authored entity model.
-  annotations:
-    anchored-spec.dev/source: docs/systems/entity-model.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:backstage-entity-mapping
-  providesApis:
-    - api:node-library-api
-  supports:
-    - capability:manifest-authoring
-  traceRefs:
-    - path: docs/systems/entity-model.md
-      role: specification
-    - path: docs/systems/overview.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: backstage-entity-mapping
-  title: Backstage Entity Mapping
-  description: Backstage-aligned entity envelope, kind mapping, relation mapping, accessors, and validation behavior.
-  annotations:
-    anchored-spec.dev/source: docs/systems/entity-model.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  supports:
-    - capability:manifest-authoring
-  traceRefs:
-    - path: docs/systems/entity-model.md
-      role: specification
-    - path: docs/systems/overview.md
-      role: context
-    - path: docs/systems/relation-cheat-sheet.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: docs-and-traceability
-  title: Docs and Traceability
-  description: Frontmatter parsing, doc scanning, trace linking, and context assembly inputs for linked architecture documentation.
-  annotations:
-    anchored-spec.dev/source: docs/information/docs-and-traceability.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - resource:documentation-set
-  supports:
-    - capability:traceability
-    - capability:ai-context-assembly
-  traceRefs:
-    - path: docs/information/docs-and-traceability.md
-      role: specification
-    - path: docs/systems/overview.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: discovery-and-resolvers
-  title: Discovery and Resolvers
-  description: Discovery pipeline that observes source material and proposes candidate facts and draft entities.
-  annotations:
-    anchored-spec.dev/source: docs/delivery/discovery-drift-generation.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:entity-loading-and-modeling
-    - component:docs-and-traceability
-  supports:
-    - capability:discovery
-  traceRefs:
-    - path: docs/delivery/discovery-drift-generation.md
-      role: specification
-    - path: docs/systems/overview.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: drift-and-reconcile
-  title: Drift and Reconcile
-  description: Drift rules, consistency checks, and end-to-end reconcile orchestration for declared versus observed architecture.
-  annotations:
-    anchored-spec.dev/source: docs/delivery/discovery-drift-generation.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:entity-loading-and-modeling
-    - component:discovery-and-resolvers
-    - component:docs-and-traceability
-  supports:
-    - capability:drift-detection
-    - capability:governed-evolution
-  traceRefs:
-    - path: docs/delivery/discovery-drift-generation.md
-      role: specification
-    - path: docs/delivery/testing-and-ci.md
-      role: context
-    - path: docs/systems/overview.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: generator-pipeline
-  title: Generator Pipeline
-  description: Derived output pipeline for OpenAPI and JSON Schema generation from the authored model.
-  annotations:
-    anchored-spec.dev/source: docs/delivery/discovery-drift-generation.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:entity-loading-and-modeling
-    - component:backstage-entity-mapping
-  traceRefs:
-    - path: docs/delivery/discovery-drift-generation.md
-      role: specification
-    - path: docs/systems/overview.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: governance-and-workflow
-  title: Governance and Workflow
-  description: Policy, compatibility, diff, transition, evidence, and verification workflows for architecture change review.
-  annotations:
-    anchored-spec.dev/source: docs/transitions/governance-and-evolution.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:entity-loading-and-modeling
-    - component:drift-and-reconcile
-  supports:
-    - capability:governed-evolution
-    - capability:drift-detection
-  traceRefs:
-    - path: docs/transitions/governance-and-evolution.md
-      role: specification
-    - path: docs/delivery/testing-and-ci.md
-      role: context
-    - path: docs/systems/overview.md
-      role: context
----
-apiVersion: backstage.io/v1alpha1
-kind: Component
-metadata:
-  name: reporting-and-analysis
-  title: Reporting and Analysis
-  description: Graph export, report views, status, impact, search, and summary workflows over the architecture graph.
-  annotations:
-    anchored-spec.dev/source: docs/delivery/reporting-and-analysis.md
-    anchored-spec.dev/confidence: "1.0"
-spec:
-  type: library
-  lifecycle: production
-  owner: group:default/platform-maintainers
-  system: anchored-spec-framework
-  dependsOn:
-    - component:entity-loading-and-modeling
-    - component:docs-and-traceability
-    - component:backstage-entity-mapping
-  supports:
-    - capability:traceability
-    - capability:ai-context-assembly
-  traceRefs:
-    - path: docs/delivery/reporting-and-analysis.md
-      role: specification
-    - path: docs/systems/overview.md
-      role: context
 ---
 apiVersion: anchored-spec.dev/v1alpha1
 kind: Capability
@@ -373,7 +279,7 @@ metadata:
 spec:
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   level: 1
   maturity: managed
   strategicImportance: core
@@ -382,6 +288,10 @@ spec:
     - path: docs/delivery/getting-started.md
       role: specification
     - path: docs/delivery/adoption-playbook.md
+      role: context
+    - path: docs/delivery/top-down-authoring.md
+      role: context
+    - path: docs/delivery/choosing-a-modeling-approach.md
       role: context
     - path: docs/information/glossary.md
       role: context
@@ -406,7 +316,7 @@ metadata:
 spec:
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   level: 1
   maturity: managed
   strategicImportance: core
@@ -415,6 +325,10 @@ spec:
     - path: docs/delivery/discovery-drift-generation.md
       role: specification
     - path: docs/delivery/adoption-playbook.md
+      role: context
+    - path: docs/delivery/bottom-up-discovery.md
+      role: context
+    - path: docs/delivery/choosing-a-modeling-approach.md
       role: context
     - path: docs/business/capabilities-and-operating-model.md
       role: context
@@ -431,7 +345,7 @@ metadata:
 spec:
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   level: 1
   maturity: managed
   strategicImportance: core
@@ -441,8 +355,33 @@ spec:
       role: specification
     - path: docs/delivery/adoption-playbook.md
       role: context
+    - path: docs/delivery/bottom-up-discovery.md
+      role: context
     - path: docs/delivery/testing-and-ci.md
       role: context
+    - path: docs/business/capabilities-and-operating-model.md
+      role: context
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: derived-output-generation
+  title: Derived Output Generation
+  description: Capability to derive reusable OpenAPI and JSON Schema outputs from the authored entity model.
+  annotations:
+    anchored-spec.dev/source: docs/delivery/discovery-drift-generation.md
+    anchored-spec.dev/confidence: "1.0"
+spec:
+  lifecycle: production
+  owner: group:default/platform-maintainers
+  system: system:default/anchored-spec-framework
+  level: 1
+  maturity: managed
+  strategicImportance: core
+  investmentProfile: invest
+  traceRefs:
+    - path: docs/delivery/discovery-drift-generation.md
+      role: specification
     - path: docs/business/capabilities-and-operating-model.md
       role: context
 ---
@@ -458,7 +397,7 @@ metadata:
 spec:
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   level: 1
   maturity: managed
   strategicImportance: core
@@ -467,6 +406,10 @@ spec:
     - path: docs/information/docs-and-traceability.md
       role: specification
     - path: docs/delivery/getting-started.md
+      role: context
+    - path: docs/delivery/top-down-authoring.md
+      role: context
+    - path: docs/delivery/choosing-a-modeling-approach.md
       role: context
     - path: docs/delivery/reporting-and-analysis.md
       role: context
@@ -482,15 +425,14 @@ kind: Capability
 metadata:
   name: governed-evolution
   title: Governed Evolution
-  description: Capability to review architectural change through validation, semantic diff, lifecycle policy, and
-    evidence-aware workflows.
+  description: Capability to review architectural change through validation, semantic diff, lifecycle policy, and evidence-aware workflows.
   annotations:
     anchored-spec.dev/source: docs/transitions/governance-and-evolution.md
     anchored-spec.dev/confidence: "1.0"
 spec:
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   level: 1
   maturity: managed
   strategicImportance: core
@@ -499,6 +441,10 @@ spec:
     - path: docs/transitions/governance-and-evolution.md
       role: specification
     - path: docs/delivery/getting-started.md
+      role: context
+    - path: docs/delivery/top-down-authoring.md
+      role: context
+    - path: docs/delivery/choosing-a-modeling-approach.md
       role: context
     - path: docs/delivery/reporting-and-analysis.md
       role: context
@@ -521,7 +467,7 @@ metadata:
 spec:
   lifecycle: production
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   level: 1
   maturity: managed
   strategicImportance: core
@@ -545,10 +491,10 @@ metadata:
     anchored-spec.dev/confidence: "1.0"
 spec:
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   status: accepted
   dependsOn:
-    - capability:manifest-authoring
+    - capability:default/manifest-authoring
   traceRefs:
     - path: docs/systems/entity-model.md
       role: specification
@@ -564,11 +510,11 @@ metadata:
     anchored-spec.dev/confidence: "1.0"
 spec:
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   status: accepted
   dependsOn:
-    - decision:backstage-aligned-entity-envelope
-    - capability:manifest-authoring
+    - decision:default/backstage-aligned-entity-envelope
+    - capability:default/manifest-authoring
   traceRefs:
     - path: docs/systems/entity-model.md
       role: specification
@@ -586,11 +532,11 @@ metadata:
     anchored-spec.dev/confidence: "1.0"
 spec:
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   status: accepted
   dependsOn:
-    - capability:discovery
-    - capability:drift-detection
+    - capability:default/discovery
+    - capability:default/drift-detection
   traceRefs:
     - path: docs/delivery/discovery-drift-generation.md
       role: specification
@@ -606,11 +552,11 @@ metadata:
     anchored-spec.dev/confidence: "1.0"
 spec:
   owner: group:default/platform-maintainers
-  system: anchored-spec-framework
+  system: system:default/anchored-spec-framework
   status: accepted
   dependsOn:
-    - decision:dual-storage-modes
-    - capability:governed-evolution
+    - decision:default/dual-storage-modes
+    - capability:default/governed-evolution
   traceRefs:
     - path: docs/transitions/governance-and-evolution.md
       role: specification

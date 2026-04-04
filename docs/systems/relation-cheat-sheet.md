@@ -7,7 +7,7 @@ audience:
 domain:
   - systems
 ea-entities:
-  - component:default/backstage-entity-mapping
+  - component:default/anchored-spec-library
   - capability:default/manifest-authoring
 ---
 
