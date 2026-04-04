@@ -27,22 +27,37 @@ export function eaCreateCommand(): Command {
     .option("--kind <kind>", "Backstage/custom entity kind (for example: Component, API, Resource)")
     .option("--type <type>", "Entity spec.type discriminator when required")
     .option("--schema <schema>", "Anchored-spec schema profile for ambiguous kind/type combinations")
+    .option("--list", "List supported create descriptors and exit")
     .option("--title <title>", "Human-readable title")
     .option("--id <id>", "Entity name slug")
     .option("--owner <owner>", "Owner team or person", "your-team")
     .option("--root-dir <path>", "EA root directory", "docs")
     .option("-i, --interactive", "Interactive wizard for selecting a descriptor")
+    .addHelpText("after", `
+Examples:
+  anchored-spec create --list
+  anchored-spec create --kind Domain --title "Commerce" --owner group:default/platform
+  anchored-spec create --kind System --title "Checkout Platform" --owner group:default/platform
+  anchored-spec create --kind Component --type website --title "Orders App" --owner group:default/platform
+  anchored-spec create --kind API --type openapi --title "Orders API" --owner group:default/platform
+
+Use --list to see every supported kind/type/schema descriptor.`)
     .action(async (options: CreateOptions) => {
+      if (options.list) {
+        console.log(renderDescriptorCatalog());
+        return;
+      }
+
       if (options.interactive) {
         await runInteractiveCreate(options);
         return;
       }
 
       if (!options.kind) {
-        throw new CliError("Missing required option: --kind. Use --interactive for a wizard.", 2);
+        throw new CliError("Missing required option: --kind. Use --list to see supported descriptors or --interactive for a wizard.", 2);
       }
       if (!options.title) {
-        throw new CliError("Missing required option: --title. Use --interactive for a wizard.", 2);
+        throw new CliError("Missing required option: --title. Use --list to see supported descriptors or --interactive for a wizard.", 2);
       }
 
       await createEntityDescriptor(options.title, options);
@@ -50,6 +65,7 @@ export function eaCreateCommand(): Command {
 }
 
 interface CreateOptions {
+  list?: boolean;
   kind?: string;
   type?: string;
   schema?: string;
@@ -67,6 +83,48 @@ async function createEntityDescriptor(title: string, options: CreateOptions): Pr
   const config = loadProjectConfig(cwd, rootDir);
   const descriptor = resolveDescriptorSelection(options);
   await createBackstageEntity(descriptor, title, options, config, cwd);
+}
+
+function formatDescriptorLabel(entry: EntityDescriptor): string {
+  return `${entry.kind}${entry.specType ? ` / ${entry.specType}` : ""} [schema=${entry.schema}]`;
+}
+
+function renderDescriptorCatalog(): string {
+  const byKind = new Map<string, EntityDescriptor[]>();
+
+  for (const entry of ENTITY_DESCRIPTOR_REGISTRY) {
+    const list = byKind.get(entry.kind) ?? [];
+    list.push(entry);
+    byKind.set(entry.kind, list);
+  }
+
+  const lines: string[] = [
+    "Supported create descriptors",
+    "",
+    "Use --kind for the entity kind, --type for spec.type when needed, and --schema only when a kind/type pair is ambiguous.",
+    "",
+  ];
+
+  for (const kind of [...byKind.keys()].sort()) {
+    lines.push(`${kind}`);
+    const entries = (byKind.get(kind) ?? []).slice().sort((a, b) => {
+      const left = `${a.specType ?? ""}:${a.schema}`;
+      const right = `${b.specType ?? ""}:${b.schema}`;
+      return left.localeCompare(right);
+    });
+
+    for (const entry of entries) {
+      lines.push(`  - ${formatDescriptorLabel(entry)}: ${entry.description}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("Examples:");
+  lines.push('  anchored-spec create --kind Domain --title "Commerce" --owner group:default/platform');
+  lines.push('  anchored-spec create --kind System --title "Checkout Platform" --owner group:default/platform');
+  lines.push('  anchored-spec create --kind Component --type website --title "Orders App" --owner group:default/platform');
+
+  return lines.join("\n");
 }
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
@@ -89,7 +147,7 @@ async function runInteractiveCreate(baseOptions: CreateOptions): Promise<void> {
 
     let candidates = ENTITY_DESCRIPTOR_REGISTRY.filter((entry) => entry.kind === kind);
     if (candidates.length === 0) {
-      throw new CliError(`Unknown kind "${kind}". Valid kinds: ${kinds.join(", ")}`, 2);
+      throw new CliError(`Unknown kind "${kind}". Valid kinds: ${kinds.join(", ")}. Use --list to inspect supported descriptors.`, 2);
     }
 
     const types = [...new Set(candidates.map((entry) => entry.specType).filter(Boolean))] as string[];
@@ -188,7 +246,7 @@ function resolveDescriptorSelection(options: Pick<CreateOptions, "kind" | "type"
   let candidates = ENTITY_DESCRIPTOR_REGISTRY.filter((entry) => entry.kind === kind);
   if (candidates.length === 0) {
     throw new CliError(
-      `Unknown kind "${kind}". Valid kinds: ${getAllEntityKinds().join(", ")}`,
+      `Unknown kind "${kind}". Valid kinds: ${getAllEntityKinds().join(", ")}. Use --list to inspect supported descriptors.`,
       2,
     );
   }
@@ -210,10 +268,10 @@ function resolveDescriptorSelection(options: Pick<CreateOptions, "kind" | "type"
   }
 
   const matches = candidates
-    .map((entry) => `${entry.kind}${entry.specType ? `/${entry.specType}` : ""} [schema=${entry.schema}]`)
+    .map((entry) => formatDescriptorLabel(entry))
     .join(", ");
   throw new CliError(
-    `Descriptor selection is ambiguous for kind "${kind}"${type ? ` and type "${type}"` : ""}. Add --schema to choose one of: ${matches}`,
+    `Descriptor selection is ambiguous for kind "${kind}"${type ? ` and type "${type}"` : ""}. Add --schema to choose one of: ${matches}. Use --list to inspect all descriptors.`,
     2,
   );
 }
@@ -227,10 +285,10 @@ function buildDescriptorSelectionError(options: Pick<CreateOptions, "kind" | "ty
 
   const sampleMatches = ENTITY_DESCRIPTOR_REGISTRY
     .filter((entry) => !options.kind || entry.kind === options.kind)
-    .map((entry) => `${entry.kind}${entry.specType ? `/${entry.specType}` : ""} [schema=${entry.schema}]`)
+    .map((entry) => formatDescriptorLabel(entry))
     .join(", ");
 
-  return `No descriptor matches ${constraints.join(", ")}. Available descriptors${options.kind ? ` for ${options.kind}` : ""}: ${sampleMatches}`;
+  return `No descriptor matches ${constraints.join(", ")}. Available descriptors${options.kind ? ` for ${options.kind}` : ""}: ${sampleMatches}. Use --list to inspect all descriptors.`;
 }
 
 async function createBackstageEntity(

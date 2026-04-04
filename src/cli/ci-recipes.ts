@@ -31,16 +31,16 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'ea/**'
+      - 'catalog-info.yaml'
+      - 'catalog/**'
       - 'docs/**'
-      - 'specs/**'
       - '.anchored-spec/**'
   push:
     branches: [main]
     paths:
-      - 'ea/**'
+      - 'catalog-info.yaml'
+      - 'catalog/**'
       - 'docs/**'
-      - 'specs/**'
       - '.anchored-spec/**'
 
 jobs:
@@ -93,18 +93,19 @@ export function generatePreCommitHook(): string {
 set -e
 
 # Check if any EA entity files are staged
-STAGED_EA=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\\.(yaml|yml|json)$' | grep -E '^ea/' || true)
-STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\\.md$' | grep -E '^(docs|specs)/' || true)
+STAGED_ENTITIES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^(catalog-info\\.yaml|catalog/.+\\.(yaml|yml))$' || true)
+STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^docs/.+\\.md$' || true)
+STAGED_CONFIG=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^\\.anchored-spec/' || true)
 
-if [ -z "$STAGED_EA" ] && [ -z "$STAGED_DOCS" ]; then
+if [ -z "$STAGED_ENTITIES" ] && [ -z "$STAGED_DOCS" ] && [ -z "$STAGED_CONFIG" ]; then
   exit 0
 fi
 
 echo "🏛  Anchored Spec — Pre-commit validation"
 
-# Validate entities if EA files changed
-if [ -n "$STAGED_EA" ]; then
-  echo "  → Validating EA entities..."
+# Validate entities if the model or config changed
+if [ -n "$STAGED_ENTITIES" ] || [ -n "$STAGED_CONFIG" ]; then
+  echo "  → Validating catalog entities..."
   npx anchored-spec validate --strict 2>&1 | tail -3
 fi
 

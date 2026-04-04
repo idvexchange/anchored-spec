@@ -10,6 +10,7 @@ domain:
 ea-entities:
   - system:default/anchored-spec-framework
   - resource:default/documentation-set
+  - resource:default/descriptor-schema-pack
   - capability:default/manifest-authoring
   - capability:default/traceability
 ---
@@ -22,9 +23,9 @@ Anchored Spec is intentionally local-first, but it is not limited to single-repo
 
 This repo models the framework itself as one system. That means the catalog focuses on:
 
-- internal framework subsystems
+- the shipped resources, components, and APIs
 - the public CLI and Node library surfaces
-- the documentation set that explains those surfaces
+- the schema pack and documentation set that support those surfaces
 - the architectural decisions that constrain future work
 
 It does not pretend that every command is a separate deployable service.

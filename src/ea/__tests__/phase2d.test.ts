@@ -4,8 +4,8 @@
  * Relations, and Drift Rules
  *
  * Covers:
- *  - 8 business-layer kinds in EA_KIND_REGISTRY
- *  - Schema validation for all 8 kinds
+ *  - 10 business-layer kinds in the descriptor registry
+ *  - Schema validation for all business-layer kinds covered in this phase
  *  - 7 quality rules for business-layer entities
  *  - realizes relation extension (business-service → capability/mission)
  *  - 4 new relations (supports, performedBy, governedBy, ownedBy)
@@ -18,8 +18,8 @@ import { makeEntity } from "./helpers/make-entity.js";
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 describe("Phase 2D: Business Layer Kinds", () => {
     const bizKinds = ENTITY_DESCRIPTOR_REGISTRY.filter((entry) => entry.domain === "business");
-    it("registers 9 business-layer kinds", () => {
-        expect(bizKinds).toHaveLength(9);
+    it("registers 10 business-layer kinds", () => {
+        expect(bizKinds).toHaveLength(10);
     });
     it.each([
         "mission",

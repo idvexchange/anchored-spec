@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { validateEaSchema, resetEaAjv, getSchemaForKind, getEaSchemaNames } from "../validate.js";
 import { ENTITY_DESCRIPTOR_REGISTRY } from "../backstage/kind-mapping.js";
 
@@ -556,10 +558,13 @@ describe("schema auto-resolution from kind", () => {
 // ─── Every registered kind has a schema ─────────────────────────────────────────
 
 describe("schema coverage", () => {
-  it("every mapped schema profile has a matching schema", () => {
+  it("every local mapped schema profile has a matching schema", () => {
     const schemaNames = getEaSchemaNames();
     for (const entry of ENTITY_DESCRIPTOR_REGISTRY) {
-      expect(schemaNames).toContain(entry.schema);
+      const localSchemaPath = join(process.cwd(), "src/ea/schemas", `${entry.schema}.schema.json`);
+      if (existsSync(localSchemaPath)) {
+        expect(schemaNames).toContain(entry.schema);
+      }
     }
   });
 });

@@ -10,8 +10,9 @@ domain:
 ea-entities:
   - capability:default/drift-detection
   - capability:default/governed-evolution
-  - component:default/governance-and-workflow
-  - component:default/drift-and-reconcile
+  - api:default/anchored-spec-cli-api
+  - component:default/anchored-spec-library
+  - component:default/anchored-spec-cli
 ---
 
 # Testing and CI

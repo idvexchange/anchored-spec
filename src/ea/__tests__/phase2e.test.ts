@@ -14,8 +14,8 @@ import { makeEntity } from "./helpers/make-entity.js";
 // ─── Kind Registry ──────────────────────────────────────────────────────────────
 describe("Phase 2E: Transition Layer Kinds", () => {
     const TRANSITION_KINDS = ["baseline", "target", "transition-plan", "migration-wave", "exception"];
-    it("has 48 total kinds after Phase 2E", () => {
-        expect(ENTITY_DESCRIPTOR_REGISTRY).toHaveLength(48);
+    it("has 50 total kinds after adding Backstage System and Domain descriptors", () => {
+        expect(ENTITY_DESCRIPTOR_REGISTRY).toHaveLength(50);
     });
     it("has 7 kinds in transitions domain", () => {
         const kinds = ENTITY_DESCRIPTOR_REGISTRY.filter((entry) => entry.domain === "transitions");

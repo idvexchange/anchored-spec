@@ -27,6 +27,23 @@ describe("CLI v2 commands", () => {
         expect(result.stdout).not.toContain("enrich");
         expect(result.stdout).not.toContain("create-batch");
     });
+    it("shows create descriptor discovery in help output", () => {
+        const result = runCli(["create", "--help"], process.cwd());
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("--list");
+        expect(result.stdout).toContain("Use --list to see every supported kind/type/schema descriptor.");
+        expect(result.stdout).toContain('anchored-spec create --kind Domain --title "Commerce"');
+    });
+    it("lists supported create descriptors", () => {
+        const result = runCli(["create", "--list"], process.cwd());
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("Supported create descriptors");
+        expect(result.stdout).toContain("Domain");
+        expect(result.stdout).toContain("[schema=domain]");
+        expect(result.stdout).toContain("System");
+        expect(result.stdout).toContain("[schema=system]");
+        expect(result.stdout).toContain("Component / website [schema=application]");
+    });
     it("initializes the default manifest-mode project scaffold", () => {
         const dir = makeWorkspace("cli-init-manifest");
         const result = runCli(["init", "--force"], dir);
@@ -84,6 +101,35 @@ describe("CLI v2 commands", () => {
         expect(status.bySchema.application).toBe(1);
         expect(status.byStatus.draft).toBe(1);
         expect(cliOutput(createResult)).toContain("Created");
+    });
+    it("creates System and Domain descriptors through the explicit create UX", () => {
+        const dir = makeWorkspace("cli-create-context-kinds");
+        expect(runCli(["init", "--force"], dir).exitCode).toBe(0);
+        const createDomain = runCli([
+            "create",
+            "--kind",
+            "Domain",
+            "--title",
+            "Commerce",
+            "--owner",
+            "group:default/platform",
+        ], dir);
+        const createSystem = runCli([
+            "create",
+            "--kind",
+            "System",
+            "--title",
+            "Checkout Platform",
+            "--owner",
+            "group:default/platform",
+        ], dir);
+        expect(createDomain.exitCode).toBe(0);
+        expect(createSystem.exitCode).toBe(0);
+        const manifest = readTextFile(dir, "catalog-info.yaml");
+        expect(manifest).toContain("kind: Domain");
+        expect(manifest).toContain("name: commerce");
+        expect(manifest).toContain("kind: System");
+        expect(manifest).toContain("name: checkout-platform");
     });
     it("treats removal of an active entity as breaking in diff --compat", () => {
         const dir = makeWorkspace("cli-diff-compat");

@@ -9,17 +9,14 @@ domain:
   - systems
   - delivery
 ea-entities:
+  - resource:default/documentation-set
+  - resource:default/descriptor-schema-pack
+  - component:default/anchored-spec-library
+  - component:default/anchored-spec-cli
+  - api:default/anchored-spec-node-api
+  - api:default/anchored-spec-cli-api
   - domain:default/anchored-spec
   - system:default/anchored-spec-framework
-  - component:default/cli-surface
-  - component:default/entity-loading-and-modeling
-  - component:default/backstage-entity-mapping
-  - component:default/docs-and-traceability
-  - component:default/discovery-and-resolvers
-  - component:default/drift-and-reconcile
-  - component:default/generator-pipeline
-  - component:default/governance-and-workflow
-  - component:default/reporting-and-analysis
 ---
 
 # Architecture Overview
@@ -35,21 +32,34 @@ The framework is optimized for teams that want architecture to live in the same 
 - one traceability path across catalog entities, markdown documents, and source paths
 - no server requirement for the core workflow
 
-## Subsystem Map
+## Primary Catalog Model
 
-The repo is modeled around nine production components:
+The repo is modeled bottom up from the shipped Backstage primitives:
 
-| Component | Responsibility | Primary code |
-| --- | --- | --- |
-| `cli-surface` | Top-level command UX, scaffolding, and entrypoints | `src/cli/` |
-| `entity-loading-and-modeling` | Config resolution, project root loading, and graph normalization | `src/ea/config.ts`, `src/ea/loader.ts`, `src/ea/index.ts` |
-| `backstage-entity-mapping` | Entity envelope, kind mapping, relation mapping, accessors, and validation | `src/ea/backstage/` |
-| `docs-and-traceability` | Frontmatter parsing, doc scanning, trace linking, and context assembly inputs | `src/ea/docs/`, `src/ea/trace-analysis.ts` |
-| `discovery-and-resolvers` | OpenAPI, Kubernetes, Terraform, SQL, dbt, markdown, anchor, and tree-sitter discovery | `src/ea/resolvers/` |
-| `drift-and-reconcile` | Drift rules, consistency checks, and end-to-end reconcile orchestration | `src/ea/drift.ts`, `src/ea/reconcile.ts` |
-| `generator-pipeline` | Derived outputs such as OpenAPI and JSON Schema | `src/ea/generators/` |
-| `governance-and-workflow` | Policy, compatibility, diff, transition, evidence, and verification | `src/ea/policy.ts`, `src/ea/diff.ts`, `src/ea/version-policy.ts`, `src/ea/evidence.ts` |
-| `reporting-and-analysis` | Graph export, report views, status, impact, search, and summaries | `src/ea/graph.ts`, `src/ea/report.ts`, `src/ea/impact.ts` |
+| Kind | Entity | Responsibility | Primary implementation |
+| --- | --- | --- | --- |
+| `Resource` | `documentation-set` | Linked markdown architecture and operating guidance | `docs/` |
+| `Resource` | `descriptor-schema-pack` | Built-in Backstage and custom EA schema contracts | `src/ea/schemas/`, `src/ea/schemas/backstage/` |
+| `Component` | `anchored-spec-library` | Published Node.js runtime for loading, validating, discovering, tracing, drifting, reporting, and generating | `src/index.ts`, `src/ea/index.ts`, `src/ea/` |
+| `Component` | `anchored-spec-cli` | Shipped command-line entrypoint over the same entity runtime | `src/cli/` |
+| `API` | `anchored-spec-node-api` | Programmatic package export contract | `src/index.ts`, `src/ea/index.ts` |
+| `API` | `anchored-spec-cli-api` | Public `anchored-spec` command surface | `src/cli/` |
+| `System` | `anchored-spec-framework` | Groups the shipped resources, components, and APIs into one model | `catalog-info.yaml` |
+| `Domain` | `anchored-spec` | Places the system in its broader repository-native EA context | `docs/systems/` |
+
+## Implementation Areas
+
+The source tree still has clear internal module areas, but they are implementation slices rather than first-class catalog components:
+
+- `src/ea/backstage/` for descriptor, relation, accessor, and validation logic
+- `src/ea/docs/`, `src/ea/source-scanner.ts`, and `src/ea/trace-analysis.ts` for linked-doc traceability
+- `src/ea/resolvers/` for discovery integrations
+- `src/ea/drift.ts`, `src/ea/reconcile.ts`, and `src/ea/facts/` for drift and consistency
+- `src/ea/generators/` for derived output generation
+- `src/ea/report.ts`, `src/ea/graph.ts`, and `src/ea/impact.ts` for analysis and reporting
+- `src/ea/policy.ts`, `src/ea/diff.ts`, `src/ea/version-policy.ts`, and `src/ea/evidence.ts` for governance workflows
+
+The dedicated internals view in `docs/systems/framework-internals.md` expands these areas into extension surfaces and explains why they remain documentation-level structure rather than top-level catalog entities.
 
 ## Repository Shape
 

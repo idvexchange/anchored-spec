@@ -29,7 +29,7 @@ A storage mode where entities are authored as YAML frontmatter inside markdown f
 
 ## Canonical Entity Ref
 
-The stable identifier format used across commands and docs, such as `component:cli-surface` or `decision:repository-local-workflow`.
+The stable identifier format used across commands and docs, such as `component:default/anchored-spec-cli` or `decision:default/repository-local-workflow`.
 
 ## Declared Data
 

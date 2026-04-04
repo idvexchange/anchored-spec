@@ -9,17 +9,21 @@ domain:
   - delivery
   - systems
 ea-entities:
-  - component:default/discovery-and-resolvers
-  - component:default/drift-and-reconcile
-  - component:default/generator-pipeline
+  - component:default/anchored-spec-library
+  - component:default/anchored-spec-cli
   - capability:default/discovery
   - capability:default/drift-detection
+  - capability:default/derived-output-generation
   - decision:default/declared-before-observed
 ---
 
 # Discovery, Drift, and Generation
 
 Anchored Spec becomes valuable when it can compare the authored model to the repository it lives in.
+
+These workflows are implemented inside the shipped Node library and surfaced through the CLI. They are important runtime behaviors, but they are not modeled here as separate top-level catalog components.
+
+The internal breakdown of resolvers, fact extraction, and generator seams is documented in `docs/systems/framework-internals.md`.
 
 ## Discovery Model
 
@@ -59,4 +63,4 @@ The built-in generator set is intentionally narrow:
 - OpenAPI generation
 - JSON Schema generation
 
-That narrow scope is deliberate. Anchored Spec focuses on preserving a clean authored contract and deriving a few high-value outputs rather than trying to be a universal code generator.
+That narrow scope is deliberate. Anchored Spec treats derived output generation as a first-class capability, but a constrained one: preserve a clean authored contract, then derive a few high-value artifacts rather than turning the framework into a universal code generator.

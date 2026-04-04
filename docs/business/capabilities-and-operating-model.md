@@ -10,9 +10,11 @@ domain:
   - delivery
 ea-entities:
   - group:default/platform-maintainers
+  - domain:default/anchored-spec
   - capability:default/manifest-authoring
   - capability:default/discovery
   - capability:default/drift-detection
+  - capability:default/derived-output-generation
   - capability:default/traceability
   - capability:default/governed-evolution
   - capability:default/ai-context-assembly
@@ -35,11 +37,12 @@ That group is responsible for:
 
 ## Capability Stack
 
-The framework’s business-facing architecture is expressed through six capabilities:
+The framework’s business-facing architecture is expressed through seven capabilities:
 
 - `capability:default/manifest-authoring` keeps the entity model explicit, reviewable, and local to the repository
 - `capability:default/discovery` bootstraps or refines the model from source material such as OpenAPI, Markdown, Kubernetes, Terraform, dbt, and tree-sitter discovery
 - `capability:default/drift-detection` compares declared architecture against observed facts and consistency rules
+- `capability:default/derived-output-generation` derives a narrow set of reusable outputs, currently OpenAPI and JSON Schema, from the authored model
 - `capability:default/traceability` links entities, markdown, and source-aware references into one explainable graph
 - `capability:default/governed-evolution` turns architecture review into an operational loop through validation, diff, lifecycle, evidence, and workflow policy
 - `capability:default/ai-context-assembly` packages entity-centric context for deep human review or agent workflows

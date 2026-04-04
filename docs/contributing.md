@@ -9,8 +9,11 @@ domain:
 ea-entities:
   - group:default/platform-maintainers
   - system:default/anchored-spec-framework
-  - api:default/cli-command-surface
-  - api:default/node-library-api
+  - resource:default/descriptor-schema-pack
+  - api:default/anchored-spec-cli-api
+  - api:default/anchored-spec-node-api
+  - component:default/anchored-spec-library
+  - component:default/anchored-spec-cli
 ---
 
 # Contributing
@@ -29,6 +32,7 @@ pnpm run verify
 
 ## Repository Layout
 
+- `src/index.ts` and `src/ea/index.ts` form the published Node library facade
 - `src/cli/` contains the shipped CLI surface
 - `src/ea/` contains the architecture runtime, analysis, drift, reporting, and generation logic
 - `src/ea/backstage/` contains the entity model, accessors, mappings, writers, and validation
