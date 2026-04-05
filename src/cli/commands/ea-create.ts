@@ -7,10 +7,8 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { resolveConfigV1 } from "../../ea/config.js";
+import { loadProjectConfig as loadAnchoredSpecConfig } from "../../ea/config.js";
 import type { AnchoredSpecConfigV1 } from "../../ea/config.js";
 import {
   ENTITY_DESCRIPTOR_REGISTRY,
@@ -220,18 +218,8 @@ function slugify(title: string): string {
 }
 
 function loadProjectConfig(cwd: string, rootDir: string): AnchoredSpecConfigV1 {
-  const configPath = join(cwd, ".anchored-spec", "config.json");
-  if (!existsSync(configPath)) {
-    return resolveConfigV1({
-      rootDir,
-      entityMode: "manifest",
-      manifestPath: "catalog-info.yaml",
-    });
-  }
-
   try {
-    const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Record<string, unknown>;
-    return resolveConfigV1(raw as Partial<AnchoredSpecConfigV1>);
+    return loadAnchoredSpecConfig(cwd, rootDir);
   } catch {
     throw new CliError("Malformed .anchored-spec/config.json", 1);
   }

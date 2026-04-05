@@ -13,7 +13,7 @@ function schemaPath(name: string): string {
 // ── 1. settings.json ─────────────────────────────────────────────────
 
 export function generateVscodeSettings(_config: {
-  domains: Record<string, string>;
+  domains: string[] | Record<string, string>;
 }): object {
   const jsonSchemas = [
     {
@@ -184,7 +184,7 @@ function mergeExtensions(
 
 export function writeIdeFiles(
   projectRoot: string,
-  config: { domains: Record<string, string> },
+  config: { domains: string[] | Record<string, string> },
 ): { created: string[]; skipped: string[] } {
   const vscodeDir = join(projectRoot, ".vscode");
   mkdirSync(vscodeDir, { recursive: true });

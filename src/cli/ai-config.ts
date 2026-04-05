@@ -13,7 +13,7 @@ import { join, dirname } from "node:path";
 
 export interface AiConfigInput {
   rootDir: string;
-  domains: Record<string, string>;
+  domains: string[] | Record<string, string>;
 }
 
 export interface WriteResult {
@@ -30,7 +30,14 @@ export interface KiroSteering {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
-function domainList(domains: Record<string, string>, prefix: string): string {
+function domainList(
+  domains: string[] | Record<string, string>,
+  prefix: string,
+): string {
+  if (Array.isArray(domains)) {
+    return domains.map((name) => `${prefix}\`${name}\` — semantic domain`).join("\n");
+  }
+
   return Object.entries(domains)
     .map(([name, dir]) => `${prefix}\`${dir}/\` — ${name}`)
     .join("\n");

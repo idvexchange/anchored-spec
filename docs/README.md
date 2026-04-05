@@ -68,6 +68,7 @@ If you are new to the framework, read in this order:
 - [adr/ADR-002-dual-storage-modes.md](adr/ADR-002-dual-storage-modes.md)
 - [adr/ADR-003-declared-before-observed.md](adr/ADR-003-declared-before-observed.md)
 - [adr/ADR-004-repository-local-workflow.md](adr/ADR-004-repository-local-workflow.md)
+- [adr/ADR-005-flexible-document-structure.md](adr/ADR-005-flexible-document-structure.md)
 
 ### Requirements
 

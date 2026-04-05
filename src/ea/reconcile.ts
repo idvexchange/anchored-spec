@@ -21,7 +21,10 @@ import type { GenerationReport } from "./generators/index.js";
 import { runGenerators, listGenerators, getGenerator } from "./generators/index.js";
 import { silentLogger } from "./resolvers/index.js";
 import { EaRoot } from "./loader.js";
-import { resolveConfigV1 } from "./config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "./config.js";
 import { buildTraceLinks, buildTraceCheckReport } from "./trace-analysis.js";
 import type { TraceCheckReport } from "./trace-analysis.js";
 import { scanDocs } from "./docs/scanner.js";
@@ -97,7 +100,7 @@ export async function reconcileEaProject(
   options: ReconcileOptions = {},
 ): Promise<ReconcileReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
-  const eaConfig = resolveConfigV1({ rootDir: options.eaRoot ?? "docs" });
+  const eaConfig = loadProjectConfig(projectRoot, options.eaRoot ?? "docs");
   const root = new EaRoot(projectRoot, eaConfig);
 
   const steps: ReconcileStepResult[] = [];
@@ -181,7 +184,7 @@ interface GenerateStepOutput {
 function runGenerateStep(
   entities: BackstageEntity[],
   projectRoot: string,
-  eaConfig: ReturnType<typeof resolveConfigV1>,
+  eaConfig: ReturnType<typeof loadProjectConfig>,
   options: ReconcileOptions,
 ): GenerateStepOutput {
   const generatorNames = listGenerators();
@@ -323,24 +326,21 @@ function runTraceStep(
   projectRoot: string,
   options: ReconcileOptions,
 ): TraceStepOutput {
-  const docDirs = options.docDirs ?? ["docs", "specs", "."];
+  const config = loadProjectConfig(projectRoot, options.eaRoot ?? "docs");
+  const docDirs = options.docDirs ?? getConfiguredDocScanDirs(config) ?? ["docs", "specs", "."];
   const scanResult = scanDocs(projectRoot, { dirs: docDirs });
   const { docs } = scanResult;
 
   // Include source annotations if config enables them
   try {
-    const configPath = join(projectRoot, ".anchored-spec", "config.json");
-    if (existsSync(configPath)) {
-      const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-      if (raw.schemaVersion === "1.0" && raw.sourceAnnotations?.enabled) {
-        const srcResult = scanSourceAnnotations(
-          projectRoot,
-          raw.sourceAnnotations,
-          raw.sourceRoots,
-          raw.sourceGlobs,
-        );
-        docs.push(...srcResult.sources);
-      }
+    if (config.sourceAnnotations?.enabled) {
+      const srcResult = scanSourceAnnotations(
+        projectRoot,
+        config.sourceAnnotations,
+        config.sourceRoots,
+        config.sourceGlobs,
+      );
+      docs.push(...srcResult.sources);
     }
   } catch { /* ignore config read errors */ }
 

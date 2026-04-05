@@ -12,7 +12,8 @@ import {
   EaRoot,
   createDefaultRegistry,
   buildRelationGraph,
-  resolveConfigV1,
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
   analyzeImpact,
   renderImpactReportMarkdown,
 } from "../../ea/index.js";
@@ -44,7 +45,7 @@ export function eaImpactCommand(): Command {
     .option("--fail-on-impact", "Exit with code 1 if any impacted entities found (CI gate)")
     .action(async (entityInput: string | undefined, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -69,10 +70,11 @@ export function eaImpactCommand(): Command {
 
       // Determine entity refs to analyze
       let entityRefs: string[] = [];
+      const docDirs = getConfiguredDocScanDirs(eaConfig);
 
       if (options.fromFile) {
         // Resolve from file path
-        const scanned = scanDocs(cwd);
+        const scanned = scanDocs(cwd, docDirs ? { dirs: docDirs } : undefined);
         const resolutions = resolveFromFiles(
           [options.fromFile as string],
           entities,
@@ -94,7 +96,7 @@ export function eaImpactCommand(): Command {
         entityRefs = [...new Set(resolutions.map((r) => r.resolvedEntityRef))];
       } else if (options.fromDiff !== undefined) {
         // Resolve from git diff
-        const scanned = scanDocs(cwd);
+        const scanned = scanDocs(cwd, docDirs ? { dirs: docDirs } : undefined);
         const diffRef = typeof options.fromDiff === "string" ? options.fromDiff : undefined;
         const resolutions = resolveFromDiff(
           {

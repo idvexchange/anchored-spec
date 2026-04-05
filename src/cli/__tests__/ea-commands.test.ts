@@ -127,14 +127,23 @@ describe("CLI v2 commands", () => {
     expect(result.exitCode).toBe(0);
     expect(existsSync(join(dir, ".anchored-spec", "config.json"))).toBe(true);
     expect(existsSync(join(dir, "catalog-info.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "README.md"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "01-business"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "guides", "user-guides"))).toBe(true);
     expect(existsSync(join(dir, "docs", "generated"))).toBe(true);
     expect(
       existsSync(join(dir, "docs", "schemas", "config-v1.schema.json")),
     ).toBe(true);
     const config = readJsonFile<{
+      schemaVersion: string;
       entityMode: string;
+      docs: {
+        structure: string;
+      };
     }>(dir, ".anchored-spec/config.json");
+    expect(config.schemaVersion).toBe("1.1");
     expect(config.entityMode).toBe("manifest");
+    expect(config.docs.structure).toBe("architecture-views");
   });
   it("supports inline-mode initialization for entity frontmatter projects", () => {
     const dir = makeWorkspace("cli-init-inline");
@@ -147,6 +156,57 @@ describe("CLI v2 commands", () => {
     }>(dir, ".anchored-spec/config.json");
     expect(config.entityMode).toBe("inline");
     expect(config.inlineDocDirs).toContain("docs");
+  });
+  it("lists configured doc sections and creates docs from template defaults", () => {
+    const dir = makeWorkspace("cli-create-doc-sections");
+    expect(runCli(["init", "--force"], dir).exitCode).toBe(0);
+
+    const listResult = runCli(["create-doc", "--list-sections"], dir);
+    expect(listResult.exitCode).toBe(0);
+    expect(listResult.stdout).toContain("component");
+    expect(listResult.stdout).toContain("docs/04-component");
+    expect(listResult.stdout).toContain("user-guides");
+
+    const createResult = runCli(
+      ["create-doc", "--title", "Orders Contract", "--type", "spec"],
+      dir,
+    );
+    expect(createResult.exitCode).toBe(0);
+    expect(existsSync(join(dir, "docs", "06-api", "orders-contract.md"))).toBe(
+      true,
+    );
+    expect(cliOutput(createResult)).toContain("Section: api");
+  });
+  it("creates docs in an explicit configured section", () => {
+    const dir = makeWorkspace("cli-create-doc-explicit-section");
+    expect(runCli(["init", "--force"], dir).exitCode).toBe(0);
+
+    const createResult = runCli(
+      [
+        "create-doc",
+        "--title",
+        "Contributor Onboarding",
+        "--type",
+        "guide",
+        "--section",
+        "developer-guides",
+      ],
+      dir,
+    );
+
+    expect(createResult.exitCode).toBe(0);
+    expect(
+      existsSync(
+        join(
+          dir,
+          "docs",
+          "guides",
+          "developer-guides",
+          "contributor-onboarding.md",
+        ),
+      ),
+    ).toBe(true);
+    expect(cliOutput(createResult)).toContain("Section: developer-guides");
   });
   it("creates a Backstage entity and exposes it through top-level status", () => {
     const dir = makeWorkspace("cli-create");

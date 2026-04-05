@@ -6,7 +6,7 @@
  * for runtime and test fixtures.
  */
 
-export type EaDomain =
+export type BuiltInEaDomain =
   | "systems"
   | "delivery"
   | "data"
@@ -14,7 +14,9 @@ export type EaDomain =
   | "business"
   | "transitions";
 
-export const EA_DOMAINS: readonly EaDomain[] = [
+export type EaDomain = BuiltInEaDomain | (string & {});
+
+export const EA_DOMAINS: readonly BuiltInEaDomain[] = [
   "systems",
   "delivery",
   "data",

@@ -13,7 +13,10 @@ import { Command } from "commander";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "../../ea/config.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { buildTraceLinks, buildTraceCheckReport, isUrl } from "../../ea/trace-analysis.js";
@@ -356,7 +359,7 @@ export function eaTraceCommand(): Command {
     .description("Show traceability web between entities and documents")
     .argument("[target]", "Entity ref or document path to inspect")
     .option("--root-dir <path>", "EA root directory", "docs")
-    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan")
     .option("--orphans", "Show orphaned docs (frontmatter refs with no traceRef back)")
     .option("--check", "Full bidirectional integrity report")
     .option("--fix-broken", "Remove traceRefs pointing to non-existent files")
@@ -367,28 +370,22 @@ export function eaTraceCommand(): Command {
     .option("--explain", "Show detailed rationale for each trace link")
     .action(async (target: string | undefined, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
       }
 
-      // Load v1 config for sourceAnnotations settings
-      let v1Config: AnchoredSpecConfigV1 | null = null;
-      try {
-        const configPath = resolve(cwd, ".anchored-spec", "config.json");
-        if (existsSync(configPath)) {
-          const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-          if (raw.schemaVersion === "1.0") v1Config = raw as AnchoredSpecConfigV1;
-        }
-      } catch { /* ignore config read errors */ }
+      const v1Config: AnchoredSpecConfigV1 = eaConfig;
 
       const loadResult = await root.loadEntities();
       const entities = loadResult.entities;
       const lookup = buildEntityLookup(entities);
 
-      const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+      const docDirs = options.docDirs
+        ? (options.docDirs as string).split(",").map((d: string) => d.trim())
+        : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
       const scanResult = scanDocs(cwd, { dirs: docDirs });
       const { docs, totalScanned } = scanResult;
 

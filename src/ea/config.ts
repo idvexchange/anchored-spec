@@ -1,10 +1,12 @@
 /**
  * Anchored Spec — EA Configuration
  *
- * Defines the current v1.0 Anchored Spec configuration.
+ * Supports configuration schema versions 1.0 and 1.1.
  */
 
-import type { EaDomain } from "./types.js";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { EA_DOMAINS, type BuiltInEaDomain } from "./types.js";
 
 // ─── Shared Sub-Config Types ────────────────────────────────────────────────────
 
@@ -75,14 +77,38 @@ export interface EaTestMetadataConfig {
   requirementPattern?: string | string[];
 }
 
-/**
- * Current Anchored Spec configuration.
- */
-export interface AnchoredSpecConfigV1 {
-  /** Config format version. Must be "1.0". */
-  schemaVersion: "1.0";
+export type AnchoredSpecSchemaVersion = "1.0" | "1.1";
+export type DocsStructureProfile =
+  | "legacy-domain"
+  | "architecture-views"
+  | "custom"
+  | (string & {});
 
-  /** Root directory for EA entities. Default: "docs". */
+export type DocSectionKind =
+  | "architecture"
+  | "decision-record"
+  | "requirement"
+  | "guide"
+  | (string & {});
+
+export interface AnchoredSpecDocsSection {
+  id: string;
+  title: string;
+  path: string;
+  kind: DocSectionKind;
+  domains?: string[];
+}
+
+export interface AnchoredSpecDocsConfig {
+  structure: DocsStructureProfile;
+  scanDirs: string[];
+  rootDocs: string[];
+  sections: AnchoredSpecDocsSection[];
+  templates: Record<string, string>;
+}
+
+interface AnchoredSpecConfigBase {
+  /** Root directory for EA docs and outputs. Default: "docs". */
   rootDir: string;
 
   /** Directory for generated output files. Default: "docs/generated". */
@@ -90,9 +116,6 @@ export interface AnchoredSpecConfigV1 {
 
   /** Optional organizational prefix for entity IDs (e.g., "acme"). */
   idPrefix?: string | null;
-
-  /** Per-domain subdirectory paths. */
-  domains: Record<EaDomain, string>;
 
   /** Configured resolver plugins. */
   resolvers: EaResolverConfig[];
@@ -144,7 +167,7 @@ export interface AnchoredSpecConfigV1 {
   /** Test metadata linking configuration. */
   testMetadata?: EaTestMetadataConfig;
 
-  /** Path to workflow policy file. Default: "ea/workflow-policy.yaml". */
+  /** Path to workflow policy file. Default: "<rootDir>/workflow-policy.yaml". */
   workflowPolicyPath?: string;
 
   /** Custom change types beyond built-in types. */
@@ -180,9 +203,205 @@ export interface AnchoredSpecConfigV1 {
   inlineDocDirs?: string[];
 }
 
-// ─── v1.0 Defaults & Resolution ─────────────────────────────────────────────────
+export interface AnchoredSpecConfigV1_0 extends AnchoredSpecConfigBase {
+  /** Config format version. Must be "1.0". */
+  schemaVersion: "1.0";
 
-function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1 {
+  /** Per-domain subdirectory paths. */
+  domains: Record<BuiltInEaDomain, string>;
+}
+
+export interface AnchoredSpecConfigV1_1 extends AnchoredSpecConfigBase {
+  /** Config format version. Must be "1.1". */
+  schemaVersion: "1.1";
+
+  /** Semantic domain labels. */
+  domains: string[];
+
+  /** Physical docs structure configuration. */
+  docs: AnchoredSpecDocsConfig;
+}
+
+/**
+ * Historical export name retained for compatibility.
+ * Represents the effective config for either v1.0 or v1.1.
+ */
+export type AnchoredSpecConfigV1 = AnchoredSpecConfigV1_0 | AnchoredSpecConfigV1_1;
+
+const CONFIG_FILE = ".anchored-spec/config.json";
+
+const ARCHITECTURE_VIEW_ROOT_DOC_NAMES = [
+  "README.md",
+  "glossary.md",
+  "delivery-baseline.md",
+  "mobilization.md",
+  "current-vs-target.md",
+  "readiness-checklist.md",
+] as const;
+
+const CUSTOM_ROOT_DOC_NAMES = ["README.md"] as const;
+
+function toRootDocs(rootDir: string, names: readonly string[]): string[] {
+  return names.map((name) => `${rootDir}/${name}`);
+}
+
+function buildLegacyDomainSections(rootDir: string): AnchoredSpecDocsSection[] {
+  return EA_DOMAINS.map((domain) => ({
+    id: domain,
+    title: titleCase(domain),
+    path: `${rootDir}/${domain}`,
+    kind: "architecture",
+    domains: [domain],
+  }));
+}
+
+function buildArchitectureViewSections(rootDir: string): AnchoredSpecDocsSection[] {
+  return [
+    {
+      id: "business",
+      title: "Business",
+      path: `${rootDir}/01-business`,
+      kind: "architecture",
+      domains: ["business"],
+    },
+    {
+      id: "system-context",
+      title: "System Context",
+      path: `${rootDir}/02-system-context`,
+      kind: "architecture",
+      domains: ["systems"],
+    },
+    {
+      id: "container",
+      title: "Container",
+      path: `${rootDir}/03-container`,
+      kind: "architecture",
+      domains: ["systems"],
+    },
+    {
+      id: "component",
+      title: "Component",
+      path: `${rootDir}/04-component`,
+      kind: "architecture",
+      domains: ["systems"],
+    },
+    {
+      id: "domain",
+      title: "Domain",
+      path: `${rootDir}/05-domain`,
+      kind: "architecture",
+      domains: ["business", "information"],
+    },
+    {
+      id: "api",
+      title: "API",
+      path: `${rootDir}/06-api`,
+      kind: "architecture",
+      domains: ["systems", "transitions"],
+    },
+    {
+      id: "data",
+      title: "Data",
+      path: `${rootDir}/07-data`,
+      kind: "architecture",
+      domains: ["data"],
+    },
+    {
+      id: "security",
+      title: "Security",
+      path: `${rootDir}/08-security`,
+      kind: "architecture",
+      domains: ["systems"],
+    },
+    {
+      id: "infrastructure",
+      title: "Infrastructure",
+      path: `${rootDir}/09-infrastructure`,
+      kind: "architecture",
+      domains: ["delivery", "systems"],
+    },
+    {
+      id: "testing",
+      title: "Testing",
+      path: `${rootDir}/10-testing`,
+      kind: "architecture",
+      domains: ["delivery"],
+    },
+    {
+      id: "adr",
+      title: "Architecture Decision Records",
+      path: `${rootDir}/adr`,
+      kind: "decision-record",
+    },
+    {
+      id: "req",
+      title: "Requirements",
+      path: `${rootDir}/req`,
+      kind: "requirement",
+    },
+    {
+      id: "user-guides",
+      title: "User Guides",
+      path: `${rootDir}/guides/user-guides`,
+      kind: "guide",
+    },
+    {
+      id: "developer-guides",
+      title: "Developer Guides",
+      path: `${rootDir}/guides/developer-guides`,
+      kind: "guide",
+    },
+  ];
+}
+
+function buildDocsDefaults(
+  rootDir: string,
+  structure: DocsStructureProfile,
+): AnchoredSpecDocsConfig {
+  switch (structure) {
+    case "legacy-domain":
+      return {
+        structure,
+        scanDirs: [rootDir],
+        rootDocs: toRootDocs(rootDir, CUSTOM_ROOT_DOC_NAMES),
+        sections: buildLegacyDomainSections(rootDir),
+        templates: {
+          spec: "systems",
+          architecture: "systems",
+          guide: "delivery",
+          adr: "transitions",
+          runbook: "delivery",
+        },
+      };
+    case "custom":
+      return {
+        structure,
+        scanDirs: [rootDir],
+        rootDocs: toRootDocs(rootDir, CUSTOM_ROOT_DOC_NAMES),
+        sections: [],
+        templates: {},
+      };
+    case "architecture-views":
+    default:
+      return {
+        structure: structure ?? "architecture-views",
+        scanDirs: [rootDir],
+        rootDocs: toRootDocs(rootDir, ARCHITECTURE_VIEW_ROOT_DOC_NAMES),
+        sections: buildArchitectureViewSections(rootDir),
+        templates: {
+          spec: "api",
+          architecture: "component",
+          guide: "user-guides",
+          adr: "adr",
+          runbook: "developer-guides",
+        },
+      };
+  }
+}
+
+// ─── Defaults & Resolution ─────────────────────────────────────────────────────
+
+function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1_0 {
   return {
     schemaVersion: "1.0",
     rootDir,
@@ -217,42 +436,231 @@ function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1 {
   };
 }
 
+function buildV11Defaults(
+  rootDir: string,
+  structure: DocsStructureProfile,
+): AnchoredSpecConfigV1_1 {
+  return {
+    schemaVersion: "1.1",
+    rootDir,
+    generatedDir: `${rootDir}/generated`,
+    idPrefix: null,
+    domains: [...EA_DOMAINS],
+    docs: buildDocsDefaults(rootDir, structure),
+    resolvers: [],
+    generators: [],
+    evidenceSources: [],
+    cache: {
+      dir: ".anchored-spec/cache",
+      defaultTTL: 3600,
+    },
+    quality: {
+      requireOwners: true,
+      requireSummary: true,
+      requireRelations: false,
+      requireAnchors: false,
+      strictMode: false,
+      rules: {},
+    },
+    workflowPolicyPath: `${rootDir}/workflow-policy.yaml`,
+    entityMode: "manifest",
+    manifestPath: "catalog-info.yaml",
+  };
+}
+
+function mergeDocsConfig(
+  rootDir: string,
+  partial: Partial<AnchoredSpecDocsConfig> | undefined,
+): AnchoredSpecDocsConfig {
+  const structure = partial?.structure ?? "architecture-views";
+  const defaults = buildDocsDefaults(rootDir, structure);
+
+  return {
+    structure,
+    scanDirs: partial?.scanDirs ?? defaults.scanDirs,
+    rootDocs: partial?.rootDocs ?? defaults.rootDocs,
+    sections: partial?.sections ?? defaults.sections,
+    templates: { ...defaults.templates, ...(partial?.templates ?? {}) },
+  };
+}
+
 /**
- * Resolve a complete v1.0 config from a partial user-provided config.
+ * Resolve a complete config from a partial user-provided config.
  */
 export function resolveConfigV1(
-  partial?: Partial<AnchoredSpecConfigV1> | null
+  partial?: Partial<AnchoredSpecConfigV1> | null,
 ): AnchoredSpecConfigV1 {
-  const rootDir = partial?.rootDir ?? "docs";
-  const defaults = buildV1Defaults(rootDir);
+  const inferredVersion: AnchoredSpecSchemaVersion =
+    partial?.schemaVersion === "1.1" ||
+    Array.isArray((partial as { domains?: unknown } | undefined)?.domains) ||
+    "docs" in (partial ?? {})
+      ? "1.1"
+      : "1.0";
 
-  if (!partial) return defaults;
+  const rootDir = partial?.rootDir ?? "docs";
+
+  if (inferredVersion === "1.1") {
+    const typedPartial = (partial ?? {}) as Partial<AnchoredSpecConfigV1_1>;
+    const defaults = buildV11Defaults(
+      rootDir,
+      typedPartial.docs?.structure ?? "architecture-views",
+    );
+
+    return {
+      schemaVersion: "1.1",
+      rootDir,
+      generatedDir: typedPartial.generatedDir ?? defaults.generatedDir,
+      idPrefix: typedPartial.idPrefix ?? defaults.idPrefix,
+      domains: typedPartial.domains ?? defaults.domains,
+      docs: mergeDocsConfig(rootDir, typedPartial.docs),
+      resolvers: typedPartial.resolvers ?? defaults.resolvers,
+      generators: typedPartial.generators ?? defaults.generators,
+      evidenceSources: typedPartial.evidenceSources ?? defaults.evidenceSources,
+      cache: { ...defaults.cache, ...typedPartial.cache },
+      quality: { ...defaults.quality, ...typedPartial.quality },
+      sourceRoots: typedPartial.sourceRoots,
+      sourceGlobs: typedPartial.sourceGlobs,
+      sourceAnnotations: typedPartial.sourceAnnotations,
+      versionPolicy: typedPartial.versionPolicy,
+      plugins: typedPartial.plugins,
+      exclude: typedPartial.exclude,
+      driftResolvers: typedPartial.driftResolvers,
+      hooks: typedPartial.hooks,
+      testMetadata: typedPartial.testMetadata,
+      workflowPolicyPath:
+        typedPartial.workflowPolicyPath ?? defaults.workflowPolicyPath,
+      customChangeTypes: typedPartial.customChangeTypes,
+      entityMode: typedPartial.entityMode ?? defaults.entityMode,
+      manifestPath: typedPartial.manifestPath ?? defaults.manifestPath,
+      catalogDir: typedPartial.catalogDir,
+      inlineDocDirs: typedPartial.inlineDocDirs,
+    };
+  }
+
+  const typedPartial = (partial ?? {}) as Partial<AnchoredSpecConfigV1_0>;
+  const defaults = buildV1Defaults(rootDir);
 
   return {
     schemaVersion: "1.0",
     rootDir,
-    generatedDir: partial.generatedDir ?? defaults.generatedDir,
-    idPrefix: partial.idPrefix ?? defaults.idPrefix,
-    domains: { ...defaults.domains, ...partial.domains },
-    resolvers: partial.resolvers ?? defaults.resolvers,
-    generators: partial.generators ?? defaults.generators,
-    evidenceSources: partial.evidenceSources ?? defaults.evidenceSources,
-    cache: { ...defaults.cache, ...partial.cache },
-    quality: { ...defaults.quality, ...partial.quality },
-    sourceRoots: partial.sourceRoots,
-    sourceGlobs: partial.sourceGlobs,
-    sourceAnnotations: partial.sourceAnnotations,
-    versionPolicy: partial.versionPolicy,
-    plugins: partial.plugins,
-    exclude: partial.exclude,
-    driftResolvers: partial.driftResolvers,
-    hooks: partial.hooks,
-    testMetadata: partial.testMetadata,
-    workflowPolicyPath: partial.workflowPolicyPath ?? defaults.workflowPolicyPath,
-    customChangeTypes: partial.customChangeTypes,
-    entityMode: partial.entityMode ?? defaults.entityMode,
-    manifestPath: partial.manifestPath ?? defaults.manifestPath,
-    catalogDir: partial.catalogDir,
-    inlineDocDirs: partial.inlineDocDirs,
+    generatedDir: typedPartial.generatedDir ?? defaults.generatedDir,
+    idPrefix: typedPartial.idPrefix ?? defaults.idPrefix,
+    domains: { ...defaults.domains, ...typedPartial.domains },
+    resolvers: typedPartial.resolvers ?? defaults.resolvers,
+    generators: typedPartial.generators ?? defaults.generators,
+    evidenceSources: typedPartial.evidenceSources ?? defaults.evidenceSources,
+    cache: { ...defaults.cache, ...typedPartial.cache },
+    quality: { ...defaults.quality, ...typedPartial.quality },
+    sourceRoots: typedPartial.sourceRoots,
+    sourceGlobs: typedPartial.sourceGlobs,
+    sourceAnnotations: typedPartial.sourceAnnotations,
+    versionPolicy: typedPartial.versionPolicy,
+    plugins: typedPartial.plugins,
+    exclude: typedPartial.exclude,
+    driftResolvers: typedPartial.driftResolvers,
+    hooks: typedPartial.hooks,
+    testMetadata: typedPartial.testMetadata,
+    workflowPolicyPath:
+      typedPartial.workflowPolicyPath ?? defaults.workflowPolicyPath,
+    customChangeTypes: typedPartial.customChangeTypes,
+    entityMode: typedPartial.entityMode ?? defaults.entityMode,
+    manifestPath: typedPartial.manifestPath ?? defaults.manifestPath,
+    catalogDir: typedPartial.catalogDir,
+    inlineDocDirs: typedPartial.inlineDocDirs,
   };
+}
+
+export function loadProjectConfig(
+  projectRoot: string,
+  rootDirFallback = "docs",
+): AnchoredSpecConfigV1 {
+  const configPath = join(resolve(projectRoot), CONFIG_FILE);
+  if (!existsSync(configPath)) {
+    return resolveConfigV1({ rootDir: rootDirFallback });
+  }
+
+  const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Partial<AnchoredSpecConfigV1>;
+  return resolveConfigV1(raw);
+}
+
+export function isConfigV11(
+  config: AnchoredSpecConfigV1,
+): config is AnchoredSpecConfigV1_1 {
+  return config.schemaVersion === "1.1";
+}
+
+export function getConfiguredDomains(config: AnchoredSpecConfigV1): string[] {
+  return isConfigV11(config) ? config.domains : Object.keys(config.domains);
+}
+
+export function getConfiguredDocScanDirs(config: AnchoredSpecConfigV1): string[] | undefined {
+  return isConfigV11(config) ? config.docs.scanDirs : undefined;
+}
+
+export function getConfiguredDocSections(
+  config: AnchoredSpecConfigV1,
+): AnchoredSpecDocsSection[] {
+  return isConfigV11(config) ? config.docs.sections : [];
+}
+
+export function getConfiguredRootDocs(config: AnchoredSpecConfigV1): string[] {
+  return isConfigV11(config) ? config.docs.rootDocs : [];
+}
+
+export function findDocSection(
+  config: AnchoredSpecConfigV1,
+  sectionId: string,
+): AnchoredSpecDocsSection | undefined {
+  return getConfiguredDocSections(config).find((section) => section.id === sectionId);
+}
+
+export function getDefaultSectionForDocType(
+  config: AnchoredSpecConfigV1,
+  docType: string,
+): string | undefined {
+  return isConfigV11(config) ? config.docs.templates[docType] : undefined;
+}
+
+export function resolveDocOutputTarget(
+  config: AnchoredSpecConfigV1,
+  options: {
+    dir?: string;
+    section?: string;
+    docType?: string;
+  },
+): { dir: string; sectionId?: string } | null {
+  if (options.dir) {
+    return { dir: options.dir };
+  }
+
+  const requestedSection = options.section ?? (options.docType ? getDefaultSectionForDocType(config, options.docType) : undefined);
+  if (!requestedSection) {
+    return null;
+  }
+
+  const section = findDocSection(config, requestedSection);
+  if (!section) {
+    return null;
+  }
+
+  return {
+    dir: section.path,
+    sectionId: section.id,
+  };
+}
+
+export function getVerificationSearchDirs(config: AnchoredSpecConfigV1): string[] {
+  if (isConfigV11(config)) {
+    const explicit = findDocSection(config, "transitions");
+    return [explicit?.path ?? `${config.rootDir}/transitions`];
+  }
+
+  return [config.domains.transitions];
+}
+
+function titleCase(value: string): string {
+  return value
+    .split(/[-_]/g)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

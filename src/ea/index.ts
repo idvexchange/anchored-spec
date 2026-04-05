@@ -6,6 +6,7 @@
 
 // Types
 export type {
+  BuiltInEaDomain,
   EaDomain,
   EaAnchors,
   EaRelation,
@@ -27,12 +28,30 @@ export type {
   EaQualityConfig,
   EaCacheConfig,
   AnchoredSpecConfigV1,
+  AnchoredSpecConfigV1_0,
+  AnchoredSpecConfigV1_1,
+  AnchoredSpecDocsConfig,
+  AnchoredSpecDocsSection,
+  AnchoredSpecSchemaVersion,
+  DocsStructureProfile,
   EaHookEvent,
   EaHookDefinition,
   EaTestMetadataConfig,
 } from "./config.js";
 
-export { resolveConfigV1 } from "./config.js";
+export {
+  resolveConfigV1,
+  loadProjectConfig,
+  isConfigV11,
+  getConfiguredDomains,
+  getConfiguredDocScanDirs,
+  getConfiguredDocSections,
+  getConfiguredRootDocs,
+  findDocSection,
+  getDefaultSectionForDocType,
+  resolveDocOutputTarget,
+  getVerificationSearchDirs,
+} from "./config.js";
 
 // Validation
 export type {

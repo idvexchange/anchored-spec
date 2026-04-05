@@ -29,7 +29,6 @@ import {
   REPORT_VIEWS,
   EA_DOMAINS,
 } from "../../ea/index.js";
-import type { EaDomain } from "../../ea/index.js";
 import type { BackstageEntity } from "../../ea/backstage/types.js";
 import { getEntityDomain, getEntityId } from "../../ea/backstage/accessors.js";
 import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
@@ -78,7 +77,7 @@ export function eaReportCommand(): Command {
 
       // Apply domain filter
       const domainFilter = options.domain as string | undefined;
-      if (domainFilter && !EA_DOMAINS.includes(domainFilter as EaDomain)) {
+      if (domainFilter && !EA_DOMAINS.includes(domainFilter as typeof EA_DOMAINS[number])) {
         throw new CliError(
           `Unknown domain "${domainFilter}". Available: ${EA_DOMAINS.join(", ")}`,
           2

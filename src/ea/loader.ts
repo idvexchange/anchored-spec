@@ -22,7 +22,11 @@ import {
   getEntityStatus,
 } from "./backstage/accessors.js";
 import type { EaDomain } from "./types.js";
-import { resolveConfigV1, type AnchoredSpecConfigV1 } from "./config.js";
+import {
+  loadProjectConfig,
+  getVerificationSearchDirs,
+  type AnchoredSpecConfigV1,
+} from "./config.js";
 import { type EaValidationError } from "./validate.js";
 
 export interface EaLoadedEntity {
@@ -84,13 +88,7 @@ export class EaRoot {
   }
 
   static resolveProjectConfig(projectRoot: string): AnchoredSpecConfigV1 {
-    const configPath = join(resolve(projectRoot), CONFIG_FILE);
-    if (!existsSync(configPath)) {
-      return resolveConfigV1();
-    }
-
-    const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Partial<AnchoredSpecConfigV1>;
-    return resolveConfigV1(raw);
+    return loadProjectConfig(projectRoot);
   }
 
   static fromDirectory(startDir: string): EaRoot | null {
@@ -134,7 +132,7 @@ export class EaRoot {
 
   isInitialized(): boolean {
     if (this.v1Config.entityMode === "inline") {
-      const dirs = this.v1Config.inlineDocDirs ?? ["docs"];
+      const dirs = this.v1Config.inlineDocDirs ?? [this.v1Config.rootDir];
       return dirs.some((dir) => existsSync(join(this.projectRoot, dir)));
     }
 
@@ -180,28 +178,30 @@ export class EaRoot {
   }
 
   loadVerifications(): Record<string, unknown>[] {
-    const transitionsDir = join(this.projectRoot, this.v1Config.domains.transitions);
-    if (!existsSync(transitionsDir)) return [];
-
     const verifications: Record<string, unknown>[] = [];
-    try {
-      const entries = readdirSync(transitionsDir);
-      for (const entry of entries) {
-        const fullPath = join(transitionsDir, entry);
-        if (!statSync(fullPath).isDirectory()) continue;
+    for (const relativeDir of getVerificationSearchDirs(this.v1Config)) {
+      const transitionsDir = join(this.projectRoot, relativeDir);
+      if (!existsSync(transitionsDir)) continue;
 
-        const verifyJson = join(fullPath, "verification.json");
-        if (existsSync(verifyJson)) {
-          verifications.push(JSON.parse(readFileSync(verifyJson, "utf-8")) as Record<string, unknown>);
-        }
+      try {
+        const entries = readdirSync(transitionsDir);
+        for (const entry of entries) {
+          const fullPath = join(transitionsDir, entry);
+          if (!statSync(fullPath).isDirectory()) continue;
 
-        const verifyYaml = join(fullPath, "verification.yaml");
-        if (existsSync(verifyYaml)) {
-          verifications.push(parseYaml(readFileSync(verifyYaml, "utf-8")) as Record<string, unknown>);
+          const verifyJson = join(fullPath, "verification.json");
+          if (existsSync(verifyJson)) {
+            verifications.push(JSON.parse(readFileSync(verifyJson, "utf-8")) as Record<string, unknown>);
+          }
+
+          const verifyYaml = join(fullPath, "verification.yaml");
+          if (existsSync(verifyYaml)) {
+            verifications.push(parseYaml(readFileSync(verifyYaml, "utf-8")) as Record<string, unknown>);
+          }
         }
+      } catch {
+        return verifications;
       }
-    } catch {
-      return verifications;
     }
 
     return verifications;
@@ -251,7 +251,7 @@ export class EaRoot {
     }
 
     const totalFiles = this.v1Config.entityMode === "inline"
-      ? (this.v1Config.inlineDocDirs ?? ["docs"]).reduce(
+      ? (this.v1Config.inlineDocDirs ?? [this.v1Config.rootDir]).reduce(
           (sum, dir) => sum + countFilesWithExtensions(join(this.projectRoot, dir), new Set([".md", ".markdown"])),
           0,
         )

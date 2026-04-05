@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { resolveConfigV1 } from "../config.js";
 
 describe("resolveConfigV1", () => {
-  it("returns v2 defaults", () => {
+  it("returns v1.0 defaults", () => {
     const config = resolveConfigV1();
 
     expect(config.schemaVersion).toBe("1.0");
@@ -15,9 +15,10 @@ describe("resolveConfigV1", () => {
     expect(config.inlineDocDirs).toBeUndefined();
   });
 
-  it("builds domain paths from a custom root", () => {
+  it("builds v1.0 domain paths from a custom root", () => {
     const config = resolveConfigV1({ rootDir: "architecture" });
 
+    expect(config.schemaVersion).toBe("1.0");
     expect(config.domains.systems).toBe("architecture/systems");
     expect(config.domains.transitions).toBe("architecture/transitions");
     expect(config.generatedDir).toBe("architecture/generated");
@@ -53,5 +54,65 @@ describe("resolveConfigV1", () => {
     expect(config.testMetadata).toEqual({ testGlobs: ["**/*.test.ts"] });
     expect(config.sourceRoots).toEqual(["src"]);
     expect(config.sourceGlobs).toEqual(["**/*.ts"]);
+  });
+
+  it("returns v1.1 defaults with architecture-view docs metadata", () => {
+    const config = resolveConfigV1({ schemaVersion: "1.1" });
+
+    expect(config.schemaVersion).toBe("1.1");
+    expect(config.rootDir).toBe("docs");
+    expect(config.generatedDir).toBe("docs/generated");
+    expect(config.domains).toEqual([
+      "systems",
+      "delivery",
+      "data",
+      "information",
+      "business",
+      "transitions",
+    ]);
+    expect(config.docs.structure).toBe("architecture-views");
+    expect(config.docs.scanDirs).toEqual(["docs"]);
+    expect(config.docs.rootDocs).toContain("docs/README.md");
+    expect(config.docs.sections.find((section) => section.id === "component")?.path).toBe("docs/04-component");
+    expect(config.docs.templates.architecture).toBe("component");
+  });
+
+  it("merges v1.1 docs overrides without losing defaults", () => {
+    const config = resolveConfigV1({
+      schemaVersion: "1.1",
+      rootDir: "architecture",
+      domains: ["business", "systems"],
+      docs: {
+        structure: "custom",
+        scanDirs: ["architecture", "handbook"],
+        sections: [
+          {
+            id: "guides",
+            title: "Guides",
+            path: "architecture/guides",
+            kind: "guide",
+          },
+        ],
+        templates: {
+          guide: "guides",
+        },
+      },
+    });
+
+    expect(config.schemaVersion).toBe("1.1");
+    expect(config.generatedDir).toBe("architecture/generated");
+    expect(config.domains).toEqual(["business", "systems"]);
+    expect(config.docs.structure).toBe("custom");
+    expect(config.docs.scanDirs).toEqual(["architecture", "handbook"]);
+    expect(config.docs.sections).toEqual([
+      {
+        id: "guides",
+        title: "Guides",
+        path: "architecture/guides",
+        kind: "guide",
+      },
+    ]);
+    expect(config.docs.templates.guide).toBe("guides");
+    expect(config.workflowPolicyPath).toBe("architecture/workflow-policy.yaml");
   });
 });

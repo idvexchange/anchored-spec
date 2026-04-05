@@ -104,7 +104,7 @@ export function loadEntitiesFromGitRef(
   const entityMode = config.entityMode ?? "manifest";
 
   if (entityMode === "inline") {
-    for (const dir of config.inlineDocDirs ?? ["docs"]) {
+    for (const dir of config.inlineDocDirs ?? [config.rootDir]) {
       for (const file of listFilesAtRef(projectRoot, dir, ref)) {
         if (file.endsWith(".md") || file.endsWith(".markdown")) {
           files.add(file);
@@ -141,7 +141,7 @@ export function loadEntitiesFromWorkingTree(
 ): BackstageEntity[] {
   const entityMode = config.entityMode ?? "manifest";
   const files = entityMode === "inline"
-    ? collectFilesFromWorkingTree(projectRoot, config.inlineDocDirs ?? ["docs"], [".md", ".markdown"])
+    ? collectFilesFromWorkingTree(projectRoot, config.inlineDocDirs ?? [config.rootDir], [".md", ".markdown"])
     : [
         ...(config.manifestPath && existsSync(resolve(projectRoot, config.manifestPath))
           ? [resolve(projectRoot, config.manifestPath)]

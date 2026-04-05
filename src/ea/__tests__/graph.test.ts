@@ -6,11 +6,10 @@
  *   - createDefaultRegistry: all 10 Phase A relations
  *   - RelationGraph: build, traverse, impact, cycles, export
  *   - validateEaRelations: all 7 validation rules
- *   - Integration with examples/ea/ fixtures
+ *   - Integration with explicit manifest fixtures
  */
 
-import { describe, it, expect } from "vitest";
-import { join } from "node:path";
+import { afterEach, describe, it, expect } from "vitest";
 import {
   RelationRegistry,
   createDefaultRegistry,
@@ -23,6 +22,11 @@ import { validateEaRelations } from "../validate.js";
 import { EaRoot } from "../loader.js";
 import { resolveConfigV1 } from "../config.js";
 import type { BackstageEntity } from "../backstage/types.js";
+import {
+  cleanupTestWorkspace,
+  createTestWorkspace,
+  writeManifestProject,
+} from "../../test-helpers/workspace.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +52,20 @@ function makeEntity(
     ...("relations" in rest ? { relations: rest.relations } : {}),
   };
 }
+
+const workspaces: string[] = [];
+
+function makeWorkspace(prefix: string): string {
+  const dir = createTestWorkspace(prefix);
+  workspaces.push(dir);
+  return dir;
+}
+
+afterEach(() => {
+  for (const dir of workspaces.splice(0)) {
+    cleanupTestWorkspace(dir);
+  }
+});
 
 
 
@@ -739,9 +757,45 @@ describe("validateEaRelations", () => {
 // ─── Integration: build graph from manifest fixture ─────────────────────────────
 
 describe("Integration: graph from manifest fixture", () => {
-  const projectRoot = join(__dirname, "..", "..", "..");
-
   it("builds a graph from example entities", async () => {
+    const projectRoot = makeWorkspace("graph-fixture");
+    writeManifestProject(projectRoot, [
+      makeEntity({
+        kind: "System",
+        name: "commerce",
+        spec: { owner: "group:default/platform" },
+      }),
+      makeEntity({
+        kind: "Component",
+        name: "web",
+        spec: {
+          type: "website",
+          owner: "group:default/platform",
+          system: "system:default/commerce",
+          dependsOn: ["component:default/api"],
+        },
+      }),
+      makeEntity({
+        kind: "Component",
+        name: "api",
+        spec: {
+          type: "service",
+          owner: "group:default/platform",
+          system: "system:default/commerce",
+          providesApis: ["api:default/orders-api"],
+        },
+      }),
+      makeEntity({
+        kind: "API",
+        name: "orders-api",
+        spec: {
+          type: "openapi",
+          owner: "group:default/platform",
+          system: "system:default/commerce",
+          definition: "openapi: 3.0.0",
+        },
+      }),
+    ]);
     const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();
@@ -753,6 +807,35 @@ describe("Integration: graph from manifest fixture", () => {
   });
 
   it("generates valid Mermaid output from examples", async () => {
+    const projectRoot = makeWorkspace("graph-mermaid");
+    writeManifestProject(projectRoot, [
+      makeEntity({
+        kind: "Component",
+        name: "frontend",
+        spec: {
+          type: "website",
+          owner: "group:default/platform",
+          dependsOn: ["component:default/backend"],
+        },
+      }),
+      makeEntity({
+        kind: "Component",
+        name: "backend",
+        spec: {
+          type: "service",
+          owner: "group:default/platform",
+          dependsOn: ["resource:default/orders-db"],
+        },
+      }),
+      makeEntity({
+        kind: "Resource",
+        name: "orders-db",
+        spec: {
+          type: "database",
+          owner: "group:default/platform",
+        },
+      }),
+    ]);
     const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();
@@ -765,6 +848,26 @@ describe("Integration: graph from manifest fixture", () => {
   });
 
   it("generates valid DOT output from examples", async () => {
+    const projectRoot = makeWorkspace("graph-dot");
+    writeManifestProject(projectRoot, [
+      makeEntity({
+        kind: "Component",
+        name: "frontend",
+        spec: {
+          type: "website",
+          owner: "group:default/platform",
+          dependsOn: ["component:default/backend"],
+        },
+      }),
+      makeEntity({
+        kind: "Component",
+        name: "backend",
+        spec: {
+          type: "service",
+          owner: "group:default/platform",
+        },
+      }),
+    ]);
     const root = new EaRoot(projectRoot, resolveConfigV1());
 
     const { entities } = await root.loadEntities();

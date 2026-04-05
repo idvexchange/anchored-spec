@@ -15,7 +15,10 @@ import { extname, resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "../../ea/config.js";
 import type { EaTraceRef } from "../../ea/types.js";
 import {
   getEntityId,
@@ -50,8 +53,7 @@ export function eaLinkDocsCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "docs")
     .option(
       "--doc-dirs <dirs>",
-      "Comma-separated doc directories to scan",
-      "docs,specs,."
+      "Comma-separated doc directories to scan"
     )
     .option("--dry-run", "Show what would change without writing files")
     .option(
@@ -63,7 +65,7 @@ export function eaLinkDocsCommand(): Command {
     .option("--annotate", "Suggest or insert @anchored-spec:* annotation hints for classifiable blocks")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -113,9 +115,9 @@ export function eaLinkDocsCommand(): Command {
         return; // --annotate is a standalone mode
       }
 
-      const docDirs = (options.docDirs as string)
-        .split(",")
-        .map((d) => d.trim());
+      const docDirs = options.docDirs
+        ? (options.docDirs as string).split(",").map((d) => d.trim())
+        : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
 
       // ── Doc → Entity: discover missing traceRefs ────────────────────
       const scanResult = scanDocs(cwd, { dirs: docDirs });

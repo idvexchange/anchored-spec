@@ -12,7 +12,10 @@ import { resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "../../ea/config.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { parseFrontmatter } from "../../ea/docs/frontmatter.js";
@@ -897,7 +900,7 @@ export function eaContextCommand(): Command {
     .description("Assemble a complete AI context package for an entity")
     .argument("<entity-ref>", "Entity ref to assemble context for")
     .option("--root-dir <path>", "EA root directory", "docs")
-    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan")
     .option("--max-tokens <n>", "Maximum estimated tokens for the output")
     .option("--depth <n>", "Maximum depth to follow relations")
     .option("--json", "Output as JSON")
@@ -908,7 +911,7 @@ export function eaContextCommand(): Command {
     .option("--format <format>", "Output format: markdown, json", "markdown")
     .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -934,7 +937,9 @@ export function eaContextCommand(): Command {
       }
 
       // Scan docs
-      const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+      const docDirs = options.docDirs
+        ? (options.docDirs as string).split(",").map((d: string) => d.trim())
+        : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
       const normalizedDocs = scanDocs(cwd, { dirs: docDirs }).docs;
 
       // ── Resolve tier preset ───────────────────────────────────────

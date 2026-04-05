@@ -11,7 +11,11 @@ import { resolve, join, relative } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocSections,
+  resolveDocOutputTarget,
+} from "../../ea/config.js";
 import { serializeFrontmatter } from "../../ea/docs/frontmatter.js";
 import type { DocFrontmatter } from "../../ea/docs/frontmatter.js";
 import {
@@ -71,7 +75,7 @@ export function eaCreateDocCommand(): Command {
     .description(
       "Create a markdown document pre-linked to entities via frontmatter"
     )
-    .requiredOption("--title <title>", "Document title")
+    .option("--title <title>", "Document title")
     .option(
       "--type <type>",
       `Document type: ${VALID_TYPES.join(", ")}`,
@@ -86,7 +90,9 @@ export function eaCreateDocCommand(): Command {
       "--entities <refs...>",
       "Entity refs to link (space-separated)"
     )
-    .option("--dir <path>", "Output directory", "docs")
+    .option("--dir <path>", "Output directory")
+    .option("--section <id>", "Configured docs section to write into")
+    .option("--list-sections", "List configured docs sections and exit")
     .option("--audience <audience>", "Target audience (comma-separated)", "agent, developer")
     .option("--domain <domain>", "EA domain(s) (comma-separated)")
     .option("--root-dir <path>", "EA root directory", "docs")
@@ -95,8 +101,13 @@ export function eaCreateDocCommand(): Command {
     .option("--json", "Output result as JSON")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
+
+      if (options.listSections) {
+        printConfiguredSections(eaConfig, options.json as boolean);
+        return;
+      }
 
       if (!root.isInitialized()) {
         throw new CliError(
@@ -122,7 +133,10 @@ export function eaCreateDocCommand(): Command {
         );
       }
 
-      const title = options.title as string;
+      const title = options.title as string | undefined;
+      if (!title) {
+        throw new CliError("Missing required option: --title", 2);
+      }
       const entityInputs: string[] = options.entities ?? [];
 
       // ── Load entities ─────────────────────────────────────────────
@@ -155,9 +169,21 @@ export function eaCreateDocCommand(): Command {
       }
 
       // ── Generate filename and output path ─────────────────────────
+      const outputTarget = resolveDocOutputTarget(eaConfig, {
+        dir: options.dir as string | undefined,
+        section: options.section as string | undefined,
+        docType: type,
+      });
+      if (!outputTarget) {
+        throw new CliError(
+          "No output section could be resolved. Provide --dir, provide --section, or configure docs.templates for this document type.",
+          1,
+        );
+      }
+
       const slug = slugify(title);
       const filename = `${slug}.md`;
-      const dir = resolve(cwd, options.dir as string);
+      const dir = resolve(cwd, outputTarget.dir);
       const filePath = join(dir, filename);
 
       if (existsSync(filePath)) {
@@ -240,6 +266,7 @@ export function eaCreateDocCommand(): Command {
       if (options.json) {
         const output = {
           docPath: relativeDocPath,
+          section: outputTarget.sectionId,
           frontmatter,
           linkedEntities: entityIds.map((id) => {
             const result = linkResults.find((r) => r.id === id);
@@ -253,6 +280,7 @@ export function eaCreateDocCommand(): Command {
       } else {
         printHumanOutput(
           relativeDocPath,
+          outputTarget.sectionId,
           frontmatter,
           linkResults,
           missingIds
@@ -278,11 +306,15 @@ function writeEntityTraceRef(
 /** Print human-readable create-doc report to stdout. */
 function printHumanOutput(
   docPath: string,
+  sectionId: string | undefined,
   frontmatter: DocFrontmatter,
   linkResults: EntityLinkResult[],
   missingIds: string[]
 ): void {
   console.log(chalk.green(`\nCreated: ${docPath}\n`));
+  if (sectionId) {
+    console.log(chalk.dim(`  Section: ${sectionId}`));
+  }
 
   const audience = frontmatter.audience?.join(", ") ?? "";
   console.log(chalk.dim("  Frontmatter:"));
@@ -323,4 +355,28 @@ function printHumanOutput(
       `\n  1 document created, ${linkedCount} entit${linkedCount !== 1 ? "ies" : "y"} updated`
     )
   );
+}
+
+function printConfiguredSections(
+  config: Parameters<typeof getConfiguredDocSections>[0],
+  asJson: boolean,
+): void {
+  const sections = getConfiguredDocSections(config);
+
+  if (asJson) {
+    process.stdout.write(JSON.stringify({ sections }, null, 2) + "\n");
+    return;
+  }
+
+  if (sections.length === 0) {
+    console.log("No configured doc sections.");
+    return;
+  }
+
+  console.log("Configured doc sections\n");
+  for (const section of sections) {
+    const meta = [section.kind, section.path].join(" | ");
+    console.log(`${section.id} — ${section.title}`);
+    console.log(`  ${meta}`);
+  }
 }

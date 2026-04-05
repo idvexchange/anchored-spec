@@ -10,7 +10,8 @@ import chalk from "chalk";
 import { join } from "node:path";
 import {
   EaRoot,
-  resolveConfigV1,
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
   discoverEntities,
   renderDiscoveryReportMarkdown,
   createResolverCache,
@@ -51,7 +52,7 @@ export function eaDiscoverCommand(): Command {
     .option("--source <path>", "Source path to scan")
     .option("--dry-run", "Show what would be created without writing files")
     .option("--from-docs", "Discover entities from document frontmatter (prose-first workflow)")
-    .option("--doc-dirs <dirs>", "Comma-separated doc directories for --from-docs", "docs,specs,.")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories for --from-docs")
     .option("--write-facts", "Persist extracted fact manifests to .ea/facts/ directory")
     .option("--json", "Output discovery report as JSON")
     .option("--max-cache-age <seconds>", "Maximum cache age in seconds")
@@ -59,7 +60,7 @@ export function eaDiscoverCommand(): Command {
     .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -74,7 +75,9 @@ export function eaDiscoverCommand(): Command {
 
       // ── --from-docs: prose-first discovery ──────────────────────────
       if (options.fromDocs) {
-        const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+        const docDirs = options.docDirs
+          ? (options.docDirs as string).split(",").map((d: string) => d.trim())
+          : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
         const scanResult = scanDocs(cwd, { dirs: docDirs });
         const docResult = discoverFromDocs(scanResult.docs, existingEntities);
 

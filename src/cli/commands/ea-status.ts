@@ -10,7 +10,6 @@ import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveConfigV1 } from "../../ea/config.js";
 import { EA_DOMAINS } from "../../ea/types.js";
-import type { EaDomain } from "../../ea/types.js";
 import {
   getEntityAnchors,
   getEntityConfidence,
@@ -43,7 +42,7 @@ export function eaStatusCommand(): Command {
       // Filter by domain
       if (options.domain) {
         const domain = options.domain as string;
-        if (!EA_DOMAINS.includes(domain as EaDomain)) {
+        if (!EA_DOMAINS.includes(domain as typeof EA_DOMAINS[number])) {
           throw new CliError(`Invalid domain "${domain}". Valid: ${EA_DOMAINS.join(", ")}`);
         }
         entities = entities.filter((entity) => getEntityDomain(entity) === domain);
