@@ -10,7 +10,7 @@ import { join, relative, resolve } from "node:path";
 import type { BackstageEntity } from "./backstage/types.js";
 import { parseBackstageYaml, parseFrontmatterEntity } from "./backstage/parser.js";
 import type { AnchoredSpecConfigV1 } from "./config.js";
-import { diffEaArtifacts } from "./diff.js";
+import { diffEntities } from "./diff.js";
 import type { EaDiffReport } from "./diff.js";
 
 function listFilesAtRef(
@@ -104,7 +104,7 @@ export function loadEntitiesFromGitRef(
   const entityMode = config.entityMode ?? "manifest";
 
   if (entityMode === "inline") {
-    for (const dir of config.inlineDocDirs ?? ["docs"]) {
+    for (const dir of config.inlineDocDirs ?? [config.rootDir]) {
       for (const file of listFilesAtRef(projectRoot, dir, ref)) {
         if (file.endsWith(".md") || file.endsWith(".markdown")) {
           files.add(file);
@@ -141,7 +141,7 @@ export function loadEntitiesFromWorkingTree(
 ): BackstageEntity[] {
   const entityMode = config.entityMode ?? "manifest";
   const files = entityMode === "inline"
-    ? collectFilesFromWorkingTree(projectRoot, config.inlineDocDirs ?? ["docs"], [".md", ".markdown"])
+    ? collectFilesFromWorkingTree(projectRoot, config.inlineDocDirs ?? [config.rootDir], [".md", ".markdown"])
     : [
         ...(config.manifestPath && existsSync(resolve(projectRoot, config.manifestPath))
           ? [resolve(projectRoot, config.manifestPath)]
@@ -183,7 +183,7 @@ export function diffEaGitRefs(options: DiffGitOptions): EaGitDiffResult {
     : loadEntitiesFromWorkingTree(projectRoot, config);
 
   return {
-    report: diffEaArtifacts(baseEntities, headEntities, {
+    report: diffEntities(baseEntities, headEntities, {
       baseRef,
       headRef: headRef ?? "working-tree",
     }),
@@ -191,6 +191,3 @@ export function diffEaGitRefs(options: DiffGitOptions): EaGitDiffResult {
     headEntities,
   };
 }
-
-export const loadArtifactsFromGitRef = loadEntitiesFromGitRef;
-export const loadArtifactsFromWorkingTree = loadEntitiesFromWorkingTree;

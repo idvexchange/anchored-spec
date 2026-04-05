@@ -1,0 +1,34 @@
+# Anchored Spec
+
+Anchored Spec is a Backstage-aligned, spec-as-source architecture framework for repositories that want a real architecture model in version control.
+
+This file is the machine-oriented starting point for AI agents. Read the linked guides instead of inferring framework behavior from scattered prose.
+
+## Use Anchored Spec Correctly
+
+- Treat entity YAML and markdown frontmatter as the source of truth.
+- Preserve the repository's current storage mode: manifest or inline.
+- Prefer Backstage built-in kinds before custom Anchored Spec kinds.
+- Use canonical entity refs such as `component:default/orders-service`.
+- Keep docs, traceability, and validation aligned with the entity graph.
+- Treat discovery output as draft or observed input, not silent source-of-truth replacement.
+- Use `validate`, `trace`, `drift`, `diff`, `impact`, `constraints`, `context`, and `reconcile` instead of ad-hoc repo guessing.
+
+## Read In This Order
+
+- [Expanded LLM guide](./llms-full.txt)
+- [Repository skill](./SKILL.md)
+- [Delivery baseline](./docs/delivery-baseline.md)
+- [System context](./docs/02-system-context/system-context.md)
+- [Domain model](./docs/05-domain/domain-model.md)
+- [User getting started guide](./docs/guides/user-guides/getting-started.md)
+- [Developer internals guide](./docs/guides/developer-guides/framework-internals.md)
+
+## Best-Fit Tasks
+
+- model a system, API, resource, ownership group, or architectural decision
+- update entity relations and linked docs together
+- bootstrap draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, markdown, anchors, or tree-sitter
+- analyze drift between declared and observed architecture
+- produce reviewer-facing outputs such as graphs, diagrams, reports, impact analyses, constraint views, and context bundles
+- review semantic compatibility and policy impact for changes

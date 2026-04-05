@@ -1,7 +1,7 @@
 /**
  * anchored-spec batch-update
  *
- * Apply field changes to multiple artifacts matching a filter.
+ * Apply field changes to multiple entities matching a filter.
  * Enables bulk operations like promoting confidence from observed to declared.
  */
 
@@ -15,7 +15,8 @@ import {
   getAnnotation,
   getEntityDomain,
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntityStatus,
 } from "../../ea/backstage/accessors.js";
 import { ANNOTATION_KEYS } from "../../ea/backstage/types.js";
@@ -47,7 +48,7 @@ const PROTECTED_FIELDS = new Set(["id", "kind", "apiVersion", "schemaVersion"]);
 const SETTABLE_FIELDS = new Set(["confidence", "status"]);
 
 // Fields that can be filtered on
-const FILTERABLE_FIELDS = new Set(["confidence", "status", "kind"]);
+const FILTERABLE_FIELDS = new Set(["confidence", "status", "kind", "schema"]);
 
 // ─── Parsing ──────────────────────────────────────────────────────────
 
@@ -124,7 +125,9 @@ function getFieldValue(entity: BackstageEntity, field: string): string {
     case "status":
       return getEntityStatus(entity);
     case "kind":
-      return getEntityLegacyKind(entity);
+      return getEntityKind(entity);
+    case "schema":
+      return getEntitySchema(entity);
     default:
       return "";
   }
@@ -189,7 +192,7 @@ export function batchUpdateCommand(): Command {
       "Fields to set (e.g., confidence=declared)",
     )
     .option("--domain <domain>", "Filter to a specific EA domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--dry-run", "Show what would change without writing files")
     .option("--json", "Output as JSON")
     .action(async (options) => {

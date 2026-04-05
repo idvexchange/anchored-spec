@@ -84,11 +84,14 @@
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-only-warn": "^1.1.0",
     "prettier": "^3.7.4",
+    "tree-sitter-javascript": "^0.25.0",
+    "tree-sitter-typescript": "^0.23.2",
     "ts-morph": "^27.0.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.50.0",
-    "vitest": "^3.2.1"
+    "vitest": "^3.2.1",
+    "web-tree-sitter": "^0.26.8"
   },
   "keywords": [
     "spec-driven",

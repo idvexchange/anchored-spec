@@ -1,7 +1,7 @@
 /**
  * anchored-spec ea report
  *
- * Generate EA reports from loaded artifacts.
+ * Generate EA reports from loaded entities.
  */
 
 import { Command } from "commander";
@@ -29,7 +29,6 @@ import {
   REPORT_VIEWS,
   EA_DOMAINS,
 } from "../../ea/index.js";
-import type { EaDomain } from "../../ea/index.js";
 import type { BackstageEntity } from "../../ea/backstage/types.js";
 import { getEntityDomain, getEntityId } from "../../ea/backstage/accessors.js";
 import { buildEntityLookup, suggestEntities } from "../entity-ref.js";
@@ -47,9 +46,9 @@ export function eaReportCommand(): Command {
     .option("--all", "Generate all available reports to output directory")
     .option("--format <format>", "Output format: json, markdown", "markdown")
     .option("--output <file>", "Write to file instead of stdout")
-    .option("--output-dir <dir>", "Output directory for --all", "ea/generated")
+    .option("--output-dir <dir>", "Output directory for --all", "docs/generated")
     .option("--domain <domain>", "Filter report to a specific EA domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--baseline <entity-ref>", "Baseline entity ref for gap-analysis")
     .option("--target <entity-ref>", "Target entity ref for gap-analysis")
     .option("--plan <entity-ref>", "Transition plan entity ref for gap-analysis")
@@ -73,20 +72,20 @@ export function eaReportCommand(): Command {
       }
 
       const result = await root.loadEntities();
-      const entities = result.entities;
-      const lookup = buildEntityLookup(entities);
+      const allEntities = result.entities;
+      const lookup = buildEntityLookup(allEntities);
 
       // Apply domain filter
       const domainFilter = options.domain as string | undefined;
-      if (domainFilter && !EA_DOMAINS.includes(domainFilter as EaDomain)) {
+      if (domainFilter && !EA_DOMAINS.includes(domainFilter as typeof EA_DOMAINS[number])) {
         throw new CliError(
           `Unknown domain "${domainFilter}". Available: ${EA_DOMAINS.join(", ")}`,
           2
         );
       }
-      const artifacts = domainFilter
-        ? filterByDomain(entities, domainFilter)
-        : entities;
+      const entities = domainFilter
+        ? filterByDomain(allEntities, domainFilter)
+        : allEntities;
 
       // --all: generate all reports to output directory
       if (options.all) {
@@ -98,7 +97,7 @@ export function eaReportCommand(): Command {
         let count = 0;
 
         // System-data matrix
-        const sdm = buildSystemDataMatrix(artifacts);
+        const sdm = buildSystemDataMatrix(entities);
         const sdmContent = format === "json"
           ? JSON.stringify(sdm, null, 2)
           : renderSystemDataMatrixMarkdown(sdm);
@@ -106,7 +105,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Classification coverage
-        const cc = buildClassificationCoverage(artifacts);
+        const cc = buildClassificationCoverage(entities);
         const ccContent = format === "json"
           ? JSON.stringify(cc, null, 2)
           : renderClassificationCoverageMarkdown(cc);
@@ -114,7 +113,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Capability map
-        const cm = buildCapabilityMap(artifacts);
+        const cm = buildCapabilityMap(entities);
         const cmContent = format === "json"
           ? JSON.stringify(cm, null, 2)
           : renderCapabilityMapMarkdown(cm);
@@ -122,7 +121,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Exception report
-        const er = buildExceptionReport(artifacts);
+        const er = buildExceptionReport(entities);
         const erContent = format === "json"
           ? JSON.stringify(er, null, 2)
           : renderExceptionReportMarkdown(er);
@@ -130,7 +129,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Drift heatmap
-        const dh = buildDriftHeatmap(artifacts);
+        const dh = buildDriftHeatmap(entities);
         const dhContent = format === "json"
           ? JSON.stringify(dh, null, 2)
           : renderDriftHeatmapMarkdown(dh);
@@ -138,7 +137,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Traceability index
-        const ti = buildTraceabilityIndex(artifacts);
+        const ti = buildTraceabilityIndex(entities);
         const tiContent = format === "json"
           ? JSON.stringify(ti, null, 2)
           : renderTraceabilityIndexMarkdown(ti);
@@ -146,7 +145,7 @@ export function eaReportCommand(): Command {
         count++;
 
         // Report index (always JSON)
-        const index = buildReportIndex(artifacts);
+        const index = buildReportIndex(entities);
         writeFileSync(join(outputDir, "report-index.json"), JSON.stringify(index, null, 2) + "\n");
 
         console.log(chalk.green(`✓ Generated ${count} reports + index to ${outputDir}`));
@@ -160,7 +159,7 @@ export function eaReportCommand(): Command {
 
       switch (view) {
         case "system-data-matrix": {
-          const report = buildSystemDataMatrix(artifacts);
+          const report = buildSystemDataMatrix(entities);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -169,7 +168,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "classification-coverage": {
-          const report = buildClassificationCoverage(artifacts);
+          const report = buildClassificationCoverage(entities);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -178,7 +177,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "capability-map": {
-          const report = buildCapabilityMap(artifacts);
+          const report = buildCapabilityMap(entities);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -200,7 +199,7 @@ export function eaReportCommand(): Command {
             const hint = similar.length > 0 ? `\n  Did you mean: ${similar.join(", ")}?` : "";
             throw new CliError(`${label} "${input}" not found.${hint}`, 2);
           };
-          const report = buildGapAnalysis(artifacts, {
+          const report = buildGapAnalysis(entities, {
             baselineId: resolveGapEntity(options.baseline as string, "Baseline entity"),
             targetId: resolveGapEntity(options.target as string, "Target entity"),
             planId: options.plan
@@ -215,7 +214,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "exceptions": {
-          const report = buildExceptionReport(artifacts);
+          const report = buildExceptionReport(entities);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -224,7 +223,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "drift-heatmap": {
-          const report = buildDriftHeatmap(artifacts);
+          const report = buildDriftHeatmap(entities);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {
@@ -233,7 +232,7 @@ export function eaReportCommand(): Command {
           break;
         }
         case "traceability-index": {
-          const report = buildTraceabilityIndex(artifacts);
+          const report = buildTraceabilityIndex(entities);
           if (format === "json") {
             output = JSON.stringify(report, null, 2);
           } else {

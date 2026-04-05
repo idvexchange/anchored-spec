@@ -2,7 +2,7 @@
  * Anchored Spec — EA Anchors Resolver
  *
  * Scans source files for exported symbols, routes, error codes, and other
- * code-level references that correspond to EA artifact `anchors`. This is the
+ * code-level references that correspond to EA entity `anchors`. This is the
  * EA-native replacement for the core drift scanner (src/core/drift.ts).
  *
  * Used by `ea drift` to detect stale or missing anchors.
@@ -11,7 +11,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { minimatch } from "minimatch";
-import { getEntityId, getEntityLegacyKind, getEntityAnchors } from "../backstage/accessors.js";
+import { getEntityId, getEntitySchema, getEntityAnchors } from "../backstage/accessors.js";
 import type { EaResolver, EaResolverContext, ObservedEaState, ObservedEntity } from "./types.js";
 
 // ─── Source File Scanning ───────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ function getExports(entry: FileEntry): Set<string> {
 }
 
 /**
- * Scan source files for anchors from EA artifacts.
+ * Scan source files for anchors from EA entities.
  */
 export function scanAnchors(
   anchors: Record<string, string[]>,
@@ -224,14 +224,14 @@ function resolveAnchor(index: FileEntry[], anchorType: string, value: string): s
 // ─── EA Resolver Interface ──────────────────────────────────────────────────────
 
 /**
- * EA Anchors Resolver — resolves EA artifact anchors against source code.
+ * EA Anchors Resolver — resolves EA entity anchors against source code.
  *
- * For each artifact with `anchors`, scans source files for matching symbols,
+ * For each entity with `anchors`, scans source files for matching symbols,
  * routes, events, schemas, etc. Reports findings as ObservedEntity entries.
  */
 export class AnchorsResolver implements EaResolver {
   readonly name = "anchors";
-  readonly description = "Resolves EA artifact anchors against source code";
+  readonly description = "Resolves EA entity anchors against source code";
 
   private sourceRoots: string[];
   private sourceGlobs: string[];
@@ -242,11 +242,11 @@ export class AnchorsResolver implements EaResolver {
   }
 
   async resolve(ctx: EaResolverContext): Promise<ObservedEaState> {
-    const entities: ObservedEntity[] = [];
-    const artifacts = ctx.artifacts ?? [];
+    const observedEntities: ObservedEntity[] = [];
+    const entities = ctx.entities ?? [];
 
-    for (const artifact of artifacts) {
-      const entityAnchors = getEntityAnchors(artifact);
+    for (const entity of entities) {
+      const entityAnchors = getEntityAnchors(entity);
       if (!entityAnchors) continue;
 
       const anchorsMap: Record<string, string[]> = {};
@@ -266,13 +266,13 @@ export class AnchorsResolver implements EaResolver {
       );
 
       // Report each anchor as an observed entity
-      const entityId = getEntityId(artifact);
-      const legacyKind = getEntityLegacyKind(artifact);
+      const entityId = getEntityId(entity);
+      const schema = getEntitySchema(entity);
       for (const match of result.matches) {
-        entities.push({
+        observedEntities.push({
           externalId: `${entityId}:anchor:${match.anchorType}:${match.anchorValue}`,
-          inferredKind: legacyKind,
-          matchedArtifactId: entityId,
+          inferredSchema: schema,
+          matchedEntityId: entityId,
           metadata: {
             name: `${match.anchorType}/${match.anchorValue}`,
             anchorType: match.anchorType,
@@ -284,10 +284,10 @@ export class AnchorsResolver implements EaResolver {
       }
 
       for (const miss of result.missing) {
-        entities.push({
+        observedEntities.push({
           externalId: `${entityId}:anchor:${miss.anchorType}:${miss.anchorValue}`,
-          inferredKind: legacyKind,
-          matchedArtifactId: entityId,
+          inferredSchema: schema,
+          matchedEntityId: entityId,
           metadata: {
             name: `${miss.anchorType}/${miss.anchorValue}`,
             anchorType: miss.anchorType,
@@ -302,7 +302,7 @@ export class AnchorsResolver implements EaResolver {
     return {
       source: this.name,
       collectedAt: new Date().toISOString(),
-      entities,
+      entities: observedEntities,
       relationships: [],
     };
   }

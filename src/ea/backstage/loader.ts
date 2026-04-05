@@ -237,7 +237,7 @@ export async function loadBackstageEntities(
     }
 
     case "inline": {
-      const docDirs = config.inlineDocDirs ?? ["docs"];
+      const docDirs = config.inlineDocDirs ?? [config.rootDir];
       return loadInlineEntities(docDirs, projectRoot);
     }
 

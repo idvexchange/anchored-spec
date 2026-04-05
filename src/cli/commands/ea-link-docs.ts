@@ -1,7 +1,7 @@
 /**
  * anchored-spec ea link-docs
  *
- * Auto-sync trace links between markdown documents (frontmatter `ea-artifacts`)
+ * Auto-sync trace links between markdown documents (frontmatter `ea-entities`)
  * and entities (`traceRefs`).
  *
  * - Doc → Entity: adds missing traceRefs to entity files when a doc
@@ -15,7 +15,10 @@ import { extname, resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "../../ea/config.js";
 import type { EaTraceRef } from "../../ea/types.js";
 import {
   getEntityId,
@@ -31,7 +34,7 @@ import { appendTraceRefs } from "./trace-ref-writer.js";
 
 /** A traceRef that was added to an entity file. */
 interface AddedTraceRef {
-  artifactId: string;
+  entityRef: string;
   docPath: string;
   role: NonNullable<EaTraceRef["role"]>;
 }
@@ -39,7 +42,7 @@ interface AddedTraceRef {
 /** A frontmatter ref that was added to a doc. */
 interface AddedFrontmatterRef {
   docPath: string;
-  artifactId: string;
+  entityRef: string;
 }
 
 export function eaLinkDocsCommand(): Command {
@@ -47,11 +50,10 @@ export function eaLinkDocsCommand(): Command {
     .description(
       "Auto-sync trace links between docs and entities"
     )
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option(
       "--doc-dirs <dirs>",
-      "Comma-separated doc directories to scan",
-      "docs,specs,."
+      "Comma-separated doc directories to scan"
     )
     .option("--dry-run", "Show what would change without writing files")
     .option(
@@ -63,7 +65,7 @@ export function eaLinkDocsCommand(): Command {
     .option("--annotate", "Suggest or insert @anchored-spec:* annotation hints for classifiable blocks")
     .action(async (options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -113,11 +115,11 @@ export function eaLinkDocsCommand(): Command {
         return; // --annotate is a standalone mode
       }
 
-      const docDirs = (options.docDirs as string)
-        .split(",")
-        .map((d) => d.trim());
+      const docDirs = options.docDirs
+        ? (options.docDirs as string).split(",").map((d) => d.trim())
+        : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
 
-      // ── Doc → Artifact: discover missing traceRefs ──────────────────
+      // ── Doc → Entity: discover missing traceRefs ────────────────────
       const scanResult = scanDocs(cwd, { dirs: docDirs });
 
       /** Map from entity ID/ref to its loaded detail (for filePath lookup). */
@@ -138,11 +140,11 @@ export function eaLinkDocsCommand(): Command {
 
       const addedTraceRefs: AddedTraceRef[] = [];
 
-      // For every doc that declares ea-artifacts, ensure the referenced
-      // artifact has a traceRef pointing back at the doc.
+      // For every doc that declares ea-entities, ensure the referenced
+      // entity has a traceRef pointing back at the doc.
       for (const doc of scanResult.docs) {
-        for (const artifactId of doc.artifactIds) {
-          const entity = entityById.get(artifactId);
+        for (const entityRef of doc.entityRefs) {
+          const entity = entityById.get(entityRef);
           if (!entity) continue;
 
           const existing = getEntityTraceRefs(entity).some(
@@ -151,37 +153,37 @@ export function eaLinkDocsCommand(): Command {
           if (existing) continue;
 
           addedTraceRefs.push({
-            artifactId: getEntityId(entity),
+            entityRef: getEntityId(entity),
             docPath: doc.relativePath,
             role: options.role ?? "context",
           });
         }
       }
 
-      // Group added traceRefs by artifact ID for batch writing.
-      const traceRefsByArtifact = new Map<string, AddedTraceRef[]>();
+      // Group added traceRefs by entity ref for batch writing.
+      const traceRefsByEntity = new Map<string, AddedTraceRef[]>();
       for (const entry of addedTraceRefs) {
-        const list = traceRefsByArtifact.get(entry.artifactId) ?? [];
+        const list = traceRefsByEntity.get(entry.entityRef) ?? [];
         list.push(entry);
-        traceRefsByArtifact.set(entry.artifactId, list);
+        traceRefsByEntity.set(entry.entityRef, list);
       }
 
-      // Write updated artifact files.
+      // Write updated entity files.
       if (!options.dryRun) {
-        for (const [artifactId, refs] of traceRefsByArtifact) {
-          const detail = detailById.get(artifactId);
+        for (const [entityRef, refs] of traceRefsByEntity) {
+          const detail = detailById.get(entityRef);
           if (!detail) continue;
 
-          writeArtifactTraceRefs(detail.filePath, refs);
+          writeEntityTraceRefs(detail.filePath, refs);
         }
       }
 
-      // ── Artifact → Doc (--bidirectional) ────────────────────────────
+      // ── Entity → Doc (--bidirectional) ──────────────────────────────
       const addedFrontmatterRefs: AddedFrontmatterRef[] = [];
 
       if (options.bidirectional) {
         for (const entity of loadResult.entities) {
-          const artifactId = getEntityId(entity);
+          const entityRef = getEntityId(entity);
 
           for (const ref of getEntityTraceRefs(entity)) {
             // Skip URLs — only handle local file paths.
@@ -201,18 +203,18 @@ export function eaLinkDocsCommand(): Command {
             }
 
             const parsed = parseFrontmatter(content);
-            const existingIds = parsed.frontmatter.eaArtifacts ?? [];
-            if (existingIds.includes(artifactId)) continue;
+            const existingIds = parsed.frontmatter.eaEntities ?? [];
+            if (existingIds.includes(entityRef)) continue;
 
             addedFrontmatterRefs.push({
               docPath: ref.path,
-              artifactId,
+              entityRef,
             });
 
             if (!options.dryRun) {
               const updatedFm = {
                 ...parsed.frontmatter,
-                eaArtifacts: [...existingIds, artifactId],
+                eaEntities: [...existingIds, entityRef],
               };
               const serialized = serializeFrontmatter(updatedFm);
               writeFileSync(absPath, serialized + "\n" + parsed.body, "utf-8");
@@ -223,7 +225,7 @@ export function eaLinkDocsCommand(): Command {
 
       // ── Output ──────────────────────────────────────────────────────
       const summary = {
-        artifactsUpdated: traceRefsByArtifact.size,
+        entitiesUpdated: traceRefsByEntity.size,
         docsUpdated: new Set(addedFrontmatterRefs.map((r) => r.docPath)).size,
         traceRefsAdded: addedTraceRefs.length,
         frontmatterRefsAdded: addedFrontmatterRefs.length,
@@ -231,9 +233,9 @@ export function eaLinkDocsCommand(): Command {
 
       if (options.json) {
         const output = {
-          artifactsUpdated: [...traceRefsByArtifact.entries()].map(
+          entitiesUpdated: [...traceRefsByEntity.entries()].map(
             ([id, refs]) => ({
-              id,
+              entityRef: id,
               addedTraceRefs: refs.map((r) => r.docPath),
             })
           ),
@@ -243,7 +245,7 @@ export function eaLinkDocsCommand(): Command {
         process.stdout.write(JSON.stringify(output, null, 2) + "\n");
       } else {
         printHumanOutput(
-          traceRefsByArtifact,
+          traceRefsByEntity,
           addedFrontmatterRefs,
           summary,
           !!options.dryRun,
@@ -265,41 +267,45 @@ export function eaLinkDocsCommand(): Command {
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 /**
- * Read an artifact file, append new traceRef entries, and write it back
+ * Read an entity file, append new traceRef entries, and write it back
  * in the same format (JSON or YAML).
  */
-function writeArtifactTraceRefs(filePath: string, refs: AddedTraceRef[]): void {
+function writeEntityTraceRefs(filePath: string, refs: AddedTraceRef[]): void {
+  const entityRef = refs[0]?.entityRef;
+  if (!entityRef) return;
+
   appendTraceRefs(
     filePath,
     refs.map((ref) => ({
       path: ref.docPath,
       role: ref.role,
     })),
+    entityRef,
   );
 }
 
 /** Group frontmatter ref additions by doc path for JSON output. */
 function buildDocsUpdatedList(
   refs: AddedFrontmatterRef[]
-): { path: string; addedArtifactIds: string[] }[] {
+): { path: string; addedEntityRefs: string[] }[] {
   const byDoc = new Map<string, string[]>();
   for (const r of refs) {
     const list = byDoc.get(r.docPath) ?? [];
-    list.push(r.artifactId);
+    list.push(r.entityRef);
     byDoc.set(r.docPath, list);
   }
   return [...byDoc.entries()].map(([path, ids]) => ({
     path,
-    addedArtifactIds: ids,
+    addedEntityRefs: ids,
   }));
 }
 
 /** Print human-readable link-docs report to stdout. */
 function printHumanOutput(
-  traceRefsByArtifact: Map<string, AddedTraceRef[]>,
+  traceRefsByEntity: Map<string, AddedTraceRef[]>,
   addedFrontmatterRefs: AddedFrontmatterRef[],
   summary: {
-    artifactsUpdated: number;
+    entitiesUpdated: number;
     docsUpdated: number;
     traceRefsAdded: number;
     frontmatterRefsAdded: number;
@@ -313,10 +319,10 @@ function printHumanOutput(
     console.log(chalk.yellow("  DRY RUN — no files modified\n"));
   }
 
-  // Artifacts updated
-  if (traceRefsByArtifact.size > 0) {
-    console.log(chalk.dim("  Artifacts updated (traceRefs added):"));
-    for (const [id, refs] of traceRefsByArtifact) {
+  // Entities updated
+  if (traceRefsByEntity.size > 0) {
+    console.log(chalk.dim("  Entities updated (traceRefs added):"));
+    for (const [id, refs] of traceRefsByEntity) {
       console.log(chalk.green(`    ✅ ${id}`));
       for (const ref of refs) {
         console.log(chalk.dim(`       + ${ref.docPath} (${ref.role})`));
@@ -328,12 +334,12 @@ function printHumanOutput(
   // Documents updated (only with --bidirectional)
   if (bidirectional && addedFrontmatterRefs.length > 0) {
     console.log(
-      chalk.dim("  Documents updated (frontmatter ea-artifacts added):")
+      chalk.dim("  Documents updated (frontmatter ea-entities added):")
     );
     const byDoc = new Map<string, string[]>();
     for (const r of addedFrontmatterRefs) {
       const list = byDoc.get(r.docPath) ?? [];
-      list.push(r.artifactId);
+      list.push(r.entityRef);
       byDoc.set(r.docPath, list);
     }
     for (const [docPath, ids] of byDoc) {
@@ -347,7 +353,7 @@ function printHumanOutput(
 
   console.log(
     chalk.dim(
-      `  Summary: ${summary.artifactsUpdated} artifacts updated, ` +
+      `  Summary: ${summary.entitiesUpdated} entities updated, ` +
         `${summary.docsUpdated} documents updated, ` +
         `${summary.traceRefsAdded} traceRefs added, ` +
         `${summary.frontmatterRefsAdded} frontmatter refs added`

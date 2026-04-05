@@ -196,7 +196,7 @@ describe("ea context — tier presets", () => {
     expect(json.tier).toBe("standard");
     // Standard includes constraints
     expect(json.constraints.length).toBeGreaterThanOrEqual(1);
-    expect(json.constraints[0].kind).toBe("decision");
+    expect(json.constraints[0].kind).toBe("Decision");
     // Standard does not include change risks
     expect(json.changeRisks).toEqual([]);
   });
@@ -655,7 +655,7 @@ describe("ea context — change risks", () => {
     const json = JSON.parse(result.stdout);
     expect(json.changeRisks.length).toBe(1);
     expect(json.changeRisks[0].type).toBe("deprecated-relation");
-    expect(json.changeRisks[0].description).toContain("component:old");
+    expect(json.changeRisks[0].description).toContain("component:default/old");
   });
 
   it("no change risks when no deprecated relations", () => {
@@ -698,8 +698,8 @@ describe("ea context — constraints", () => {
 
     const json = JSON.parse(result.stdout);
     const constraintKinds = json.constraints.map((c: { kind: string }) => c.kind);
-    expect(constraintKinds).toContain("decision");
-    expect(constraintKinds).toContain("requirement");
+    expect(constraintKinds).toContain("Decision");
+    expect(constraintKinds).toContain("Requirement");
     // Non-constraint entity should not be in constraints
     expect(constraintKinds).not.toContain("service");
   });

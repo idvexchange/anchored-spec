@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 import type { BackstageEntity } from "./backstage/types.js";
 import type { EaValidationError } from "./validate.js";
-import { getEntityKindMapping } from "./backstage/accessors.js";
+import { getEntityDescriptor } from "./backstage/accessors.js";
 import { validateBackstageEntity, validateBackstageEntities } from "./backstage/validate.js";
 import type { EaValidationResult } from "./validate.js";
 import type { EaDriftReport } from "./drift.js";
@@ -21,7 +21,10 @@ import type { GenerationReport } from "./generators/index.js";
 import { runGenerators, listGenerators, getGenerator } from "./generators/index.js";
 import { silentLogger } from "./resolvers/index.js";
 import { EaRoot } from "./loader.js";
-import { resolveConfigV1 } from "./config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "./config.js";
 import { buildTraceLinks, buildTraceCheckReport } from "./trace-analysis.js";
 import type { TraceCheckReport } from "./trace-analysis.js";
 import { scanDocs } from "./docs/scanner.js";
@@ -97,7 +100,7 @@ export async function reconcileEaProject(
   options: ReconcileOptions = {},
 ): Promise<ReconcileReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
-  const eaConfig = resolveConfigV1({ rootDir: options.eaRoot ?? "ea" });
+  const eaConfig = loadProjectConfig(projectRoot, options.eaRoot ?? "docs");
   const root = new EaRoot(projectRoot, eaConfig);
 
   const steps: ReconcileStepResult[] = [];
@@ -112,7 +115,7 @@ export async function reconcileEaProject(
   // Apply domain filter
   if (options.domains && options.domains.length > 0) {
     entities = entities.filter((entity) =>
-      options.domains!.includes(getEntityKindMapping(entity)?.domain ?? ""),
+      options.domains!.includes(getEntityDescriptor(entity)?.domain ?? ""),
     );
   }
 
@@ -163,7 +166,7 @@ export async function reconcileEaProject(
   // ── VCS warnings ─────────────────────────────────────────────────────
   const vcsWarnings: string[] = [];
   if (!options.checkOnly) {
-    const generatedDir = options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated";
+    const generatedDir = options.generatedDir ?? eaConfig.generatedDir ?? "docs/generated";
     const warning = checkGeneratedDirInGitignore(projectRoot, generatedDir);
     if (warning) vcsWarnings.push(warning);
   }
@@ -181,7 +184,7 @@ interface GenerateStepOutput {
 function runGenerateStep(
   entities: BackstageEntity[],
   projectRoot: string,
-  eaConfig: ReturnType<typeof resolveConfigV1>,
+  eaConfig: ReturnType<typeof loadProjectConfig>,
   options: ReconcileOptions,
 ): GenerateStepOutput {
   const generatorNames = listGenerators();
@@ -191,7 +194,7 @@ function runGenerateStep(
 
   const generatorConfigs = generatorNames.map((name) => ({
     name,
-    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated",
+    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "docs/generated",
   }));
 
   const report = runGenerators({
@@ -199,7 +202,7 @@ function runGenerateStep(
     generators,
     generatorConfigs,
     projectRoot,
-    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "ea/generated",
+    outputDir: options.generatedDir ?? eaConfig.generatedDir ?? "docs/generated",
     logger: silentLogger,
     checkOnly: options.checkOnly !== false, // default to check mode
     dryRun: false,
@@ -215,7 +218,7 @@ function runGenerateStep(
       errors: drifts,
       warnings: 0,
       details: passed
-        ? `${report.summary.generatorsRun} generators, ${report.summary.artifactsProcessed} artifacts — 0 drifts`
+        ? `${report.summary.generatorsRun} generators, ${report.summary.entitiesProcessed} entities — 0 drifts`
         : `${drifts} generation drift(s) detected`,
     },
     report,
@@ -271,7 +274,7 @@ async function runValidateStep(
       errors: allErrors.length,
       warnings: allWarnings.length,
       details: passed
-        ? `${entities.length} artifacts validated — ${allErrors.length} errors, ${allWarnings.length} warnings`
+        ? `${entities.length} entities validated — ${allErrors.length} errors, ${allWarnings.length} warnings`
         : `${allErrors.length} errors, ${allWarnings.length} warnings`,
     },
     result,
@@ -288,7 +291,7 @@ function runDriftStep(
   options: ReconcileOptions,
 ): DriftStepOutput {
   const report = detectEaDrift({
-    artifacts: entities,
+    entities: entities,
     domains: options.domains,
   });
 
@@ -323,24 +326,21 @@ function runTraceStep(
   projectRoot: string,
   options: ReconcileOptions,
 ): TraceStepOutput {
-  const docDirs = options.docDirs ?? ["docs", "specs", "."];
+  const config = loadProjectConfig(projectRoot, options.eaRoot ?? "docs");
+  const docDirs = options.docDirs ?? getConfiguredDocScanDirs(config) ?? ["docs", "specs", "."];
   const scanResult = scanDocs(projectRoot, { dirs: docDirs });
   const { docs } = scanResult;
 
   // Include source annotations if config enables them
   try {
-    const configPath = join(projectRoot, ".anchored-spec", "config.json");
-    if (existsSync(configPath)) {
-      const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-      if (raw.schemaVersion === "1.0" && raw.sourceAnnotations?.enabled) {
-        const srcResult = scanSourceAnnotations(
-          projectRoot,
-          raw.sourceAnnotations,
-          raw.sourceRoots,
-          raw.sourceGlobs,
-        );
-        docs.push(...srcResult.sources);
-      }
+    if (config.sourceAnnotations?.enabled) {
+      const srcResult = scanSourceAnnotations(
+        projectRoot,
+        config.sourceAnnotations,
+        config.sourceRoots,
+        config.sourceGlobs,
+      );
+      docs.push(...srcResult.sources);
     }
   } catch { /* ignore config read errors */ }
 
@@ -350,12 +350,12 @@ function runTraceStep(
   const brokenFiles = report.brokenTraceRefs.filter(
     (b) => b.reason === "file not found",
   );
-  const actionableOneWay = report.oneWayArtifactToDoc.filter(
+  const actionableOneWay = report.oneWayEntityToDoc.filter(
     (o) => o.severity === "warning",
   );
 
   const errors = brokenFiles.length;
-  const warnings = actionableOneWay.length + report.oneWayDocToArtifact.length;
+  const warnings = actionableOneWay.length + report.oneWayDocToEntity.length;
   const failOnWarning = options.failOn === "warning";
   const passed = errors === 0 && (!failOnWarning || warnings === 0);
 
@@ -385,12 +385,12 @@ async function runDocConsistencyStep(
 ): Promise<DocConsistencyStepOutput> {
   const { extractFactsFromDocs } = await import("./resolvers/markdown.js");
   const { checkConsistency } = await import("./facts/consistency.js");
-  const { reconcileFactsWithArtifacts } = await import("./facts/reconciler.js");
+  const { reconcileFactsWithEntities } = await import("./facts/reconciler.js");
   const { applySuppressions, collectSuppressions } = await import("./facts/suppression.js");
 
   const manifests = await extractFactsFromDocs(projectRoot);
   const consistency = checkConsistency(manifests);
-  const reconciliation = reconcileFactsWithArtifacts(manifests, entities);
+  const reconciliation = reconcileFactsWithEntities(manifests, entities);
 
   // Apply suppressions from manifests
   const suppressions = collectSuppressions(manifests);
@@ -408,7 +408,7 @@ async function runDocConsistencyStep(
       passed: errors === 0,
       errors,
       warnings,
-      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.artifactsChecked} artifacts.`,
+      details: `Doc consistency: ${consistency.factsAnalyzed} facts from ${consistency.documentsAnalyzed} docs, ${consistency.totalFindings} findings. Reconciliation: ${reconciliation.factsChecked} facts vs ${reconciliation.entitiesChecked} entities.`,
     },
   };
 }
@@ -470,8 +470,8 @@ function buildReport(
       driftFindings: driftReport?.findings.length ?? 0,
       traceIssues: traceReport
         ? traceReport.brokenTraceRefs.length +
-          traceReport.oneWayArtifactToDoc.length +
-          traceReport.oneWayDocToArtifact.length
+          traceReport.oneWayEntityToDoc.length +
+          traceReport.oneWayDocToEntity.length
         : 0,
       docConsistencyFindings: steps
         .filter(s => s.step === "docs")
@@ -509,12 +509,12 @@ export function renderReconcileOutput(report: ReconcileReport): string {
       }
       if (step.step === "drift" && report.driftReport) {
         for (const finding of report.driftReport.findings.filter((f) => !f.suppressed && f.severity === "error").slice(0, 5)) {
-          lines.push(`    → ${finding.artifactId}: ${finding.message} (${finding.rule})`);
+          lines.push(`    → ${finding.entityRef}: ${finding.message} (${finding.rule})`);
         }
       }
       if (step.step === "trace" && report.traceReport) {
         for (const broken of report.traceReport.brokenTraceRefs.filter((b) => b.reason === "file not found").slice(0, 5)) {
-          lines.push(`    → ${broken.artifactId}: traceRef "${broken.path}" — file not found`);
+          lines.push(`    → ${broken.entityRef}: traceRef "${broken.path}" — file not found`);
         }
       }
       if (step.step === "docs") {

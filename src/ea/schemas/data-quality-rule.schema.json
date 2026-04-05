@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Data Quality Rule",
   "description": "A data quality rule defining assertions and enforcement policy.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["ruleType", "appliesTo", "assertion", "onFailure"],
   "properties": {
@@ -18,7 +18,7 @@
       "type": "array",
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 },
-      "description": "Artifact IDs or field paths this rule applies to"
+      "description": "Entity IDs or field paths this rule applies to"
     },
     "assertion": {
       "type": "string",

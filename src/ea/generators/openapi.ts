@@ -1,15 +1,16 @@
 /**
  * Anchored Spec — OpenAPI Generator
  *
- * Generates OpenAPI 3.1 YAML stubs from `api-contract` EA artifacts.
- * Builds paths from `anchors.apis`, sets info from artifact metadata,
- * and links back to the source artifact.
+ * Generates OpenAPI 3.1 YAML stubs from `api-contract` EA entities.
+ * Builds paths from `anchors.apis`, sets info from entity metadata,
+ * and links back to the source entity.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (OpenAPI Generator)
+ * Design reference: docs/delivery-baseline.md (OpenAPI Generator)
  */
 
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors, getEntityDescription, getEntityId, getEntityTitle, getSpecField } from "../backstage/accessors.js";
+import { entityRefToFilenameSlug } from "../backstage/ref-utils.js";
 import type {
   EaGenerator,
   EaGeneratorContext,
@@ -17,7 +18,7 @@ import type {
   GenerationDrift,
 } from "./index.js";
 
-/** Shape of an api-contract artifact's kind-specific fields. */
+/** Shape of an api-contract entity's schema-specific fields. */
 interface ApiContractFields {
   protocol?: string;
   specFormat?: string;
@@ -26,17 +27,17 @@ interface ApiContractFields {
 }
 
 /**
- * OpenAPI Generator — generates OpenAPI 3.1 YAML stubs from api-contract artifacts.
+ * OpenAPI Generator — generates OpenAPI 3.1 YAML stubs from api-contract entities.
  *
  * - Builds paths from `anchors.apis` (e.g., "POST /orders" → paths./orders.post)
- * - Sets info.title, info.description, info.version from artifact fields
+ * - Sets info.title, info.description, info.version from entity fields
  * - Generates request/response stubs with TODO markers
- * - Links back via x-anchored-spec-artifact extension
+ * - Links back via x-anchored-spec-entity extension
  * - Only generates for protocol=rest and specFormat=openapi (or unset)
  */
 export const openapiGenerator: EaGenerator = {
   name: "openapi",
-  kinds: ["api-contract"],
+  schemas: ["api-contract"],
   outputFormat: "openapi",
 
   generate(entity: BackstageEntity, _ctx: EaGeneratorContext): GeneratedOutput[] {
@@ -66,7 +67,7 @@ export const openapiGenerator: EaGenerator = {
       `  title: "${escapeYaml(getEntityTitle(entity))}"`,
       `  description: "${escapeYaml(getEntityDescription(entity))}"`,
       `  version: "${escapeYaml(version)}"`,
-      `  x-anchored-spec-artifact: "${getEntityId(entity)}"`,
+      `  x-anchored-spec-entity: "${getEntityId(entity)}"`,
     ];
 
     if (Object.keys(paths).length > 0) {
@@ -88,13 +89,13 @@ export const openapiGenerator: EaGenerator = {
 
     lines.push(``);
 
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
     return [
       {
         relativePath: `${slug}.openapi.yaml`,
         content: lines.join("\n"),
         contentType: "yaml",
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         description: `OpenAPI 3.1 stub for ${getEntityTitle(entity)}`,
         overwrite: true,
       },
@@ -107,12 +108,12 @@ export const openapiGenerator: EaGenerator = {
     if (generated.length === 0) return [];
 
     const expectedContent = generated[0]!.content;
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
 
     if (normalizeWhitespace(currentOutput) !== normalizeWhitespace(expectedContent)) {
       drifts.push({
         filePath: `${slug}.openapi.yaml`,
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         message: "OpenAPI spec has been manually modified and differs from what would be generated",
         suggestion: "review",
       });

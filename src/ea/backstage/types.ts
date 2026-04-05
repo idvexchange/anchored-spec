@@ -13,6 +13,7 @@
 import type {
   ApiEntityV1alpha1,
   ComponentEntityV1alpha1,
+  CompoundEntityRef,
   DomainEntityV1alpha1,
   Entity as CatalogEntity,
   EntityLink as CatalogEntityLink,
@@ -23,6 +24,12 @@ import type {
   ResourceEntityV1alpha1,
   SystemEntityV1alpha1,
   UserEntityV1alpha1,
+} from "@backstage/catalog-model";
+import {
+  parseEntityRef as parseCatalogEntityRef,
+  parseLocationRef,
+  stringifyEntityRef,
+  stringifyLocationRef,
 } from "@backstage/catalog-model";
 import type {
   AlphaEntity as CatalogAlphaEntity,
@@ -108,8 +115,6 @@ export const ANNOTATION_KEYS = {
   RISK: `${ANNOTATION_PREFIX}/risk`,
   /** CSV of drift/validation rules to suppress. */
   SUPPRESS: `${ANNOTATION_PREFIX}/suppress`,
-  /** Legacy kind discriminator for lossy Backstage kind mappings. */
-  LEGACY_KIND: `${ANNOTATION_PREFIX}/legacy-kind`,
 } as const;
 
 /** Confidence levels for the confidence annotation. */
@@ -260,7 +265,14 @@ export interface TechnologySpec extends EntitySpecBase {
 export interface SystemInterfaceSpec extends EntitySpecBase {
   direction?: "inbound" | "outbound" | "bidirectional";
   protocol?: string;
+  ownership?: "owned" | "external" | "shared";
+  externalSystem?: string;
   consumers?: string[];
+  sla?: {
+    availability?: string;
+    latencyP99?: string;
+    throughput?: string;
+  };
 }
 
 /** Control spec (anchored-spec custom). */
@@ -335,110 +347,33 @@ export type EntityRelation = CatalogEntityRelation;
 /**
  * A parsed entity reference in the Backstage format: `[kind:][namespace/]name`
  */
-export interface EntityRef {
-  kind?: string;
-  namespace?: string;
-  name: string;
+export type EntityRef = CompoundEntityRef;
+
+/**
+ * Parse an entity reference using Backstage catalog-model semantics.
+ * Trims surrounding whitespace before delegating to the upstream parser.
+ */
+export function parseEntityRef(
+  ref: string | { kind?: string; namespace?: string; name: string },
+  context?: { defaultKind?: string; defaultNamespace?: string },
+): EntityRef {
+  return parseCatalogEntityRef(
+    typeof ref === "string" ? ref.trim() : ref,
+    context,
+  );
 }
 
 /**
- * Parse a Backstage entity reference string.
- *
- * Formats:
- * - `name` → { name }
- * - `kind:name` → { kind, name }
- * - `kind:namespace/name` → { kind, namespace, name }
- * - `namespace/name` → { namespace, name }
- *
- * @throws Error if the reference is empty or malformed
+ * Normalize an entity reference to Backstage's canonical string form.
  */
-export function parseEntityRef(ref: string): EntityRef {
-  if (!ref || !ref.trim()) {
-    throw new Error("Entity reference must not be empty");
-  }
-
-  const trimmed = ref.trim();
-
-  // Check for kind prefix (contains ":" before any "/")
-  const colonIndex = trimmed.indexOf(":");
-  const slashIndex = trimmed.indexOf("/");
-
-  let kind: string | undefined;
-  let rest: string;
-
-  if (colonIndex >= 0 && (slashIndex < 0 || colonIndex < slashIndex)) {
-    kind = trimmed.slice(0, colonIndex).toLowerCase();
-    rest = trimmed.slice(colonIndex + 1);
-    if (!kind) {
-      throw new Error(`Invalid entity reference "${ref}": empty kind`);
-    }
-  } else {
-    rest = trimmed;
-  }
-
-  // Check for namespace
-  const nsSlash = rest.indexOf("/");
-  let namespace: string | undefined;
-  let name: string;
-
-  if (nsSlash >= 0) {
-    namespace = rest.slice(0, nsSlash);
-    name = rest.slice(nsSlash + 1);
-    if (!namespace) {
-      throw new Error(`Invalid entity reference "${ref}": empty namespace`);
-    }
-  } else {
-    name = rest;
-  }
-
-  if (!name) {
-    throw new Error(`Invalid entity reference "${ref}": empty name`);
-  }
-
-  return {
-    ...(kind !== undefined && { kind }),
-    ...(namespace !== undefined && { namespace }),
-    name,
-  };
-}
-
-/**
- * Format an entity reference to the canonical Backstage string form.
- *
- * @param kind - Entity kind (optional, lowercased in output)
- * @param namespace - Namespace (optional, omitted if "default")
- * @param name - Entity name (required)
- */
-export function formatEntityRef(
-  kind: string | undefined,
-  namespace: string | undefined,
-  name: string,
+export function normalizeEntityRef(
+  ref: string | { kind?: string; namespace?: string; name: string },
+  context?: { defaultKind?: string; defaultNamespace?: string },
 ): string {
-  let ref = "";
-
-  if (kind) {
-    ref += `${kind.toLowerCase()}:`;
-  }
-
-  if (namespace && namespace !== "default") {
-    ref += `${namespace}/`;
-  }
-
-  ref += name;
-  return ref;
+  return stringifyEntityRef(parseEntityRef(ref, context));
 }
 
-/**
- * Format a full (unambiguous) entity reference including kind and namespace.
- * Always includes kind and namespace (defaulting to "default").
- */
-export function formatFullEntityRef(
-  kind: string,
-  namespace: string | undefined,
-  name: string,
-): string {
-  return `${kind.toLowerCase()}:${namespace ?? "default"}/${name}`;
-}
+export { stringifyEntityRef, parseLocationRef, stringifyLocationRef };
 
 // ─── Source Location Metadata ───────────────────────────────────────────────────
 
@@ -451,7 +386,7 @@ export interface EntitySourceLocation {
   /** Zero-based line number where this entity starts in the file. */
   startLine?: number;
   /** Storage mode this entity was loaded from. */
-  mode: "artifacts" | "manifest" | "inline";
+  mode: "manifest" | "inline";
 }
 
 /**

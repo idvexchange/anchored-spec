@@ -9,7 +9,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import {
   EaRoot,
-  validateEaArtifacts,
+  validateEntities,
   validateEaRelations,
   createDefaultRegistry,
   resolveConfigV1,
@@ -21,7 +21,7 @@ export function eaValidateCommand(): Command {
   return new Command("validate")
     .description("Validate EA entities (schema + quality rules + relations)")
     .option("--domain <domain>", "Validate only a specific domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--strict", "Treat warnings as errors")
     .option("--json", "Output structured JSON")
     .action(async (options) => {
@@ -49,7 +49,7 @@ export function eaValidateCommand(): Command {
       const allWarnings: EaValidationError[] = [];
 
       // Quality rules
-      const qualityResult = validateEaArtifacts(result.entities, {
+      const qualityResult = validateEntities(result.entities, {
         quality: { strictMode: options.strict },
       });
       allErrors.push(...qualityResult.errors);

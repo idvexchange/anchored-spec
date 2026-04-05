@@ -9,8 +9,15 @@ import chalk from "chalk";
 import { mkdirSync, writeFileSync, existsSync, readFileSync, copyFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveConfigV1 } from "../../ea/index.js";
-import type { AnchoredSpecConfigV1 } from "../../ea/index.js";
+import {
+  resolveConfigV1,
+  loadProjectConfig,
+  getConfiguredDocSections,
+  getConfiguredRootDocs,
+  type AnchoredSpecConfigV1,
+  type AnchoredSpecConfigV1_1,
+  type AnchoredSpecConfigV1_2,
+} from "../../ea/index.js";
 import { writeIdeFiles } from "../ide-scaffold.js";
 import { writeAiConfigFiles } from "../ai-config.js";
 import { writeCiRecipes } from "../ci-recipes.js";
@@ -19,9 +26,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export function eaInitCommand(): Command {
   return new Command("init")
-    .description("Initialize EA directory structure and v1.0 configuration")
-    .option("--root-dir <path>", "Root directory for EA artifacts", "ea")
+    .description("Initialize EA directory structure and configuration")
+    .option("--root-dir <path>", "Root directory for EA entities", "docs")
     .option("--mode <mode>", "Storage mode for backstage format: manifest (default), inline", "manifest")
+    .option(
+      "--docs-structure <profile>",
+      "Docs structure profile: legacy-domain, architecture-views (default), custom",
+      "architecture-views",
+    )
     .option("--with-examples", "Create starter Backstage entities")
     .option("--with-policy", "Create a starter workflow policy file")
     .option("--force", "Overwrite existing files")
@@ -30,7 +42,7 @@ export function eaInitCommand(): Command {
     .option("--no-ide", "Skip VS Code integration files")
     .option("--ai <targets>", "Generate AI assistant config files (copilot, claude, kiro, speckit, all)")
     .option("--ci", "Generate CI integration recipes (GitHub Actions workflow + pre-commit hook)")
-    .option("--version-policy-defaults", "Bootstrap sensible version policy defaults per artifact kind")
+    .option("--version-policy-defaults", "Bootstrap sensible version policy defaults per schema profile")
     .action((options) => {
       const cwd = process.cwd();
       const rootDir = options.rootDir as string;
@@ -47,11 +59,16 @@ export function eaInitCommand(): Command {
 
       let v1Config: AnchoredSpecConfigV1;
       if (existsSync(configPath) && !force) {
-        const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Partial<AnchoredSpecConfigV1>;
-        v1Config = resolveConfigV1(raw);
-        console.log(chalk.dim("  · Reusing existing v1.0 config"));
+        v1Config = loadProjectConfig(cwd, rootDir);
+        console.log(chalk.dim(`  · Reusing existing v${v1Config.schemaVersion} config`));
       } else {
-        v1Config = resolveConfigV1({ rootDir });
+        v1Config = resolveConfigV1(({
+          schemaVersion: "1.2",
+          rootDir,
+          docs: {
+            structure: options.docsStructure as AnchoredSpecConfigV1_1["docs"]["structure"],
+          },
+        }) as Partial<AnchoredSpecConfigV1_2>);
       }
 
       const storageMode = (options.mode as string) ?? "manifest";
@@ -59,14 +76,14 @@ export function eaInitCommand(): Command {
       if (storageMode === "manifest") {
         v1Config.manifestPath = v1Config.manifestPath ?? "catalog-info.yaml";
       } else if (storageMode === "inline") {
-        v1Config.inlineDocDirs = v1Config.inlineDocDirs ?? ["docs"];
+        v1Config.inlineDocDirs = v1Config.inlineDocDirs ?? [v1Config.rootDir];
       }
 
       // 1a. Apply version policy defaults if requested
       if (options.versionPolicyDefaults) {
         v1Config.versionPolicy = {
           defaultCompatibility: "breaking-allowed",
-          perKind: {
+          perSchema: {
             "api-contract": { compatibility: "backward-only", deprecationWindow: "90d" },
             "event-contract": { compatibility: "backward-only", deprecationWindow: "90d" },
             "canonical-entity": { compatibility: "full", deprecationWindow: "30d" },
@@ -78,7 +95,7 @@ export function eaInitCommand(): Command {
         console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Apply version policy defaults`));
       }
 
-      // 2. Create .anchored-spec directory and write v1.0 config
+      // 2. Create .anchored-spec directory and write config
       if (!existsSync(configDir)) {
         if (!dryRun) mkdirSync(configDir, { recursive: true });
         console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create .anchored-spec/`));
@@ -86,10 +103,12 @@ export function eaInitCommand(): Command {
 
       if (!existsSync(configPath) || force) {
         if (!dryRun) writeFileSync(configPath, JSON.stringify(v1Config, null, 2) + "\n");
-        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Write .anchored-spec/config.json (v1.0)`));
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Write .anchored-spec/config.json (v${v1Config.schemaVersion})`));
       } else {
         console.log(chalk.dim("  · .anchored-spec/config.json already exists (use --force to overwrite)"));
       }
+
+      scaffoldDocsStructure(cwd, v1Config, dryRun, force);
 
       // 3. Create directories (mode-dependent)
       if (storageMode === "manifest") {
@@ -115,7 +134,7 @@ export function eaInitCommand(): Command {
       }
 
       // 6. Copy EA JSON schemas for IDE validation
-      copyEaSchemas(cwd, rootDir, dryRun, force);
+      copyEaSchemas(cwd, v1Config.rootDir, dryRun, force);
 
       // 7. Update .gitignore
       const gitignorePath = join(cwd, ".gitignore");
@@ -221,10 +240,10 @@ export function eaInitCommand(): Command {
         }
       }
 
-      console.log(chalk.blue("\n✅ Project initialized with anchored-spec v1.0!"));
+      console.log(chalk.blue(`\n✅ Project initialized with anchored-spec v${v1Config.schemaVersion}!`));
       console.log(chalk.dim("\nNext steps:"));
-      console.log(chalk.dim("  1. Create an artifact:    anchored-spec create application --title \"My App\""));
-      console.log(chalk.dim("  2. Validate artifacts:    anchored-spec validate"));
+      console.log(chalk.dim("  1. Create an entity:      anchored-spec create --kind Component --type website --title \"My App\""));
+      console.log(chalk.dim("  2. Validate entities:     anchored-spec validate"));
       console.log(chalk.dim("  3. Run full verification: anchored-spec verify"));
       console.log(chalk.dim("  4. Visualize graph:       anchored-spec graph --format mermaid"));
       if (!options.withPolicy) {
@@ -265,6 +284,54 @@ function copyEaSchemas(cwd: string, rootDir: string, dryRun: boolean, force: boo
 
 }
 
+function scaffoldDocsStructure(
+  cwd: string,
+  config: AnchoredSpecConfigV1,
+  dryRun: boolean,
+  force: boolean,
+): void {
+  const rootDir = join(cwd, config.rootDir);
+  if (!existsSync(rootDir)) {
+    if (!dryRun) mkdirSync(rootDir, { recursive: true });
+    console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${config.rootDir}/`));
+  }
+
+  for (const dir of new Set(getConfiguredDocSections(config).map((section) => section.path))) {
+    const absDir = join(cwd, dir);
+    if (!existsSync(absDir)) {
+      if (!dryRun) mkdirSync(absDir, { recursive: true });
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${dir}/`));
+    }
+  }
+
+  for (const filePath of getConfiguredRootDocs(config)) {
+    if (existsSync(join(cwd, filePath)) && !force) continue;
+    if (!dryRun) {
+      const dir = dirname(join(cwd, filePath));
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(join(cwd, filePath), buildSeedDocContent(filePath));
+    }
+    console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${filePath}`));
+  }
+}
+
+function buildSeedDocContent(relativePath: string): string {
+  const base = relativePath.split("/").pop() ?? "README.md";
+  if (base.toLowerCase() === "readme.md") {
+    return `# Documentation\n\nThis repository uses Anchored Spec.\n`;
+  }
+
+  return `# ${humanizeDocName(base)}\n\nTODO: Add content.\n`;
+}
+
+function humanizeDocName(fileName: string): string {
+  return fileName
+    .replace(/\.md$/i, "")
+    .split(/[-_]/g)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function createWorkflowPolicy(
   cwd: string,
   config: AnchoredSpecConfigV1,
@@ -278,31 +345,31 @@ function createWorkflowPolicy(
   }
 
   const policyContent = `# Anchored Spec — Workflow Policy
-# Defines governance rules for artifact lifecycle transitions.
+# Defines governance rules for entity lifecycle transitions.
 
 workflowVariants:
   - id: feature-behavior-first
     name: "Feature (Behavior First)"
     defaultTypes: [feature]
-    artifacts: [requirements, design-doc, implementation-plan]
+    requiredSchemas: [requirements, design-doc, implementation-plan]
     verificationFocus: [behavioral-coverage, semantic-drift]
 
   - id: fix-root-cause-first
     name: "Fix (Root Cause First)"
     defaultTypes: [fix]
-    artifacts: [bugfix-spec, design-doc]
+    requiredSchemas: [bugfix-spec, design-doc]
     verificationFocus: [regression-testing, root-cause-verification]
 
   - id: chore
     name: "Chore (Lightweight)"
     defaultTypes: [chore]
-    artifacts: []
+    requiredSchemas: []
     skipSkillSequence: true
     verificationFocus: [build-passes]
 
 changeRequiredRules:
   - id: source-change
-    description: "Source code changes require a change artifact"
+    description: "Source code changes require a change entity"
     include: ["src/**"]
     exclude: ["src/**/*.test.*", "src/**/*.spec.*"]
 
@@ -400,21 +467,22 @@ spec:
     if (!dryRun) writeFileSync(manifestPath, content);
     console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create example entities in ${config.manifestPath ?? "catalog-info.yaml"}`));
   } else if (mode === "inline") {
-    const docDir = join(cwd, (config.inlineDocDirs ?? ["docs"])[0] ?? "docs");
+    const relativeDocDir = (config.inlineDocDirs ?? [config.rootDir])[0] ?? config.rootDir;
+    const docDir = join(cwd, relativeDocDir);
     if (!existsSync(docDir) && !dryRun) mkdirSync(docDir, { recursive: true });
 
     const svcPath = join(docDir, "example-service.md");
     if (!existsSync(svcPath)) {
       const md = `---\n${componentYaml}---\n\n# Example Service\n\nTODO: Add documentation for this service.\n`;
       if (!dryRun) writeFileSync(svcPath, md);
-      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create docs/example-service.md`));
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${relativeDocDir}/example-service.md`));
     }
 
     const sysPath = join(docDir, "example-system.md");
     if (!existsSync(sysPath)) {
       const md = `---\n${systemYaml}---\n\n# Example System\n\nTODO: Add documentation for this system.\n`;
       if (!dryRun) writeFileSync(sysPath, md);
-      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create docs/example-system.md`));
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${relativeDocDir}/example-system.md`));
     }
   }
 }

@@ -5,24 +5,22 @@
  * Kubernetes manifests, Terraform state). Creates draft entities with
  * confidence "inferred" or "observed", never overwrites existing entities.
  *
- * Design reference: docs/ea-drift-resolvers-generators.md (Discovery workflow)
- * Conflict rule: docs/ea-conflict-resolution.md (Rule 2: drafts never overwrite)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (Discovery workflow)
+ * Conflict rule: docs/adr/ADR-003-declared-before-observed.md (declared data remains primary)
  */
 
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   ANNOTATION_KEYS,
-  formatEntityRef,
-  mapLegacyKind,
-  mapLegacyPrefix,
-  legacyIdToEntityName,
+  normalizeEntityRef,
   parseEntityRef,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
 } from "./backstage/index.js";
+import type { EntityDescriptor } from "./backstage/kind-mapping.js";
 import {
   getEntityAnchors,
   getEntityId,
-  getEntityLegacyKind,
+  getEntitySchema,
   getEntityTitle,
 } from "./backstage/accessors.js";
 import { writeEntity } from "./backstage/entity-writer.js";
@@ -31,30 +29,36 @@ import type { EaRelation } from "./types.js";
 
 // ─── Discovery Types ────────────────────────────────────────────────────────────
 
-/** A draft artifact produced by discovery. */
-export interface EaArtifactDraft {
-  /** Suggested entity ref or legacy-style draft ID. */
+/** A draft entity produced by discovery. */
+export interface EntityDraft {
+  /** Suggested canonical entity ref. */
   suggestedId: string;
-  /** Inferred kind. */
+  /** Backstage or anchored-spec entity kind. */
   kind: string;
+  /** Optional `spec.type` discriminator for the entity kind. */
+  type?: string;
+  /** Anchored-spec schema profile for validation and policy. */
+  schema: string;
+  /** API version for the entity kind. */
+  apiVersion: string;
   /** Human-readable title. */
   title: string;
   /** Description of what was discovered. */
   summary: string;
-  /** Always "draft" for discovered artifacts. */
+  /** Always "draft" for discovered entities. */
   status: "draft";
   /** How this was discovered. */
   confidence: "observed" | "inferred";
   /** Anchors linking to the discovery source. */
   anchors?: Record<string, string[]>;
-  /** Inferred relations to other artifacts. */
+  /** Inferred relations to other entities. */
   relations?: EaRelation[];
   /** Which resolver produced this draft. */
   discoveredBy: string;
   /** ISO 8601 timestamp of discovery. */
   discoveredAt: string;
-  /** Kind-specific fields. */
-  kindSpecificFields?: Record<string, unknown>;
+  /** Schema-specific fields. */
+  schemaFields?: Record<string, unknown>;
 }
 
 /** A match between a discovered draft and an existing entity. */
@@ -64,7 +68,7 @@ export interface DiscoveryMatch {
   /** How the match was determined. */
   matchedBy: "anchor" | "title";
   /** The draft that matched. */
-  draft: EaArtifactDraft;
+  draft: EntityDraft;
   /** New anchors that could be added to the existing entity. */
   suggestedAnchorsToAdd?: Record<string, string[]>;
 }
@@ -87,14 +91,16 @@ export interface DiscoveryReport {
   resolversUsed: string[];
   /** Summary counts. */
   summary: {
-    newArtifacts: number;
+    newEntities: number;
     matchedExisting: number;
     suggestedUpdates: number;
   };
   /** New entities that were created. */
-  newArtifacts: Array<{
+  newEntities: Array<{
     suggestedId: string;
     kind: string;
+    type?: string;
+    schema: string;
     title: string;
     confidence: string;
     discoveredBy: string;
@@ -109,9 +115,9 @@ export interface DiscoveryReport {
 /** Options for the discovery pipeline. */
 export interface DiscoveryOptions {
   /** Existing loaded entities to deduplicate against. */
-  existingArtifacts: BackstageEntity[];
-  /** Draft artifacts from resolvers. */
-  drafts: EaArtifactDraft[];
+  existingEntities: BackstageEntity[];
+  /** Draft entities from resolvers. */
+  drafts: EntityDraft[];
   /** Resolver names that were used. */
   resolverNames: string[];
   /** Project root directory. */
@@ -128,16 +134,16 @@ export interface DiscoveryOptions {
 export interface DiscoveryResolver {
   /** Resolver name. */
   name: string;
-  /** Discover artifacts from a source. */
-  discover(source: string): EaArtifactDraft[];
+  /** Discover entities from a source. */
+  discover(source: string): EntityDraft[];
 }
 
 function getExistingId(value: BackstageEntity): string {
   return getEntityId(value);
 }
 
-function getExistingKind(value: BackstageEntity): string {
-  return getEntityLegacyKind(value);
+function getExistingSchema(value: BackstageEntity): string {
+  return getEntitySchema(value);
 }
 
 function getExistingTitle(value: BackstageEntity): string {
@@ -154,17 +160,17 @@ function getExistingAnchors(value: BackstageEntity): Record<string, unknown> {
  * Check if a draft matches an existing entity.
  *
  * Match criteria:
- * 1. Same kind AND at least one anchor value overlaps
- * 2. Same kind AND normalized title matches
+ * 1. Same schema AND at least one anchor value overlaps
+ * 2. Same schema AND normalized title matches
  */
 export function matchDraftToExisting(
-  draft: EaArtifactDraft,
+  draft: EntityDraft,
   existing: BackstageEntity[],
 ): { match: BackstageEntity; matchedBy: "anchor" | "title" } | null {
-  const sameKind = existing.filter((entity) => getExistingKind(entity) === draft.kind);
+  const sameSchema = existing.filter((entity) => getExistingSchema(entity) === draft.schema);
 
   if (draft.anchors) {
-    for (const entity of sameKind) {
+    for (const entity of sameSchema) {
       const existingAnchors = getExistingAnchors(entity);
       for (const [anchorKind, draftValues] of Object.entries(draft.anchors)) {
         const existingValues = existingAnchors[anchorKind];
@@ -179,7 +185,7 @@ export function matchDraftToExisting(
   }
 
   const normalizedTitle = normalizeTitle(draft.title);
-  for (const entity of sameKind) {
+  for (const entity of sameSchema) {
     if (normalizeTitle(getExistingTitle(entity)) === normalizedTitle) {
       return { match: entity, matchedBy: "title" };
     }
@@ -200,7 +206,7 @@ function normalizeTitle(title: string): string {
  * Compute new anchors that a draft has but the existing entity doesn't.
  */
 function computeNewAnchors(
-  draft: EaArtifactDraft,
+  draft: EntityDraft,
   existing: BackstageEntity,
 ): Record<string, string[]> | undefined {
   if (!draft.anchors) return undefined;
@@ -247,27 +253,18 @@ function tryParseEntityRef(value: string): ReturnType<typeof parseEntityRef> | n
 function toCanonicalTargetRef(target: string): string {
   const parsed = tryParseEntityRef(target);
   if (parsed) {
-    return formatEntityRef(parsed.kind, parsed.namespace, parsed.name);
-  }
-
-  const dashIndex = target.indexOf("-");
-  if (dashIndex > 0) {
-    const mapping = mapLegacyPrefix(target.slice(0, dashIndex));
-    if (mapping) {
-      return formatEntityRef(mapping.backstageKind, undefined, legacyIdToEntityName(target));
-    }
+    return normalizeEntityRef(parsed, { defaultNamespace: "default" });
   }
 
   return target;
 }
 
 /** Convert a draft into a Backstage entity ready for supported writers. */
-function draftToEntity(draft: EaArtifactDraft): BackstageEntity | null {
-  const mapping = mapLegacyKind(draft.kind);
-  if (!mapping) return null;
-
+function draftToEntity(draft: EntityDraft): BackstageEntity | null {
   const parsedRef = tryParseEntityRef(draft.suggestedId);
-  const metadataName = parsedRef?.name ?? legacyIdToEntityName(draft.suggestedId);
+  if (!parsedRef) return null;
+
+  const metadataName = parsedRef.name;
   const metadataNamespace = parsedRef?.namespace;
 
   const metadata: BackstageEntity["metadata"] = {
@@ -284,12 +281,18 @@ function draftToEntity(draft: EaArtifactDraft): BackstageEntity | null {
   const spec: Record<string, unknown> = {
     lifecycle: "experimental",
     owner: "group:default/discovery-pipeline",
-    ...(mapping.specType ? { type: mapping.specType } : {}),
+    ...(draft.type ? { type: draft.type } : {}),
     ...(draft.anchors ? { anchors: draft.anchors } : {}),
   };
 
+  if (draft.schema === "system-interface") {
+    spec.direction = "bidirectional";
+    spec.ownership = "owned";
+    spec.protocol = "custom";
+  }
+
   for (const relation of draft.relations ?? []) {
-    const mapped = legacyRelationToSpecEntry(relation.type, toCanonicalTargetRef(relation.target));
+    const mapped = relationTypeToSpecEntry(relation.type, toCanonicalTargetRef(relation.target));
     if (!mapped) continue;
 
     if (mapped.specField === "owner") {
@@ -305,22 +308,22 @@ function draftToEntity(draft: EaArtifactDraft): BackstageEntity | null {
     }
   }
 
-  for (const [key, value] of Object.entries(draft.kindSpecificFields ?? {})) {
+  for (const [key, value] of Object.entries(draft.schemaFields ?? {})) {
     if (!(key in spec)) {
       spec[key] = value;
     }
   }
 
   return {
-    apiVersion: mapping.apiVersion,
-    kind: mapping.backstageKind,
+    apiVersion: draft.apiVersion,
+    kind: draft.kind,
     metadata,
     spec,
   };
 }
 
-async function writeDraftArtifact(
-  draft: EaArtifactDraft,
+async function writeDraftEntity(
+  draft: EntityDraft,
   projectRoot: string,
   config: AnchoredSpecConfigV1,
 ): Promise<string | null> {
@@ -339,9 +342,9 @@ async function writeDraftArtifact(
  * 3. New → write draft files (unless dry-run)
  * 4. Build discovery report
  */
-export async function discoverArtifacts(options: DiscoveryOptions): Promise<DiscoveryReport> {
+export async function discoverEntities(options: DiscoveryOptions): Promise<DiscoveryReport> {
   const {
-    existingArtifacts,
+    existingEntities,
     drafts,
     resolverNames,
     projectRoot,
@@ -349,12 +352,12 @@ export async function discoverArtifacts(options: DiscoveryOptions): Promise<Disc
     dryRun,
   } = options;
 
-  const newArtifacts: DiscoveryReport["newArtifacts"] = [];
+  const newEntities: DiscoveryReport["newEntities"] = [];
   const matchedExisting: DiscoveryMatch[] = [];
   const suggestedUpdates: DiscoverySuggestedUpdate[] = [];
 
   for (const draft of drafts) {
-    const matchResult = matchDraftToExisting(draft, existingArtifacts);
+    const matchResult = matchDraftToExisting(draft, existingEntities);
 
     if (matchResult) {
       const newAnchors = computeNewAnchors(draft, matchResult.match);
@@ -377,12 +380,14 @@ export async function discoverArtifacts(options: DiscoveryOptions): Promise<Disc
 
     let writtenTo: string | null = null;
     if (!dryRun) {
-      writtenTo = await writeDraftArtifact(draft, projectRoot, config);
+      writtenTo = await writeDraftEntity(draft, projectRoot, config);
     }
 
-    newArtifacts.push({
+    newEntities.push({
       suggestedId: draft.suggestedId,
       kind: draft.kind,
+      type: draft.type,
+      schema: draft.schema,
       title: draft.title,
       confidence: draft.confidence,
       discoveredBy: draft.discoveredBy,
@@ -394,11 +399,11 @@ export async function discoverArtifacts(options: DiscoveryOptions): Promise<Disc
     discoveredAt: new Date().toISOString(),
     resolversUsed: resolverNames,
     summary: {
-      newArtifacts: newArtifacts.length,
+      newEntities: newEntities.length,
       matchedExisting: matchedExisting.length,
       suggestedUpdates: suggestedUpdates.length,
     },
-    newArtifacts,
+    newEntities,
     matchedExisting,
     suggestedUpdates,
   };
@@ -412,41 +417,55 @@ export async function discoverArtifacts(options: DiscoveryOptions): Promise<Disc
  */
 export const stubResolver: DiscoveryResolver = {
   name: "stub",
-  discover(): EaArtifactDraft[] {
+  discover(): EntityDraft[] {
     return [];
   },
 };
 
 /**
- * Create a draft artifact from minimal inputs (helper for resolvers).
+ * Create a draft entity from minimal inputs (helper for resolvers).
  */
+export interface DraftEntityDescriptor {
+  apiVersion: string;
+  kind: string;
+  type?: string;
+  specType?: string;
+  schema: string;
+}
+
 export function createDraft(
-  kind: string,
+  descriptor: DraftEntityDescriptor | EntityDescriptor,
   title: string,
   discoveredBy: string,
   options?: {
     confidence?: "observed" | "inferred";
     anchors?: Record<string, string[]>;
     relations?: EaRelation[];
-    kindSpecificFields?: Record<string, unknown>;
+    schemaFields?: Record<string, unknown>;
     summary?: string;
   },
-): EaArtifactDraft {
-  const prefix = mapLegacyKind(kind)?.legacyPrefix ?? kind.toUpperCase();
+): EntityDraft {
   const slug = titleToSlug(title);
+  const suggestedId = `${descriptor.kind.toLowerCase()}:${slug}`;
+  const type = "type" in descriptor && descriptor.type !== undefined
+    ? descriptor.type
+    : descriptor.specType;
 
   return {
-    suggestedId: `${prefix}-${slug}`,
-    kind,
+    suggestedId,
+    apiVersion: descriptor.apiVersion,
+    kind: descriptor.kind,
+    type,
+    schema: descriptor.schema,
     title,
-    summary: options?.summary ?? `Discovered ${kind}: ${title}`,
+    summary: options?.summary ?? `Discovered ${descriptor.schema}: ${title}`,
     status: "draft",
     confidence: options?.confidence ?? "inferred",
     anchors: options?.anchors,
     relations: options?.relations,
     discoveredBy,
     discoveredAt: new Date().toISOString(),
-    kindSpecificFields: options?.kindSpecificFields,
+    schemaFields: options?.schemaFields,
   };
 }
 
@@ -466,19 +485,19 @@ export function renderDiscoveryReportMarkdown(report: DiscoveryReport): string {
   lines.push("");
   lines.push("| Metric | Count |");
   lines.push("|--------|-------|");
-  lines.push(`| New entities | ${report.summary.newArtifacts} |`);
+  lines.push(`| New entities | ${report.summary.newEntities} |`);
   lines.push(`| Matched existing | ${report.summary.matchedExisting} |`);
   lines.push(`| Suggested updates | ${report.summary.suggestedUpdates} |`);
   lines.push("");
 
-  if (report.newArtifacts.length > 0) {
+  if (report.newEntities.length > 0) {
     lines.push("## New Entities");
     lines.push("");
     lines.push("| ID | Kind | Title | Confidence | Resolver | Written To |");
     lines.push("|----|------|-------|------------|----------|------------|");
-    for (const artifact of report.newArtifacts) {
+    for (const entity of report.newEntities) {
       lines.push(
-        `| \`${artifact.suggestedId}\` | ${artifact.kind} | ${artifact.title} | ${artifact.confidence} | ${artifact.discoveredBy} | ${artifact.writtenTo ?? "—"} |`,
+        `| \`${entity.suggestedId}\` | ${entity.kind}${entity.type ? `/${entity.type}` : ""} | ${entity.title} | ${entity.confidence} | ${entity.discoveredBy} | ${entity.writtenTo ?? "—"} |`,
       );
     }
     lines.push("");
@@ -487,11 +506,11 @@ export function renderDiscoveryReportMarkdown(report: DiscoveryReport): string {
   if (report.matchedExisting.length > 0) {
     lines.push("## Matched Existing");
     lines.push("");
-    lines.push("| Existing | Draft | Kind | Match | Suggested Anchors |");
-    lines.push("|----------|-------|------|-------|-------------------|");
+    lines.push("| Existing | Draft | Schema | Match | Suggested Anchors |");
+    lines.push("|----------|-------|--------|-------|-------------------|");
     for (const match of report.matchedExisting) {
       lines.push(
-        `| \`${match.existingId}\` | \`${match.draft.suggestedId}\` | ${match.draft.kind} | ${match.matchedBy} | ${match.suggestedAnchorsToAdd ? `\`${JSON.stringify(match.suggestedAnchorsToAdd)}\`` : "—"} |`,
+        `| \`${match.existingId}\` | \`${match.draft.suggestedId}\` | ${match.draft.schema} | ${match.matchedBy} | ${match.suggestedAnchorsToAdd ? `\`${JSON.stringify(match.suggestedAnchorsToAdd)}\`` : "—"} |`,
       );
     }
     lines.push("");

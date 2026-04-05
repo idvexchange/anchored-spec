@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Data Requirement",
   "description": "A data requirement defining security classification and governance constraints.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "properties": {
     "kind": { "const": "data-requirement" },
@@ -40,7 +40,7 @@
     },
     "supersededBy": {
       "type": "string",
-      "description": "ID of the artifact that supersedes this one"
+      "description": "ID of the entity that supersedes this one"
     },
     "statusReason": {
       "type": "string",

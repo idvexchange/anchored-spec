@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Data Product",
   "description": "A data product with defined input/output ports, SLAs, and catalog metadata.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["domain", "outputPorts"],
   "properties": {
@@ -61,7 +61,7 @@
     "qualityRules": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "References to data quality rule artifact IDs"
+      "description": "References to data quality rule entity IDs"
     },
     "catalog": {
       "type": "object",

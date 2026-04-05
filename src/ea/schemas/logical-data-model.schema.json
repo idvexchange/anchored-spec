@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Logical Data Model",
   "description": "A logical data model describing entity attributes and relationships.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["attributes"],
   "properties": {

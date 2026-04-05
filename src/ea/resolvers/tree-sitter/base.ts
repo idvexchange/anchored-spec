@@ -3,7 +3,7 @@
  *
  * Language-agnostic code analysis resolver using web-tree-sitter (WASM).
  * Parses source files and runs declarative query packs to discover
- * EA artifacts from code patterns (routes, DB access, events, etc.).
+ * EA entities from code patterns (routes, DB access, events, etc.).
  *
  * web-tree-sitter is an optional peer dependency. If not installed,
  * this resolver throws a helpful error on first use.
@@ -13,14 +13,20 @@ import { join, relative } from "node:path";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import type { EaResolverContext } from "../types.js";
-import type { EaArtifactDraft } from "../../discovery.js";
+import type { EntityDraft } from "../../discovery.js";
 import type { QueryPack, QueryMatch } from "./types.js";
 import { aggregateMatches } from "./aggregator.js";
+import { enrichTypeScriptMatches } from "./enrich.js";
 
 // Lazy-loaded web-tree-sitter types
 type TreeSitterParser = {
   setLanguage(lang: unknown): void;
   parse(input: string): { rootNode: TreeSitterNode };
+};
+
+type TreeSitterParserConstructor = {
+  new (): TreeSitterParser;
+  init(): Promise<void>;
 };
 
 type TreeSitterNode = {
@@ -29,7 +35,6 @@ type TreeSitterNode = {
 };
 
 type TreeSitterLanguage = {
-  query(source: string): TreeSitterQuery;
 };
 
 type TreeSitterQuery = {
@@ -44,9 +49,9 @@ type TreeSitterQueryMatch = {
 };
 
 type TreeSitterModule = {
-  default?: { init(): Promise<void> };
-  init?(): Promise<void>;
-  Parser: new () => TreeSitterParser;
+  default?: TreeSitterModule;
+  Parser: TreeSitterParserConstructor;
+  Query: new (language: TreeSitterLanguage, source: string) => TreeSitterQuery;
   Language: { load(path: string): Promise<TreeSitterLanguage> };
 };
 
@@ -73,11 +78,56 @@ function loadTreeSitter(): TreeSitterModule {
 async function ensureInit(): Promise<void> {
   if (initialized) return;
   const mod = loadTreeSitter();
-  const initFn = mod.default?.init ?? mod.init;
-  if (initFn) {
-    await initFn();
-  }
+  await mod.Parser.init();
   initialized = true;
+}
+
+type GrammarCandidate = {
+  packageName: string;
+  wasmPaths: string[];
+  installHint: string;
+};
+
+const GRAMMAR_CANDIDATES: Record<string, GrammarCandidate> = {
+  javascript: {
+    packageName: "tree-sitter-javascript",
+    wasmPaths: [
+      "tree-sitter-javascript/tree-sitter-javascript.wasm",
+      "tree-sitter-javascript.wasm",
+      "node_modules/tree-sitter-javascript/tree-sitter-javascript.wasm",
+    ],
+    installHint: "npm install -D tree-sitter-javascript",
+  },
+  typescript: {
+    packageName: "tree-sitter-typescript",
+    wasmPaths: [
+      "tree-sitter-typescript/tree-sitter-typescript.wasm",
+      "tree-sitter-typescript.wasm",
+      "node_modules/tree-sitter-typescript/tree-sitter-typescript.wasm",
+    ],
+    installHint: "npm install -D tree-sitter-typescript",
+  },
+  tsx: {
+    packageName: "tree-sitter-typescript",
+    wasmPaths: [
+      "tree-sitter-typescript/tree-sitter-tsx.wasm",
+      "tree-sitter-tsx.wasm",
+      "node_modules/tree-sitter-typescript/tree-sitter-tsx.wasm",
+    ],
+    installHint: "npm install -D tree-sitter-typescript",
+  },
+};
+
+function getGrammarCandidate(langName: string): GrammarCandidate {
+  return GRAMMAR_CANDIDATES[langName] ?? {
+    packageName: `tree-sitter-${langName}`,
+    wasmPaths: [
+      `tree-sitter-${langName}/tree-sitter-${langName}.wasm`,
+      `tree-sitter-${langName}.wasm`,
+      `node_modules/tree-sitter-${langName}/tree-sitter-${langName}.wasm`,
+    ],
+    installHint: `npm install -D tree-sitter-${langName}`,
+  };
 }
 
 async function getLanguage(langName: string): Promise<TreeSitterLanguage> {
@@ -85,30 +135,45 @@ async function getLanguage(langName: string): Promise<TreeSitterLanguage> {
   if (cached) return cached;
 
   const mod = loadTreeSitter();
-
-  // Try common WASM file locations
-  const wasmPaths = [
-    `tree-sitter-${langName}.wasm`,
-    `tree-sitter-${langName}/tree-sitter-${langName}.wasm`,
-    `node_modules/tree-sitter-${langName}/tree-sitter-${langName}.wasm`,
-  ];
+  const candidate = getGrammarCandidate(langName);
+  const resolveErrors: string[] = [];
+  const loadErrors: string[] = [];
 
   // Try to locate via require.resolve
   const esmRequire = createRequire(import.meta.url);
-  for (const wasmPath of wasmPaths) {
+  for (const wasmPath of candidate.wasmPaths) {
+    let resolved: string;
     try {
-      const resolved = esmRequire.resolve(wasmPath);
+      resolved = esmRequire.resolve(wasmPath);
+    } catch (err) {
+      resolveErrors.push(
+        `${wasmPath}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      continue;
+    }
+
+    try {
       const lang = await mod.Language.load(resolved);
       languageCache.set(langName, lang);
       return lang;
-    } catch {
-      // Try next path
+    } catch (err) {
+      loadErrors.push(
+        `${resolved}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
+  }
+
+  if (loadErrors.length > 0) {
+    throw new Error(
+      `Tree-sitter grammar for "${langName}" was found in package "${candidate.packageName}" ` +
+        `but failed to load. ${loadErrors.join("; ")}`,
+    );
   }
 
   throw new Error(
     `Tree-sitter grammar for "${langName}" not found. ` +
-      `Install it: npm install -D tree-sitter-${langName}`,
+      `Install it: ${candidate.installHint}` +
+      (resolveErrors.length > 0 ? ` (${resolveErrors.join("; ")})` : ""),
   );
 }
 
@@ -152,7 +217,7 @@ async function runQueriesOnFile(
 
   for (const pattern of pack.patterns) {
     try {
-      const query = language.query(pattern.query);
+      const query = new mod.Query(language, pattern.query);
       const queryMatches = query.matches(tree.rootNode);
 
       for (const match of queryMatches) {
@@ -246,14 +311,14 @@ function enumerateSourceFiles(
  *
  * Uses web-tree-sitter (WASM) to parse source files and run declarative
  * query packs that detect code patterns (routes, DB access, events, etc.),
- * producing draft EA artifacts.
+ * producing draft EA entities.
  */
 export class TreeSitterDiscoveryResolver {
   name = "tree-sitter";
 
   constructor(private queryPacks: QueryPack[]) {}
 
-  async discoverArtifacts(ctx: EaResolverContext): Promise<EaArtifactDraft[] | null> {
+  async discoverEntities(ctx: EaResolverContext): Promise<EntityDraft[] | null> {
     if (this.queryPacks.length === 0) {
       ctx.logger.warn("No query packs configured for tree-sitter resolver");
       return null;
@@ -275,15 +340,21 @@ export class TreeSitterDiscoveryResolver {
 
     // Run queries
     const allMatches: QueryMatch[] = [];
+    const loadedLanguages: string[] = [];
+    const skippedLanguages: Array<{ language: string; reason: string }> = [];
 
     for (const [langName, packs] of packsByLang) {
       let language: TreeSitterLanguage;
       try {
         language = await getLanguage(langName);
       } catch (err) {
-        ctx.logger.warn(`Skipping language "${langName}": ${err instanceof Error ? err.message : String(err)}`);
+        const reason = err instanceof Error ? err.message : String(err);
+        skippedLanguages.push({ language: langName, reason });
+        ctx.logger.warn(`Skipping language "${langName}": ${reason}`);
         continue;
       }
+
+      loadedLanguages.push(langName);
 
       for (const file of files) {
         for (const pack of packs) {
@@ -294,13 +365,28 @@ export class TreeSitterDiscoveryResolver {
       }
     }
 
-    ctx.logger.info(`Tree-sitter: found ${allMatches.length} pattern matches`);
+    if (loadedLanguages.length === 0 && skippedLanguages.length > 0) {
+      const languageSummary = skippedLanguages
+        .map((entry) => `${entry.language}: ${entry.reason}`)
+        .join("; ");
+      throw new Error(
+        `Tree-sitter could not load any requested grammars. ${languageSummary}`,
+      );
+    }
 
-    if (allMatches.length === 0) return null;
+    const enrichedMatches = await enrichTypeScriptMatches(
+      allMatches,
+      ctx.projectRoot,
+      ctx.logger,
+    );
 
-    // Aggregate matches into artifact drafts
-    const drafts = aggregateMatches(allMatches, ctx.artifacts);
-    ctx.logger.info(`Tree-sitter: aggregated into ${drafts.length} draft artifact(s)`);
+    ctx.logger.info(`Tree-sitter: found ${enrichedMatches.length} pattern matches`);
+
+    if (enrichedMatches.length === 0) return null;
+
+    // Aggregate matches into entity drafts
+    const drafts = aggregateMatches(enrichedMatches, ctx.entities);
+    ctx.logger.info(`Tree-sitter: aggregated into ${drafts.length} draft entity(s)`);
 
     return drafts.length > 0 ? drafts : null;
   }

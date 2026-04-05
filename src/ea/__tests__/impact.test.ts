@@ -1,15 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { analyzeImpact, renderImpactReportMarkdown } from "../impact.js";
-import type { ImpactedEntity, ImpactReport } from "../impact.js";
 import { buildRelationGraph } from "../graph.js";
 import { createDefaultRegistry } from "../relation-registry.js";
 import {
   cleanupTestWorkspace,
   createTestWorkspace,
-  makeArtifact,
+  makeEntity,
   runCli,
-  toBackstageEntity,
   writeManifestProject,
 } from "../../test-helpers/workspace.js";
 
@@ -29,48 +27,50 @@ afterEach(() => {
 
 function makeGraphArtifacts() {
   return [
-    makeArtifact({ id: "SVC-auth", kind: "service", title: "Auth Service" }),
-    makeArtifact({
-      id: "APP-payments",
-      kind: "application",
+    makeEntity({ ref: "component:auth", kind: "Component", type: "service", title: "Auth Service" }),
+    makeEntity({
+      ref: "component:payments",
+      kind: "Component",
+      type: "website",
       title: "Payments App",
-      relations: [{ type: "uses", target: "SVC-auth" }],
+      uses: ["component:auth"],
     }),
-    makeArtifact({
-      id: "APP-portal",
-      kind: "application",
+    makeEntity({
+      ref: "component:portal",
+      kind: "Component",
+      type: "website",
       title: "Portal App",
-      relations: [{ type: "uses", target: "APP-payments" }],
+      uses: ["component:payments"],
     }),
   ];
 }
 
 function makeExtendedGraph() {
   return [
-    makeArtifact({ id: "SVC-auth", kind: "service", title: "Auth Service" }),
-    makeArtifact({
-      id: "APP-payments",
+    makeEntity({ ref: "service:auth", kind: "service", title: "Auth Service" }),
+    makeEntity({
+      ref: "application:payments",
       kind: "application",
       title: "Payments App",
-      relations: [{ type: "uses", target: "SVC-auth" }],
+      uses: ["service:auth"],
     }),
-    makeArtifact({
-      id: "APP-portal",
+    makeEntity({
+      ref: "application:portal",
       kind: "application",
       title: "Portal App",
-      relations: [{ type: "uses", target: "APP-payments" }],
+      uses: ["application:payments"],
     }),
-    makeArtifact({
-      id: "API-payments",
+    makeEntity({
+      ref: "api-contract:payments",
       kind: "api-contract",
       title: "Payments API",
-      relations: [{ type: "dependsOn", target: "SVC-auth" }],
+      dependsOn: ["service:auth"],
     }),
-    makeArtifact({
-      id: "DOC-security",
+    makeEntity({
+      ref: "requirement:security",
       kind: "requirement",
       title: "Security Requirement",
-      relations: [{ type: "governedBy", target: "SVC-auth" }],
+      governedBy: ["service:auth"],
     }),
   ];
 }
@@ -78,7 +78,7 @@ function makeExtendedGraph() {
 describe("impact analysis", () => {
   it("analyzes transitive impact using Backstage entity refs", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((artifact) => toBackstageEntity(artifact)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:auth");
@@ -86,18 +86,15 @@ describe("impact analysis", () => {
     expect(report.sourceRef).toBe("component:auth");
     expect(report.totalImpacted).toBe(2);
     expect(report.maxDepth).toBe(2);
-    // Sorted by score, both are "uses" but depth-1 scores higher
     const ids = report.impacted.map((e) => e.id);
-    expect(ids).toContain("component:payments");
-    expect(ids).toContain("component:portal");
-    expect(renderImpactReportMarkdown(report)).toContain(
-      "# Impact Analysis: Auth Service",
-    );
+    expect(ids).toContain("component:default/payments");
+    expect(ids).toContain("component:default/portal");
+    expect(renderImpactReportMarkdown(report)).toContain("# Impact Analysis: Auth Service");
   });
 
   it("computes scores between 0 and 1", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:auth");
@@ -111,7 +108,7 @@ describe("impact analysis", () => {
 
   it("ranks depth-1 entities higher than depth-2", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:auth");
@@ -125,12 +122,11 @@ describe("impact analysis", () => {
 
   it("classifies categories for known kinds", () => {
     const graph = buildRelationGraph(
-      makeExtendedGraph().map((a) => toBackstageEntity(a)),
+      makeExtendedGraph(),
       createDefaultRegistry(),
     );
-    const report = analyzeImpact(graph, "component:auth");
+    const report = analyzeImpact(graph, "service:auth");
 
-    // service/application -> "code", api-contract -> "contracts", requirement -> "docs"
     const categories = new Set(report.impacted.map((e) => e.category));
     expect(categories.size).toBeGreaterThanOrEqual(1);
 
@@ -141,10 +137,10 @@ describe("impact analysis", () => {
 
   it("groups by category in byCategory", () => {
     const graph = buildRelationGraph(
-      makeExtendedGraph().map((a) => toBackstageEntity(a)),
+      makeExtendedGraph(),
       createDefaultRegistry(),
     );
-    const report = analyzeImpact(graph, "component:auth");
+    const report = analyzeImpact(graph, "service:auth");
 
     expect(report.byCategory.length).toBeGreaterThan(0);
     const totalFromCategories = report.byCategory.reduce((sum, c) => sum + c.count, 0);
@@ -153,12 +149,10 @@ describe("impact analysis", () => {
 
   it("filters by minScore", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
-    // Use a very high minScore to filter out at least some
     const report = analyzeImpact(graph, "component:auth", { minScore: 0.99 });
-    // Depending on scoring, some or all may be filtered
     for (const entity of report.impacted) {
       expect(entity.score).toBeGreaterThanOrEqual(0.99);
     }
@@ -166,7 +160,7 @@ describe("impact analysis", () => {
 
   it("limits results with maxResults", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:auth", { maxResults: 1 });
@@ -176,7 +170,7 @@ describe("impact analysis", () => {
 
   it("sorts by depth when sortBy is depth", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:auth", { sortBy: "depth" });
@@ -187,7 +181,7 @@ describe("impact analysis", () => {
 
   it("sorts by score descending by default", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:auth");
@@ -198,7 +192,7 @@ describe("impact analysis", () => {
 
   it("returns empty report for unknown entity", () => {
     const graph = buildRelationGraph(
-      makeGraphArtifacts().map((a) => toBackstageEntity(a)),
+      makeGraphArtifacts(),
       createDefaultRegistry(),
     );
     const report = analyzeImpact(graph, "component:nonexistent");
@@ -220,7 +214,7 @@ describe("impact CLI", () => {
       sourceRef: string;
       totalImpacted: number;
     };
-    expect(payload.sourceRef).toBe("component:auth");
+    expect(payload.sourceRef).toBe("component:default/auth");
     expect(payload.totalImpacted).toBe(2);
     expect(result.stderr).toContain("entities impacted");
   });

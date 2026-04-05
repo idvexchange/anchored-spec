@@ -6,8 +6,7 @@
  * Spec-as-source enterprise architecture framework.
  * Usage: anchored-spec <command> [options]
  *
- * All commands operate on Backstage-aligned entities. Legacy core commands have been
- * replaced by their EA equivalents.
+ * All commands operate on Backstage-aligned entities.
  */
 
 import { Command } from "commander";
@@ -18,6 +17,7 @@ import { eaInitCommand } from "./commands/ea-init.js";
 import { eaCreateCommand } from "./commands/ea-create.js";
 import { eaValidateCommand } from "./commands/ea-validate.js";
 import { eaGraphCommand } from "./commands/ea-graph.js";
+import { eaDiagramsCommand } from "./commands/ea-diagrams.js";
 import { eaReportCommand } from "./commands/ea-report.js";
 import { eaEvidenceCommand } from "./commands/ea-evidence.js";
 import { eaDriftCommand } from "./commands/ea-drift.js";
@@ -37,6 +37,7 @@ import { eaCreateDocCommand } from "./commands/ea-create-doc.js";
 import { eaLinkCommand } from "./commands/ea-link.js";
 import { eaSearchCommand } from "./commands/ea-search.js";
 import { eaConstraintsCommand } from "./commands/ea-constraints.js";
+import { eaCatalogCommand } from "./commands/ea-catalog.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -64,6 +65,7 @@ program.addCommand(eaInitCommand());
 program.addCommand(eaCreateCommand());
 program.addCommand(eaValidateCommand());
 program.addCommand(eaGraphCommand());
+program.addCommand(eaDiagramsCommand());
 program.addCommand(eaReportCommand());
 program.addCommand(eaEvidenceCommand());
 program.addCommand(eaDriftCommand());
@@ -83,6 +85,7 @@ program.addCommand(eaCreateDocCommand());
 program.addCommand(eaLinkCommand());
 program.addCommand(eaSearchCommand());
 program.addCommand(eaConstraintsCommand());
+program.addCommand(eaCatalogCommand());
 
 // ─── Run ────────────────────────────────────────────────────────────────────────
 

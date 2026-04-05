@@ -4,17 +4,17 @@
   "title": "Anchored Spec — EA Integration",
   "description": "A declared integration between two systems.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "properties": {
     "kind": { "const": "integration" },
     "sourceSystem": {
       "type": "string",
-      "description": "Source system artifact ID"
+      "description": "Source system entity ID"
     },
     "targetSystem": {
       "type": "string",
-      "description": "Target system artifact ID"
+      "description": "Target system entity ID"
     },
     "pattern": {
       "type": "string",

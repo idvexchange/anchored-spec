@@ -71,9 +71,7 @@
             "anchored-spec.dev/expect-anchors": { "type": "string" },
             "anchored-spec.dev/compliance": { "type": "string" },
             "anchored-spec.dev/risk": { "type": "string", "enum": ["low", "moderate", "high", "critical"] },
-            "anchored-spec.dev/suppress": { "type": "string" },
-            "anchored-spec.dev/legacy-id": { "type": "string" },
-            "anchored-spec.dev/legacy-kind": { "type": "string" }
+            "anchored-spec.dev/suppress": { "type": "string" }
           }
         },
         "tags": {

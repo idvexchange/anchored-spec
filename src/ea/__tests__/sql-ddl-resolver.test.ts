@@ -16,7 +16,7 @@ const SQL_FILE = join(FIXTURES_DIR, "sql", "migrations.sql");
 function makeCtx(overrides?: Partial<EaResolverContext>): EaResolverContext {
   return {
     projectRoot: FIXTURES_DIR,
-    artifacts: [],
+    entities: [],
     cache: new NoOpCache(),
     logger: silentLogger,
     source: "sql",
@@ -214,8 +214,8 @@ describe("SqlDdlResolver.collectObservedState", () => {
 
   it("should include physical-schema and data-store entities", () => {
     const state = resolver.collectObservedState(makeCtx())!;
-    const schemas = state.entities.filter((e) => e.inferredKind === "physical-schema");
-    const stores = state.entities.filter((e) => e.inferredKind === "data-store");
+    const schemas = state.entities.filter((e) => e.inferredSchema === "physical-schema");
+    const stores = state.entities.filter((e) => e.inferredSchema === "data-store");
     expect(schemas.length).toBe(4);
     expect(stores.length).toBe(2);
   });
@@ -226,9 +226,9 @@ describe("SqlDdlResolver.collectObservedState", () => {
   });
 });
 
-// ─── SqlDdlResolver.discoverArtifacts ───────────────────────────────────────────
+// ─── SqlDdlResolver.discoverEntities ───────────────────────────────────────────
 
-describe("SqlDdlResolver.discoverArtifacts", () => {
+describe("SqlDdlResolver.discoverEntities", () => {
   let resolver: SqlDdlResolver;
 
   beforeEach(() => {
@@ -236,16 +236,16 @@ describe("SqlDdlResolver.discoverArtifacts", () => {
   });
 
   it("should discover physical-schema and data-store drafts", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     expect(drafts).not.toBeNull();
-    const schemas = drafts.filter((d) => d.kind === "physical-schema");
-    const stores = drafts.filter((d) => d.kind === "data-store");
+    const schemas = drafts.filter((d) => d.schema === "physical-schema");
+    const stores = drafts.filter((d) => d.schema === "data-store");
     expect(schemas.length).toBe(4);
     expect(stores.length).toBe(2);
   });
 
   it("should create correct draft structure", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+    const drafts = resolver.discoverEntities(makeCtx())!;
     for (const draft of drafts) {
       expect(draft.status).toBe("draft");
       expect(draft.confidence).toBe("observed");
@@ -253,10 +253,10 @@ describe("SqlDdlResolver.discoverArtifacts", () => {
     }
   });
 
-  it("should include column details in kindSpecificFields", () => {
-    const drafts = resolver.discoverArtifacts(makeCtx())!;
+  it("should include column details in schemaFields", () => {
+    const drafts = resolver.discoverEntities(makeCtx())!;
     const users = drafts.find((d) => d.title === "public.users");
-    expect(users?.kindSpecificFields?.columns).toBeDefined();
+    expect(users?.schemaFields?.columns).toBeDefined();
   });
 });
 
@@ -271,8 +271,8 @@ describe("SqlDdlResolver metadata", () => {
     expect(new SqlDdlResolver().domains).toEqual(["data"]);
   });
 
-  it("should handle physical-schema and data-store kinds", () => {
-    expect(new SqlDdlResolver().kinds).toContain("physical-schema");
-    expect(new SqlDdlResolver().kinds).toContain("data-store");
+  it("should handle physical-schema and data-store schemas", () => {
+    expect(new SqlDdlResolver().schemas).toContain("physical-schema");
+    expect(new SqlDdlResolver().schemas).toContain("data-store");
   });
 });

@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Policy Objective",
   "description": "A policy objective with category, target metric, and enforcement.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["category", "objective"],
   "properties": {
@@ -29,7 +29,7 @@
     "enforcedBy": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Control artifact IDs enforcing this policy"
+      "description": "Control entity IDs enforcing this policy"
     },
     "regulatoryRef": { "type": "string", "description": "Regulatory reference" },
     "reviewCadence": { "type": "string", "description": "Review cadence" }

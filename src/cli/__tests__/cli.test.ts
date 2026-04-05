@@ -7,12 +7,14 @@ describe("CLI", () => {
     const { eaValidateCommand } = await import("../commands/ea-validate.js");
     const { eaGenerateCommand } = await import("../commands/ea-generate.js");
     const { eaStatusCommand } = await import("../commands/ea-status.js");
-    const { eaTransitionCommand } = await import("../commands/ea-transition.js");
+    const { eaTransitionCommand } =
+      await import("../commands/ea-transition.js");
     const { eaDriftCommand } = await import("../commands/ea-drift.js");
     const { eaDiscoverCommand } = await import("../commands/ea-discover.js");
     const { eaReportCommand } = await import("../commands/ea-report.js");
     const { eaEvidenceCommand } = await import("../commands/ea-evidence.js");
     const { eaGraphCommand } = await import("../commands/ea-graph.js");
+    const { eaDiagramsCommand } = await import("../commands/ea-diagrams.js");
     const { eaImpactCommand } = await import("../commands/ea-impact.js");
 
     expect(typeof eaInitCommand).toBe("function");
@@ -26,6 +28,7 @@ describe("CLI", () => {
     expect(typeof eaReportCommand).toBe("function");
     expect(typeof eaEvidenceCommand).toBe("function");
     expect(typeof eaGraphCommand).toBe("function");
+    expect(typeof eaDiagramsCommand).toBe("function");
     expect(typeof eaImpactCommand).toBe("function");
   });
 });

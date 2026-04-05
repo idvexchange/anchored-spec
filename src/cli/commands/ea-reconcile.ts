@@ -21,12 +21,12 @@ export function eaReconcileCommand(): Command {
     .option("--include-trace", "Include trace integrity check as a step")
     .option("--include-docs", "Include doc consistency check as a step")
     .option("--skip-trace", "Skip trace step (if --include-trace is set)")
-    .option("--doc-dirs <dirs>", "Comma-separated doc directories for trace checking", "docs,specs,.")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories for trace checking")
     .option("--fail-fast", "Stop at first failing step")
     .option("--domain <domain>", "Filter to a specific EA domain")
     .option("--json", "Output full report as JSON")
     .option("--output <file>", "Write report to file")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       process.stdout.write(chalk.dim("⏳ Reconciling EA project...\n\n"));
 

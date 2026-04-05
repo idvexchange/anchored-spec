@@ -5,18 +5,20 @@
  * spec relation fields, virtual inverse edges computed via the registry.
  * Supports traversal, impact analysis, cycle detection, and export.
  *
- * Design reference: docs/ea-relationship-model.md §Graph Builder
+ * Design reference: docs/05-domain/domain-model.md (relation graph conventions)
  */
 
 import type { BackstageEntity } from "./backstage/types.js";
 import type { EntityStatus } from "./backstage/accessors.js";
+import { RELATION_OWNED_BY } from "@backstage/catalog-model";
 import {
-  getEntityKindMapping,
+  getEntityDescriptor,
+  getEntityKind,
   getEntityId,
   getEntityTitle,
   getEntityStatus,
   getEntityConfidence,
-  getEntityLegacyKind,
+  getEntitySchema,
   getEntitySpecRelations,
 } from "./backstage/accessors.js";
 import type { EaDomain } from "./types.js";
@@ -27,6 +29,7 @@ import type { RelationRegistry } from "./relation-registry.js";
 export interface GraphNode {
   id: string;
   kind: string;
+  schema: string;
   domain: EaDomain | "unknown";
   status: EntityStatus;
   title: string;
@@ -95,17 +98,17 @@ export class RelationGraph {
     return all;
   }
 
-  /** Get a node by artifact ID. */
+  /** Get a node by entity ID. */
   node(id: string): GraphNode | undefined {
     return this.nodeMap.get(id);
   }
 
-  /** Get all outgoing edges from an artifact. */
+  /** Get all outgoing edges from an entity. */
   outgoing(id: string): GraphEdge[] {
     return this.outgoingMap.get(id) ?? [];
   }
 
-  /** Get all incoming edges to an artifact. */
+  /** Get all incoming edges to an entity. */
   incoming(id: string): GraphEdge[] {
     return this.incomingMap.get(id) ?? [];
   }
@@ -147,8 +150,8 @@ export class RelationGraph {
   }
 
   /**
-   * Compute all artifacts transitively impacted by changes to the given artifact.
-   * Follows all incoming edges (anything that depends on / references this artifact).
+   * Compute all entities transitively impacted by changes to the given entity.
+   * Follows all incoming edges (anything that depends on / references this entity).
    */
   impactSet(id: string): GraphNode[] {
     const visited = new Set<string>();
@@ -165,7 +168,7 @@ export class RelationGraph {
         if (node) result.push(node);
       }
 
-      // Follow incoming edges — anything that references this artifact is impacted
+      // Follow incoming edges — anything that references this entity is impacted
       for (const edge of this.incoming(current)) {
         if (!visited.has(edge.source)) {
           queue.push(edge.source);
@@ -251,7 +254,7 @@ export class RelationGraph {
 
   /**
    * Detect cycles for a given relation type.
-   * Returns arrays of artifact IDs forming each cycle.
+   * Returns arrays of entity IDs forming each cycle.
    */
   detectCycles(relationType: string): string[][] {
     const cycles: string[][] = [];
@@ -319,7 +322,7 @@ export class RelationGraph {
     // Node declarations
     for (const node of this.nodeMap.values()) {
       const safeId = sanitizeMermaidId(node.id);
-      lines.push(`  ${safeId}["${node.title}<br/>(${node.kind})"]`);
+      lines.push(`  ${safeId}["${node.title}<br/>(${node.kind}/${node.schema})"]`);
     }
 
     lines.push("");
@@ -348,7 +351,7 @@ export class RelationGraph {
     // Node declarations
     for (const node of this.nodeMap.values()) {
       const safeId = sanitizeDotId(node.id);
-      lines.push(`  ${safeId} [label="${node.title}\\n(${node.kind})"];`);
+      lines.push(`  ${safeId} [label="${node.title}\\n(${node.kind}/${node.schema})"];`);
     }
 
     // Edge declarations
@@ -405,12 +408,13 @@ export function buildRelationGraph(
   // 1. Create nodes — use entity ref as node ID
   for (const entity of entities) {
     const nodeId = getEntityId(entity);
-    const legacyKind = getEntityLegacyKind(entity);
+    const schema = getEntitySchema(entity);
     entityMap.set(nodeId, entity);
     graph.addNode({
       id: nodeId,
-      kind: legacyKind,
-      domain: getEntityKindMapping(entity)?.domain ?? "unknown",
+      kind: getEntityKind(entity),
+      schema,
+      domain: getEntityDescriptor(entity)?.domain ?? "unknown",
       status: getEntityStatus(entity),
       title: getEntityTitle(entity),
       confidence: getEntityConfidence(entity),
@@ -418,11 +422,11 @@ export function buildRelationGraph(
   }
 
   // Extract relations from all entities (exclude ownership — it's metadata, not a dependency)
-  const EXCLUDED_RELATION_TYPES = new Set(["owns"]);
-  const entityRelations = new Map<string, Array<{ legacyType: string; targets: string[] }>>();
+  const EXCLUDED_RELATION_TYPES = new Set([RELATION_OWNED_BY]);
+  const entityRelations = new Map<string, Array<{ type: string; targets: string[] }>>();
   for (const entity of entities) {
     const rels = getEntitySpecRelations(entity)
-      .filter((r) => !EXCLUDED_RELATION_TYPES.has(r.legacyType));
+      .filter((r) => !EXCLUDED_RELATION_TYPES.has(r.type));
     entityRelations.set(getEntityId(entity), rels);
   }
 
@@ -430,9 +434,9 @@ export function buildRelationGraph(
   const explicitInverses = new Map<string, GraphEdge>();
   for (const entity of entities) {
     const nodeId = getEntityId(entity);
-    for (const { legacyType, targets } of entityRelations.get(nodeId) ?? []) {
-      const entry = registry.getCanonicalEntry(legacyType);
-      if (entry && legacyType === entry.inverse) {
+    for (const { type, targets } of entityRelations.get(nodeId) ?? []) {
+      const entry = registry.getCanonicalEntry(type);
+      if (entry && type === entry.inverse) {
         for (const target of targets) {
           const key = `${target}→${entry.type}→${nodeId}`;
           explicitInverses.set(key, {
@@ -452,13 +456,13 @@ export function buildRelationGraph(
   // 2. Create forward edges + 3. Virtual inverses
   for (const entity of entities) {
     const nodeId = getEntityId(entity);
-    for (const { legacyType, targets } of entityRelations.get(nodeId) ?? []) {
-      const entry = registry.get(legacyType);
+    for (const { type, targets } of entityRelations.get(nodeId) ?? []) {
+      const entry = registry.get(type);
 
       // Skip explicit inverses (handled above)
       if (!entry) {
-        const canonical = registry.getCanonicalEntry(legacyType);
-        if (canonical && legacyType === canonical.inverse) continue;
+        const canonical = registry.getCanonicalEntry(type);
+        if (canonical && type === canonical.inverse) continue;
       }
 
       for (const target of targets) {
@@ -466,7 +470,7 @@ export function buildRelationGraph(
         graph.addEdge({
           source: nodeId,
           target,
-          type: legacyType,
+          type: type,
           isVirtual: false,
           criticality: "medium",
           confidence: getEntityConfidence(entity),

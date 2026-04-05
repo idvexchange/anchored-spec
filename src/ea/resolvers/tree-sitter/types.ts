@@ -25,12 +25,22 @@ export interface QueryPattern {
   query: string;
   /** How to interpret query captures. */
   captures: CaptureMapping[];
-  /** EA artifact kind this pattern produces (e.g. "api-contract"). */
-  inferredKind: string;
-  /** EA domain for produced artifacts. */
+  /** Schema profile this pattern produces (e.g. "api-contract"). */
+  inferredSchema: string;
+  /** EA domain for produced entities. */
   inferredDomain: EaDomain;
   /** Optional: category for aggregation grouping. */
-  category?: "route" | "db-access" | "event" | "external-call" | "service-boundary";
+  category?:
+    | "route"
+    | "db-access"
+    | "event"
+    | "external-call"
+    | "service-boundary"
+    | "cli-command"
+    | "resolver"
+    | "generator"
+    | "framework-module"
+    | "report-view";
 }
 
 /** A collection of patterns for a specific language/framework. */

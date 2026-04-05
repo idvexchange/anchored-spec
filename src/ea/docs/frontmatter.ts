@@ -1,6 +1,6 @@
 /** Anchored Spec — YAML Frontmatter Parser
  *
- * Extracts `ea-artifacts` (or `anchored-spec`) frontmatter fields from
+ * Extracts `ea-entities` (or `anchored-spec`) frontmatter fields from
  * markdown documents. Supports both kebab-case YAML keys and the
  * normalised `DocFrontmatter` interface used throughout the EA framework.
  */
@@ -16,7 +16,7 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---/;
  * Quick-check regex: does the frontmatter contain an EA-relevant key?
  * Avoids a full YAML parse when we just need a boolean answer.
  */
-const EA_KEY_RE = /^(ea-artifacts|anchored-spec|type|status|audience|domain)\s*:/m;
+const EA_KEY_RE = /^(ea-entities|anchored-spec|type|status|audience|domain)\s*:/m;
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ export interface DocFrontmatter {
   /** Relative paths to other documents this one depends on. */
   requires?: string[];
   /** Canonical entity refs this document relates to. */
-  eaArtifacts?: string[];
+  eaEntities?: string[];
   /** Estimated token count for AI context budgeting. */
   tokens?: number;
   /** ISO 8601 date when the document was last verified. */
@@ -139,12 +139,12 @@ export function parseFrontmatter(content: string): ParsedDoc {
     };
   }
 
-  // Merge `ea-artifacts` (primary) and `anchored-spec` (alternative)
-  const eaRaw = toStringArray(raw["ea-artifacts"]);
+  // Merge `ea-entities` (primary) and `anchored-spec` (alternative)
+  const eaRaw = toStringArray(raw["ea-entities"]);
   const asRaw = toStringArray(raw["anchored-spec"]);
-  let eaArtifacts: string[] | undefined;
+  let eaEntities: string[] | undefined;
   if (eaRaw || asRaw) {
-    eaArtifacts = dedupe([...(eaRaw ?? []), ...(asRaw ?? [])]);
+    eaEntities = dedupe([...(eaRaw ?? []), ...(asRaw ?? [])]);
   }
 
   const frontmatter: DocFrontmatter = {
@@ -153,7 +153,7 @@ export function parseFrontmatter(content: string): ParsedDoc {
     ...(normalizeAudience(raw["audience"]) ? { audience: normalizeAudience(raw["audience"]) } : {}),
     ...(normalizeDomain(raw["domain"]) ? { domain: normalizeDomain(raw["domain"]) } : {}),
     ...(raw["requires"] != null ? { requires: toStringArray(raw["requires"]) } : {}),
-    ...(eaArtifacts ? { eaArtifacts } : {}),
+    ...(eaEntities ? { eaEntities } : {}),
     ...(raw["tokens"] != null ? { tokens: Number(raw["tokens"]) } : {}),
     ...(raw["last-verified"] != null
       ? { lastVerified: String(raw["last-verified"]) }
@@ -168,12 +168,12 @@ export function parseFrontmatter(content: string): ParsedDoc {
 /**
  * Extract canonical entity refs from parsed frontmatter.
  *
- * Looks for the merged `eaArtifacts` field (which already combines
- * `ea-artifacts` and `anchored-spec` sources during parsing).
+ * Looks for the merged `eaEntities` field (which already combines
+ * `ea-entities` and `anchored-spec` sources during parsing).
  * Returns a deduplicated array, or an empty array if none are found.
  */
-export function extractArtifactIds(frontmatter: DocFrontmatter): string[] {
-  return frontmatter.eaArtifacts ? dedupe(frontmatter.eaArtifacts) : [];
+export function extractEntityRefs(frontmatter: DocFrontmatter): string[] {
+  return frontmatter.eaEntities ? dedupe(frontmatter.eaEntities) : [];
 }
 
 /**
@@ -192,7 +192,7 @@ export function hasEaFrontmatter(content: string): boolean {
  * Serialise a {@link DocFrontmatter} back to a YAML frontmatter block
  * (including the `---` delimiters).
  *
- * Converts `eaArtifacts` → `ea-artifacts` and `lastVerified` →
+ * Converts `eaEntities` → `ea-entities` and `lastVerified` →
  * `last-verified` so the output uses the canonical kebab-case keys.
  *
  * Used by `link-docs` and `create-doc` commands.
@@ -205,7 +205,7 @@ export function serializeFrontmatter(frontmatter: DocFrontmatter): string {
   if (frontmatter.audience != null) obj["audience"] = frontmatter.audience;
   if (frontmatter.domain != null) obj["domain"] = frontmatter.domain;
   if (frontmatter.requires != null) obj["requires"] = frontmatter.requires;
-  if (frontmatter.eaArtifacts != null) obj["ea-artifacts"] = frontmatter.eaArtifacts;
+  if (frontmatter.eaEntities != null) obj["ea-entities"] = frontmatter.eaEntities;
   if (frontmatter.tokens != null) obj["tokens"] = frontmatter.tokens;
   if (frontmatter.lastVerified != null) obj["last-verified"] = frontmatter.lastVerified;
 

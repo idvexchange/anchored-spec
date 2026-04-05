@@ -4,9 +4,9 @@
   "title": "Anchored Spec — EA Baseline",
   "description": "A point-in-time architecture snapshot capturing current state.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
-  "required": ["scope", "capturedAt", "artifactRefs"],
+  "required": ["scope", "capturedAt", "entityRefs"],
   "properties": {
     "kind": { "const": "baseline" },
     "scope": {
@@ -21,22 +21,22 @@
         "kinds": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Artifact kinds included"
+          "description": "Entity kinds included"
         },
         "tags": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Tags to filter included artifacts"
+          "description": "Tags to filter included entities"
         },
         "description": { "type": "string", "minLength": 1, "description": "Scope description" }
       },
       "additionalProperties": false
     },
     "capturedAt": { "type": "string", "description": "ISO 8601 timestamp when baseline was captured" },
-    "artifactRefs": {
+    "entityRefs": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "IDs of artifacts included in this baseline"
+      "description": "IDs of entities included in this baseline"
     },
     "assumptions": {
       "type": "array",

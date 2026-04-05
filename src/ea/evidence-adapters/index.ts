@@ -3,7 +3,7 @@
  *
  * Pluggable adapters that parse test runner output into EA evidence records.
  * Each adapter transforms format-specific test results into a normalized
- * list of EA evidence artifacts.
+ * list of EA evidence entities.
  *
  * This is the EA EA-native evidence adapter framework VitestParser.
  */
@@ -15,8 +15,8 @@ import { getEntityAnchors, getEntityId, getEntityTraceRefs } from "../backstage/
 // ─── Evidence Adapter Interface ─────────────────────────────────────────────────
 
 export interface EaTestRecord {
-  /** EA artifact ID this test relates to. */
-  artifactId: string;
+  /** EA entity ID this test relates to. */
+  entityRef: string;
   /** Test file path. */
   testFile: string;
   /** Test kind (unit, integration, e2e, contract, manual). */
@@ -61,20 +61,20 @@ interface VitestReport {
 }
 
 /**
- * Build a map from test file patterns to artifact IDs.
- * Uses EA artifact anchors (symbols, apis) and traceRefs as keys.
+ * Build a map from test file patterns to entity IDs.
+ * Uses EA entity anchors (symbols, apis) and traceRefs as keys.
  */
-function buildTestToArtifactMap(
+function buildTestToEntityMap(
   entities: BackstageEntity[],
-): Map<string, Array<{ artifactId: string; kind: string }>> {
-  const map = new Map<string, Array<{ artifactId: string; kind: string }>>();
+): Map<string, Array<{ entityRef: string; kind: string }>> {
+  const map = new Map<string, Array<{ entityRef: string; kind: string }>>();
 
   for (const entity of entities) {
     // Map from traceRefs if present
     for (const ref of getEntityTraceRefs(entity)) {
         if (ref.role === "implementation" || ref.path.includes("test")) {
           const existing = map.get(ref.path) ?? [];
-          existing.push({ artifactId: getEntityId(entity), kind: "unit" });
+          existing.push({ entityRef: getEntityId(entity), kind: "unit" });
           map.set(ref.path, existing);
         }
     }
@@ -84,7 +84,7 @@ function buildTestToArtifactMap(
     if (anchors?.symbols) {
       for (const sym of anchors.symbols) {
         const existing = map.get(sym) ?? [];
-        existing.push({ artifactId: getEntityId(entity), kind: "unit" });
+        existing.push({ entityRef: getEntityId(entity), kind: "unit" });
         map.set(sym, existing);
       }
     }
@@ -108,21 +108,21 @@ export class VitestEaAdapter implements EvidenceAdapter {
 
     const raw = readFileSync(reportPath, "utf-8");
     const report: VitestReport = JSON.parse(raw);
-    const testToArtifact = buildTestToArtifactMap(entities);
+    const testToEntity = buildTestToEntityMap(entities);
     const records: EaTestRecord[] = [];
     const now = new Date().toISOString();
 
     for (const result of report.testResults) {
       const normalizedName = result.name;
-      const matchingArtifacts: Array<{ artifactId: string; kind: string }> = [];
+      const matchingEntities: Array<{ entityRef: string; kind: string }> = [];
 
-      for (const [pattern, refs] of testToArtifact) {
+      for (const [pattern, refs] of testToEntity) {
         if (normalizedName.endsWith(pattern) || normalizedName.includes(pattern)) {
-          matchingArtifacts.push(...refs);
+          matchingEntities.push(...refs);
         }
       }
 
-      for (const { artifactId, kind } of matchingArtifacts) {
+      for (const { entityRef, kind } of matchingEntities) {
         const status =
           result.status === "passed"
             ? "passed"
@@ -133,7 +133,7 @@ export class VitestEaAdapter implements EvidenceAdapter {
                 : "error";
 
         records.push({
-          artifactId,
+          entityRef,
           testFile: normalizedName,
           kind,
           status: status as EaTestRecord["status"],

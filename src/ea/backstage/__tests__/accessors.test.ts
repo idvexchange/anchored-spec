@@ -9,8 +9,8 @@ import {
   getEntityNamespace,
   getEntityTitle,
   getEntityDescription,
-  getEntityLegacyKind,
-  getEntityKindMapping,
+  getEntitySchema,
+  getEntityDescriptor,
   getEntitySpecType,
   getEntityStatus,
   getEntityLifecycle,
@@ -105,16 +105,16 @@ describe("identity accessors", () => {
     expect(getEntityId(component)).toBe("component:production/verifier-core");
   });
 
-  it("getEntityId omits default namespace", () => {
+  it("getEntityId keeps the default namespace in canonical refs", () => {
     const entity: BackstageEntity = {
       ...component,
       metadata: { ...component.metadata, namespace: "default" },
     };
-    expect(getEntityId(entity)).toBe("component:verifier-core");
+    expect(getEntityId(entity)).toBe("component:default/verifier-core");
   });
 
   it("getEntityId works with minimal entity", () => {
-    expect(getEntityId(minimal)).toBe("system:my-system");
+    expect(getEntityId(minimal)).toBe("system:default/my-system");
   });
 
   it("getEntityName returns metadata.name", () => {
@@ -150,49 +150,49 @@ describe("display accessors", () => {
 // ─── Kind & Type ────────────────────────────────────────────────────────────────
 
 describe("kind accessors", () => {
-  it("getEntityLegacyKind maps Component/service to 'service'", () => {
-    expect(getEntityLegacyKind(component)).toBe("service");
+  it("getEntitySchema maps Component/service to 'service'", () => {
+    expect(getEntitySchema(component)).toBe("service");
   });
 
-  it("getEntityLegacyKind maps Requirement to 'security-requirement' (via spec.type=security)", () => {
-    expect(getEntityLegacyKind(requirement)).toBe("security-requirement");
+  it("getEntitySchema maps Requirement to 'security-requirement' (via spec.type=security)", () => {
+    expect(getEntitySchema(requirement)).toBe("security-requirement");
   });
 
-  it("getEntityLegacyKind maps Requirement without spec.type to 'requirement'", () => {
+  it("getEntitySchema maps Requirement without spec.type to 'requirement'", () => {
     const req: BackstageEntity = {
       apiVersion: "anchored-spec.dev/v1alpha1",
       kind: "Requirement",
       metadata: { name: "basic-req" },
       spec: { priority: "must", category: "functional" },
     };
-    expect(getEntityLegacyKind(req)).toBe("requirement");
+    expect(getEntitySchema(req)).toBe("requirement");
   });
 
-  it("getEntityLegacyKind falls back to lowercase kind for unmapped", () => {
+  it("getEntitySchema falls back to lowercase kind for unmapped", () => {
     const unknown: BackstageEntity = {
       apiVersion: "custom/v1",
       kind: "FooBar",
       metadata: { name: "x" },
       spec: {},
     };
-    expect(getEntityLegacyKind(unknown)).toBe("foobar");
+    expect(getEntitySchema(unknown)).toBe("foobar");
   });
 
-  it("getEntityKindMapping returns mapping entry", () => {
-    const mapping = getEntityKindMapping(component);
+  it("getEntityDescriptor returns mapping entry", () => {
+    const mapping = getEntityDescriptor(component);
     expect(mapping).toBeDefined();
-    expect(mapping?.legacyKind).toBe("service");
-    expect(mapping?.backstageKind).toBe("Component");
+    expect(mapping?.schema).toBe("service");
+    expect(mapping?.kind).toBe("Component");
   });
 
-  it("getEntityKindMapping returns undefined for unknown kinds", () => {
+  it("getEntityDescriptor returns undefined for unknown kinds", () => {
     const unknown: BackstageEntity = {
       apiVersion: "custom/v1",
       kind: "Unknown",
       metadata: { name: "x" },
       spec: {},
     };
-    expect(getEntityKindMapping(unknown)).toBeUndefined();
+    expect(getEntityDescriptor(unknown)).toBeUndefined();
   });
 
   it("getEntitySpecType returns spec.type", () => {
@@ -372,9 +372,9 @@ describe("label accessors", () => {
 describe("relation accessors", () => {
   it("getEntitySpecRelations extracts relations from spec fields", () => {
     const relations = getEntitySpecRelations(component);
-    const dependsOn = relations.find((r) => r.legacyType === "dependsOn");
+    const dependsOn = relations.find((r) => r.type === "dependsOn");
     expect(dependsOn).toBeDefined();
-    expect(dependsOn?.targets).toContain("component:database-core");
+    expect(dependsOn?.targets).toContain("component:default/database-core");
   });
 
   it("getEntityRelations returns the computed relations array", () => {

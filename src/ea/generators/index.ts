@@ -1,18 +1,18 @@
 /**
  * Anchored Spec — EA Generator Framework
  *
- * Pipeline for generating implementation artifacts from EA specs.
- * Generators transform EA artifacts (e.g., api-contract → OpenAPI stub,
+ * Pipeline for generating implementation entities from EA specs.
+ * Generators transform EA entities (e.g., api-contract → OpenAPI stub,
  * canonical-entity → JSON Schema) and detect generation drift.
  *
- * Design reference: docs/ea-drift-resolvers-generators.md (Generator Interface)
+ * Design reference: docs/delivery-baseline.md (Generator Interface)
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import type { ResolverLogger } from "../resolvers/types.js";
 import type { BackstageEntity } from "../backstage/types.js";
-import { getEntityId, getEntityLegacyKind } from "../backstage/accessors.js";
+import { getEntityId, getEntitySchema } from "../backstage/accessors.js";
 
 // ─── Generator Types ────────────────────────────────────────────────────────────
 
@@ -38,8 +38,8 @@ export interface GeneratedOutput {
   content: string;
   /** Content type for logging/display. */
   contentType: "yaml" | "json" | "hcl" | "markdown" | "typescript" | "sql" | "other";
-  /** The EA artifact ID this was generated from. */
-  sourceArtifactId: string;
+  /** The EA entity ID this was generated from. */
+  sourceEntityRef: string;
   /** Human-readable description of what was generated. */
   description: string;
   /** Whether this output should overwrite existing files. */
@@ -50,8 +50,8 @@ export interface GeneratedOutput {
 export interface GenerationDrift {
   /** Path to the generated file that has drifted. */
   filePath: string;
-  /** The EA artifact that should govern this file. */
-  sourceArtifactId: string;
+  /** The EA entity that should govern this file. */
+  sourceEntityRef: string;
   /** Description of the drift. */
   message: string;
   /** Suggested action. */
@@ -61,19 +61,19 @@ export interface GenerationDrift {
 /**
  * Generator plugin interface.
  *
- * Each generator declares which artifact kinds it handles and provides
+ * Each generator declares which schema profiles it handles and provides
  * generate() and optional diff() methods.
  */
 export interface EaGenerator {
   /** Unique generator name. */
   name: string;
-  /** Which artifact kinds this generator processes. */
-  kinds: string[];
+  /** Which schema profiles this generator processes. */
+  schemas: string[];
   /** Output format identifier. */
   outputFormat: string;
 
   /**
-   * Generate implementation artifacts from an EA entity.
+   * Generate implementation entities from an EA entity.
    * Returns one or more generated outputs.
    */
   generate(
@@ -124,8 +124,8 @@ export interface EaGeneratorOptions {
   checkOnly?: boolean;
   /** If true, show what would be generated without writing. */
   dryRun?: boolean;
-  /** Filter to specific artifact kinds. */
-  kinds?: string[];
+  /** Filter to specific schema profiles. */
+  schemas?: string[];
   /** Filter to specific generator name. */
   generatorName?: string;
 }
@@ -141,7 +141,7 @@ export interface GenerationReport {
   /** Summary statistics. */
   summary: {
     generatorsRun: number;
-    artifactsProcessed: number;
+    entitiesProcessed: number;
     filesGenerated: number;
     filesWritten: number;
     filesSkipped: number;
@@ -152,7 +152,7 @@ export interface GenerationReport {
 /**
  * Run the generator pipeline.
  *
- * 1. For each generator, find matching artifacts by kind
+ * 1. For each generator, find matching entities by schema
  * 2. In check mode: compare existing output vs what would be generated
  * 3. In generate mode: produce outputs and write files
  */
@@ -166,14 +166,14 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     logger,
     checkOnly,
     dryRun,
-    kinds,
+    schemas,
     generatorName,
   } = options;
 
   const outputs: GeneratedOutput[] = [];
   const drifts: GenerationDrift[] = [];
   let generatorsRun = 0;
-  let artifactsProcessed = 0;
+  let entitiesProcessed = 0;
   let filesWritten = 0;
   let filesSkipped = 0;
 
@@ -195,25 +195,29 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
       options: genOptions,
     };
 
-    // Find matching artifacts
-    let matchingArtifacts = entities.filter((entity) => generator.kinds.includes(getEntityLegacyKind(entity)));
-    if (kinds && kinds.length > 0) {
-      matchingArtifacts = matchingArtifacts.filter((entity) => kinds.includes(getEntityLegacyKind(entity)));
+    // Find matching entities for the generator's schema profiles.
+    let matchingEntities = entities.filter((entity) =>
+      generator.schemas.includes(getEntitySchema(entity)),
+    );
+    if (schemas && schemas.length > 0) {
+      matchingEntities = matchingEntities.filter((entity) =>
+        schemas.includes(getEntitySchema(entity)),
+      );
     }
 
-    if (matchingArtifacts.length === 0) {
-      logger.debug(`Generator ${generator.name}: no matching artifacts`);
+    if (matchingEntities.length === 0) {
+      logger.debug(`Generator ${generator.name}: no matching entities`);
       continue;
     }
 
     generatorsRun++;
     logger.info(`Running generator: ${generator.name}`, {
-      artifacts: matchingArtifacts.length,
+      entities: matchingEntities.length,
       outputDir: genOutputDir,
     });
 
-    for (const entity of matchingArtifacts) {
-      artifactsProcessed++;
+    for (const entity of matchingEntities) {
+      entitiesProcessed++;
 
       if (checkOnly && generator.diff) {
         // Check mode: compare existing vs what would be generated
@@ -227,7 +231,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
           } else {
             drifts.push({
               filePath: join(genOutputDir, output.relativePath),
-              sourceArtifactId: getEntityId(entity),
+              sourceEntityRef: getEntityId(entity),
               message: `Generated file does not exist: ${output.relativePath}`,
               suggestion: "regenerate",
             });
@@ -268,7 +272,7 @@ export function runGenerators(options: EaGeneratorOptions): GenerationReport {
     drifts,
     summary: {
       generatorsRun,
-      artifactsProcessed,
+      entitiesProcessed,
       filesGenerated: outputs.length,
       filesWritten,
       filesSkipped,
@@ -291,7 +295,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     `| Metric | Count |`,
     `| --- | --- |`,
     `| Generators run | ${report.summary.generatorsRun} |`,
-    `| Artifacts processed | ${report.summary.artifactsProcessed} |`,
+    `| Entities processed | ${report.summary.entitiesProcessed} |`,
     `| Files generated | ${report.summary.filesGenerated} |`,
     `| Files written | ${report.summary.filesWritten} |`,
     `| Files skipped | ${report.summary.filesSkipped} |`,
@@ -303,7 +307,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     lines.push("## Generated Files", "");
     for (const output of report.outputs) {
       lines.push(`- **${output.relativePath}** (${output.contentType}) — ${output.description}`);
-      lines.push(`  Source: \`${output.sourceArtifactId}\``);
+      lines.push(`  Source: \`${output.sourceEntityRef}\``);
     }
     lines.push("");
   }
@@ -313,7 +317,7 @@ export function renderGenerationReportMarkdown(report: GenerationReport): string
     for (const drift of report.drifts) {
       lines.push(`- **${drift.filePath}** [${drift.suggestion}]`);
       lines.push(`  ${drift.message}`);
-      lines.push(`  Source: \`${drift.sourceArtifactId}\``);
+      lines.push(`  Source: \`${drift.sourceEntityRef}\``);
     }
     lines.push("");
   }

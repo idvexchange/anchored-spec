@@ -1,7 +1,7 @@
 /**
  * anchored-spec ea transition
  *
- * Advance an EA artifact to a new lifecycle status.
+ * Advance an EA entity to a new lifecycle status.
  * Validates lifecycle gates before allowing transitions.
  *
  * EA replacement for the core `transition` command.
@@ -26,13 +26,13 @@ import {
   writeBackstageManifest,
   writeBackstageYaml,
 } from "../../ea/index.js";
-import type { ArtifactStatus } from "../../ea/types.js";
+import type { EntityStatus } from "../../ea/types.js";
 import type { BackstageEntity } from "../../ea/index.js";
 import { BACKSTAGE_API_VERSION } from "../../ea/index.js";
 import { buildEntityLookup, formatEntityDisplay, suggestEntities } from "../entity-ref.js";
 import { CliError } from "../errors.js";
 
-const STATUS_ORDER: ArtifactStatus[] = [
+const STATUS_ORDER: EntityStatus[] = [
   "draft",
   "planned",
   "active",
@@ -41,7 +41,7 @@ const STATUS_ORDER: ArtifactStatus[] = [
   "retired",
 ];
 
-function getNextStatus(current: ArtifactStatus): ArtifactStatus | null {
+function getNextStatus(current: EntityStatus): EntityStatus | null {
   const idx = STATUS_ORDER.indexOf(current);
   if (idx === -1 || idx >= STATUS_ORDER.length - 1) return null;
   return STATUS_ORDER[idx + 1]!;
@@ -49,7 +49,7 @@ function getNextStatus(current: ArtifactStatus): ArtifactStatus | null {
 
 function validateTransition(
   entity: BackstageEntity,
-  targetStatus: ArtifactStatus,
+  targetStatus: EntityStatus,
   _eaRoot: EaRoot,
 ): string[] {
   const errors: string[] = [];
@@ -91,8 +91,8 @@ function validateTransition(
   return errors;
 }
 
-function mapStatusToLifecycle(status: ArtifactStatus): string {
-  const map: Record<ArtifactStatus, string> = {
+function mapStatusToLifecycle(status: EntityStatus): string {
+  const map: Record<EntityStatus, string> = {
     draft: "experimental",
     planned: "development",
     active: "production",
@@ -112,7 +112,7 @@ function sameEntityRef(left: BackstageEntity, right: BackstageEntity): boolean {
 
 function updateAuthoredStatus(
   entity: BackstageEntity,
-  targetStatus: ArtifactStatus,
+  targetStatus: EntityStatus,
 ): BackstageEntity {
   const spec = entity.spec && typeof entity.spec === "object" && !Array.isArray(entity.spec)
     ? { ...entity.spec }
@@ -178,7 +178,7 @@ export function eaTransitionCommand(): Command {
     .description("Advance an entity to a new lifecycle status")
     .argument("<entity-ref>", "Entity ref to transition")
     .option("--to <status>", "Target status (default: next in lifecycle)")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--force", "Skip gate validation")
     .option("--dry-run", "Show what would happen without writing")
     .action(async (entityInput: string, options) => {
@@ -213,7 +213,7 @@ export function eaTransitionCommand(): Command {
           ? getEntityId(detail.entity)
           : entityInput;
       const currentStatus = getEntityStatus(runtimeEntity);
-      const targetStatus = (options.to as ArtifactStatus) ?? getNextStatus(currentStatus);
+      const targetStatus = (options.to as EntityStatus) ?? getNextStatus(currentStatus);
 
       if (!targetStatus) {
         console.log(chalk.yellow(`Entity "${displayId}" is already at terminal status "${currentStatus}".`));

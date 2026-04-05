@@ -5,10 +5,11 @@
  * Given an entity ref, finds everything that would be affected
  * by a change to that entity, grouped by domain, category, and score.
  *
- * Design reference: docs/ea-implementation-guide.md §Phase A, Phase I2
+ * Design reference: docs/guides/user-guides/reporting-and-analysis.md (impact workflow)
  */
 
 import type { RelationGraph } from "./graph.js";
+import { getEntityRefAliases } from "./backstage/ref-utils.js";
 
 // ─── Impact Analysis Types ──────────────────────────────────────────────────────
 
@@ -28,6 +29,8 @@ export interface ImpactedEntity {
   id: string;
   /** Entity kind. */
   kind: string;
+  /** Anchored-spec schema profile. */
+  schema: string;
   /** EA domain. */
   domain: string;
   /** Entity title. */
@@ -66,6 +69,8 @@ export interface ImpactReport {
   sourceRef: string;
   /** Source entity kind. */
   sourceKind: string;
+  /** Source entity schema profile. */
+  sourceSchema: string;
   /** Source entity title. */
   sourceTitle: string;
   /** Total number of impacted entities. */
@@ -221,11 +226,15 @@ export function analyzeImpact(
   sourceRef: string,
   options?: ImpactOptions,
 ): ImpactReport {
-  const sourceNode = graph.node(sourceRef);
+  const resolvedSourceRef = getEntityRefAliases(sourceRef)
+    .map((alias) => graph.node(alias)?.id)
+    .find((id): id is string => !!id);
+  const sourceNode = resolvedSourceRef ? graph.node(resolvedSourceRef) : undefined;
   if (!sourceNode) {
     return {
       sourceRef,
       sourceKind: "unknown",
+      sourceSchema: "unknown",
       sourceTitle: sourceRef,
       totalImpacted: 0,
       maxDepth: 0,
@@ -241,7 +250,7 @@ export function analyzeImpact(
 
   // Intermediate BFS results (before scoring)
   const bfsResults: Array<{
-    id: string; kind: string; domain: string; title: string;
+    id: string; kind: string; schema: string; domain: string; title: string;
     depth: number; viaRelations: string[];
     confidence: "declared" | "observed" | "inferred";
   }> = [];
@@ -250,8 +259,8 @@ export function analyzeImpact(
   const queue: Array<{ id: string; depth: number; viaRelation: string }> = [];
 
   // Seed with direct dependents (incoming edges to sourceRef)
-  visited.add(sourceRef);
-  for (const edge of graph.incoming(sourceRef)) {
+  visited.add(sourceNode.id);
+  for (const edge of graph.incoming(sourceNode.id)) {
     if (!visited.has(edge.source)) {
       queue.push({ id: edge.source, depth: 1, viaRelation: edge.type });
     }
@@ -274,6 +283,7 @@ export function analyzeImpact(
     bfsResults.push({
       id: node.id,
       kind: node.kind,
+      schema: node.schema,
       domain: node.domain,
       title: node.title,
       depth,
@@ -303,6 +313,7 @@ export function analyzeImpact(
     return {
       id: entry.id,
       kind: entry.kind,
+      schema: entry.schema,
       domain: entry.domain,
       title: entry.title,
       depth: entry.depth,
@@ -357,6 +368,7 @@ export function analyzeImpact(
   return {
     sourceRef,
     sourceKind: sourceNode.kind,
+    sourceSchema: sourceNode.schema,
     sourceTitle: sourceNode.title,
     totalImpacted: impacted.length,
     maxDepth: impacted.reduce((max, e) => Math.max(max, e.depth), 0),
@@ -373,7 +385,7 @@ export function renderImpactReportMarkdown(report: ImpactReport): string {
 
   lines.push(`# Impact Analysis: ${report.sourceTitle}`);
   lines.push("");
-  lines.push(`> Source: \`${report.sourceRef}\` (${report.sourceKind})`);
+  lines.push(`> Source: \`${report.sourceRef}\` (${report.sourceKind}/${report.sourceSchema})`);
   lines.push(`> Total impacted: ${report.totalImpacted} entit${report.totalImpacted === 1 ? "y" : "ies"}, max depth: ${report.maxDepth}`);
   lines.push("");
 

@@ -6,9 +6,8 @@
 
 // Types
 export type {
+  BuiltInEaDomain,
   EaDomain,
-  ArtifactStatus,
-  ArtifactConfidence,
   EaAnchors,
   EaRelation,
   EaTraceRef,
@@ -20,9 +19,7 @@ export type {
 } from "./types.js";
 
 // Values — kind registry and helpers
-export {
-  EA_DOMAINS,
-} from "./types.js";
+export { EA_DOMAINS } from "./types.js";
 
 // Config
 export type {
@@ -31,6 +28,17 @@ export type {
   EaQualityConfig,
   EaCacheConfig,
   AnchoredSpecConfigV1,
+  AnchoredSpecConfigV1_0,
+  AnchoredSpecConfigV1_1,
+  AnchoredSpecConfigV1_2,
+  AnchoredSpecDocsConfig,
+  AnchoredSpecDocsSection,
+  AnchoredSpecSchemaVersion,
+  DocsStructureProfile,
+  CatalogBootstrapProfile,
+  CatalogBootstrapOutputMode,
+  CatalogBootstrapConfig,
+  AnchoredSpecCatalogConfig,
   EaHookEvent,
   EaHookDefinition,
   EaTestMetadataConfig,
@@ -38,121 +46,482 @@ export type {
 
 export {
   resolveConfigV1,
+  loadProjectConfig,
+  isConfigV11,
+  isConfigV12,
+  getConfiguredDomains,
+  getConfiguredDocScanDirs,
+  getConfiguredDocSections,
+  getConfiguredRootDocs,
+  findDocSection,
+  getDefaultSectionForDocType,
+  resolveDocOutputTarget,
+  getVerificationSearchDirs,
+  getCatalogBootstrapConfig,
 } from "./config.js";
 
 // Validation
-export type { EaSchemaName, EaValidationError, EaValidationResult, EaValidationOptions } from "./validate.js";
-export { validateEaSchema, validateEaArtifacts, validateEaRelations, getSchemaForKind, getEaSchemaNames } from "./validate.js";
+export type {
+  EaSchemaName,
+  EaValidationError,
+  EaValidationResult,
+  EaValidationOptions,
+} from "./validate.js";
+export {
+  validateEaSchema,
+  validateEntities,
+  validateEaRelations,
+  getSchemaForKind,
+  getEaSchemaNames,
+} from "./validate.js";
 
 // Loader
-export type { EaLoadedEntity, EaEntityLoadResult, EaEntitySummary } from "./loader.js";
+export type {
+  EaLoadedEntity,
+  EaEntityLoadResult,
+  EaEntitySummary,
+} from "./loader.js";
 export { EaRoot } from "./loader.js";
 
 // Relation Registry
-export type { RelationRegistryEntry, TraversalProfileName, TraversalProfile } from "./relation-registry.js";
-export { RelationRegistry, createDefaultRegistry, TRAVERSAL_PROFILES, getTraversalProfile } from "./relation-registry.js";
+export type {
+  RelationRegistryEntry,
+  TraversalProfileName,
+  TraversalProfile,
+} from "./relation-registry.js";
+export {
+  RelationRegistry,
+  createDefaultRegistry,
+  TRAVERSAL_PROFILES,
+  getTraversalProfile,
+} from "./relation-registry.js";
 
 // Graph
-export type { GraphNode, GraphEdge, MermaidOptions, DotOptions, GraphPath, TraversalDirection, TraverseWithPathsOptions } from "./graph.js";
+export type {
+  GraphNode,
+  GraphEdge,
+  MermaidOptions,
+  DotOptions,
+  GraphPath,
+  TraversalDirection,
+  TraverseWithPathsOptions,
+} from "./graph.js";
 export { RelationGraph, buildRelationGraph } from "./graph.js";
 
 // Impact Analysis
-export type { ImpactedEntity, ImpactedArtifact, ImpactDomainSummary, ImpactCategorySummary, ImpactReport, ImpactCategory, ScoreBreakdown, ScoringWeights, ImpactOptions } from "./impact.js";
-export { analyzeImpact, renderImpactReportMarkdown, DEFAULT_SCORING_WEIGHTS } from "./impact.js";
+export type {
+  ImpactedEntity,
+  ImpactedArtifact,
+  ImpactDomainSummary,
+  ImpactCategorySummary,
+  ImpactReport,
+  ImpactCategory,
+  ScoreBreakdown,
+  ScoringWeights,
+  ImpactOptions,
+} from "./impact.js";
+export {
+  analyzeImpact,
+  renderImpactReportMarkdown,
+  DEFAULT_SCORING_WEIGHTS,
+} from "./impact.js";
 
 // Drift
-export type { EaDriftContext, EaDriftRule, EaDriftResult, EaDriftFinding, DomainDriftSummary, EaDriftReport, EaDriftOptions, EaResolverObservedState } from "./drift.js";
+export type {
+  EaDriftContext,
+  EaDriftRule,
+  EaDriftResult,
+  EaDriftFinding,
+  DomainDriftSummary,
+  EaDriftReport,
+  EaDriftOptions,
+  EaResolverObservedState,
+} from "./drift.js";
 export { EA_DRIFT_RULES, evaluateEaDrift, detectEaDrift } from "./drift.js";
 
 // Reports
-export type { SystemDataCell, SystemDataMatrixReport, ClassifiedEntity, ClassificationStore, ClassificationCoverageEntry, ClassificationCoverageReport, CapabilityMapNode, CapabilityMapMission, CapabilityMapReport, GapNewWorkItem, GapRetirementItem, GapMilestoneStatus, GapSuccessMetric, GapAnalysisReport, ExceptionStatus, ExceptionReportEntry, ExceptionReport, ReportIndexEntry, ReportIndex, ReportView, DriftHeatmapReport, TraceabilityIndexEntry, TraceabilityDocumentGroup, TraceabilityIndexReport } from "./report.js";
-export { buildSystemDataMatrix, renderSystemDataMatrixMarkdown, buildClassificationCoverage, renderClassificationCoverageMarkdown, buildCapabilityMap, renderCapabilityMapMarkdown, buildGapAnalysis, renderGapAnalysisMarkdown, buildExceptionReport, renderExceptionReportMarkdown, REPORT_VIEWS, buildReportIndex, buildDriftHeatmap, renderDriftHeatmapMarkdown, buildTraceabilityIndex, renderTraceabilityIndexMarkdown } from "./report.js";
+export type {
+  SystemDataCell,
+  SystemDataMatrixReport,
+  ClassifiedEntity,
+  ClassificationStore,
+  ClassificationCoverageEntry,
+  ClassificationCoverageReport,
+  CapabilityMapNode,
+  CapabilityMapMission,
+  CapabilityMapReport,
+  GapNewWorkItem,
+  GapRetirementItem,
+  GapMilestoneStatus,
+  GapSuccessMetric,
+  GapAnalysisReport,
+  ExceptionStatus,
+  ExceptionReportEntry,
+  ExceptionReport,
+  ReportIndexEntry,
+  ReportIndex,
+  ReportView,
+  DriftHeatmapReport,
+  TraceabilityIndexEntry,
+  TraceabilityDocumentGroup,
+  TraceabilityIndexReport,
+} from "./report.js";
+export {
+  buildSystemDataMatrix,
+  renderSystemDataMatrixMarkdown,
+  buildClassificationCoverage,
+  renderClassificationCoverageMarkdown,
+  buildCapabilityMap,
+  renderCapabilityMapMarkdown,
+  buildGapAnalysis,
+  renderGapAnalysisMarkdown,
+  buildExceptionReport,
+  renderExceptionReportMarkdown,
+  REPORT_VIEWS,
+  buildReportIndex,
+  buildDriftHeatmap,
+  renderDriftHeatmapMarkdown,
+  buildTraceabilityIndex,
+  renderTraceabilityIndexMarkdown,
+} from "./report.js";
 
 // Evidence Renderer (cross-command explainability)
 export type { ExplainableItem } from "./evidence-renderer.js";
-export { renderExplanation, renderExplanationList } from "./evidence-renderer.js";
+export {
+  renderExplanation,
+  renderExplanationList,
+} from "./evidence-renderer.js";
 
 // Evidence
-export type { EaEvidenceKind, EaEvidenceRecord, EaEvidence, EaEvidenceValidationError, EaEvidenceSummary } from "./evidence.js";
-export { EA_EVIDENCE_KINDS, createEaEvidenceRecord, loadEaEvidence, writeEaEvidence, mergeEaEvidence, validateEaEvidence, summarizeEaEvidence } from "./evidence.js";
+export type {
+  EaEvidenceKind,
+  EaEvidenceRecord,
+  EaEvidence,
+  EaEvidenceValidationError,
+  EaEvidenceSummary,
+} from "./evidence.js";
+export {
+  EA_EVIDENCE_KINDS,
+  createEaEvidenceRecord,
+  loadEaEvidence,
+  writeEaEvidence,
+  mergeEaEvidence,
+  validateEaEvidence,
+  summarizeEaEvidence,
+} from "./evidence.js";
 
 // Discovery
-export type { EaArtifactDraft, DiscoveryMatch, DiscoverySuggestedUpdate, DiscoveryReport, DiscoveryOptions, DiscoveryResolver } from "./discovery.js";
-export { matchDraftToExisting, discoverArtifacts, createDraft, renderDiscoveryReportMarkdown, stubResolver } from "./discovery.js";
+export type {
+  EntityDraft,
+  DiscoveryMatch,
+  DiscoverySuggestedUpdate,
+  DiscoveryReport,
+  DiscoveryOptions,
+  DiscoveryResolver,
+} from "./discovery.js";
+export {
+  matchDraftToExisting,
+  discoverEntities,
+  createDraft,
+  renderDiscoveryReportMarkdown,
+  stubResolver,
+} from "./discovery.js";
+
+// Catalog synthesis
+export type {
+  CatalogEvidenceRecord,
+  CatalogPlannedEntity,
+  CatalogPlanAction,
+  CatalogSuppressedCandidate,
+  CatalogPlan,
+  CatalogPlanOptions,
+  CatalogApplyResult,
+} from "./catalog.js";
+export {
+  buildCatalogPlan,
+  renderCatalogPlanText,
+  planToManifestYaml,
+  applyCatalogPlan,
+  explainCatalogPlanEntity,
+} from "./catalog.js";
 
 // Cache
 export type { ResolverCache, CacheEntry, CacheStats } from "./cache.js";
-export { DiskResolverCache, NoOpCache, createResolverCache, DEFAULT_CACHE_DIR, DEFAULT_TTL_SECONDS } from "./cache.js";
+export {
+  DiskResolverCache,
+  NoOpCache,
+  createResolverCache,
+  DEFAULT_CACHE_DIR,
+  DEFAULT_TTL_SECONDS,
+} from "./cache.js";
 
 // Resolvers
-export type { EaResolver, EaResolverContext, EaAnchorResolution, ObservedEaState, ObservedEntity, ObservedRelationship, ResolverLogger, OpenApiSpec, K8sManifest, TerraformState, TerraformModule, TerraformResource, ParsedTable, ParsedColumn, DbtManifest, DbtNode, DbtSource, DbtExposure, AnchorMatch, AnchorScanResult, QueryPack, QueryPattern, CaptureMapping, QueryMatch, PackRegistry, LoadedResolver } from "./resolvers/index.js";
-export { OpenApiResolver, findOpenApiFiles, loadOpenApiSpec, hasEndpoint, extractAllEndpoints, parseSimpleYaml, consoleLogger, silentLogger, KubernetesResolver, findK8sFiles, loadK8sManifests, k8sResourceId, extractImages, extractReplicas, TerraformResolver, findTerraformStateFiles, loadTerraformState, flattenResources, SqlDdlResolver, parseDdl, findSqlFiles, loadSqlTables, DbtResolver, findDbtManifests, loadDbtManifest, extractModels, extractTests, extractSources, extractExposures, AnchorsResolver, scanAnchors, TreeSitterDiscoveryResolver, resetTreeSitterCache, aggregateMatches, getQueryPacks, builtinPacks, loadResolver, loadResolversFromConfig } from "./resolvers/index.js";
+export type {
+  EaResolver,
+  EaResolverContext,
+  EaAnchorResolution,
+  ObservedEaState,
+  ObservedEntity,
+  ObservedRelationship,
+  ResolverLogger,
+  OpenApiSpec,
+  K8sManifest,
+  TerraformState,
+  TerraformModule,
+  TerraformResource,
+  ParsedTable,
+  ParsedColumn,
+  DbtManifest,
+  DbtNode,
+  DbtSource,
+  DbtExposure,
+  AnchorMatch,
+  AnchorScanResult,
+  QueryPack,
+  QueryPattern,
+  CaptureMapping,
+  QueryMatch,
+  PackRegistry,
+  LoadedResolver,
+} from "./resolvers/index.js";
+export {
+  OpenApiResolver,
+  findOpenApiFiles,
+  loadOpenApiSpec,
+  hasEndpoint,
+  extractAllEndpoints,
+  parseSimpleYaml,
+  consoleLogger,
+  silentLogger,
+  KubernetesResolver,
+  findK8sFiles,
+  loadK8sManifests,
+  k8sResourceId,
+  extractImages,
+  extractReplicas,
+  TerraformResolver,
+  findTerraformStateFiles,
+  loadTerraformState,
+  flattenResources,
+  SqlDdlResolver,
+  parseDdl,
+  findSqlFiles,
+  loadSqlTables,
+  DbtResolver,
+  findDbtManifests,
+  loadDbtManifest,
+  extractModels,
+  extractTests,
+  extractSources,
+  extractExposures,
+  AnchorsResolver,
+  scanAnchors,
+  TreeSitterDiscoveryResolver,
+  resetTreeSitterCache,
+  aggregateMatches,
+  getQueryPacks,
+  builtinPacks,
+  loadResolver,
+  loadResolversFromConfig,
+} from "./resolvers/index.js";
 
 // Generators
-export type { EaGenerator, EaGeneratorContext, GeneratedOutput, GenerationDrift, GeneratorConfig, EaGeneratorOptions, GenerationReport } from "./generators/index.js";
-export { runGenerators, renderGenerationReportMarkdown, registerGenerator, getGenerator, listGenerators, resolveGenerators, openapiGenerator, jsonSchemaGenerator } from "./generators/index.js";
+export type {
+  EaGenerator,
+  EaGeneratorContext,
+  GeneratedOutput,
+  GenerationDrift,
+  GeneratorConfig,
+  EaGeneratorOptions,
+  GenerationReport,
+} from "./generators/index.js";
+export {
+  runGenerators,
+  renderGenerationReportMarkdown,
+  registerGenerator,
+  getGenerator,
+  listGenerators,
+  resolveGenerators,
+  openapiGenerator,
+  jsonSchemaGenerator,
+} from "./generators/index.js";
 
 // Policy Engine (EA-native)
-export type { EaWorkflowPolicy, EaWorkflowVariant, EaChangeRequiredRule, EaLifecycleRules, EaPolicyMatchResult, EaPolicyEvaluationResult, EaCheckResult } from "./policy.js";
-export { evaluateEaPolicy, checkEaPaths, isTrivialPath, matchRules, resolveEaWorkflowVariant, isEaChoreEligible, isPathCoveredByChangeArtifact, loadEaWorkflowPolicy } from "./policy.js";
+export type {
+  EaWorkflowPolicy,
+  EaWorkflowVariant,
+  EaChangeRequiredRule,
+  EaLifecycleRules,
+  EaPolicyMatchResult,
+  EaPolicyEvaluationResult,
+  EaCheckResult,
+} from "./policy.js";
+export {
+  evaluateEaPolicy,
+  checkEaPaths,
+  isTrivialPath,
+  matchRules,
+  resolveEaWorkflowVariant,
+  isEaChoreEligible,
+  isPathCoveredByChangeEntity,
+  loadEaWorkflowPolicy,
+} from "./policy.js";
 
 // Plugin System (EA-native)
-export type { EaPlugin, EaPluginCheck, EaPluginHooks, EaPluginContext } from "./plugins.js";
+export type {
+  EaPlugin,
+  EaPluginCheck,
+  EaPluginHooks,
+  EaPluginContext,
+} from "./plugins.js";
 export { loadEaPlugin, loadEaPlugins, runEaPluginChecks } from "./plugins.js";
 
 // Evidence Adapters
-export type { EaTestRecord, EaEvidenceAdapterResult, EvidenceAdapter } from "./evidence-adapters/index.js";
-export { VitestEaAdapter, collectEaTestEvidence, registerEvidenceAdapter, getAvailableAdapters } from "./evidence-adapters/index.js";
+export type {
+  EaTestRecord,
+  EaEvidenceAdapterResult,
+  EvidenceAdapter,
+} from "./evidence-adapters/index.js";
+export {
+  VitestEaAdapter,
+  collectEaTestEvidence,
+  registerEvidenceAdapter,
+  getAvailableAdapters,
+} from "./evidence-adapters/index.js";
 
 // Verification Engine (EA-native)
-export type { EaVerificationOptions, EaVerificationSummary, EaVerificationResult } from "./verify.js";
+export type {
+  EaVerificationOptions,
+  EaVerificationSummary,
+  EaVerificationResult,
+} from "./verify.js";
 export { runEaVerification } from "./verify.js";
 
 // Diff Engine
-export type { ArtifactChangeType, FieldSemantic, FieldChange, RelationDiff, ArtifactDiff, DomainDiffSummary, EaDiffReport } from "./diff.js";
-export { diffEaArtifacts, renderDiffSummary, renderDiffMarkdown, getFieldSemantic, deepEqual } from "./diff.js";
+export type {
+  EntityChangeType,
+  FieldSemantic,
+  FieldChange,
+  RelationDiff,
+  EntityDiff,
+  DomainDiffSummary,
+  EaDiffReport,
+} from "./diff.js";
+export {
+  diffEntities,
+  renderDiffSummary,
+  renderDiffMarkdown,
+  getFieldSemantic,
+  deepEqual,
+} from "./diff.js";
 
 // Diff — Git Integration
 export type { DiffGitOptions } from "./diff-git.js";
-export { loadArtifactsFromGitRef, loadArtifactsFromWorkingTree, diffEaGitRefs } from "./diff-git.js";
+export {
+  loadEntitiesFromGitRef,
+  loadEntitiesFromWorkingTree,
+  diffEaGitRefs,
+} from "./diff-git.js";
 
 // Compatibility Classifier
-export type { CompatibilityLevel, CompatibilityReason, CompatibilityAssessment, CompatibilityReport } from "./compat.js";
-export { assessCompatibility, renderCompatSummary, renderCompatMarkdown } from "./compat.js";
+export type {
+  CompatibilityLevel,
+  CompatibilityReason,
+  CompatibilityAssessment,
+  CompatibilityReport,
+} from "./compat.js";
+export {
+  assessCompatibility,
+  renderCompatSummary,
+  renderCompatMarkdown,
+} from "./compat.js";
 
 // Reconcile Pipeline
-export type { ReconcileOptions, ReconcileStepResult, ReconcileReport } from "./reconcile.js";
+export type {
+  ReconcileOptions,
+  ReconcileStepResult,
+  ReconcileReport,
+} from "./reconcile.js";
 export { reconcileEaProject, renderReconcileOutput } from "./reconcile.js";
 
 // Version Policy Enforcement
-export type { CompatibilityMode, VersionPolicy, VersionPolicyConfig, PolicyViolation, PolicyEnforcementReport } from "./version-policy.js";
-export { resolveVersionPolicy, enforceVersionPolicies, renderPolicySummary, renderPolicyMarkdown } from "./version-policy.js";
+export type {
+  CompatibilityMode,
+  VersionPolicy,
+  VersionPolicyConfig,
+  PolicyViolation,
+  PolicyEnforcementReport,
+} from "./version-policy.js";
+export {
+  resolveVersionPolicy,
+  enforceVersionPolicies,
+  renderPolicySummary,
+  renderPolicyMarkdown,
+} from "./version-policy.js";
 
 // Document Traceability
-export type { DocFrontmatter, ParsedDoc, ScannedDoc, ScanResult, ScanOptions, DocDiscoveryResult } from "./docs/index.js";
-export { parseFrontmatter, extractArtifactIds, hasEaFrontmatter, serializeFrontmatter, DEFAULT_DOC_DIRS, scanDocs, buildDocIndex, discoverFromDocs } from "./docs/index.js";
+export type {
+  DocFrontmatter,
+  ParsedDoc,
+  ScannedDoc,
+  ScanResult,
+  ScanOptions,
+  DocDiscoveryResult,
+} from "./docs/index.js";
+export {
+  parseFrontmatter,
+  extractEntityRefs,
+  hasEaFrontmatter,
+  serializeFrontmatter,
+  DEFAULT_DOC_DIRS,
+  scanDocs,
+  buildDocIndex,
+  discoverFromDocs,
+} from "./docs/index.js";
 
-export type { SourceAnnotationConfig, SourceScanResult } from "./source-scanner.js";
+export type {
+  SourceAnnotationConfig,
+  SourceScanResult,
+} from "./source-scanner.js";
 export { extractAnnotations, scanSourceAnnotations } from "./source-scanner.js";
 
 export type { TraceLink, TraceCheckReport } from "./trace-analysis.js";
-export { buildTraceLinks, buildTraceCheckReport, isUrl } from "./trace-analysis.js";
+export {
+  buildTraceLinks,
+  buildTraceCheckReport,
+  isUrl,
+} from "./trace-analysis.js";
 
 // Facts — Markdown prose extraction & consistency
 export type {
-  FactKind, FactSource, ExtractedFact, FactAnnotation, SuppressionAnnotation,
-  FactBlock, FactManifest, FactExtractor, MarkdownDocument, AnnotatedRegion,
-  ConsistencyFinding, ConsistencyReport, FactLocation,
+  FactKind,
+  FactSource,
+  ExtractedFact,
+  FactAnnotation,
+  SuppressionAnnotation,
+  FactBlock,
+  FactManifest,
+  FactExtractor,
+  MarkdownDocument,
+  AnnotatedRegion,
+  ConsistencyFinding,
+  ConsistencyReport,
+  FactLocation,
   ReconciliationReport,
 } from "./facts/index.js";
 export {
-  ANNOTATION_KIND_MAP, TABLE_HEURISTIC_COLUMNS,
-  extractFacts, buildFactManifest,
-  parseMarkdown, parseMarkdownFile,
+  ANNOTATION_KIND_MAP,
+  TABLE_HEURISTIC_COLUMNS,
+  extractFacts,
+  buildFactManifest,
+  parseMarkdown,
+  parseMarkdownFile,
   writeFactManifests,
-  checkConsistency, groupFactsByKey,
-  applySuppressions, collectSuppressions,
-  reconcileFactsWithArtifacts,
+  checkConsistency,
+  groupFactsByKey,
+  applySuppressions,
+  collectSuppressions,
+  reconcileFactsWithEntities,
 } from "./facts/index.js";
 
 // ─── Backstage Entity Model (primary) ───────────────────────────────────────────
@@ -200,26 +569,25 @@ export {
   ANNOTATION_PREFIX,
   ANNOTATION_KEYS,
   parseEntityRef,
-  formatEntityRef,
-  formatFullEntityRef,
+  normalizeEntityRef,
+  stringifyEntityRef,
+  parseLocationRef,
+  stringifyLocationRef,
 } from "./backstage/types.js";
 
 // Kind mapping
-export type { KindMappingEntry } from "./backstage/kind-mapping.js";
+export type { EntityDescriptor } from "./backstage/kind-mapping.js";
 
 export {
-  BACKSTAGE_KIND_REGISTRY,
-  mapLegacyKind,
-  mapLegacyPrefix,
-  mapBackstageKind,
-  getLegacyKindsForBackstageKind,
-  isLegacyKindRegistered,
-  isBackstageKindRegistered,
-  getAllBackstageKinds,
-  getBuiltinKinds,
-  getCustomKinds,
-  legacyIdToEntityName,
-  entityNameToLegacyId,
+  ENTITY_DESCRIPTOR_REGISTRY,
+  getSchemaDescriptor,
+  getEntityDescriptorForEntity,
+  getEntityDescriptorsForKind,
+  isSchemaRegistered,
+  isEntityKindRegistered,
+  getAllEntityKinds,
+  getBuiltinEntityDescriptors,
+  getCustomEntityDescriptors,
 } from "./backstage/kind-mapping.js";
 
 // Relation mapping
@@ -227,13 +595,13 @@ export type { RelationMappingEntry } from "./backstage/relation-mapping.js";
 
 export {
   RELATION_MAPPING_REGISTRY,
-  mapLegacyRelation,
+  mapRelationType,
   mapBackstageRelation,
   mapSpecField,
   getWellKnownRelations,
   getCustomRelations,
   isWellKnownRelation,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
   extractRelationsFromSpec,
 } from "./backstage/relation-mapping.js";
 
@@ -246,8 +614,9 @@ export {
   getEntityNamespace,
   getEntityTitle,
   getEntityDescription,
-  getEntityLegacyKind,
-  getEntityKindMapping,
+  getEntityKind,
+  getEntitySchema,
+  getEntityDescriptor,
   getEntitySpecType,
   getEntityStatus,
   getEntityLifecycle,
@@ -274,6 +643,16 @@ export {
   getEntityDomain,
   getEntityLinks,
 } from "./backstage/accessors.js";
+
+export type { EntityDescriptorMatch } from "./backstage/predicates.js";
+
+export {
+  hasEntityKind,
+  hasEntitySchema,
+  hasEntitySpecType,
+  matchesEntityDescriptor,
+  matchesSchemaDescriptor,
+} from "./backstage/predicates.js";
 
 // Backstage I/O
 export type {
@@ -309,7 +688,10 @@ export {
   loadBackstageEntities,
 } from "./backstage/loader.js";
 
-export type { EntityWriteResult, EntityDeleteResult } from "./backstage/entity-writer.js";
+export type {
+  EntityWriteResult,
+  EntityDeleteResult,
+} from "./backstage/entity-writer.js";
 
 export {
   writeToManifest,
@@ -334,7 +716,10 @@ export {
 
 // Constraints Surface
 export type { ConstraintResult, ConstraintOptions } from "./constraints.js";
-export { extractConstraints, renderConstraintsMarkdown } from "./constraints.js";
+export {
+  extractConstraints,
+  renderConstraintsMarkdown,
+} from "./constraints.js";
 
 // Reverse Resolution
 export type {

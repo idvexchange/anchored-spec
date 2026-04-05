@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Physical Schema",
   "description": "A physical database schema definition.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["engine"],
   "properties": {

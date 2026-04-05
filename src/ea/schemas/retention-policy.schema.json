@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Retention Policy",
   "description": "A data retention policy defining duration, disposal method, and exceptions.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["appliesTo", "retention", "disposal"],
   "properties": {
@@ -13,7 +13,7 @@
       "type": "array",
       "items": { "type": "string" },
       "minItems": 1,
-      "description": "Artifact IDs this policy covers"
+      "description": "Entity IDs this policy covers"
     },
     "retention": {
       "type": "object",

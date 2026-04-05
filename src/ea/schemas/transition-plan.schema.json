@@ -4,13 +4,13 @@
   "title": "Anchored Spec — EA Transition Plan",
   "description": "A plan to move from a baseline to a target architecture state.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["baseline", "target", "milestones"],
   "properties": {
     "kind": { "const": "transition-plan" },
-    "baseline": { "type": "string", "description": "ID of the baseline artifact" },
-    "target": { "type": "string", "description": "ID of the target artifact" },
+    "baseline": { "type": "string", "description": "ID of the baseline entity" },
+    "target": { "type": "string", "description": "ID of the target entity" },
     "milestones": {
       "type": "array",
       "items": {
@@ -22,7 +22,7 @@
           "deliverables": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Artifact IDs delivered by this milestone"
+            "description": "Entity IDs delivered by this milestone"
           },
           "generates": {
             "type": "array",

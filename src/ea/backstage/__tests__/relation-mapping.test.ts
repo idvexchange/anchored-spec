@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
   RELATION_MAPPING_REGISTRY,
-  mapLegacyRelation,
+  mapRelationType,
   mapBackstageRelation,
   mapSpecField,
   getWellKnownRelations,
   getCustomRelations,
   isWellKnownRelation,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
   extractRelationsFromSpec,
 } from "../relation-mapping.js";
 import { createDefaultRegistry } from "../../relation-registry.js";
@@ -15,12 +15,12 @@ import { createDefaultRegistry } from "../../relation-registry.js";
 // ─── Registry Coverage ──────────────────────────────────────────────────────────
 
 describe("RELATION_MAPPING_REGISTRY", () => {
-  it("covers all 27 legacy relation types", () => {
-    const legacyRegistry = createDefaultRegistry();
-    const legacyTypes = legacyRegistry.allTypes();
-    const mappedTypes = RELATION_MAPPING_REGISTRY.map((e) => e.legacyType);
+  it("covers all 27 anchored-spec relation types", () => {
+    const registry = createDefaultRegistry();
+    const relationTypes = registry.allTypes();
+    const mappedTypes = RELATION_MAPPING_REGISTRY.map((e) => e.type);
 
-    for (const type of legacyTypes) {
+    for (const type of relationTypes) {
       expect(mappedTypes, `Missing mapping for "${type}"`).toContain(type);
     }
   });
@@ -29,11 +29,11 @@ describe("RELATION_MAPPING_REGISTRY", () => {
     expect(RELATION_MAPPING_REGISTRY.length).toBe(28);
   });
 
-  it("has no duplicate legacy types", () => {
+  it("has no duplicate anchored-spec relation types", () => {
     const seen = new Set<string>();
     for (const entry of RELATION_MAPPING_REGISTRY) {
-      expect(seen.has(entry.legacyType), `Duplicate: ${entry.legacyType}`).toBe(false);
-      seen.add(entry.legacyType);
+      expect(seen.has(entry.type), `Duplicate: ${entry.type}`).toBe(false);
+      seen.add(entry.type);
     }
   });
 
@@ -47,14 +47,14 @@ describe("RELATION_MAPPING_REGISTRY", () => {
 
   it("all entries have non-empty description", () => {
     for (const entry of RELATION_MAPPING_REGISTRY) {
-      expect(entry.description.length, `Empty description for ${entry.legacyType}`).toBeGreaterThan(0);
+      expect(entry.description.length, `Empty description for ${entry.type}`).toBeGreaterThan(0);
     }
   });
 
   it("all spec-field entries have specField defined", () => {
     for (const entry of RELATION_MAPPING_REGISTRY) {
       if (entry.placement === "spec-field") {
-        expect(entry.specField, `Missing specField for ${entry.legacyType}`).toBeDefined();
+        expect(entry.specField, `Missing specField for ${entry.type}`).toBeDefined();
       }
     }
   });
@@ -64,7 +64,7 @@ describe("RELATION_MAPPING_REGISTRY", () => {
 
 describe("well-known Backstage relations", () => {
   it("dependsOn maps correctly", () => {
-    const entry = mapLegacyRelation("dependsOn");
+    const entry = mapRelationType("dependsOn");
     expect(entry).toBeDefined();
     expect(entry!.backstageType).toBe("dependsOn");
     expect(entry!.backstageInverse).toBe("dependencyOf");
@@ -72,17 +72,19 @@ describe("well-known Backstage relations", () => {
     expect(entry!.specField).toBe("dependsOn");
   });
 
-  it("owns maps to ownerOf", () => {
-    const entry = mapLegacyRelation("owns");
+  it("ownedBy maps to Backstage ownership relations", () => {
+    const entry = mapRelationType("ownedBy");
     expect(entry).toBeDefined();
-    expect(entry!.backstageType).toBe("ownerOf");
-    expect(entry!.backstageInverse).toBe("ownedBy");
+    expect(entry!.type).toBe("ownedBy");
+    expect(entry!.inverse).toBe("ownerOf");
+    expect(entry!.backstageType).toBe("ownedBy");
+    expect(entry!.backstageInverse).toBe("ownerOf");
     expect(entry!.isWellKnown).toBe(true);
     expect(entry!.specField).toBe("owner");
   });
 
   it("exposes maps to providesApi", () => {
-    const entry = mapLegacyRelation("exposes");
+    const entry = mapRelationType("exposes");
     expect(entry).toBeDefined();
     expect(entry!.backstageType).toBe("providesApi");
     expect(entry!.backstageInverse).toBe("apiProvidedBy");
@@ -90,7 +92,7 @@ describe("well-known Backstage relations", () => {
   });
 
   it("consumes maps to consumesApi", () => {
-    const entry = mapLegacyRelation("consumes");
+    const entry = mapRelationType("consumes");
     expect(entry).toBeDefined();
     expect(entry!.backstageType).toBe("consumesApi");
     expect(entry!.backstageInverse).toBe("apiConsumedBy");
@@ -117,8 +119,8 @@ describe("custom anchored-spec relations", () => {
   ];
 
   for (const type of customTypes) {
-    it(`maps legacy "${type}" to custom relation`, () => {
-      const entry = mapLegacyRelation(type);
+    it(`maps anchored-spec relation "${type}" to a custom relation`, () => {
+      const entry = mapRelationType(type);
       expect(entry, `Missing mapping for "${type}"`).toBeDefined();
       expect(entry!.isWellKnown).toBe(false);
     });
@@ -133,20 +135,20 @@ describe("custom anchored-spec relations", () => {
 
 // ─── Lookup Functions ───────────────────────────────────────────────────────────
 
-describe("mapLegacyRelation", () => {
+describe("mapRelationType", () => {
   it("finds by forward type", () => {
-    expect(mapLegacyRelation("dependsOn")).toBeDefined();
-    expect(mapLegacyRelation("implementedBy")).toBeDefined();
+    expect(mapRelationType("dependsOn")).toBeDefined();
+    expect(mapRelationType("implementedBy")).toBeDefined();
   });
 
   it("finds by inverse type", () => {
-    const entry = mapLegacyRelation("dependedOnBy");
+    const entry = mapRelationType("dependedOnBy");
     expect(entry).toBeDefined();
-    expect(entry!.legacyType).toBe("dependsOn");
+    expect(entry!.type).toBe("dependsOn");
   });
 
   it("returns undefined for unknown", () => {
-    expect(mapLegacyRelation("nonexistent")).toBeUndefined();
+    expect(mapRelationType("nonexistent")).toBeUndefined();
   });
 });
 
@@ -171,19 +173,22 @@ describe("mapSpecField", () => {
   it("maps dependsOn field", () => {
     const entry = mapSpecField("dependsOn");
     expect(entry).toBeDefined();
-    expect(entry!.legacyType).toBe("dependsOn");
+    expect(entry!.type).toBe("dependsOn");
   });
 
   it("maps providesApis field", () => {
     const entry = mapSpecField("providesApis");
     expect(entry).toBeDefined();
-    expect(entry!.legacyType).toBe("exposes");
+    expect(entry!.type).toBe("exposes");
   });
 
   it("maps owner field", () => {
     const entry = mapSpecField("owner");
     expect(entry).toBeDefined();
-    expect(entry!.legacyType).toBe("owns");
+    expect(entry!.type).toBe("ownedBy");
+    expect(entry!.inverse).toBe("ownerOf");
+    expect(entry!.backstageType).toBe("ownedBy");
+    expect(entry!.backstageInverse).toBe("ownerOf");
   });
 
   it("returns undefined for non-relation field", () => {
@@ -197,12 +202,13 @@ describe("isWellKnownRelation", () => {
     expect(isWellKnownRelation("dependsOn")).toBe(true);
     expect(isWellKnownRelation("providesApi")).toBe(true);
     expect(isWellKnownRelation("consumesApi")).toBe(true);
-    expect(isWellKnownRelation("ownerOf")).toBe(true);
+    expect(isWellKnownRelation("ownedBy")).toBe(true);
   });
 
   it("returns true for well-known inverse types", () => {
     expect(isWellKnownRelation("dependencyOf")).toBe(true);
     expect(isWellKnownRelation("apiProvidedBy")).toBe(true);
+    expect(isWellKnownRelation("ownerOf")).toBe(true);
   });
 
   it("returns false for custom types", () => {
@@ -217,9 +223,9 @@ describe("isWellKnownRelation", () => {
 
 // ─── Conversion Utilities ───────────────────────────────────────────────────────
 
-describe("legacyRelationToSpecEntry", () => {
+describe("relationTypeToSpecEntry", () => {
   it("converts dependsOn to spec entry", () => {
-    const result = legacyRelationToSpecEntry("dependsOn", "component:default/db-service");
+    const result = relationTypeToSpecEntry("dependsOn", "component:default/db-service");
     expect(result).toEqual({
       specField: "dependsOn",
       targetRef: "component:default/db-service",
@@ -227,7 +233,7 @@ describe("legacyRelationToSpecEntry", () => {
   });
 
   it("converts exposes to providesApis spec entry", () => {
-    const result = legacyRelationToSpecEntry("exposes", "api:default/rest-v1");
+    const result = relationTypeToSpecEntry("exposes", "api:default/rest-v1");
     expect(result).toEqual({
       specField: "providesApis",
       targetRef: "api:default/rest-v1",
@@ -235,7 +241,7 @@ describe("legacyRelationToSpecEntry", () => {
   });
 
   it("converts implementedBy to spec entry", () => {
-    const result = legacyRelationToSpecEntry("implementedBy", "resource:default/workflows-table");
+    const result = relationTypeToSpecEntry("implementedBy", "resource:default/workflows-table");
     expect(result).toEqual({
       specField: "implementedBy",
       targetRef: "resource:default/workflows-table",
@@ -243,7 +249,7 @@ describe("legacyRelationToSpecEntry", () => {
   });
 
   it("returns null for unknown relation", () => {
-    expect(legacyRelationToSpecEntry("nonexistent", "ref")).toBeNull();
+    expect(relationTypeToSpecEntry("nonexistent", "ref")).toBeNull();
   });
 });
 
@@ -260,7 +266,7 @@ describe("extractRelationsFromSpec", () => {
     const depRelation = relations.find((r) => r.backstageType === "dependsOn");
     expect(depRelation).toBeDefined();
     expect(depRelation!.targets).toEqual(["resource:default/postgresql", "component:default/auth-service"]);
-    expect(depRelation!.legacyType).toBe("dependsOn");
+    expect(depRelation!.type).toBe("dependsOn");
   });
 
   it("extracts owner as single-value relation", () => {
@@ -269,9 +275,10 @@ describe("extractRelationsFromSpec", () => {
     };
 
     const relations = extractRelationsFromSpec(spec);
-    const ownerRelation = relations.find((r) => r.backstageType === "ownerOf");
+    const ownerRelation = relations.find((r) => r.backstageType === "ownedBy");
     expect(ownerRelation).toBeDefined();
     expect(ownerRelation!.targets).toEqual(["group:default/platform-team"]);
+    expect(ownerRelation!.type).toBe("ownedBy");
   });
 
   it("extracts multiple relation types", () => {
@@ -327,7 +334,7 @@ describe("extractRelationsFromSpec", () => {
 
     const relations = extractRelationsFromSpec(spec);
     expect(relations.length).toBe(2);
-    expect(relations.find((r) => r.legacyType === "implementedBy")).toBeDefined();
-    expect(relations.find((r) => r.legacyType === "supports")).toBeDefined();
+    expect(relations.find((r) => r.type === "implementedBy")).toBeDefined();
+    expect(relations.find((r) => r.type === "supports")).toBeDefined();
   });
 });

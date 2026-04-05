@@ -1,5 +1,6 @@
 import type { BackstageEntity } from "../ea/backstage/types.js";
 import { getEntityId } from "../ea/backstage/accessors.js";
+import { getEntityRefAliases } from "../ea/backstage/ref-utils.js";
 
 export interface EntityLookup {
   byInput: Map<string, BackstageEntity>;
@@ -10,7 +11,9 @@ export function buildEntityLookup(entities: BackstageEntity[]): EntityLookup {
 
   for (const entity of entities) {
     const entityRef = getEntityId(entity);
-    byInput.set(entityRef, entity);
+    for (const alias of getEntityRefAliases(entityRef)) {
+      byInput.set(alias, entity);
+    }
   }
 
   return { byInput };

@@ -10,7 +10,7 @@ import type { EaResolverConfig } from "../config.js";
 
 class MockOpenApiResolver implements EaResolver {
   name = "openapi";
-  discoverArtifacts() {
+  discoverEntities() {
     return [
       {
         kind: "api-contract" as const,
@@ -106,14 +106,14 @@ describe("loadResolversFromConfig", () => {
     expect(loaded).toHaveLength(0);
   });
 
-  it("built-in sync resolver produces artifacts", async () => {
+  it("built-in sync resolver produces entities", async () => {
     const config: EaResolverConfig = { name: "openapi" };
     const loaded = await loadResolver(config, builtinMap, "/tmp");
 
     expect(loaded.discoverSync).toBeDefined();
     const drafts = loaded.discoverSync!({
       projectRoot: "/tmp",
-      artifacts: [],
+      entities: [],
       cache: { get: vi.fn(), set: vi.fn(), clear: vi.fn() },
       logger: { info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
     });

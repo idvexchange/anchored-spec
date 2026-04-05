@@ -11,7 +11,7 @@ import {
 describe("Kiro Hooks", () => {
   // ─── generateKiroHooks ───────────────────────────────────────────
   describe("generateKiroHooks", () => {
-    const config = { rootDir: "ea", domains: { systems: "ea/systems" } };
+    const config = { rootDir: "docs", domains: { systems: "docs/systems" } };
     let hooks: ReturnType<typeof generateKiroHooks>;
 
     beforeEach(() => {
@@ -20,7 +20,7 @@ describe("Kiro Hooks", () => {
 
     it("generates validate-on-save hook with correct trigger and pattern", () => {
       expect(hooks.validateOnSave).toContain("trigger: onSave");
-      expect(hooks.validateOnSave).toContain("ea/**/*.{yaml,yml,json}");
+      expect(hooks.validateOnSave).toContain("docs/**/*.{yaml,yml,json}");
       expect(hooks.validateOnSave).toContain("npx anchored-spec validate");
       expect(hooks.validateOnSave).toContain("throttle:");
     });
@@ -39,7 +39,7 @@ describe("Kiro Hooks", () => {
       expect(hooks.driftOnSave).toContain("reconcile");
     });
 
-    it("uses rootDir from config for artifact pattern", () => {
+    it("uses rootDir from config for entity pattern", () => {
       const customConfig = { rootDir: "architecture", domains: {} };
       const customHooks = generateKiroHooks(customConfig);
       expect(customHooks.validateOnSave).toContain("architecture/**/*.{yaml,yml,json}");
@@ -71,7 +71,7 @@ describe("Kiro Hooks", () => {
     it("writes both steering and hooks files for kiro target", () => {
       const result = writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: { systems: "ea/systems" } },
+        { rootDir: "docs", domains: { systems: "docs/systems" } },
         ["kiro"],
       );
 
@@ -82,7 +82,7 @@ describe("Kiro Hooks", () => {
 
       // Hook files (new)
       const hooksDir = join(tempDir, ".kiro", "hooks");
-      expect(existsSync(join(hooksDir, "validate-artifact.yml"))).toBe(true);
+      expect(existsSync(join(hooksDir, "validate-entity.yml"))).toBe(true);
       expect(existsSync(join(hooksDir, "trace-integrity.yml"))).toBe(true);
       expect(existsSync(join(hooksDir, "drift-detection.yml"))).toBe(true);
 
@@ -93,19 +93,19 @@ describe("Kiro Hooks", () => {
     it("hook files contain valid YAML structure", () => {
       writeAiConfigFiles(
         tempDir,
-        { rootDir: "ea", domains: {} },
+        { rootDir: "docs", domains: {} },
         ["kiro"],
       );
 
       const hooksDir = join(tempDir, ".kiro", "hooks");
-      const validate = readFileSync(join(hooksDir, "validate-artifact.yml"), "utf-8");
+      const validate = readFileSync(join(hooksDir, "validate-entity.yml"), "utf-8");
       expect(validate).toContain("trigger: onSave");
-      expect(validate).toContain("ea/**/*.{yaml,yml,json}");
+      expect(validate).toContain("docs/**/*.{yaml,yml,json}");
     });
 
     it("skips existing hook files on second write", () => {
-      writeAiConfigFiles(tempDir, { rootDir: "ea", domains: {} }, ["kiro"]);
-      const result2 = writeAiConfigFiles(tempDir, { rootDir: "ea", domains: {} }, ["kiro"]);
+      writeAiConfigFiles(tempDir, { rootDir: "docs", domains: {} }, ["kiro"]);
+      const result2 = writeAiConfigFiles(tempDir, { rootDir: "docs", domains: {} }, ["kiro"]);
 
       expect(result2.created).toHaveLength(0);
       expect(result2.skipped).toHaveLength(6);

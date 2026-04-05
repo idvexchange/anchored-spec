@@ -51,4 +51,4 @@ export type { AnnotationSuggestion } from "./annotator.js";
 export { suggestAnnotations } from "./annotator.js";
 
 export type { ReconciliationReport } from "./reconciler.js";
-export { reconcileFactsWithArtifacts } from "./reconciler.js";
+export { reconcileFactsWithEntities } from "./reconciler.js";

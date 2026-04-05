@@ -42,7 +42,7 @@ export function eaDiffCommand(): Command {
     .option("--domain <domain>", "Filter diffs to a specific EA domain")
     .option("--semantic <semantic>", "Filter to specific field semantic")
     .option("--output <file>", "Write to file instead of stdout")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--json", "Shorthand for --format json")
     .option("--compat", "Show compatibility assessment (breaking/additive/etc.)")
     .option("--policy", "Enforce version policies against compatibility assessment")

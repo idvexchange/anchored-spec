@@ -1,8 +1,8 @@
 /**
  * anchored-spec link <from> <to>
  *
- * Create a relation between two EA artifacts.
- * Updates the source artifact file to add the relation entry.
+ * Create a relation between two EA entities.
+ * Updates the source entity file to add the relation entry.
  */
 
 import { Command } from "commander";
@@ -15,7 +15,7 @@ import {
   extractMarkdownBody,
   getEntityId,
   getEntitySpecRelations,
-  legacyRelationToSpecEntry,
+  relationTypeToSpecEntry,
   parseBackstageYaml,
   parseFrontmatterEntity,
   resolveConfigV1,
@@ -29,12 +29,12 @@ import { CliError } from "../errors.js";
 
 export function eaLinkCommand(): Command {
   return new Command("link")
-    .description("Create a relation between two EA artifacts")
+    .description("Create a relation between two EA entities")
     .argument("<from>", "Source entity ref")
     .argument("<to>", "Target entity ref")
-    .option("--type <type>", "Relation type (e.g., uses, owns, implements)", "uses")
+    .option("--type <type>", "Relation type (e.g., uses, ownedBy, implements)", "uses")
     .option("--description <desc>", "Optional description of the relationship")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .option("--dry-run", "Show what would change without writing")
     .action(async (from: string, to: string, options) => {
       const cwd = process.cwd();
@@ -69,7 +69,7 @@ export function eaLinkCommand(): Command {
       const existingRelations = getEntitySpecRelations(sourceEntity);
       const duplicate = existingRelations.find(
         (r) =>
-          r.legacyType === options.type &&
+          r.type === options.type &&
           r.targets.some((target) => target === targetEntityRef),
       );
       if (duplicate) {
@@ -101,7 +101,7 @@ export function eaLinkCommand(): Command {
         targetEntityRef,
       );
 
-      // Read and update the artifact file
+      // Read and update the entity file
       const filePath = join(cwd, sourceDetail.relativePath);
       const raw = readFileSync(filePath, "utf-8");
       persistUpdatedEntity(filePath, raw, authoredSourceEntity, updatedEntity);
@@ -116,7 +116,7 @@ function withAuthoredRelation(
   relationType: string,
   targetEntityRef: string,
 ): BackstageEntity {
-  const specEntry = legacyRelationToSpecEntry(relationType, targetEntityRef);
+  const specEntry = relationTypeToSpecEntry(relationType, targetEntityRef);
   if (!specEntry) {
     throw new CliError(
       `Relation type "${relationType}" is not supported as authored Backstage YAML. Use a supported relation that maps to standard spec fields.`,

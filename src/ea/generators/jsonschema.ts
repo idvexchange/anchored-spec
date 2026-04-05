@@ -1,15 +1,16 @@
 /**
  * Anchored Spec — JSON Schema Generator
  *
- * Generates JSON Schema from `canonical-entity` EA artifacts.
+ * Generates JSON Schema from `canonical-entity` EA entities.
  * Maps attributes to JSON Schema properties with type mapping,
- * required array, and links back to the source artifact.
+ * required array, and links back to the source entity.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (JSON Schema Generator)
+ * Design reference: docs/delivery-baseline.md (JSON Schema Generator)
  */
 
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityDescription, getEntityId, getEntityTitle, getSpecField } from "../backstage/accessors.js";
+import { entityRefToFilenameSlug } from "../backstage/ref-utils.js";
 import type {
   EaGenerator,
   EaGeneratorContext,
@@ -57,17 +58,17 @@ const TYPE_MAP: Record<string, { type: string; format?: string }> = {
 };
 
 /**
- * JSON Schema Generator — generates JSON Schema from canonical-entity artifacts.
+ * JSON Schema Generator — generates JSON Schema from canonical-entity entities.
  *
  * - Maps each attribute to a JSON Schema property
  * - Maps attribute type fields to JSON Schema types
  * - Sets required array from attributes with required: true
- * - Adds title and description from artifact fields
+ * - Adds title and description from entity fields
  * - Links back via $comment
  */
 export const jsonSchemaGenerator: EaGenerator = {
   name: "jsonschema",
-  kinds: ["canonical-entity"],
+  schemas: ["canonical-entity"],
   outputFormat: "json-schema",
 
   generate(entity: BackstageEntity, _ctx: EaGeneratorContext): GeneratedOutput[] {
@@ -98,7 +99,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       $id: `https://anchored-spec.dev/schemas/entities/${slugify(getEntityId(entity))}.schema.json`,
       title: getEntityTitle(entity),
       description: getEntityDescription(entity),
-      $comment: `Generated from EA artifact: ${getEntityId(entity)}`,
+      $comment: `Generated from EA entity: ${getEntityId(entity)}`,
       type: "object",
       properties,
     };
@@ -110,14 +111,14 @@ export const jsonSchemaGenerator: EaGenerator = {
     schema.additionalProperties = false;
 
     const content = JSON.stringify(schema, null, 2) + "\n";
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
 
     return [
       {
         relativePath: `${slug}.schema.json`,
         content,
         contentType: "json",
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         description: `JSON Schema for ${getEntityTitle(entity)}`,
         overwrite: true,
       },
@@ -129,7 +130,7 @@ export const jsonSchemaGenerator: EaGenerator = {
     const generated = this.generate(entity, ctx);
     if (generated.length === 0) return [];
 
-    const slug = getEntityId(entity).replace(/[:/]/g, "-");
+    const slug = entityRefToFilenameSlug(getEntityId(entity));
 
     try {
       const currentParsed = JSON.parse(currentOutput);
@@ -142,7 +143,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       if (JSON.stringify(currentProps) !== JSON.stringify(expectedProps)) {
         drifts.push({
           filePath: `${slug}.schema.json`,
-          sourceArtifactId: getEntityId(entity),
+          sourceEntityRef: getEntityId(entity),
           message: `Schema properties differ: expected [${expectedProps.join(", ")}], found [${currentProps.join(", ")}]`,
           suggestion: "review",
         });
@@ -151,7 +152,7 @@ export const jsonSchemaGenerator: EaGenerator = {
       if (JSON.stringify(currentParsed.required?.sort()) !== JSON.stringify(expectedParsed.required?.sort())) {
         drifts.push({
           filePath: `${slug}.schema.json`,
-          sourceArtifactId: getEntityId(entity),
+          sourceEntityRef: getEntityId(entity),
           message: "Schema required fields differ from spec",
           suggestion: "review",
         });
@@ -159,7 +160,7 @@ export const jsonSchemaGenerator: EaGenerator = {
     } catch {
       drifts.push({
         filePath: `${slug}.schema.json`,
-        sourceArtifactId: getEntityId(entity),
+        sourceEntityRef: getEntityId(entity),
         message: "Cannot parse existing schema as JSON",
         suggestion: "regenerate",
       });

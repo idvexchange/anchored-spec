@@ -2,7 +2,7 @@
  * anchored-spec ea trace
  *
  * Show the traceability web between entities (`traceRefs`) and
- * markdown documents (frontmatter `ea-artifacts`). Supports single-target
+ * markdown documents (frontmatter `ea-entities`). Supports single-target
  * lookup, orphan detection, full bidirectional integrity checks, and
  * summary statistics.
  */
@@ -13,7 +13,10 @@ import { Command } from "commander";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "../../ea/config.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { buildTraceLinks, buildTraceCheckReport, isUrl } from "../../ea/trace-analysis.js";
@@ -23,7 +26,9 @@ import type { AnchoredSpecConfigV1 } from "../../ea/config.js";
 import type { BackstageEntity } from "../../ea/backstage/types.js";
 import {
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
+  getEntitySpecType,
   getEntityStatus,
   getEntityTraceRefs,
 } from "../../ea/backstage/accessors.js";
@@ -37,6 +42,8 @@ import type { ExplainableItem } from "../../ea/evidence-renderer.js";
 interface TraceEntityView {
   entityRef: string;
   kind: string;
+  type?: string;
+  schema: string;
   status: string;
   traceRefs: Array<{ path: string; role?: string }>;
 }
@@ -44,7 +51,7 @@ interface TraceEntityView {
 interface SummaryReport {
   entitiesWithTraceRefs: number;
   totalEntities: number;
-  docsWithEaArtifacts: number;
+  docsWithEaEntities: number;
   totalDocsScanned: number;
   totalTraceLinks: number;
   totalFrontmatterRefs: number;
@@ -62,19 +69,19 @@ function buildSummaryReport(
   const entitiesWithRefs = new Set(
     entities.filter((entity) => (entity.traceRefs?.length ?? 0) > 0).map((entity) => entity.entityRef),
   ).size;
-  const totalTraceLinks = links.filter((l) => l.artifactToDoc).length;
-  const totalFmRefs = links.filter((l) => l.docToArtifact).length;
+  const totalTraceLinks = links.filter((l) => l.entityToDoc).length;
+  const totalFmRefs = links.filter((l) => l.docToEntity).length;
 
   return {
     entitiesWithTraceRefs: entitiesWithRefs,
     totalEntities: entities.length,
-    docsWithEaArtifacts: docs.length,
+    docsWithEaEntities: docs.length,
     totalDocsScanned: totalScanned,
     totalTraceLinks,
     totalFrontmatterRefs: totalFmRefs,
     bidirectionalPairs: check.bidirectionalCount,
     oneWayPairs:
-      check.oneWayArtifactToDoc.length + check.oneWayDocToArtifact.length,
+      check.oneWayEntityToDoc.length + check.oneWayDocToEntity.length,
   };
 }
 
@@ -91,7 +98,7 @@ function renderTargetEntity(
 
   lines.push(
     chalk.bold(`${entity.entityRef}`) +
-      chalk.dim(` (${entity.kind}, ${entity.status})`),
+      chalk.dim(` (${entity.kind}${entity.type ? `/${entity.type}` : ""}, ${entity.schema}, ${entity.status})`),
   );
 
   // traceRefs
@@ -147,7 +154,7 @@ function renderTargetEntity(
     lines.push("  Missing backlinks:");
     for (const ref of missingBacklinks) {
       lines.push(
-        `    ${chalk.yellow("⚠")} ${ref.path} has traceRef but no ea-artifacts frontmatter`,
+        `    ${chalk.yellow("⚠")} ${ref.path} has traceRef but no ea-entities frontmatter`,
       );
     }
   }
@@ -179,10 +186,10 @@ function renderTargetDoc(
   if (fm.tokens != null) parts.push(`tokens: ${fm.tokens}`);
   lines.push(`    ${parts.join(" | ")}`);
 
-  // ea-artifacts
-  if (doc.artifactIds.length > 0) {
-    lines.push("  ea-artifacts:");
-    for (const aid of doc.artifactIds) {
+  // ea-entities
+  if (doc.entityRefs.length > 0) {
+    lines.push("  ea-entities:");
+    for (const aid of doc.entityRefs) {
       const entity = entityMap.get(aid);
       if (!entity) {
         lines.push(`    → ${aid} ${chalk.red("❌ (entity not found)")}`);
@@ -216,7 +223,7 @@ function renderOrphans(
   let missingLinks = 0;
 
   for (const doc of docs) {
-    const orphanIds = doc.artifactIds.filter((aid) => {
+    const orphanIds = doc.entityRefs.filter((aid) => {
       const entity = entityMap.get(aid);
       if (!entity) return false; // entity doesn't exist — different issue
       return !(entity.traceRefs ?? []).some((r) => r.path === doc.relativePath);
@@ -253,61 +260,61 @@ function renderCheck(report: TraceCheckReport): string {
   if (report.brokenTraceRefs.length > 0) {
     lines.push("  Entities with broken traceRefs:");
     for (const b of report.brokenTraceRefs) {
-      lines.push(`    ${chalk.red("❌")} ${b.artifactId} → ${b.path} (${b.reason})`);
+      lines.push(`    ${chalk.red("❌")} ${b.entityRef} → ${b.path} (${b.reason})`);
     }
     lines.push("");
   }
 
   // One-way entity → doc
-  if (report.oneWayArtifactToDoc.length > 0) {
-    const actionable = report.oneWayArtifactToDoc.filter(
+  if (report.oneWayEntityToDoc.length > 0) {
+    const actionable = report.oneWayEntityToDoc.filter(
       (o) => o.severity === "warning",
     );
-    const structural = report.oneWayArtifactToDoc.filter(
+    const structural = report.oneWayEntityToDoc.filter(
       (o) => o.severity === "info",
     );
 
     if (actionable.length > 0) {
       lines.push("  Entities with one-way traceRefs (actionable — missing frontmatter):");
       for (const o of actionable) {
-        lines.push(`    ${chalk.yellow("⚠")} ${o.artifactId} → ${o.path} (${o.reason})`);
+        lines.push(`    ${chalk.yellow("⚠")} ${o.entityRef} → ${o.path} (${o.reason})`);
       }
       lines.push("");
     }
     if (structural.length > 0) {
       lines.push("  Entities with one-way traceRefs (structural — non-markdown files):");
       for (const o of structural) {
-        lines.push(`    ${chalk.blue("ℹ")} ${o.artifactId} → ${o.path} (${o.reason})`);
+        lines.push(`    ${chalk.blue("ℹ")} ${o.entityRef} → ${o.path} (${o.reason})`);
       }
       lines.push("");
     }
   }
 
   // One-way doc → entity
-  if (report.oneWayDocToArtifact.length > 0) {
+  if (report.oneWayDocToEntity.length > 0) {
     lines.push("  Docs with one-way frontmatter (no traceRef back):");
-    for (const o of report.oneWayDocToArtifact) {
-      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.artifactId} (no traceRef in entity)`);
+    for (const o of report.oneWayDocToEntity) {
+      lines.push(`    ${chalk.yellow("⚠")} ${o.docPath} → ${o.entityRef} (no traceRef in entity)`);
     }
     lines.push("");
   }
 
-  const actionableOneWay = report.oneWayArtifactToDoc.filter(
+  const actionableOneWay = report.oneWayEntityToDoc.filter(
     (o) => o.severity === "warning",
   ).length;
-  const structuralOneWay = report.oneWayArtifactToDoc.filter(
+  const structuralOneWay = report.oneWayEntityToDoc.filter(
     (o) => o.severity === "info",
   ).length;
 
   const totalIssues =
     actionableOneWay +
-    report.oneWayDocToArtifact.length +
+    report.oneWayDocToEntity.length +
     report.brokenTraceRefs.length;
 
   lines.push(`  Fully bidirectional links: ${report.bidirectionalCount} ${chalk.green("✅")}`);
   lines.push(`  One-way entity→doc (actionable): ${actionableOneWay} ${chalk.yellow("⚠")}`);
   lines.push(`  One-way entity→doc (structural): ${structuralOneWay} ${chalk.blue("ℹ")}`);
-  lines.push(`  One-way doc→entity: ${report.oneWayDocToArtifact.length} ${chalk.yellow("⚠")}`);
+  lines.push(`  One-way doc→entity: ${report.oneWayDocToEntity.length} ${chalk.yellow("⚠")}`);
   lines.push(`  Broken references: ${report.brokenTraceRefs.length} ${chalk.red("❌")}`);
   lines.push("");
 
@@ -326,7 +333,7 @@ function renderSummary(report: SummaryReport): string {
   const lines: string[] = [];
   lines.push(chalk.bold("Trace Summary:"));
   lines.push(`  Entities with traceRefs: ${report.entitiesWithTraceRefs} / ${report.totalEntities}`);
-  lines.push(`  Documents with ea-artifacts: ${report.docsWithEaArtifacts} / ${report.totalDocsScanned} scanned`);
+  lines.push(`  Documents with ea-entities: ${report.docsWithEaEntities} / ${report.totalDocsScanned} scanned`);
   lines.push(`  Total trace links (entity→doc): ${report.totalTraceLinks}`);
   lines.push(`  Total frontmatter refs (doc→entity): ${report.totalFrontmatterRefs}`);
   lines.push(`  Bidirectional pairs: ${report.bidirectionalPairs}`);
@@ -337,7 +344,9 @@ function renderSummary(report: SummaryReport): string {
 function toTraceEntityView(entity: BackstageEntity): TraceEntityView {
   return {
     entityRef: getEntityId(entity),
-    kind: getEntityLegacyKind(entity),
+    kind: getEntityKind(entity),
+    type: getEntitySpecType(entity),
+    schema: getEntitySchema(entity),
     status: getEntityStatus(entity),
     traceRefs: getEntityTraceRefs(entity),
   };
@@ -349,8 +358,8 @@ export function eaTraceCommand(): Command {
   return new Command("trace")
     .description("Show traceability web between entities and documents")
     .argument("[target]", "Entity ref or document path to inspect")
-    .option("--root-dir <path>", "EA root directory", "ea")
-    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
+    .option("--root-dir <path>", "EA root directory", "docs")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan")
     .option("--orphans", "Show orphaned docs (frontmatter refs with no traceRef back)")
     .option("--check", "Full bidirectional integrity report")
     .option("--fix-broken", "Remove traceRefs pointing to non-existent files")
@@ -361,28 +370,22 @@ export function eaTraceCommand(): Command {
     .option("--explain", "Show detailed rationale for each trace link")
     .action(async (target: string | undefined, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
         throw new CliError("EA not initialized. Run 'anchored-spec init' first.", 2);
       }
 
-      // Load v1 config for sourceAnnotations settings
-      let v1Config: AnchoredSpecConfigV1 | null = null;
-      try {
-        const configPath = resolve(cwd, ".anchored-spec", "config.json");
-        if (existsSync(configPath)) {
-          const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-          if (raw.schemaVersion === "1.0") v1Config = raw as AnchoredSpecConfigV1;
-        }
-      } catch { /* ignore config read errors */ }
+      const v1Config: AnchoredSpecConfigV1 = eaConfig;
 
       const loadResult = await root.loadEntities();
       const entities = loadResult.entities;
       const lookup = buildEntityLookup(entities);
 
-      const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+      const docDirs = options.docDirs
+        ? (options.docDirs as string).split(",").map((d: string) => d.trim())
+        : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
       const scanResult = scanDocs(cwd, { dirs: docDirs });
       const { docs, totalScanned } = scanResult;
 
@@ -435,12 +438,12 @@ export function eaTraceCommand(): Command {
         // Group broken refs by entity ref
         const brokenByEntity = new Map<string, string[]>();
         for (const b of toRemove) {
-          const list = brokenByEntity.get(b.artifactId) ?? [];
+          const list = brokenByEntity.get(b.entityRef) ?? [];
           list.push(b.path);
-          brokenByEntity.set(b.artifactId, list);
+          brokenByEntity.set(b.entityRef, list);
         }
 
-        const removed: { artifactId: string; path: string }[] = [];
+        const removed: { entityRef: string; path: string }[] = [];
 
         if (!options.dryRun) {
           for (const [entityRef, paths] of brokenByEntity) {
@@ -455,12 +458,12 @@ export function eaTraceCommand(): Command {
             const pathSet = new Set(paths);
             removeBrokenTraceRefs(detail.filePath, pathSet);
             for (const p of paths) {
-              removed.push({ artifactId: entityRef, path: p });
+              removed.push({ entityRef: entityRef, path: p });
             }
           }
         } else {
           for (const b of toRemove) {
-            removed.push({ artifactId: b.artifactId, path: b.path });
+            removed.push({ entityRef: b.entityRef, path: b.path });
           }
         }
 
@@ -487,7 +490,7 @@ export function eaTraceCommand(): Command {
           );
           for (const r of removed) {
             console.log(
-              `  ${chalk.red("✕")} ${r.artifactId} → ${r.path}`,
+              `  ${chalk.red("✕")} ${r.entityRef} → ${r.path}`,
             );
           }
         }
@@ -528,7 +531,7 @@ export function eaTraceCommand(): Command {
         if (options.json) {
           const orphanData: { docPath: string; missingBacklinks: string[] }[] = [];
           for (const doc of normalizedDocs) {
-            const orphanIds = doc.artifactIds.filter((aid) => {
+            const orphanIds = doc.entityRefs.filter((aid) => {
               const a = entityMap.get(aid);
               if (!a) return false;
               return !(a.traceRefs ?? []).some((r) => r.path === doc.relativePath);
@@ -577,6 +580,8 @@ export function eaTraceCommand(): Command {
                   entity: {
                     entityRef: entity.entityRef,
                     kind: entity.kind,
+                    type: entity.type ?? null,
+                    schema: entity.schema,
                     status: entity.status,
                   },
                   traceRefs: (entity.traceRefs ?? []).map((r) => ({
@@ -609,7 +614,7 @@ export function eaTraceCommand(): Command {
                   path: doc.relativePath,
                   frontmatter: doc.frontmatter,
                 },
-                linkedEntities: doc.artifactIds.map((aid) => {
+                linkedEntities: doc.entityRefs.map((aid) => {
                   const a = entityMap.get(aid);
                   if (!a) return { id: aid, found: false, hasTraceBack: false };
                   const hasBack = (a.traceRefs ?? []).some(
@@ -645,31 +650,31 @@ function traceLinksToExplainableItems(
   entityMap: Map<string, TraceEntityView>,
 ): ExplainableItem[] {
   return links.map((link) => {
-    const entity = entityMap.get(link.artifactId);
-    const bidir = link.artifactToDoc && link.docToArtifact;
-    const direction = link.artifactToDoc && link.docToArtifact
+    const entity = entityMap.get(link.entityRef);
+    const bidir = link.entityToDoc && link.docToEntity;
+    const direction = link.entityToDoc && link.docToEntity
       ? "bidirectional"
-      : link.artifactToDoc
+      : link.entityToDoc
         ? "entity→doc"
         : "doc→entity";
 
-    const source = link.artifactToDoc
+    const source = link.entityToDoc
       ? "traceRef in entity spec"
-      : "ea-artifacts frontmatter in doc";
+      : "ea-entities frontmatter in doc";
 
     const reason = bidir
-      ? `Bidirectional link between ${link.artifactId} and ${link.docPath}`
-      : `One-way ${direction} link from ${link.artifactToDoc ? link.artifactId : link.docPath} to ${link.artifactToDoc ? link.docPath : link.artifactId}`;
+      ? `Bidirectional link between ${link.entityRef} and ${link.docPath}`
+      : `One-way ${direction} link from ${link.entityToDoc ? link.entityRef : link.docPath} to ${link.entityToDoc ? link.docPath : link.entityRef}`;
 
     const evidence: string[] = [];
     evidence.push(`Direction: ${direction}`);
     evidence.push(`Link source: ${source}`);
     if (link.isUrl) evidence.push("Target is a URL (not a local file)");
-    if (!link.isUrl && link.artifactToDoc) evidence.push(`File exists: ${link.fileExists}`);
+    if (!link.isUrl && link.entityToDoc) evidence.push(`File exists: ${link.fileExists}`);
     if (bidir) evidence.push("Bidirectional: entity traceRef ↔ doc frontmatter");
 
     return {
-      ref: link.artifactId,
+      ref: link.entityRef,
       kind: entity?.kind ?? "unknown",
       title: link.docPath,
       reason,
@@ -681,7 +686,7 @@ function traceLinksToExplainableItems(
 // ─── Fix-broken helper ─────────────────────────────────────────────
 
 /**
- * Read an artifact file, remove traceRefs matching the given paths,
+ * Read an entity file, remove traceRefs matching the given paths,
  * and write it back in the same format (JSON or YAML).
  */
 function removeBrokenTraceRefs(

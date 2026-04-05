@@ -6,8 +6,8 @@ import { stringify } from "yaml";
 import type { BackstageEntity } from "../ea/backstage/types.js";
 import { resolveConfigV1, type AnchoredSpecConfigV1 } from "../ea/config.js";
 import {
-  legacyFixtureToEntity,
-  type LegacyEntityFixture,
+  makeBackstageEntity,
+  type EntityFixtureInput,
 } from "./entity-fixtures.js";
 
 const REPO_ROOT = process.cwd();
@@ -19,9 +19,7 @@ export interface CliRunResult {
   exitCode: number;
 }
 
-export type EntityInput =
-  | BackstageEntity
-  | LegacyEntityFixture;
+export type EntityInput = BackstageEntity;
 
 export function createTestWorkspace(prefix: string): string {
   const dir = join(
@@ -55,28 +53,116 @@ export function cliOutput(result: CliRunResult): string {
   return `${result.stdout}${result.stderr}`;
 }
 
-export function makeArtifact(
-  overrides: Partial<LegacyEntityFixture> & { id: string; kind: string } & Record<
+export function makeEntity(
+  overrides: EntityFixtureInput & Record<
       string,
       unknown
     >,
-): LegacyEntityFixture {
-  return {
-    ...overrides,
-    id: overrides.id,
-    kind: overrides.kind,
-    title: overrides.title ?? overrides.id,
+): BackstageEntity {
+  return makeBackstageEntity({
+    title: overrides.title ?? overrides.name ?? overrides.ref,
     summary: overrides.summary ?? "A sufficiently detailed test summary.",
-    owners: overrides.owners ?? ["team-platform"],
-    tags: overrides.tags ?? [],
     confidence: overrides.confidence ?? "declared",
     status: overrides.status ?? "active",
-    relations: overrides.relations ?? [],
-  };
+    owner: overrides.owner ?? "group:default/team-test",
+    ...overrides,
+  });
 }
 
-export function toBackstageEntity(input: EntityInput): BackstageEntity {
-  return isBackstageEntity(input) ? input : legacyFixtureToEntity(input);
+type LegacyRelationInput = { type: string; target: string };
+
+function normalizeFixtureKindAndType(kind: string): { kind: string; type?: string } {
+  switch (kind) {
+    case "service":
+    case "application":
+    case "consumer":
+    case "platform":
+      return { kind: "Component", type: kind };
+    case "decision":
+      return { kind: "Decision" };
+    case "requirement":
+      return { kind: "Requirement" };
+    case "api-contract":
+      return { kind: "API", type: kind };
+    case "data-store":
+      return { kind: "Resource", type: kind };
+    default:
+      return { kind };
+  }
+}
+
+function normalizeLegacyIdToRef(id: string, kindHint?: string): string {
+  if (id.includes(":")) return id;
+
+  const prefixMap: Record<string, string> = {
+    SVC: "component",
+    APP: "component",
+    ADR: "decision",
+    REQ: "requirement",
+    API: "api",
+    RES: "resource",
+    DOC: "requirement",
+  };
+
+  const match = id.match(/^([A-Z]+)-(.+)$/);
+  if (match) {
+    const prefix = match[1]!;
+    const slug = match[2]!;
+    return `${prefixMap[prefix] ?? (kindHint ? normalizeFixtureKindAndType(kindHint).kind.toLowerCase() : "component")}:${slug}`;
+  }
+
+  if (kindHint) {
+    const normalized = normalizeFixtureKindAndType(kindHint);
+    return `${normalized.kind.toLowerCase()}:${id}`;
+  }
+
+  return `component:${id}`;
+}
+
+function normalizeLegacyTarget(target: string): string {
+  return target.includes(":") ? target : normalizeLegacyIdToRef(target);
+}
+
+function relationListToSpecFields(relations: LegacyRelationInput[] | undefined): Record<string, unknown> {
+  if (!relations || relations.length === 0) return {};
+
+  const specFields = new Map<string, string[]>();
+  for (const relation of relations) {
+    const values = specFields.get(relation.type) ?? [];
+    values.push(normalizeLegacyTarget(relation.target));
+    specFields.set(relation.type, values);
+  }
+
+  return Object.fromEntries(specFields.entries());
+}
+
+export function makeArtifact(
+  overrides: (EntityFixtureInput & Record<string, unknown>) & {
+    id?: string;
+    relations?: LegacyRelationInput[];
+  },
+): BackstageEntity {
+  const { id, relations, ...rest } = overrides;
+  const normalizedKind = normalizeFixtureKindAndType(rest.kind);
+  const ref = rest.ref ?? (id ? normalizeLegacyIdToRef(id, rest.kind) : undefined);
+
+  if (!ref) {
+    throw new Error("makeArtifact requires either ref or id");
+  }
+
+  const relationFields = relationListToSpecFields(relations);
+
+  return makeEntity({
+    ...rest,
+    ref,
+    kind: normalizedKind.kind,
+    type: rest.type ?? normalizedKind.type,
+    ...relationFields,
+  });
+}
+
+export function toBackstageEntity(entity: BackstageEntity): BackstageEntity {
+  return entity;
 }
 
 export function writeTextFile(
@@ -119,7 +205,7 @@ export function writeManifestProject(
   mkdirSync(join(dir, config.generatedDir), { recursive: true });
 
   const manifestDocs = inputs
-    .map((input) => `---\n${stringify(toBackstageEntity(input)).trimEnd()}\n`)
+    .map((input) => `---\n${stringify(input).trimEnd()}\n`)
     .join("");
   writeTextFile(
     dir,
@@ -150,21 +236,10 @@ export function writeInlineProject(
 
   for (const doc of docs) {
     const frontmatter = doc.entity
-      ? `---\n${stringify(toBackstageEntity(doc.entity)).trimEnd()}\n---\n\n`
+      ? `---\n${stringify(doc.entity).trimEnd()}\n---\n\n`
       : "";
     writeTextFile(dir, doc.path, `${frontmatter}${doc.body ?? ""}`);
   }
 
   return config;
-}
-
-function isBackstageEntity(input: EntityInput): input is BackstageEntity {
-  return (
-    "metadata" in input &&
-    typeof input.metadata === "object" &&
-    input.metadata !== null &&
-    "spec" in input &&
-    typeof input.spec === "object" &&
-    input.spec !== null
-  );
 }

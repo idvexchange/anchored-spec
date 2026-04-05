@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://anchored-spec.dev/schemas/ea/workflow-policy.schema.json",
   "title": "Anchored Spec — EA Workflow Policy",
-  "description": "Governance rules for EA artifact lifecycle: workflow variants, path-based enforcement, trivial exemptions, and lifecycle gates.",
+  "description": "Governance rules for EA entity lifecycle: workflow variants, path-based enforcement, trivial exemptions, and lifecycle gates.",
   "type": "object",
   "required": [
     "workflowVariants",
@@ -21,7 +21,7 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "name", "defaultTypes", "artifacts"],
+        "required": ["id", "name", "defaultTypes", "requiredSchemas"],
         "properties": {
           "id": {
             "type": "string",
@@ -34,12 +34,12 @@
               "type": "string",
               "pattern": "^[a-z][a-z0-9-]*$"
             },
-            "description": "EA artifact change types that default to this variant"
+            "description": "EA change types that default to this variant"
           },
-          "artifacts": {
+          "requiredSchemas": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Ordered list of EA artifact kinds this variant requires"
+            "description": "Ordered list of schema profiles this variant requires"
           },
           "skipSkillSequence": {
             "type": "boolean",
@@ -70,17 +70,17 @@
             "type": "array",
             "items": { "type": "string" },
             "minItems": 1,
-            "description": "Glob patterns — files matching these require a change artifact"
+            "description": "Glob patterns — files matching these require a change entity"
           },
           "exclude": {
             "type": "array",
             "items": { "type": "string" },
             "description": "Glob patterns — files matching these are excluded from this rule"
           },
-          "requiredDocs": {
+          "requiredEntities": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "EA artifacts that must exist for changes matching this rule"
+            "description": "EA entities that must exist for changes matching this rule"
           },
           "requiredDriftChecks": {
             "type": "array",
@@ -95,12 +95,12 @@
         },
         "additionalProperties": false
       },
-      "description": "Path-based rules that mandate EA change artifacts"
+      "description": "Path-based rules that mandate EA change entities"
     },
     "trivialExemptions": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "Glob patterns for paths that never require a change artifact"
+      "description": "Glob patterns for paths that never require a change entity"
     },
     "choreEligibility": {
       "type": "object",
@@ -124,21 +124,21 @@
         "plannedToActiveRequiresChange": {
           "type": "boolean",
           "default": true,
-          "description": "Artifact can't go active without an associated change artifact"
+          "description": "Entity can't go active without an associated change entity"
         },
         "activeToShippedRequiresCoverage": {
           "type": "boolean",
           "default": true,
-          "description": "Artifact can't ship without test evidence"
+          "description": "Entity can't ship without test evidence"
         },
         "deprecatedRequiresReason": {
           "type": "boolean",
           "default": true,
-          "description": "Artifact can't be deprecated without a reason or replacement"
+          "description": "Entity can't be deprecated without a reason or replacement"
         }
       },
       "additionalProperties": false,
-      "description": "Machine-enforced EA artifact lifecycle transition gates"
+      "description": "Machine-enforced EA entity lifecycle transition gates"
     },
     "extensions": {
       "type": "object",

@@ -1,7 +1,7 @@
 /**
  * EA Version Policy Enforcement
  *
- * Declares compatibility policies per-artifact, per-kind, or globally,
+ * Declares compatibility policies per-entity, per-schema, or globally,
  * then enforces them against compatibility assessments from the compat module.
  *
  * Design reference: plan.md §S4
@@ -11,17 +11,17 @@ import type { CompatibilityReport, CompatibilityLevel, CompatibilityReason } fro
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityId,
-  getEntityKindMapping,
-  getEntityLegacyKind,
+  getEntityDescriptor,
+  getEntitySchema,
   getSpec,
 } from "./backstage/accessors.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
-/** Compatibility mode for an artifact or group. */
+/** Compatibility mode for an entity or group. */
 export type CompatibilityMode = "backward-only" | "full" | "breaking-allowed" | "frozen";
 
-/** Policy for a single artifact or group. */
+/** Policy for a single entity or group. */
 export interface VersionPolicy {
   compatibility: CompatibilityMode;
   approvers?: string[];
@@ -31,14 +31,15 @@ export interface VersionPolicy {
 /** Global version policy config (from .anchored-spec/config.json). */
 export interface VersionPolicyConfig {
   defaultCompatibility?: CompatibilityMode;
-  perKind?: Record<string, Partial<VersionPolicy>>;
+  perSchema?: Record<string, Partial<VersionPolicy>>;
   perDomain?: Record<string, Partial<VersionPolicy>>;
 }
 
 /** A single policy violation. */
 export interface PolicyViolation {
-  artifactId: string;
+  entityRef: string;
   kind: string;
+  schema: string;
   domain: string;
   policy: VersionPolicy;
   compatLevel: CompatibilityLevel;
@@ -54,7 +55,7 @@ export interface PolicyEnforcementReport {
   passed: boolean;
   violations: PolicyViolation[];
   summary: {
-    artifactsChecked: number;
+    entitiesChecked: number;
     violations: number;
     byPolicy: Record<CompatibilityMode, number>;
   };
@@ -70,8 +71,8 @@ const DEFAULT_POLICY: VersionPolicy = {
 // ─── Policy Resolution ──────────────────────────────────────────────────────────
 
 /**
- * Resolve the effective version policy for an artifact.
- * Priority: artifact-level > kind-level > domain-level > global default > breaking-allowed
+ * Resolve the effective version policy for an entity.
+ * Priority: entity-level > schema-level > domain-level > global default > breaking-allowed
  */
 export function resolveVersionPolicy(
   entity: BackstageEntity,
@@ -88,18 +89,18 @@ export function resolveVersionPolicy(
 
   if (!config) return DEFAULT_POLICY;
 
-  // 2. Kind-level
-  const kindPolicy = config.perKind?.[getEntityLegacyKind(entity)];
-  if (kindPolicy?.compatibility) {
+  // 2. Schema-level
+  const schemaPolicy = config.perSchema?.[getEntitySchema(entity)];
+  if (schemaPolicy?.compatibility) {
     return {
       ...DEFAULT_POLICY,
-      ...kindPolicy,
-      compatibility: kindPolicy.compatibility,
+      ...schemaPolicy,
+      compatibility: schemaPolicy.compatibility,
     };
   }
 
   // 3. Domain-level
-  const domain = getEntityKindMapping(entity)?.domain ?? "unknown";
+  const domain = getEntityDescriptor(entity)?.domain ?? "unknown";
   const domainPolicy = config.perDomain?.[domain];
   if (domainPolicy?.compatibility) {
     return {
@@ -164,8 +165,8 @@ export function enforceVersionPolicies(
   };
 
   for (const assessment of compatReport.assessments) {
-    // Resolve policy from the head artifact (or base if removed)
-    const entity = headMap.get(assessment.artifactId) ?? baseMap.get(assessment.artifactId);
+    // Resolve policy from the head entity (or base if removed)
+    const entity = headMap.get(assessment.entityRef) ?? baseMap.get(assessment.entityRef);
     if (!entity) continue;
 
     const policy = resolveVersionPolicy(entity, config);
@@ -177,13 +178,14 @@ export function enforceVersionPolicies(
       );
 
       violations.push({
-        artifactId: assessment.artifactId,
+        entityRef: assessment.entityRef,
         kind: assessment.kind,
+        schema: assessment.schema,
         domain: assessment.domain,
         policy,
         compatLevel: assessment.level,
         reasons: breakingReasons,
-        message: buildViolationMessage(assessment.artifactId, assessment.level, policy),
+        message: buildViolationMessage(assessment.entityRef, assessment.level, policy),
       });
     }
   }
@@ -195,7 +197,7 @@ export function enforceVersionPolicies(
     passed: violations.length === 0,
     violations,
     summary: {
-      artifactsChecked: compatReport.assessments.length,
+      entitiesChecked: compatReport.assessments.length,
       violations: violations.length,
       byPolicy,
     },
@@ -213,11 +215,11 @@ function isViolatingReason(level: CompatibilityLevel, mode: CompatibilityMode): 
 }
 
 function buildViolationMessage(
-  artifactId: string,
+  entityRef: string,
   compatLevel: CompatibilityLevel,
   policy: VersionPolicy,
 ): string {
-  return `${artifactId}: ${compatLevel} change violates ${policy.compatibility} policy`;
+  return `${entityRef}: ${compatLevel} change violates ${policy.compatibility} policy`;
 }
 
 // ─── Rendering ──────────────────────────────────────────────────────────────────
@@ -225,9 +227,9 @@ function buildViolationMessage(
 /** One-line policy enforcement summary. */
 export function renderPolicySummary(report: PolicyEnforcementReport): string {
   if (report.passed) {
-    return `PASSED: ${report.summary.artifactsChecked} artifacts checked, 0 violations`;
+    return `PASSED: ${report.summary.entitiesChecked} entities checked, 0 violations`;
   }
-  return `FAILED: ${report.summary.violations} violation(s) across ${report.summary.artifactsChecked} artifacts`;
+  return `FAILED: ${report.summary.violations} violation(s) across ${report.summary.entitiesChecked} entities`;
 }
 
 /** Full markdown policy enforcement report. */
@@ -253,14 +255,14 @@ export function renderPolicyMarkdown(report: PolicyEnforcementReport): string {
   if (report.violations.length > 0) {
     lines.push("## Violations");
     lines.push("");
-    lines.push("| Artifact | Kind | Domain | Compat Level | Policy | Reason |");
-    lines.push("|----------|------|--------|--------------|--------|--------|");
+    lines.push("| Entity | Kind | Schema | Domain | Compat Level | Policy | Reason |");
+    lines.push("|----------|------|--------|--------|--------------|--------|--------|");
     for (const v of report.violations) {
       const reason = v.reasons.length > 0
         ? v.reasons.map((r) => r.message).join("; ")
         : v.message;
       lines.push(
-        `| ${v.artifactId} | ${v.kind} | ${v.domain} | ${v.compatLevel} | ${v.policy.compatibility} | ${reason} |`,
+        `| ${v.entityRef} | ${v.kind} | ${v.schema} | ${v.domain} | ${v.compatLevel} | ${v.policy.compatibility} | ${reason} |`,
       );
     }
     lines.push("");

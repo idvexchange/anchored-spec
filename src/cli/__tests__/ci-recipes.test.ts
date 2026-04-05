@@ -31,7 +31,8 @@ describe("CI Integration Recipes", () => {
 
     it("triggers on EA and doc file paths", () => {
       const action = generateGitHubAction();
-      expect(action).toContain("'ea/**'");
+      expect(action).toContain("'catalog-info.yaml'");
+      expect(action).toContain("'catalog/**'");
       expect(action).toContain("'docs/**'");
     });
   });
@@ -47,7 +48,8 @@ describe("CI Integration Recipes", () => {
     it("checks for staged EA files before running", () => {
       const hook = generatePreCommitHook();
       expect(hook).toContain("git diff --cached");
-      expect(hook).toContain("STAGED_EA");
+      expect(hook).toContain("STAGED_ENTITIES");
+      expect(hook).toContain("STAGED_CONFIG");
     });
 
     it("runs validate and trace checks", () => {

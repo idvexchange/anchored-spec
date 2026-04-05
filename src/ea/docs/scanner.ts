@@ -2,19 +2,21 @@
  *
  * Finds markdown files with EA-relevant frontmatter in a project.
  * Walks specified directories recursively, parsing frontmatter from
- * each `.md` file and returning documents that reference EA artifacts.
+ * each `.md` file and returning documents that reference EA entities.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, extname } from "node:path";
-import { parseFrontmatter, extractArtifactIds } from "./frontmatter.js";
+import { parseFrontmatter, extractEntityRefs } from "./frontmatter.js";
 import type { DocFrontmatter } from "./frontmatter.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { parseEntityRef } from "../backstage/types.js";
 import { getEntityId } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import { normalizeKnownEntityRef } from "../backstage/ref-utils.js";
+import type { EntityDraft } from "../discovery.js";
 import { createDraft } from "../discovery.js";
-import { BACKSTAGE_KIND_REGISTRY } from "../backstage/kind-mapping.js";
+import type { DraftEntityDescriptor } from "../discovery.js";
+import { ENTITY_DESCRIPTOR_REGISTRY } from "../backstage/kind-mapping.js";
 
 // ─── Constants ────────────────────────────────────────────────────────
 
@@ -42,8 +44,8 @@ export interface ScannedDoc {
   relativePath: string;
   /** Parsed frontmatter. */
   frontmatter: DocFrontmatter;
-  /** EA artifact IDs referenced in frontmatter (convenience). */
-  artifactIds: string[];
+  /** EA entity refs referenced in frontmatter (convenience). */
+  entityRefs: string[];
 }
 
 /** Summary of a scan operation. */
@@ -52,15 +54,15 @@ export interface ScanResult {
   docs: ScannedDoc[];
   /** Total markdown files scanned. */
   totalScanned: number;
-  /** Files that had frontmatter but no EA artifact references. */
-  withFrontmatterNoArtifacts: number;
+  /** Files that had frontmatter but no EA entity refs. */
+  withFrontmatterNoEntities: number;
 }
 
 /** Options for the scanner. */
 export interface ScanOptions {
   /** Directories to scan (relative to projectRoot). Defaults to common doc dirs. */
   dirs?: string[];
-  /** Whether to include docs that have frontmatter but no ea-artifacts. Default: false. */
+  /** Whether to include docs that have frontmatter but no ea-entities. Default: false. */
   includeAll?: boolean;
 }
 
@@ -109,7 +111,7 @@ function walkDir(dir: string, skipDirs: Set<string>): string[] {
  * Scan a project for markdown documents with EA-relevant frontmatter.
  *
  * Walks the specified directories recursively, parsing frontmatter from
- * each `.md` file. Returns only documents that have `ea-artifacts` (or
+ * each `.md` file. Returns only documents that have `ea-entities` (or
  * `anchored-spec`) frontmatter references by default.
  *
  * @param projectRoot - Absolute path to the project root.
@@ -146,7 +148,7 @@ export function scanDocs(projectRoot: string, options?: ScanOptions): ScanResult
 
   // Parse each file and filter
   const docs: ScannedDoc[] = [];
-  let withFrontmatterNoArtifacts = 0;
+  let withFrontmatterNoEntities = 0;
 
   for (const filePath of mdFiles) {
     let content: string;
@@ -159,10 +161,10 @@ export function scanDocs(projectRoot: string, options?: ScanOptions): ScanResult
     const parsed = parseFrontmatter(content);
     if (!parsed.hasFrontmatter) continue;
 
-    const artifactIds = extractArtifactIds(parsed.frontmatter);
+    const entityRefs = extractEntityRefs(parsed.frontmatter);
 
-    if (artifactIds.length === 0) {
-      withFrontmatterNoArtifacts++;
+    if (entityRefs.length === 0) {
+      withFrontmatterNoEntities++;
       if (!includeAll) continue;
     }
 
@@ -170,26 +172,26 @@ export function scanDocs(projectRoot: string, options?: ScanOptions): ScanResult
       path: filePath,
       relativePath: relative(root, filePath),
       frontmatter: parsed.frontmatter,
-      artifactIds,
+      entityRefs,
     });
   }
 
   return {
     docs,
     totalScanned: mdFiles.length,
-    withFrontmatterNoArtifacts,
+    withFrontmatterNoEntities,
   };
 }
 
 /**
- * Build an inverted index: artifact ID → documents that reference it.
- * Useful for finding which docs describe a given artifact.
+ * Build an inverted index: entity ref → documents that reference it.
+ * Useful for finding which docs describe a given entity.
  */
 export function buildDocIndex(docs: ScannedDoc[]): Map<string, ScannedDoc[]> {
   const index = new Map<string, ScannedDoc[]>();
 
   for (const doc of docs) {
-    for (const id of doc.artifactIds) {
+    for (const id of doc.entityRefs) {
       const existing = index.get(id);
       if (existing) {
         existing.push(doc);
@@ -202,14 +204,7 @@ export function buildDocIndex(docs: ScannedDoc[]): Map<string, ScannedDoc[]> {
   return index;
 }
 
-// ─── Prefix → Kind lookup ─────────────────────────────────────────
-
-/** Reverse lookup: uppercase prefix → kind entry. Built once, cached. */
-const PREFIX_TO_KIND = new Map(
-  BACKSTAGE_KIND_REGISTRY.map((entry) => [entry.legacyPrefix, entry]),
-);
-
-const DEFAULT_DISCOVERY_KIND_BY_BACKSTAGE_KIND: Record<string, string> = {
+const DEFAULT_DISCOVERY_SCHEMA_NAME_BY_ENTITY_KIND: Record<string, string> = {
   api: "api-contract",
   component: "service",
   resource: "data-store",
@@ -223,21 +218,7 @@ const DEFAULT_DISCOVERY_KIND_BY_BACKSTAGE_KIND: Record<string, string> = {
 };
 
 /**
- * Parse a frontmatter artifact ID into its prefix and slug components.
- * Example: `"SVC-auth-core"` → `{ prefix: "SVC", slug: "auth-core" }`
- */
-function parseArtifactId(id: string): { prefix: string; slug: string } | null {
-  const dashIdx = id.indexOf("-");
-  if (dashIdx < 1) return null;
-  const prefix = id.slice(0, dashIdx);
-  const slug = id.slice(dashIdx + 1);
-  // Prefix must be all uppercase to match EA conventions
-  if (prefix !== prefix.toUpperCase()) return null;
-  return { prefix, slug };
-}
-
-/**
- * Convert an artifact ID slug to a human-readable title.
+ * Convert an entity-ref slug to a human-readable title.
  * Example: `"auth-core"` → `"Auth Core"`
  */
 function slugToTitle(slug: string): string {
@@ -251,54 +232,59 @@ function slugToTitle(slug: string): string {
 
 /** Result of document-driven discovery. */
 export interface DocDiscoveryResult {
-  /** Draft artifacts scaffolded from doc frontmatter references. */
-  drafts: EaArtifactDraft[];
-  /** Artifact IDs that were already modeled (skipped). */
+  /** Draft entities scaffolded from doc frontmatter references. */
+  drafts: EntityDraft[];
+  /** Entity refs that were already modeled (skipped). */
   alreadyExists: string[];
-  /** Artifact IDs whose prefix didn't match any known kind. */
-  unknownPrefix: string[];
+  /** Entity refs that were not valid Backstage entity refs. */
+  invalidRefs: string[];
 }
 
 /**
- * Discover draft artifacts from document frontmatter.
+ * Discover draft entities from document frontmatter.
  *
- * Scans docs for `ea-artifacts` references, identifies IDs that don't
- * match any existing artifact, and scaffolds draft artifacts from the
- * ID prefix (to determine kind) and the doc context (for summary).
+ * Scans docs for `ea-entities` references, identifies IDs that don't
+ * match any existing entity, and scaffolds draft entities from the
+ * authored entity descriptor and the doc context.
  *
  * This enables the **prose-first workflow**: write docs first, then
- * run `discover --from-docs` to scaffold the artifacts they reference.
+ * run `discover --from-docs` to scaffold the entities they reference.
  *
  * @param docs - Scanned documents with frontmatter.
- * @param existingArtifacts - Already-loaded artifacts to skip.
- * @returns Drafts for missing artifacts plus diagnostic arrays.
+ * @param existingEntities - Already-loaded entities to skip.
+ * @returns Drafts for missing entities plus diagnostic arrays.
  */
 export function discoverFromDocs(
   docs: ScannedDoc[],
-  existingArtifacts: BackstageEntity[],
+  existingEntities: BackstageEntity[],
 ): DocDiscoveryResult {
-  const existingIds = new Set(existingArtifacts.map((entity) => getEntityId(entity)));
+  const existingIds = new Set(existingEntities.map((entity) => getEntityId(entity)));
   const alreadyExists: string[] = [];
-  const unknownPrefix: string[] = [];
-  const drafts: EaArtifactDraft[] = [];
+  const invalidRefs: string[] = [];
+  const drafts: EntityDraft[] = [];
   const seen = new Set<string>();
 
   for (const doc of docs) {
-    for (const id of doc.artifactIds) {
-      // Skip duplicates across docs
-      if (seen.has(id)) continue;
-      seen.add(id);
+    for (const id of doc.entityRefs) {
+      const normalizedId = normalizeKnownEntityRef(id, {
+        defaultNamespace: "default",
+      });
+      const dedupeId = normalizedId ?? id;
 
-      // Skip existing artifacts
-      if (existingIds.has(id)) {
+      // Skip duplicates across docs
+      if (seen.has(dedupeId)) continue;
+      seen.add(dedupeId);
+
+      // Skip existing entities
+      if (normalizedId && existingIds.has(normalizedId)) {
         alreadyExists.push(id);
         continue;
       }
 
-      // Parse prefix to determine kind
+      // Resolve the authored entity ref to an anchored-spec draft kind
       const resolved = resolveDraftKind(id);
       if (!resolved) {
-        unknownPrefix.push(id);
+        invalidRefs.push(id);
         continue;
       }
 
@@ -309,7 +295,7 @@ export function discoverFromDocs(
       const summary =
         `Referenced in ${docType}${domainHint}: ${doc.relativePath}`;
 
-      const draft = createDraft(resolved.legacyKind, slugToTitle(resolved.slug), "doc-frontmatter", {
+      const draft = createDraft(resolved.descriptor, slugToTitle(resolved.slug), "doc-frontmatter", {
         confidence: "inferred",
         summary,
         anchors: { docs: [doc.relativePath] },
@@ -323,31 +309,46 @@ export function discoverFromDocs(
     }
   }
 
-  return { drafts, alreadyExists, unknownPrefix };
+  return { drafts, alreadyExists, invalidRefs };
 }
 
-function resolveDraftKind(id: string): { legacyKind: string; slug: string } | null {
+function resolveDraftKind(id: string): { descriptor: DraftEntityDescriptor; slug: string } | null {
   try {
     const parsed = parseEntityRef(id);
     if (parsed.kind) {
-      const matches = BACKSTAGE_KIND_REGISTRY.filter(
-        (entry) => entry.backstageKind.toLowerCase() === parsed.kind,
+      const matches = ENTITY_DESCRIPTOR_REGISTRY.filter(
+        (entry) => entry.kind.toLowerCase() === parsed.kind,
       );
       if (matches.length === 1) {
-        return { legacyKind: matches[0]!.legacyKind, slug: parsed.name };
+        const match = matches[0]!;
+        return {
+          descriptor: {
+            apiVersion: match.apiVersion,
+            kind: match.kind,
+            type: match.specType,
+            schema: match.schema,
+          },
+          slug: parsed.name,
+        };
       }
-      const defaultKind = DEFAULT_DISCOVERY_KIND_BY_BACKSTAGE_KIND[parsed.kind];
-      if (defaultKind) {
-        return { legacyKind: defaultKind, slug: parsed.name };
+      const defaultSchemaName = DEFAULT_DISCOVERY_SCHEMA_NAME_BY_ENTITY_KIND[parsed.kind];
+      if (defaultSchemaName) {
+        const match = ENTITY_DESCRIPTOR_REGISTRY.find((entry) => entry.schema === defaultSchemaName);
+        if (match) {
+          return {
+            descriptor: {
+              apiVersion: match.apiVersion,
+              kind: match.kind,
+              type: match.specType,
+              schema: match.schema,
+            },
+            slug: parsed.name,
+          };
+        }
       }
     }
   } catch {
-    // Fall back to legacy ID parsing below.
+    return null;
   }
-
-  const parsed = parseArtifactId(id);
-  if (!parsed) return null;
-  const kindEntry = PREFIX_TO_KIND.get(parsed.prefix);
-  if (!kindEntry) return null;
-  return { legacyKind: kindEntry.legacyKind, slug: parsed.slug };
+  return null;
 }

@@ -16,12 +16,17 @@ import {
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityDomain,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntitySpecRelations,
   getEntityStatus,
 } from "./backstage/accessors.js";
 import type { EaDomain } from "./types.js";
-import { resolveConfigV1, type AnchoredSpecConfigV1 } from "./config.js";
+import {
+  loadProjectConfig,
+  getVerificationSearchDirs,
+  type AnchoredSpecConfigV1,
+} from "./config.js";
 import { type EaValidationError } from "./validate.js";
 
 export interface EaLoadedEntity {
@@ -43,6 +48,7 @@ export interface EaEntitySummary {
   totalEntities: number;
   byDomain: Record<string, number>;
   byKind: Record<string, number>;
+  bySchema: Record<string, number>;
   byStatus: Record<string, number>;
   errorCount: number;
   relationCount: number;
@@ -82,13 +88,7 @@ export class EaRoot {
   }
 
   static resolveProjectConfig(projectRoot: string): AnchoredSpecConfigV1 {
-    const configPath = join(resolve(projectRoot), CONFIG_FILE);
-    if (!existsSync(configPath)) {
-      return resolveConfigV1();
-    }
-
-    const raw = JSON.parse(readFileSync(configPath, "utf-8")) as Partial<AnchoredSpecConfigV1>;
-    return resolveConfigV1(raw);
+    return loadProjectConfig(projectRoot);
   }
 
   static fromDirectory(startDir: string): EaRoot | null {
@@ -132,7 +132,7 @@ export class EaRoot {
 
   isInitialized(): boolean {
     if (this.v1Config.entityMode === "inline") {
-      const dirs = this.v1Config.inlineDocDirs ?? ["docs"];
+      const dirs = this.v1Config.inlineDocDirs ?? [this.v1Config.rootDir];
       return dirs.some((dir) => existsSync(join(this.projectRoot, dir)));
     }
 
@@ -178,28 +178,30 @@ export class EaRoot {
   }
 
   loadVerifications(): Record<string, unknown>[] {
-    const transitionsDir = join(this.projectRoot, this.v1Config.domains.transitions);
-    if (!existsSync(transitionsDir)) return [];
-
     const verifications: Record<string, unknown>[] = [];
-    try {
-      const entries = readdirSync(transitionsDir);
-      for (const entry of entries) {
-        const fullPath = join(transitionsDir, entry);
-        if (!statSync(fullPath).isDirectory()) continue;
+    for (const relativeDir of getVerificationSearchDirs(this.v1Config)) {
+      const transitionsDir = join(this.projectRoot, relativeDir);
+      if (!existsSync(transitionsDir)) continue;
 
-        const verifyJson = join(fullPath, "verification.json");
-        if (existsSync(verifyJson)) {
-          verifications.push(JSON.parse(readFileSync(verifyJson, "utf-8")) as Record<string, unknown>);
-        }
+      try {
+        const entries = readdirSync(transitionsDir);
+        for (const entry of entries) {
+          const fullPath = join(transitionsDir, entry);
+          if (!statSync(fullPath).isDirectory()) continue;
 
-        const verifyYaml = join(fullPath, "verification.yaml");
-        if (existsSync(verifyYaml)) {
-          verifications.push(parseYaml(readFileSync(verifyYaml, "utf-8")) as Record<string, unknown>);
+          const verifyJson = join(fullPath, "verification.json");
+          if (existsSync(verifyJson)) {
+            verifications.push(JSON.parse(readFileSync(verifyJson, "utf-8")) as Record<string, unknown>);
+          }
+
+          const verifyYaml = join(fullPath, "verification.yaml");
+          if (existsSync(verifyYaml)) {
+            verifications.push(parseYaml(readFileSync(verifyYaml, "utf-8")) as Record<string, unknown>);
+          }
         }
+      } catch {
+        return verifications;
       }
-    } catch {
-      return verifications;
     }
 
     return verifications;
@@ -211,15 +213,18 @@ export class EaRoot {
 
     const byDomain: Record<string, number> = {};
     const byKind: Record<string, number> = {};
+    const bySchema: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
     let relationCount = 0;
 
     for (const entity of entities) {
       const domain = getEntityDomain(entity) ?? "unknown";
-      const kind = getEntityLegacyKind(entity);
+      const kind = getEntityKind(entity);
+      const schema = getEntitySchema(entity);
       const status = getEntityStatus(entity);
       byDomain[domain] = (byDomain[domain] ?? 0) + 1;
       byKind[kind] = (byKind[kind] ?? 0) + 1;
+      bySchema[schema] = (bySchema[schema] ?? 0) + 1;
       byStatus[status] = (byStatus[status] ?? 0) + 1;
       relationCount += getEntitySpecRelations(entity).reduce((count, relation) => count + relation.targets.length, 0);
     }
@@ -228,6 +233,7 @@ export class EaRoot {
       totalEntities: entities.length,
       byDomain,
       byKind,
+      bySchema,
       byStatus,
       errorCount: errors.length,
       relationCount,
@@ -245,7 +251,7 @@ export class EaRoot {
     }
 
     const totalFiles = this.v1Config.entityMode === "inline"
-      ? (this.v1Config.inlineDocDirs ?? ["docs"]).reduce(
+      ? (this.v1Config.inlineDocDirs ?? [this.v1Config.rootDir]).reduce(
           (sum, dir) => sum + countFilesWithExtensions(join(this.projectRoot, dir), new Set([".md", ".markdown"])),
           0,
         )

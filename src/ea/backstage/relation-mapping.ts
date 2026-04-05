@@ -1,7 +1,7 @@
 /**
  * Backstage Relation Mapping
  *
- * Maps the 27 legacy anchored-spec relation types to Backstage well-known
+ * Maps the anchored-spec relation vocabulary to Backstage well-known
  * relations and custom anchored-spec relations.
  *
  * Backstage well-known relations:
@@ -12,16 +12,28 @@
  * handles the mapping between both representations.
  */
 
+import {
+  RELATION_API_CONSUMED_BY,
+  RELATION_API_PROVIDED_BY,
+  RELATION_CONSUMES_API,
+  RELATION_DEPENDENCY_OF,
+  RELATION_DEPENDS_ON,
+  RELATION_OWNED_BY,
+  RELATION_OWNER_OF,
+  RELATION_PROVIDES_API,
+} from "@backstage/catalog-model";
+import { normalizeEntityRef } from "./types.js";
+
 // ─── Relation Tiers ─────────────────────────────────────────────────────────────
 
 /**
- * A mapping from a legacy relation type to its Backstage equivalent.
+ * A mapping from an anchored-spec relation type to its Backstage equivalent.
  */
 export interface RelationMappingEntry {
-  /** Legacy anchored-spec relation type (canonical direction). */
-  legacyType: string;
-  /** Legacy inverse type. */
-  legacyInverse: string;
+  /** Anchored-spec relation type (canonical direction). */
+  type: string;
+  /** Inverse anchored-spec relation type. */
+  inverse: string;
   /** Backstage relation type (forward). */
   backstageType: string;
   /** Backstage inverse relation type. */
@@ -45,40 +57,40 @@ export interface RelationMappingEntry {
 
 const WELL_KNOWN_RELATIONS: RelationMappingEntry[] = [
   {
-    legacyType: "dependsOn",
-    legacyInverse: "dependedOnBy",
-    backstageType: "dependsOn",
-    backstageInverse: "dependencyOf",
+    type: "dependsOn",
+    inverse: "dependedOnBy",
+    backstageType: RELATION_DEPENDS_ON,
+    backstageInverse: RELATION_DEPENDENCY_OF,
     isWellKnown: true,
     placement: "spec-field",
     specField: "dependsOn",
     description: "A needs B to function. Backstage well-known.",
   },
   {
-    legacyType: "owns",
-    legacyInverse: "ownedBy",
-    backstageType: "ownerOf",
-    backstageInverse: "ownedBy",
+    type: "ownedBy",
+    inverse: "ownerOf",
+    backstageType: RELATION_OWNED_BY,
+    backstageInverse: RELATION_OWNER_OF,
     isWellKnown: true,
     placement: "spec-field",
     specField: "owner",
     description: "Ownership/accountability. Expressed via spec.owner in Backstage.",
   },
   {
-    legacyType: "exposes",
-    legacyInverse: "exposedBy",
-    backstageType: "providesApi",
-    backstageInverse: "apiProvidedBy",
+    type: "exposes",
+    inverse: "exposedBy",
+    backstageType: RELATION_PROVIDES_API,
+    backstageInverse: RELATION_API_PROVIDED_BY,
     isWellKnown: true,
     placement: "spec-field",
     specField: "providesApis",
     description: "Component exposes an API. Backstage well-known.",
   },
   {
-    legacyType: "consumes",
-    legacyInverse: "consumedBy",
-    backstageType: "consumesApi",
-    backstageInverse: "apiConsumedBy",
+    type: "consumes",
+    inverse: "consumedBy",
+    backstageType: RELATION_CONSUMES_API,
+    backstageInverse: RELATION_API_CONSUMED_BY,
     isWellKnown: true,
     placement: "spec-field",
     specField: "consumesApis",
@@ -90,8 +102,8 @@ const WELL_KNOWN_RELATIONS: RelationMappingEntry[] = [
 
 const CUSTOM_RELATIONS: RelationMappingEntry[] = [
   {
-    legacyType: "realizes",
-    legacyInverse: "realizedBy",
+    type: "realizes",
+    inverse: "realizedBy",
     backstageType: "realizes",
     backstageInverse: "realizedBy",
     isWellKnown: false,
@@ -100,8 +112,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source system realizes a capability or requirement.",
   },
   {
-    legacyType: "uses",
-    legacyInverse: "usedBy",
+    type: "uses",
+    inverse: "usedBy",
     backstageType: "uses",
     backstageInverse: "usedBy",
     isWellKnown: false,
@@ -110,8 +122,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source uses a data store or system.",
   },
   {
-    legacyType: "deploys",
-    legacyInverse: "deployedBy",
+    type: "deploys",
+    inverse: "deployedBy",
     backstageType: "deploys",
     backstageInverse: "deployedBy",
     isWellKnown: false,
@@ -120,8 +132,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Deployment deploys an application.",
   },
   {
-    legacyType: "runsOn",
-    legacyInverse: "runs",
+    type: "runsOn",
+    inverse: "runs",
     backstageType: "runsOn",
     backstageInverse: "runs",
     isWellKnown: false,
@@ -130,8 +142,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source runs on a platform or cluster.",
   },
   {
-    legacyType: "boundedBy",
-    legacyInverse: "bounds",
+    type: "boundedBy",
+    inverse: "bounds",
     backstageType: "boundedBy",
     backstageInverse: "bounds",
     isWellKnown: false,
@@ -140,8 +152,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source is bounded by a network zone or identity boundary.",
   },
   {
-    legacyType: "authenticatedBy",
-    legacyInverse: "authenticates",
+    type: "authenticatedBy",
+    inverse: "authenticates",
     backstageType: "authenticatedBy",
     backstageInverse: "authenticates",
     isWellKnown: false,
@@ -150,8 +162,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source is authenticated by an identity boundary.",
   },
   {
-    legacyType: "deployedTo",
-    legacyInverse: "hosts",
+    type: "deployedTo",
+    inverse: "hosts",
     backstageType: "deployedTo",
     backstageInverse: "hosts",
     isWellKnown: false,
@@ -160,8 +172,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Application deployed to a platform or environment.",
   },
   {
-    legacyType: "interfacesWith",
-    legacyInverse: "interfacedBy",
+    type: "interfacesWith",
+    inverse: "interfacedBy",
     backstageType: "interfacesWith",
     backstageInverse: "interfacedBy",
     isWellKnown: false,
@@ -170,18 +182,18 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source interfaces with an external system boundary.",
   },
   {
-    legacyType: "standardizes",
-    legacyInverse: "standardizedBy",
+    type: "standardizes",
+    inverse: "standardizedBy",
     backstageType: "standardizes",
     backstageInverse: "standardizedBy",
     isWellKnown: false,
     placement: "spec-field",
     specField: "standardizes",
-    description: "Technology standard governs target artifacts.",
+    description: "Technology standard governs target entities.",
   },
   {
-    legacyType: "providedBy",
-    legacyInverse: "provides",
+    type: "providedBy",
+    inverse: "provides",
     backstageType: "providedBy",
     backstageInverse: "provides",
     isWellKnown: false,
@@ -190,8 +202,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Cloud resource provided by a platform.",
   },
   {
-    legacyType: "stores",
-    legacyInverse: "storedIn",
+    type: "stores",
+    inverse: "storedIn",
     backstageType: "stores",
     backstageInverse: "storedIn",
     isWellKnown: false,
@@ -200,8 +212,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Data store stores a schema or entity.",
   },
   {
-    legacyType: "hostedOn",
-    legacyInverse: "hostsData",
+    type: "hostedOn",
+    inverse: "hostsData",
     backstageType: "hostedOn",
     backstageInverse: "hostsData",
     isWellKnown: false,
@@ -210,8 +222,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Data store hosted on infrastructure.",
   },
   {
-    legacyType: "lineageFrom",
-    legacyInverse: "lineageTo",
+    type: "lineageFrom",
+    inverse: "lineageTo",
     backstageType: "lineageFrom",
     backstageInverse: "lineageTo",
     isWellKnown: false,
@@ -220,28 +232,28 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Data lineage from a source.",
   },
   {
-    legacyType: "implementedBy",
-    legacyInverse: "implements",
+    type: "implementedBy",
+    inverse: "implements",
     backstageType: "implementedBy",
     backstageInverse: "implements",
     isWellKnown: false,
     placement: "spec-field",
     specField: "implementedBy",
-    description: "Logical concept implemented by physical artifact.",
+    description: "Logical concept implemented by physical entity.",
   },
   {
-    legacyType: "classifiedAs",
-    legacyInverse: "classifies",
+    type: "classifiedAs",
+    inverse: "classifies",
     backstageType: "classifiedAs",
     backstageInverse: "classifies",
     isWellKnown: false,
     placement: "spec-field",
     specField: "classifiedAs",
-    description: "Data artifact classified under a category.",
+    description: "Data entity classified under a category.",
   },
   {
-    legacyType: "exchangedVia",
-    legacyInverse: "exchanges",
+    type: "exchangedVia",
+    inverse: "exchanges",
     backstageType: "exchangedVia",
     backstageInverse: "exchanges",
     isWellKnown: false,
@@ -250,8 +262,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Information exchanged via a contract.",
   },
   {
-    legacyType: "retainedUnder",
-    legacyInverse: "retains",
+    type: "retainedUnder",
+    inverse: "retains",
     backstageType: "retainedUnder",
     backstageInverse: "retains",
     isWellKnown: false,
@@ -260,8 +272,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Data subject to retention policy.",
   },
   {
-    legacyType: "supports",
-    legacyInverse: "supportedBy",
+    type: "supports",
+    inverse: "supportedBy",
     backstageType: "supports",
     backstageInverse: "supportedBy",
     isWellKnown: false,
@@ -270,8 +282,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source supports a capability or mission.",
   },
   {
-    legacyType: "performedBy",
-    legacyInverse: "performs",
+    type: "performedBy",
+    inverse: "performs",
     backstageType: "performedBy",
     backstageInverse: "performs",
     isWellKnown: false,
@@ -280,18 +292,18 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Capability performed by a process or org unit.",
   },
   {
-    legacyType: "governedBy",
-    legacyInverse: "governs",
+    type: "governedBy",
+    inverse: "governs",
     backstageType: "governedBy",
     backstageInverse: "governs",
     isWellKnown: false,
     placement: "spec-field",
     specField: "governedBy",
-    description: "Artifact governed by a policy or control.",
+    description: "Entity governed by a policy or control.",
   },
   {
-    legacyType: "supersedes",
-    legacyInverse: "supersededBy",
+    type: "supersedes",
+    inverse: "supersededBy",
     backstageType: "supersedes",
     backstageInverse: "supersededBy",
     isWellKnown: false,
@@ -300,8 +312,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Source supersedes target.",
   },
   {
-    legacyType: "generates",
-    legacyInverse: "generatedBy",
+    type: "generates",
+    inverse: "generatedBy",
     backstageType: "generates",
     backstageInverse: "generatedBy",
     isWellKnown: false,
@@ -310,8 +322,8 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Transition plan generates change records.",
   },
   {
-    legacyType: "mitigates",
-    legacyInverse: "mitigatedBy",
+    type: "mitigates",
+    inverse: "mitigatedBy",
     backstageType: "mitigates",
     backstageInverse: "mitigatedBy",
     isWellKnown: false,
@@ -320,14 +332,14 @@ const CUSTOM_RELATIONS: RelationMappingEntry[] = [
     description: "Exception mitigates drift findings.",
   },
   {
-    legacyType: "targets",
-    legacyInverse: "targetedBy",
+    type: "targets",
+    inverse: "targetedBy",
     backstageType: "targets",
     backstageInverse: "targetedBy",
     isWellKnown: false,
     placement: "spec-field",
     specField: "targets",
-    description: "Transition artifact targets a future state.",
+    description: "Transition entity targets a future state.",
   },
 ];
 
@@ -340,14 +352,14 @@ export const RELATION_MAPPING_REGISTRY: readonly RelationMappingEntry[] = [
 
 // ─── Lookup Indexes ─────────────────────────────────────────────────────────────
 
-/** Lookup by legacy type (forward). */
-const byLegacyType = new Map<string, RelationMappingEntry>(
-  RELATION_MAPPING_REGISTRY.map((e) => [e.legacyType, e]),
+/** Lookup by anchored-spec type (forward). */
+const byType = new Map<string, RelationMappingEntry>(
+  RELATION_MAPPING_REGISTRY.map((e) => [e.type, e]),
 );
 
-/** Lookup by legacy inverse type. */
-const byLegacyInverse = new Map<string, RelationMappingEntry>(
-  RELATION_MAPPING_REGISTRY.map((e) => [e.legacyInverse, e]),
+/** Lookup by anchored-spec inverse type. */
+const byInverse = new Map<string, RelationMappingEntry>(
+  RELATION_MAPPING_REGISTRY.map((e) => [e.inverse, e]),
 );
 
 /** Lookup by Backstage type (forward). */
@@ -368,11 +380,11 @@ const bySpecField = new Map<string, RelationMappingEntry>(
 // ─── Lookup Functions ───────────────────────────────────────────────────────────
 
 /**
- * Map a legacy relation type to its Backstage equivalent.
+ * Map an anchored-spec relation type to its Backstage equivalent.
  * Handles both forward and inverse types.
  */
-export function mapLegacyRelation(legacyType: string): RelationMappingEntry | undefined {
-  return byLegacyType.get(legacyType) ?? byLegacyInverse.get(legacyType);
+export function mapRelationType(type: string): RelationMappingEntry | undefined {
+  return byType.get(type) ?? byInverse.get(type);
 }
 
 /**
@@ -413,16 +425,16 @@ export function isWellKnownRelation(type: string): boolean {
 }
 
 /**
- * Convert a legacy relation (type + target artifact ID) to Backstage format.
+ * Convert an anchored-spec relation (type + target entity ID) to Backstage format.
  *
  * Returns the spec field name and the entity ref to add to it, or
  * null if the relation isn't mapped.
  */
-export function legacyRelationToSpecEntry(
-  legacyType: string,
+export function relationTypeToSpecEntry(
+  type: string,
   targetEntityRef: string,
 ): { specField: string; targetRef: string } | null {
-  const entry = byLegacyType.get(legacyType);
+  const entry = byType.get(type);
   if (!entry || !entry.specField) return null;
 
   return {
@@ -435,12 +447,30 @@ export function legacyRelationToSpecEntry(
  * Extract relations from a Backstage entity's spec fields.
  *
  * Scans all known spec field names (dependsOn, providesApis, etc.) and
- * returns them as legacy-style relation objects: { type, target }.
+ * returns them as anchored-spec relation objects: { type, target }.
  */
 export function extractRelationsFromSpec(
   spec: Record<string, unknown>,
-): Array<{ legacyType: string; backstageType: string; targets: string[] }> {
-  const results: Array<{ legacyType: string; backstageType: string; targets: string[] }> = [];
+): Array<{ type: string; backstageType: string; targets: string[] }> {
+  const results: Array<{ type: string; backstageType: string; targets: string[] }> = [];
+
+  const normalizeSpecTarget = (specField: string, target: string): string => {
+    switch (specField) {
+      case "owner":
+        return normalizeEntityRef(target, {
+          defaultKind: "Group",
+          defaultNamespace: "default",
+        });
+      case "providesApis":
+      case "consumesApis":
+        return normalizeEntityRef(target, {
+          defaultKind: "API",
+          defaultNamespace: "default",
+        });
+      default:
+        return normalizeEntityRef(target, { defaultNamespace: "default" });
+    }
+  };
 
   for (const entry of RELATION_MAPPING_REGISTRY) {
     if (!entry.specField) continue;
@@ -451,17 +481,32 @@ export function extractRelationsFromSpec(
     // `owner` is a single string, all others are string arrays
     if (entry.specField === "owner") {
       if (typeof value === "string") {
+        const target = (() => {
+          try {
+            return normalizeSpecTarget(entry.specField, value);
+          } catch {
+            return value;
+          }
+        })();
         results.push({
-          legacyType: entry.legacyType,
+          type: entry.type,
           backstageType: entry.backstageType,
-          targets: [value],
+          targets: [target],
         });
       }
     } else if (Array.isArray(value)) {
-      const targets = value.filter((v): v is string => typeof v === "string");
+      const targets = value
+        .filter((v): v is string => typeof v === "string")
+        .map((target) => {
+          try {
+            return normalizeSpecTarget(entry.specField!, target);
+          } catch {
+            return target;
+          }
+        });
       if (targets.length > 0) {
         results.push({
-          legacyType: entry.legacyType,
+          type: entry.type,
           backstageType: entry.backstageType,
           targets,
         });

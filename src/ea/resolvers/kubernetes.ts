@@ -2,19 +2,20 @@
  * Anchored Spec — Kubernetes Resolver
  *
  * Reads Kubernetes YAML manifests to validate deployment anchors,
- * collect observed infrastructure state, and discover delivery-layer artifacts.
+ * collect observed infrastructure state, and discover delivery-layer entities.
  *
  * Supported resource kinds: Deployment, Service, Namespace, NetworkPolicy,
  * ServiceAccount, StatefulSet, DaemonSet, HorizontalPodAutoscaler.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (Kubernetes Resolver)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (Kubernetes Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
+import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import { parseSimpleYaml } from "./openapi.js";
 import type {
   EaResolver,
@@ -41,16 +42,16 @@ export interface K8sManifest {
   _sourceFile: string;
 }
 
-/** Mapping from K8s resource kind to EA kind. */
-const K8S_KIND_MAP: Record<string, { eaKind: string; eaDomain: string; prefix: string }> = {
-  Deployment: { eaKind: "deployment", eaDomain: "delivery", prefix: "DEPLOY" },
-  StatefulSet: { eaKind: "deployment", eaDomain: "delivery", prefix: "DEPLOY" },
-  DaemonSet: { eaKind: "deployment", eaDomain: "delivery", prefix: "DEPLOY" },
-  Service: { eaKind: "application", eaDomain: "systems", prefix: "APP" },
-  Namespace: { eaKind: "environment", eaDomain: "delivery", prefix: "ENV" },
-  NetworkPolicy: { eaKind: "network-zone", eaDomain: "delivery", prefix: "ZONE" },
-  ServiceAccount: { eaKind: "identity-boundary", eaDomain: "delivery", prefix: "IDB" },
-  HorizontalPodAutoscaler: { eaKind: "deployment", eaDomain: "delivery", prefix: "DEPLOY" },
+/** Mapping from K8s resource kind to anchored-spec schema profiles. */
+const K8S_KIND_MAP: Record<string, { schema: string }> = {
+  Deployment: { schema: "deployment" },
+  StatefulSet: { schema: "deployment" },
+  DaemonSet: { schema: "deployment" },
+  Service: { schema: "application" },
+  Namespace: { schema: "environment" },
+  NetworkPolicy: { schema: "network-zone" },
+  ServiceAccount: { schema: "identity-boundary" },
+  HorizontalPodAutoscaler: { schema: "deployment" },
 };
 
 // ─── File Discovery ─────────────────────────────────────────────────────────────
@@ -223,7 +224,7 @@ export function extractReplicas(manifest: K8sManifest): number | undefined {
   return undefined;
 }
 
-/** Slugify a name for use as artifact ID. */
+/** Slugify a name for use as entity ID. */
 function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -239,12 +240,12 @@ const CACHE_KEY_PREFIX = "kubernetes:manifests";
 
 /**
  * Kubernetes Resolver — resolves infra anchors against K8s manifests,
- * collects observed deployment state, and discovers delivery-layer artifacts.
+ * collects observed deployment state, and discovers delivery-layer entities.
  */
 export class KubernetesResolver implements EaResolver {
   readonly name = "kubernetes";
   readonly domains: EaResolver["domains"] = ["delivery", "systems"];
-  readonly kinds = ["deployment", "application", "environment", "network-zone", "identity-boundary"];
+  readonly schemas = ["deployment", "application", "environment", "network-zone", "identity-boundary"];
 
   /**
    * Resolve infrastructure anchors against K8s manifests.
@@ -325,11 +326,13 @@ export class KubernetesResolver implements EaResolver {
     for (const m of manifests) {
       const mapping = K8S_KIND_MAP[m.kind ?? ""];
       if (!mapping) continue;
+      const descriptor = getSchemaDescriptor(mapping.schema);
+      if (!descriptor) continue;
 
       entities.push({
         externalId: k8sResourceId(m),
-        inferredKind: mapping.eaKind,
-        inferredDomain: mapping.eaDomain as ObservedEntity["inferredDomain"],
+        inferredSchema: descriptor.schema,
+        inferredDomain: descriptor.domain as ObservedEntity["inferredDomain"],
         metadata: {
           k8sKind: m.kind,
           name: m.metadata?.name,
@@ -351,30 +354,32 @@ export class KubernetesResolver implements EaResolver {
   }
 
   /**
-   * Discover EA artifacts from K8s manifests.
+   * Discover EA entities from K8s manifests.
    *
-   * Maps K8s resources to EA kinds:
-   * - Deployment/StatefulSet/DaemonSet → deployment artifact
-   * - Service → application artifact
-   * - Namespace → environment artifact
-   * - NetworkPolicy → network-zone artifact
-   * - ServiceAccount → identity-boundary artifact
+   * Maps K8s resources to EA schema profiles:
+   * - Deployment/StatefulSet/DaemonSet → deployment entity
+   * - Service → application entity
+   * - Namespace → environment entity
+   * - NetworkPolicy → network-zone entity
+   * - ServiceAccount → identity-boundary entity
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const manifests = this.loadManifests(ctx);
     if (manifests.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
 
     for (const m of manifests) {
       const mapping = K8S_KIND_MAP[m.kind ?? ""];
       if (!mapping) continue;
+      const descriptor = getSchemaDescriptor(mapping.schema);
+      if (!descriptor) continue;
 
       const name = m.metadata?.name ?? "unnamed";
       const ns = m.metadata?.namespace;
-      const dedupeKey = `${mapping.eaKind}:${ns ?? "default"}:${name}`;
+      const dedupeKey = `${descriptor.schema}:${ns ?? "default"}:${name}`;
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 
@@ -383,9 +388,12 @@ export class KubernetesResolver implements EaResolver {
       const images = extractImages(m);
       const replicas = extractReplicas(m);
 
-      const draft: EaArtifactDraft = {
-        suggestedId: `${mapping.eaDomain}/${mapping.prefix}-${slug}`,
-        kind: mapping.eaKind,
+      const draft: EntityDraft = {
+        suggestedId: `${descriptor.kind.toLowerCase()}:${slug}`,
+        apiVersion: descriptor.apiVersion,
+        kind: descriptor.kind,
+        type: descriptor.specType,
+        schema: descriptor.schema,
         title,
         summary: `${m.kind} ${name} discovered from ${m._sourceFile}`,
         status: "draft",
@@ -393,7 +401,7 @@ export class KubernetesResolver implements EaResolver {
         anchors: { infra: [`kubernetes:${k8sResourceId(m)}`] },
         discoveredBy: "kubernetes",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           k8sKind: m.kind,
           namespace: ns,
           ...(images.length > 0 ? { images } : {}),

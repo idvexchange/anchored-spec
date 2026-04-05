@@ -1,7 +1,7 @@
 /**
  * anchored-spec ea generate
  *
- * Run EA generators to produce implementation artifacts from EA specs.
+ * Run EA generators to produce implementation entities from EA specs.
  */
 
 import { Command } from "commander";
@@ -17,14 +17,14 @@ import { silentLogger } from "../../ea/resolvers/types.js";
 
 export function eaGenerateCommand(): Command {
   return new Command("generate")
-    .description("Generate implementation artifacts from EA specs")
+    .description("Generate implementation entities from EA specs")
     .option("--generator <name>", "Run a specific generator")
-    .option("--kind <kind>", "Filter to specific artifact kinds (comma-separated)")
+    .option("--schema <schema>", "Filter to specific schema profiles (comma-separated)")
     .option("--check", "Check for generation drift without generating")
     .option("--dry-run", "Show what would be generated without writing files")
     .option("--json", "Output report as JSON")
     .option("--output-dir <path>", "Output directory", "generated")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -70,7 +70,9 @@ export function eaGenerateCommand(): Command {
         return;
       }
 
-      const kinds = options.kind ? options.kind.split(",").map((k: string) => k.trim()) : undefined;
+      const schemas = options.schema
+        ? options.schema.split(",").map((schema: string) => schema.trim())
+        : undefined;
 
       const report = runGenerators({
         entities,
@@ -81,7 +83,7 @@ export function eaGenerateCommand(): Command {
         logger: silentLogger,
         checkOnly: options.check,
         dryRun: options.dryRun,
-        kinds,
+        schemas,
         generatorName: options.generator,
       });
 
@@ -101,7 +103,7 @@ export function eaGenerateCommand(): Command {
         console.log(`Dry run: ${report.outputs.length} file(s) would be generated.\n`);
         for (const output of report.outputs) {
           console.log(`  ${output.relativePath} (${output.contentType})`);
-          console.log(`    From: ${output.sourceArtifactId}`);
+          console.log(`    From: ${output.sourceEntityRef}`);
         }
       } else {
         console.log(renderGenerationReportMarkdown(report));

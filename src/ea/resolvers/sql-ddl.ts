@@ -2,16 +2,17 @@
  * Anchored Spec — SQL DDL Resolver
  *
  * Parses SQL DDL files (CREATE TABLE statements) to validate schema anchors,
- * collect observed data-layer state, and discover physical-schema/data-store artifacts.
+ * collect observed data-layer state, and discover physical-schema/data-store entities.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (SQL DDL Resolver)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (SQL DDL Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
+import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import type {
   EaResolver,
   EaResolverContext,
@@ -264,12 +265,12 @@ const CACHE_KEY_PREFIX = "sql-ddl:tables";
 
 /**
  * SQL DDL Resolver — resolves schema anchors against CREATE TABLE statements,
- * collects observed table state, and discovers physical-schema/data-store artifacts.
+ * collects observed table state, and discovers physical-schema/data-store entities.
  */
 export class SqlDdlResolver implements EaResolver {
   readonly name = "sql-ddl";
   readonly domains: EaResolver["domains"] = ["data"];
-  readonly kinds = ["physical-schema", "data-store"];
+  readonly schemas = ["physical-schema", "data-store"];
 
   /**
    * Resolve schema anchors against DDL definitions.
@@ -342,7 +343,7 @@ export class SqlDdlResolver implements EaResolver {
     for (const t of tables) {
       entities.push({
         externalId: t.qualifiedName,
-        inferredKind: "physical-schema",
+        inferredSchema: "physical-schema",
         inferredDomain: "data",
         metadata: {
           name: t.name,
@@ -362,7 +363,7 @@ export class SqlDdlResolver implements EaResolver {
     for (const schema of schemas) {
       entities.push({
         externalId: `schema:${schema}`,
-        inferredKind: "data-store",
+        inferredSchema: "data-store",
         inferredDomain: "data",
         metadata: { schema, tableCount: tables.filter((t) => t.schema === schema).length },
       });
@@ -377,16 +378,18 @@ export class SqlDdlResolver implements EaResolver {
   }
 
   /**
-   * Discover physical-schema and data-store artifacts from DDL files.
+   * Discover physical-schema and data-store entities from DDL files.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const tables = this.loadTables(ctx);
     if (tables.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
     const schemas = new Set<string>();
+    const physicalSchema = getSchemaDescriptor("physical-schema")!;
+    const dataStore = getSchemaDescriptor("data-store")!;
 
     for (const t of tables) {
       const dedupeKey = t.qualifiedName;
@@ -395,8 +398,11 @@ export class SqlDdlResolver implements EaResolver {
 
       const slug = slugify(t.qualifiedName);
       drafts.push({
-        suggestedId: `data/SCHEMA-${slug}`,
-        kind: "physical-schema",
+        suggestedId: `resource:${slug}`,
+        apiVersion: physicalSchema.apiVersion,
+        kind: physicalSchema.kind,
+        type: physicalSchema.specType,
+        schema: physicalSchema.schema,
         title: t.qualifiedName,
         summary: `Table ${t.qualifiedName} with ${t.columns.length} columns (from ${t.sourceFile})`,
         status: "draft",
@@ -404,7 +410,7 @@ export class SqlDdlResolver implements EaResolver {
         anchors: { schemas: [t.qualifiedName] },
         discoveredBy: "sql-ddl",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           columns: t.columns.map((c) => ({
             name: c.name,
             type: c.type,
@@ -423,8 +429,11 @@ export class SqlDdlResolver implements EaResolver {
       const slug = slugify(schema);
       const tableCount = tables.filter((t) => t.schema === schema).length;
       drafts.push({
-        suggestedId: `data/STORE-${slug}`,
-        kind: "data-store",
+        suggestedId: `resource:${slug}`,
+        apiVersion: dataStore.apiVersion,
+        kind: dataStore.kind,
+        type: dataStore.specType,
+        schema: dataStore.schema,
         title: `${schema} database schema`,
         summary: `Database schema ${schema} with ${tableCount} table(s)`,
         status: "draft",
@@ -432,7 +441,7 @@ export class SqlDdlResolver implements EaResolver {
         anchors: { schemas: [`${schema}.*`] },
         discoveredBy: "sql-ddl",
         discoveredAt: now,
-        kindSpecificFields: { schema, tableCount },
+        schemaFields: { schema, tableCount },
       });
     }
 

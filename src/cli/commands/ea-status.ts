@@ -10,12 +10,14 @@ import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveConfigV1 } from "../../ea/config.js";
 import { EA_DOMAINS } from "../../ea/types.js";
-import type { EaDomain } from "../../ea/types.js";
+import { validateEntities, validateEaRelations } from "../../ea/validate.js";
+import { createDefaultRegistry } from "../../ea/relation-registry.js";
 import {
   getEntityAnchors,
   getEntityConfidence,
   getEntityDomain,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntitySpecRelations,
   getEntityStatus,
 } from "../../ea/backstage/accessors.js";
@@ -26,7 +28,7 @@ export function eaStatusCommand(): Command {
     .description("Show EA entity health dashboard")
     .option("--json", "Output as JSON")
     .option("--domain <domain>", "Filter by domain")
-    .option("--root-dir <path>", "EA root directory", "ea")
+    .option("--root-dir <path>", "EA root directory", "docs")
     .action(async (options) => {
       const cwd = process.cwd();
       const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
@@ -42,7 +44,7 @@ export function eaStatusCommand(): Command {
       // Filter by domain
       if (options.domain) {
         const domain = options.domain as string;
-        if (!EA_DOMAINS.includes(domain as EaDomain)) {
+        if (!EA_DOMAINS.includes(domain as typeof EA_DOMAINS[number])) {
           throw new CliError(`Invalid domain "${domain}". Valid: ${EA_DOMAINS.join(", ")}`);
         }
         entities = entities.filter((entity) => getEntityDomain(entity) === domain);
@@ -51,16 +53,19 @@ export function eaStatusCommand(): Command {
       // Group by various dimensions
       const byDomain: Record<string, number> = {};
       const byKind: Record<string, number> = {};
+      const bySchema: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
       const byConfidence: Record<string, number> = {};
       let relationCount = 0;
       let anchoredCount = 0;
 
       for (const entity of entities) {
-        const kind = getEntityLegacyKind(entity);
+        const kind = getEntityKind(entity);
+        const schema = getEntitySchema(entity);
         const domain = getEntityDomain(entity) ?? "unknown";
         byDomain[domain] = (byDomain[domain] ?? 0) + 1;
         byKind[kind] = (byKind[kind] ?? 0) + 1;
+        bySchema[schema] = (bySchema[schema] ?? 0) + 1;
         const status = getEntityStatus(entity);
         byStatus[status] = (byStatus[status] ?? 0) + 1;
         const confidence = getEntityConfidence(entity);
@@ -72,16 +77,33 @@ export function eaStatusCommand(): Command {
         if (anchors && Object.keys(anchors).length > 0) anchoredCount++;
       }
 
+      const qualityResult = validateEntities(entities, {
+        quality: eaConfig.quality,
+      });
+      const relationResult = validateEaRelations(
+        entities,
+        createDefaultRegistry(),
+        { quality: eaConfig.quality },
+      );
+      const validationErrorCount = qualityResult.errors.length + relationResult.errors.length;
+      const validationWarningCount = qualityResult.warnings.length + relationResult.warnings.length;
+      const loadErrorCount = loadResult.errors.length;
+      const errorCount = loadErrorCount + validationErrorCount;
+
       if (options.json) {
         console.log(JSON.stringify({
           total: entities.length,
           byDomain,
           byKind,
+          bySchema,
           byStatus,
           byConfidence,
           relationCount,
           anchoredCount,
-          errorCount: loadResult.errors.length,
+          errorCount,
+          loadErrorCount,
+          validationErrorCount,
+          validationWarningCount,
         }, null, 2));
         return;
       }
@@ -120,13 +142,27 @@ export function eaStatusCommand(): Command {
 
       console.log("");
 
+      console.log(chalk.bold("By Schema"));
+      for (const [schema, count] of Object.entries(bySchema).sort((a, b) => b[1] - a[1])) {
+        console.log(`  ${schema}: ${count}`);
+      }
+
+      console.log("");
+
       // Relations and anchors
       console.log(chalk.bold("Connectivity"));
       console.log(`  Relations: ${relationCount}`);
       console.log(`  Anchored entities: ${anchoredCount}/${entities.length}`);
 
-      if (loadResult.errors.length > 0) {
-        console.log(chalk.red(`\n  ⚠ ${loadResult.errors.length} loading error(s)`));
+      console.log("");
+      console.log(chalk.bold("Validation"));
+      console.log(`  Errors: ${errorCount}`);
+      console.log(`  Warnings: ${validationWarningCount}`);
+      if (loadErrorCount > 0) {
+        console.log(chalk.red(`  Load errors: ${loadErrorCount}`));
+      }
+      if (validationErrorCount > 0) {
+        console.log(chalk.red(`  Validation errors: ${validationErrorCount}`));
       }
 
       console.log("");

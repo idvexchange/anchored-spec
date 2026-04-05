@@ -2,13 +2,14 @@
  * Anchored Spec — EA Evidence Pipeline Extension
  *
  * Extends the core evidence pipeline with EA-specific evidence kinds,
- * artifact references, and freshness validation.
+ * entity references, and freshness validation.
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { BackstageEntity } from "./backstage/types.js";
 import { getEntityId, getSpecField } from "./backstage/accessors.js";
+import { normalizeKnownEntityRef } from "./backstage/ref-utils.js";
 
 // ─── EA Evidence Types ──────────────────────────────────────────────────────────
 
@@ -36,10 +37,10 @@ export const EA_EVIDENCE_KINDS: readonly EaEvidenceKind[] = [
   "performance",
 ] as const;
 
-/** An evidence record linked to an EA artifact. */
+/** An evidence record linked to an EA entity. */
 export interface EaEvidenceRecord {
-  /** EA artifact ID this evidence supports. */
-  artifactId: string;
+  /** EA entity ID this evidence supports. */
+  entityRef: string;
   /** Evidence kind. */
   kind: EaEvidenceKind;
   /** Pass/fail status. */
@@ -68,14 +69,14 @@ export interface EaEvidence {
  * Create an EA evidence record.
  */
 export function createEaEvidenceRecord(
-  artifactId: string,
+  entityRef: string,
   kind: EaEvidenceKind,
   status: EaEvidenceRecord["status"],
   source: string,
   options?: { summary?: string; duration?: number; metadata?: Record<string, unknown> },
 ): EaEvidenceRecord {
   return {
-    artifactId,
+    entityRef,
     kind,
     status,
     recordedAt: new Date().toISOString(),
@@ -112,7 +113,7 @@ export function writeEaEvidence(
 
 /**
  * Merge new records into existing evidence, replacing records for the
- * same artifactId + kind combination.
+ * same entityRef + kind combination.
  */
 export function mergeEaEvidence(
   existing: EaEvidence | null,
@@ -123,13 +124,13 @@ export function mergeEaEvidence(
   // Add existing records
   if (existing) {
     for (const r of existing.records) {
-      merged.set(`${r.artifactId}::${r.kind}`, r);
+      merged.set(`${r.entityRef}::${r.kind}`, r);
     }
   }
 
   // Upsert new records
   for (const r of newRecords) {
-    merged.set(`${r.artifactId}::${r.kind}`, r);
+    merged.set(`${r.entityRef}::${r.kind}`, r);
   }
 
   return {
@@ -151,9 +152,9 @@ export interface EaEvidenceValidationError {
  * Validate EA evidence for freshness and coverage.
  *
  * Checks:
- * 1. All evidence records reference existing artifacts
+ * 1. All evidence records reference existing entities
  * 2. Evidence freshness (records older than freshnessWindowDays are stale)
- * 3. Artifacts with `producesEvidence` field have matching evidence
+ * 3. Entities with `producesEvidence` field have matching evidence
  */
 export function validateEaEvidence(
   evidence: EaEvidence,
@@ -168,21 +169,25 @@ export function validateEaEvidence(
 
   // Check each evidence record
   for (const record of evidence.records) {
-    // Artifact reference exists
-    if (!entityIds.has(record.artifactId)) {
+    const entityRef =
+      normalizeKnownEntityRef(record.entityRef, { defaultNamespace: "default" }) ??
+      record.entityRef;
+
+    // Entity reference exists
+    if (!entityIds.has(entityRef)) {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence references artifact "${record.artifactId}" which does not exist`,
+        path: record.entityRef,
+        message: `Evidence references entity "${record.entityRef}" which does not exist`,
         severity: "warning",
-        rule: "ea:evidence/artifact-exists",
+        rule: "ea:evidence/entity-exists",
       });
     }
 
     // Valid evidence kind
     if (!EA_EVIDENCE_KINDS.includes(record.kind as EaEvidenceKind)) {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence for "${record.artifactId}" has unknown kind "${record.kind}"`,
+        path: record.entityRef,
+        message: `Evidence for "${record.entityRef}" has unknown kind "${record.kind}"`,
         severity: "warning",
         rule: "ea:evidence/valid-kind",
       });
@@ -192,8 +197,8 @@ export function validateEaEvidence(
     const recordDate = new Date(record.recordedAt).getTime();
     if (!isNaN(recordDate) && now - recordDate > freshnessMs) {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence for "${record.artifactId}" (${record.kind}) is stale (recorded: ${record.recordedAt})`,
+        path: record.entityRef,
+        message: `Evidence for "${record.entityRef}" (${record.kind}) is stale (recorded: ${record.recordedAt})`,
         severity: "warning",
         rule: "ea:evidence/freshness",
       });
@@ -202,29 +207,32 @@ export function validateEaEvidence(
     // Failed evidence
     if (record.status === "failed" || record.status === "error") {
       issues.push({
-        path: record.artifactId,
-        message: `Evidence for "${record.artifactId}" (${record.kind}) has status "${record.status}"`,
+        path: record.entityRef,
+        message: `Evidence for "${record.entityRef}" (${record.kind}) has status "${record.status}"`,
         severity: "error",
         rule: "ea:evidence/status",
       });
     }
   }
 
-  // Check artifacts that produce evidence but have no records
-  const evidenceByArtifact = new Map<string, EaEvidenceRecord[]>();
+  // Check entities that produce evidence but have no records
+  const evidenceByEntity = new Map<string, EaEvidenceRecord[]>();
   for (const r of evidence.records) {
-    const list = evidenceByArtifact.get(r.artifactId) ?? [];
+    const entityRef =
+      normalizeKnownEntityRef(r.entityRef, { defaultNamespace: "default" }) ??
+      r.entityRef;
+    const list = evidenceByEntity.get(entityRef) ?? [];
     list.push(r);
-    evidenceByArtifact.set(r.artifactId, list);
+    evidenceByEntity.set(entityRef, list);
   }
 
   for (const entity of entities) {
     const entityId = getEntityId(entity);
     const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
-    if (producesEvidence && !evidenceByArtifact.has(entityId)) {
+    if (producesEvidence && !evidenceByEntity.has(entityId)) {
       issues.push({
         path: entityId,
-        message: `Artifact "${entityId}" declares producesEvidence but has no evidence records`,
+        message: `Entity "${entityId}" declares producesEvidence but has no evidence records`,
         severity: "warning",
         rule: "ea:evidence/coverage",
       });
@@ -238,11 +246,11 @@ export function validateEaEvidence(
 
 export interface EaEvidenceSummary {
   totalRecords: number;
-  byKind: Record<string, number>;
+  byEvidenceKind: Record<string, number>;
   byStatus: Record<string, number>;
   staleCount: number;
-  coveredArtifacts: number;
-  uncoveredArtifacts: number;
+  coveredEntities: number;
+  uncoveredEntities: number;
 }
 
 /**
@@ -256,15 +264,18 @@ export function summarizeEaEvidence(
   const freshnessMs = (options?.freshnessWindowDays ?? 30) * 24 * 60 * 60 * 1000;
   const now = Date.now();
 
-  const byKind: Record<string, number> = {};
+  const byEvidenceKind: Record<string, number> = {};
   const byStatus: Record<string, number> = {};
   let staleCount = 0;
   const coveredIds = new Set<string>();
 
   for (const r of evidence.records) {
-    byKind[r.kind] = (byKind[r.kind] ?? 0) + 1;
+    byEvidenceKind[r.kind] = (byEvidenceKind[r.kind] ?? 0) + 1;
     byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
-    coveredIds.add(r.artifactId);
+    coveredIds.add(
+      normalizeKnownEntityRef(r.entityRef, { defaultNamespace: "default" }) ??
+        r.entityRef,
+    );
 
     const recordDate = new Date(r.recordedAt).getTime();
     if (!isNaN(recordDate) && now - recordDate > freshnessMs) {
@@ -272,19 +283,19 @@ export function summarizeEaEvidence(
     }
   }
 
-  // Count artifacts that declare evidence expectations
+  // Count entities that declare evidence expectations
   const entitiesWithEvidence = entities.filter((entity) => {
     const producesEvidence = getSpecField<string[]>(entity, "producesEvidence");
     return Array.isArray(producesEvidence) && producesEvidence.length > 0;
   });
-  const uncoveredArtifacts = entitiesWithEvidence.filter((entity) => !coveredIds.has(getEntityId(entity))).length;
+  const uncoveredEntities = entitiesWithEvidence.filter((entity) => !coveredIds.has(getEntityId(entity))).length;
 
   return {
     totalRecords: evidence.records.length,
-    byKind,
+    byEvidenceKind,
     byStatus,
     staleCount,
-    coveredArtifacts: coveredIds.size,
-    uncoveredArtifacts,
+    coveredEntities: coveredIds.size,
+    uncoveredEntities,
   };
 }

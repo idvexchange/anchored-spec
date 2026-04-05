@@ -3,16 +3,17 @@
  *
  * Reads `terraform show -json` state/plan output to validate infrastructure
  * anchors, collect observed cloud resource state, and discover delivery/data
- * layer artifacts.
+ * layer entities.
  *
  * Supports AWS, GCP, and Azure resource type mappings.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (Terraform Resolver)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (Terraform Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, extname, relative } from "node:path";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
+import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
 import type {
@@ -65,11 +66,9 @@ export interface TerraformResource {
 // ─── Resource Type → EA Kind Mapping ────────────────────────────────────────────
 
 interface EaMapping {
-  eaKind: string;
-  eaDomain: string;
-  prefix: string;
-  /** Optional: also create a second artifact of this kind. */
-  alsoKind?: { eaKind: string; eaDomain: string; prefix: string };
+  schema: string;
+  /** Optional: also create a second entity for another schema profile. */
+  alsoSchema?: string;
 }
 
 /** Map Terraform resource type patterns to EA kinds. */
@@ -78,68 +77,68 @@ const TF_RESOURCE_MAP: Array<{ pattern: RegExp; mapping: EaMapping }> = [
   {
     pattern: /^aws_rds_/,
     mapping: {
-      eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD",
-      alsoKind: { eaKind: "data-store", eaDomain: "data", prefix: "STORE" },
+      schema: "cloud-resource",
+      alsoSchema: "data-store",
     },
   },
   // AWS DynamoDB → cloud-resource + data-store
   {
     pattern: /^aws_dynamodb_/,
     mapping: {
-      eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD",
-      alsoKind: { eaKind: "data-store", eaDomain: "data", prefix: "STORE" },
+      schema: "cloud-resource",
+      alsoSchema: "data-store",
     },
   },
   // AWS ElastiCache → cloud-resource + data-store
   {
     pattern: /^aws_elasticache_/,
     mapping: {
-      eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD",
-      alsoKind: { eaKind: "data-store", eaDomain: "data", prefix: "STORE" },
+      schema: "cloud-resource",
+      alsoSchema: "data-store",
     },
   },
   // AWS ECS/EKS → platform
-  { pattern: /^aws_ecs_/, mapping: { eaKind: "platform", eaDomain: "delivery", prefix: "PLAT" } },
-  { pattern: /^aws_eks_/, mapping: { eaKind: "platform", eaDomain: "delivery", prefix: "PLAT" } },
+  { pattern: /^aws_ecs_/, mapping: { schema: "platform" } },
+  { pattern: /^aws_eks_/, mapping: { schema: "platform" } },
   // AWS S3 → cloud-resource
-  { pattern: /^aws_s3_/, mapping: { eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD" } },
+  { pattern: /^aws_s3_/, mapping: { schema: "cloud-resource" } },
   // AWS Security Groups → network-zone
-  { pattern: /^aws_security_group/, mapping: { eaKind: "network-zone", eaDomain: "delivery", prefix: "ZONE" } },
+  { pattern: /^aws_security_group/, mapping: { schema: "network-zone" } },
   // AWS IAM roles → identity-boundary
-  { pattern: /^aws_iam_role/, mapping: { eaKind: "identity-boundary", eaDomain: "delivery", prefix: "IDB" } },
+  { pattern: /^aws_iam_role/, mapping: { schema: "identity-boundary" } },
   // AWS Lambda → cloud-resource
-  { pattern: /^aws_lambda_/, mapping: { eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD" } },
+  { pattern: /^aws_lambda_/, mapping: { schema: "cloud-resource" } },
   // AWS SQS/SNS → cloud-resource
-  { pattern: /^aws_sqs_/, mapping: { eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD" } },
-  { pattern: /^aws_sns_/, mapping: { eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD" } },
+  { pattern: /^aws_sqs_/, mapping: { schema: "cloud-resource" } },
+  { pattern: /^aws_sns_/, mapping: { schema: "cloud-resource" } },
   // GCP SQL → cloud-resource + data-store
   {
     pattern: /^google_sql_/,
     mapping: {
-      eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD",
-      alsoKind: { eaKind: "data-store", eaDomain: "data", prefix: "STORE" },
+      schema: "cloud-resource",
+      alsoSchema: "data-store",
     },
   },
   // GCP GKE → platform
-  { pattern: /^google_container_/, mapping: { eaKind: "platform", eaDomain: "delivery", prefix: "PLAT" } },
+  { pattern: /^google_container_/, mapping: { schema: "platform" } },
   // GCP Storage → cloud-resource
-  { pattern: /^google_storage_/, mapping: { eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD" } },
+  { pattern: /^google_storage_/, mapping: { schema: "cloud-resource" } },
   // GCP IAM → identity-boundary
-  { pattern: /^google_service_account/, mapping: { eaKind: "identity-boundary", eaDomain: "delivery", prefix: "IDB" } },
+  { pattern: /^google_service_account/, mapping: { schema: "identity-boundary" } },
   // Azure SQL → cloud-resource + data-store
   {
     pattern: /^azurerm_(?:mssql|postgresql|mysql|cosmosdb)_/,
     mapping: {
-      eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD",
-      alsoKind: { eaKind: "data-store", eaDomain: "data", prefix: "STORE" },
+      schema: "cloud-resource",
+      alsoSchema: "data-store",
     },
   },
   // Azure AKS → platform
-  { pattern: /^azurerm_kubernetes_/, mapping: { eaKind: "platform", eaDomain: "delivery", prefix: "PLAT" } },
+  { pattern: /^azurerm_kubernetes_/, mapping: { schema: "platform" } },
   // Azure Storage → cloud-resource
-  { pattern: /^azurerm_storage_/, mapping: { eaKind: "cloud-resource", eaDomain: "delivery", prefix: "CLOUD" } },
+  { pattern: /^azurerm_storage_/, mapping: { schema: "cloud-resource" } },
   // Azure Network Security Group → network-zone
-  { pattern: /^azurerm_network_security_group/, mapping: { eaKind: "network-zone", eaDomain: "delivery", prefix: "ZONE" } },
+  { pattern: /^azurerm_network_security_group/, mapping: { schema: "network-zone" } },
 ];
 
 /** Find the EA mapping for a Terraform resource type. */
@@ -259,7 +258,7 @@ export function loadTerraformState(filepath: string, projectRoot: string): Terra
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-/** Slugify a name for use as artifact ID. */
+/** Slugify a name for use as entity ID. */
 function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -298,14 +297,14 @@ const CACHE_KEY_PREFIX = "terraform:state";
 
 /**
  * Terraform Resolver — resolves infra anchors against Terraform state,
- * collects observed cloud resource state, and discovers delivery/data artifacts.
+ * collects observed cloud resource state, and discovers delivery/data entities.
  *
  * Reads `terraform show -json` output (state or plan).
  */
 export class TerraformResolver implements EaResolver {
   readonly name = "terraform";
   readonly domains: EaResolver["domains"] = ["delivery", "data"];
-  readonly kinds = ["cloud-resource", "data-store", "platform", "network-zone", "identity-boundary"];
+  readonly schemas = ["cloud-resource", "data-store", "platform", "network-zone", "identity-boundary"];
 
   /**
    * Resolve infrastructure anchors against Terraform state.
@@ -378,20 +377,24 @@ export class TerraformResolver implements EaResolver {
     for (const r of resources) {
       const mapping = findMapping(r.type);
       if (!mapping) continue;
+      const descriptor = getSchemaDescriptor(mapping.schema);
+      if (!descriptor) continue;
 
       entities.push({
         externalId: r.address,
-        inferredKind: mapping.eaKind,
-        inferredDomain: mapping.eaDomain as ObservedEntity["inferredDomain"],
+        inferredSchema: descriptor.schema,
+        inferredDomain: descriptor.domain as ObservedEntity["inferredDomain"],
         metadata: extractResourceMeta(r),
       });
 
       // Also create entity for secondary kind (e.g., data-store for RDS)
-      if (mapping.alsoKind) {
+      if (mapping.alsoSchema) {
+        const alsoDescriptor = getSchemaDescriptor(mapping.alsoSchema);
+        if (!alsoDescriptor) continue;
         entities.push({
-          externalId: `${r.address}:${mapping.alsoKind.eaKind}`,
-          inferredKind: mapping.alsoKind.eaKind,
-          inferredDomain: mapping.alsoKind.eaDomain as ObservedEntity["inferredDomain"],
+          externalId: `${r.address}:${alsoDescriptor.schema}`,
+          inferredSchema: alsoDescriptor.schema,
+          inferredDomain: alsoDescriptor.domain as ObservedEntity["inferredDomain"],
           metadata: { ...extractResourceMeta(r), derivedFrom: r.address },
         });
       }
@@ -406,24 +409,26 @@ export class TerraformResolver implements EaResolver {
   }
 
   /**
-   * Discover EA artifacts from Terraform resources.
+   * Discover EA entities from Terraform resources.
    *
-   * Maps cloud resources to EA kinds based on resource type patterns.
+   * Maps cloud resources to EA schema profiles based on resource type patterns.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const resources = this.loadResources(ctx);
     if (resources.length === 0) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
 
     for (const r of resources) {
       const mapping = findMapping(r.type);
       if (!mapping) continue;
+      const descriptor = getSchemaDescriptor(mapping.schema);
+      if (!descriptor) continue;
 
       const slug = slugify(r.address);
-      const dedupeKey = `${mapping.eaKind}:${r.address}`;
+      const dedupeKey = `${descriptor.schema}:${r.address}`;
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 
@@ -431,35 +436,43 @@ export class TerraformResolver implements EaResolver {
       const title = `${r.type} ${resourceName}`;
 
       drafts.push({
-        suggestedId: `${mapping.eaDomain}/${mapping.prefix}-${slug}`,
-        kind: mapping.eaKind,
+        suggestedId: `${descriptor.kind.toLowerCase()}:${slug}`,
+        apiVersion: descriptor.apiVersion,
+        kind: descriptor.kind,
+        type: descriptor.specType,
+        schema: descriptor.schema,
         title,
-        summary: `${mapping.eaKind} discovered from Terraform resource ${r.address}`,
+        summary: `${descriptor.schema} discovered from Terraform resource ${r.address}`,
         status: "draft",
         confidence: "observed",
         anchors: { infra: [`terraform:${r.address}`] },
         discoveredBy: "terraform",
         discoveredAt: now,
-        kindSpecificFields: extractResourceMeta(r),
+        schemaFields: extractResourceMeta(r),
       });
 
       // Also create draft for secondary kind
-      if (mapping.alsoKind) {
-        const alsoKey = `${mapping.alsoKind.eaKind}:${r.address}`;
+      if (mapping.alsoSchema) {
+        const alsoDescriptor = getSchemaDescriptor(mapping.alsoSchema);
+        if (!alsoDescriptor) continue;
+        const alsoKey = `${alsoDescriptor.schema}:${r.address}`;
         if (!seen.has(alsoKey)) {
           seen.add(alsoKey);
-          const alsoSlug = slugify(`${r.address}-${mapping.alsoKind.eaKind}`);
+          const alsoSlug = slugify(`${r.address}-${alsoDescriptor.schema}`);
           drafts.push({
-            suggestedId: `${mapping.alsoKind.eaDomain}/${mapping.alsoKind.prefix}-${alsoSlug}`,
-            kind: mapping.alsoKind.eaKind,
-            title: `${resourceName} (${mapping.alsoKind.eaKind})`,
-            summary: `${mapping.alsoKind.eaKind} discovered from Terraform resource ${r.address}`,
+            suggestedId: `${alsoDescriptor.kind.toLowerCase()}:${alsoSlug}`,
+            apiVersion: alsoDescriptor.apiVersion,
+            kind: alsoDescriptor.kind,
+            type: alsoDescriptor.specType,
+            schema: alsoDescriptor.schema,
+            title: `${resourceName} (${alsoDescriptor.schema})`,
+            summary: `${alsoDescriptor.schema} discovered from Terraform resource ${r.address}`,
             status: "draft",
             confidence: "observed",
             anchors: { infra: [`terraform:${r.address}`] },
             discoveredBy: "terraform",
             discoveredAt: now,
-            kindSpecificFields: {
+            schemaFields: {
               ...extractResourceMeta(r),
               derivedFrom: r.address,
             },

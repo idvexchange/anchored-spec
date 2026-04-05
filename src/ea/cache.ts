@@ -4,7 +4,7 @@
  * Disk-based cache with TTL-based expiry for resolver observed state.
  * Cache is stored at `.anchored-spec/cache/ea/` as JSON files.
  *
- * Design reference: docs/ea-drift-resolvers-generators.md (Resolver Cache)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (Resolver Cache)
  */
 
 import {

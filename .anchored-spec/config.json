@@ -1,0 +1,202 @@
+{
+  "schemaVersion": "1.2",
+  "rootDir": "docs",
+  "generatedDir": "docs/generated",
+  "idPrefix": null,
+  "domains": [
+    "systems",
+    "delivery",
+    "data",
+    "information",
+    "business",
+    "transitions"
+  ],
+  "docs": {
+    "structure": "architecture-views",
+    "scanDirs": [
+      "docs"
+    ],
+    "rootDocs": [
+      "docs/README.md",
+      "docs/glossary.md",
+      "docs/delivery-baseline.md",
+      "docs/mobilization.md",
+      "docs/current-vs-target.md",
+      "docs/readiness-checklist.md"
+    ],
+    "sections": [
+      {
+        "id": "business",
+        "title": "Business",
+        "path": "docs/01-business",
+        "kind": "architecture",
+        "domains": [
+          "business"
+        ]
+      },
+      {
+        "id": "system-context",
+        "title": "System Context",
+        "path": "docs/02-system-context",
+        "kind": "architecture",
+        "domains": [
+          "systems"
+        ]
+      },
+      {
+        "id": "container",
+        "title": "Container",
+        "path": "docs/03-container",
+        "kind": "architecture",
+        "domains": [
+          "systems"
+        ]
+      },
+      {
+        "id": "component",
+        "title": "Component",
+        "path": "docs/04-component",
+        "kind": "architecture",
+        "domains": [
+          "systems"
+        ]
+      },
+      {
+        "id": "domain",
+        "title": "Domain",
+        "path": "docs/05-domain",
+        "kind": "architecture",
+        "domains": [
+          "business",
+          "information"
+        ]
+      },
+      {
+        "id": "api",
+        "title": "API",
+        "path": "docs/06-api",
+        "kind": "architecture",
+        "domains": [
+          "systems",
+          "transitions"
+        ]
+      },
+      {
+        "id": "data",
+        "title": "Data",
+        "path": "docs/07-data",
+        "kind": "architecture",
+        "domains": [
+          "data"
+        ]
+      },
+      {
+        "id": "security",
+        "title": "Security",
+        "path": "docs/08-security",
+        "kind": "architecture",
+        "domains": [
+          "systems"
+        ]
+      },
+      {
+        "id": "infrastructure",
+        "title": "Infrastructure",
+        "path": "docs/09-infrastructure",
+        "kind": "architecture",
+        "domains": [
+          "delivery",
+          "systems"
+        ]
+      },
+      {
+        "id": "testing",
+        "title": "Testing",
+        "path": "docs/10-testing",
+        "kind": "architecture",
+        "domains": [
+          "delivery"
+        ]
+      },
+      {
+        "id": "adr",
+        "title": "Architecture Decision Records",
+        "path": "docs/adr",
+        "kind": "decision-record"
+      },
+      {
+        "id": "req",
+        "title": "Requirements",
+        "path": "docs/req",
+        "kind": "requirement"
+      },
+      {
+        "id": "user-guides",
+        "title": "User Guides",
+        "path": "docs/guides/user-guides",
+        "kind": "guide"
+      },
+      {
+        "id": "developer-guides",
+        "title": "Developer Guides",
+        "path": "docs/guides/developer-guides",
+        "kind": "guide"
+      }
+    ],
+    "templates": {
+      "spec": "api",
+      "architecture": "component",
+      "guide": "user-guides",
+      "adr": "adr",
+      "runbook": "developer-guides"
+    }
+  },
+  "catalog": {
+    "bootstrap": {
+      "enabled": true,
+      "profile": "auto",
+      "outputMode": "curated",
+      "writeTarget": "catalog-info.yaml",
+      "minConfidence": 0.6,
+      "maxTopLevelComponents": 8,
+      "include": {
+        "owners": true,
+        "domain": true,
+        "system": true,
+        "components": true,
+        "apis": true,
+        "capabilities": true,
+        "requirements": true,
+        "decisions": true,
+        "resources": false
+      },
+      "defaults": {
+        "ownerRef": "group:default/anchored-spec-maintainers",
+        "ownerKind": "Group",
+        "ownerType": "team",
+        "ownerUnitType": "team",
+        "componentLifecycle": "production",
+        "apiLifecycle": "production",
+        "capabilityLevel": 1
+      }
+    }
+  },
+  "resolvers": [],
+  "generators": [],
+  "evidenceSources": [],
+  "cache": {
+    "dir": ".anchored-spec/cache",
+    "defaultTTL": 3600
+  },
+  "quality": {
+    "requireOwners": true,
+    "requireSummary": true,
+    "requireRelations": false,
+    "requireAnchors": false,
+    "strictMode": false,
+    "rules": {}
+  },
+  "workflowPolicyPath": "docs/workflow-policy.yaml",
+  "entityMode": "manifest",
+  "manifestPath": "catalog-info.yaml"
+}

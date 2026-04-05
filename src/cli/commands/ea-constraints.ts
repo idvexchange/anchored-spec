@@ -12,7 +12,8 @@ import {
   EaRoot,
   createDefaultRegistry,
   buildRelationGraph,
-  resolveConfigV1,
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
 } from "../../ea/index.js";
 import {
   extractConstraints,
@@ -59,7 +60,7 @@ export function eaConstraintsCommand(): Command {
     )
     .action(async (entityInput: string | undefined, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -83,9 +84,10 @@ export function eaConstraintsCommand(): Command {
 
       // Determine entity refs to analyze
       let entityRefs: string[] = [];
+      const docDirs = getConfiguredDocScanDirs(eaConfig);
 
       if (options.fromFile) {
-        const scanned = scanDocs(cwd);
+        const scanned = scanDocs(cwd, docDirs ? { dirs: docDirs } : undefined);
         const resolutions = resolveFromFiles(
           [options.fromFile as string],
           entities,
@@ -110,7 +112,7 @@ export function eaConstraintsCommand(): Command {
         }
         entityRefs = [...new Set(resolutions.map((r) => r.resolvedEntityRef))];
       } else if (options.fromSymbol) {
-        const scanned = scanDocs(cwd);
+        const scanned = scanDocs(cwd, docDirs ? { dirs: docDirs } : undefined);
         const resolutions = resolveFromSymbols(
           [options.fromSymbol as string],
           entities,
@@ -134,7 +136,7 @@ export function eaConstraintsCommand(): Command {
         }
         entityRefs = [...new Set(resolutions.map((r) => r.resolvedEntityRef))];
       } else if (options.fromDiff !== undefined) {
-        const scanned = scanDocs(cwd);
+        const scanned = scanDocs(cwd, docDirs ? { dirs: docDirs } : undefined);
         const diffRef =
           typeof options.fromDiff === "string"
             ? options.fromDiff

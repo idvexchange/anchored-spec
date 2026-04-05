@@ -12,7 +12,10 @@ import { resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
-import { resolveConfigV1 } from "../../ea/config.js";
+import {
+  loadProjectConfig,
+  getConfiguredDocScanDirs,
+} from "../../ea/config.js";
 import { scanDocs, buildDocIndex } from "../../ea/docs/scanner.js";
 import type { ScannedDoc } from "../../ea/docs/scanner.js";
 import { parseFrontmatter } from "../../ea/docs/frontmatter.js";
@@ -22,8 +25,10 @@ import {
   getEntityConfidence,
   getEntityDescription,
   getEntityId,
-  getEntityLegacyKind,
+  getEntityKind,
+  getEntitySchema,
   getEntityOwnerRef,
+  getEntitySpecType,
   getEntitySpecRelations,
   getEntityStatus,
   getEntityTags,
@@ -115,6 +120,8 @@ interface RequiredDoc {
 interface EntityContextView {
   entityRef: string;
   kind: string;
+  type?: string;
+  schema: string;
   status: string;
   summary: string;
   owners: string[];
@@ -128,6 +135,8 @@ interface EntityContextView {
 interface RelatedEntityInfo {
   entityRef: string;
   kind: string;
+  type?: string;
+  schema: string;
   status: string;
   summary: string;
   owners: string[];
@@ -253,7 +262,9 @@ function toEntityContextView(entity: BackstageEntity): EntityContextView {
 
   return {
     entityRef,
-    kind: getEntityLegacyKind(entity),
+    kind: getEntityKind(entity),
+    type: getEntitySpecType(entity),
+    schema: getEntitySchema(entity),
     status: getEntityStatus(entity),
     summary: getEntityDescription(entity),
     owners: ownerRef ? [ownerRef] : [],
@@ -262,7 +273,7 @@ function toEntityContextView(entity: BackstageEntity): EntityContextView {
     traceRefs: getEntityTraceRefs(entity),
     relations: getEntitySpecRelations(entity).flatMap((relation) =>
       relation.targets.map((target) => ({
-        type: relation.legacyType,
+        type: relation.type,
         target,
       })),
     ),
@@ -407,6 +418,8 @@ function assembleContext(
     relatedEntities.push({
       entityRef: relatedEntity.entityRef,
       kind: relatedEntity.kind,
+      type: relatedEntity.type,
+      schema: relatedEntity.schema,
       status: relatedEntity.status,
       summary: relatedEntity.summary,
       owners: relatedEntity.owners,
@@ -611,7 +624,8 @@ function renderMarkdown(result: ContextResult, whyIncluded?: boolean): string {
   lines.push("");
   lines.push("## Entity Specification");
   lines.push(`- ${chalk.bold("Entity Ref")}: ${entity.entityRef}`);
-  lines.push(`- ${chalk.bold("Kind")}: ${entity.kind}`);
+  lines.push(`- ${chalk.bold("Kind")}: ${entity.kind}${entity.type ? `/${entity.type}` : ""}`);
+  lines.push(`- ${chalk.bold("Schema")}: ${entity.schema}`);
   lines.push(`- ${chalk.bold("Status")}: ${entity.status}`);
   lines.push(`- ${chalk.bold("Summary")}: ${entity.summary}`);
   lines.push(`- ${chalk.bold("Owners")}: ${entity.owners.join(", ")}`);
@@ -696,7 +710,7 @@ function renderMarkdown(result: ContextResult, whyIncluded?: boolean): string {
     lines.push("## Related Entities");
     for (const relatedEntity of relatedEntities) {
       lines.push("");
-      lines.push(`### ${relatedEntity.entityRef} (${relatedEntity.kind}, ${relatedEntity.status})`);
+      lines.push(`### ${relatedEntity.entityRef} (${relatedEntity.kind}${relatedEntity.type ? `/${relatedEntity.type}` : ""}, ${relatedEntity.schema}, ${relatedEntity.status})`);
       if (whyIncluded && relatedEntity.inclusionReason) {
         lines.push(`> Included because: ${relatedEntity.inclusionReason}`);
         lines.push("");
@@ -745,6 +759,8 @@ function buildJsonOutput(result: ContextResult, whyIncluded?: boolean): Record<s
     entity: {
       entityRef: result.entity.entityRef,
       kind: result.entity.kind,
+      type: result.entity.type,
+      schema: result.entity.schema,
       status: result.entity.status,
       summary: result.entity.summary,
       owners: result.entity.owners,
@@ -767,6 +783,8 @@ function buildJsonOutput(result: ContextResult, whyIncluded?: boolean): Record<s
     relatedEntities: result.relatedEntities.map((relatedEntity) => ({
       entityRef: relatedEntity.entityRef,
       kind: relatedEntity.kind,
+      type: relatedEntity.type,
+      schema: relatedEntity.schema,
       status: relatedEntity.status,
       summary: relatedEntity.summary,
       ...(whyIncluded && relatedEntity.inclusionReason ? { inclusionReason: relatedEntity.inclusionReason } : {}),
@@ -881,8 +899,8 @@ export function eaContextCommand(): Command {
   return new Command("context")
     .description("Assemble a complete AI context package for an entity")
     .argument("<entity-ref>", "Entity ref to assemble context for")
-    .option("--root-dir <path>", "EA root directory", "ea")
-    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan", "docs,specs,.")
+    .option("--root-dir <path>", "EA root directory", "docs")
+    .option("--doc-dirs <dirs>", "Comma-separated doc directories to scan")
     .option("--max-tokens <n>", "Maximum estimated tokens for the output")
     .option("--depth <n>", "Maximum depth to follow relations")
     .option("--json", "Output as JSON")
@@ -893,7 +911,7 @@ export function eaContextCommand(): Command {
     .option("--format <format>", "Output format: markdown, json", "markdown")
     .action(async (entityInput: string, options) => {
       const cwd = process.cwd();
-      const eaConfig = resolveConfigV1({ rootDir: options.rootDir });
+      const eaConfig = loadProjectConfig(cwd, options.rootDir);
       const root = new EaRoot(cwd, eaConfig);
 
       if (!root.isInitialized()) {
@@ -919,7 +937,9 @@ export function eaContextCommand(): Command {
       }
 
       // Scan docs
-      const docDirs = (options.docDirs as string).split(",").map((d: string) => d.trim());
+      const docDirs = options.docDirs
+        ? (options.docDirs as string).split(",").map((d: string) => d.trim())
+        : (getConfiguredDocScanDirs(eaConfig) ?? ["docs", "specs", "."]);
       const normalizedDocs = scanDocs(cwd, { dirs: docDirs }).docs;
 
       // ── Resolve tier preset ───────────────────────────────────────

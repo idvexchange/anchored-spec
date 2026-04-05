@@ -4,16 +4,16 @@
   "title": "Anchored Spec — EA Information Exchange",
   "description": "A declared information exchange between two systems or domains.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "required": ["source", "destination", "exchangedEntities", "purpose"],
   "properties": {
     "kind": { "const": "information-exchange" },
     "source": {
       "type": "object",
-      "required": ["artifactId"],
+      "required": ["entityRef"],
       "properties": {
-        "artifactId": { "type": "string", "minLength": 1, "description": "Source artifact ID" },
+        "entityRef": { "type": "string", "minLength": 1, "description": "Source entity ID" },
         "role": { "type": "string", "description": "Role of the source in this exchange" }
       },
       "additionalProperties": false,
@@ -21,9 +21,9 @@
     },
     "destination": {
       "type": "object",
-      "required": ["artifactId"],
+      "required": ["entityRef"],
       "properties": {
-        "artifactId": { "type": "string", "minLength": 1, "description": "Destination artifact ID" },
+        "entityRef": { "type": "string", "minLength": 1, "description": "Destination entity ID" },
         "role": { "type": "string", "description": "Role of the destination in this exchange" }
       },
       "additionalProperties": false,
@@ -46,7 +46,7 @@
       "items": { "type": "string" },
       "description": "API or event contract IDs implementing this exchange"
     },
-    "classificationLevel": { "type": "string", "description": "Classification artifact reference" },
+    "classificationLevel": { "type": "string", "description": "Classification entity reference" },
     "legalBasis": { "type": "string", "description": "Consent or regulatory basis for this exchange" }
   }
 }

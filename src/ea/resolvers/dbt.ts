@@ -2,16 +2,17 @@
  * Anchored Spec — dbt Resolver
  *
  * Parses dbt manifest.json to validate data anchors, collect observed
- * data lineage state, and discover data-product/data-quality-rule/lineage artifacts.
+ * data lineage state, and discover data-product/data-quality-rule/lineage entities.
  *
- * Design reference: docs/ea-phase2f-drift-generators-subsumption.md (dbt Resolver)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (dbt Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
+import { getSchemaDescriptor } from "../backstage/kind-mapping.js";
 import type { BackstageEntity } from "../backstage/types.js";
 import { getEntityAnchors } from "../backstage/accessors.js";
-import type { EaArtifactDraft } from "../discovery.js";
+import type { EntityDraft } from "../discovery.js";
 import type {
   EaResolver,
   EaResolverContext,
@@ -183,12 +184,12 @@ const CACHE_KEY_PREFIX = "dbt:manifest";
 
 /**
  * dbt Resolver — resolves dbt anchors against manifest.json,
- * collects observed data lineage state, and discovers data-layer artifacts.
+ * collects observed data lineage state, and discovers data-layer entities.
  */
 export class DbtResolver implements EaResolver {
   readonly name = "dbt";
   readonly domains: EaResolver["domains"] = ["data"];
-  readonly kinds = ["data-product", "lineage", "data-quality-rule", "data-store"];
+  readonly schemas = ["data-product", "lineage", "data-quality-rule", "data-store"];
 
   /**
    * Resolve dbt anchors against manifest.
@@ -274,7 +275,7 @@ export class DbtResolver implements EaResolver {
     for (const model of extractModels(manifest)) {
       entities.push({
         externalId: model.unique_id,
-        inferredKind: "data-product",
+        inferredSchema: "data-product",
         inferredDomain: "data",
         metadata: {
           name: model.name,
@@ -303,7 +304,7 @@ export class DbtResolver implements EaResolver {
     for (const test of extractTests(manifest)) {
       entities.push({
         externalId: test.unique_id,
-        inferredKind: "data-quality-rule",
+        inferredSchema: "data-quality-rule",
         inferredDomain: "data",
         metadata: {
           name: test.name,
@@ -318,7 +319,7 @@ export class DbtResolver implements EaResolver {
     for (const source of extractSources(manifest)) {
       entities.push({
         externalId: source.unique_id,
-        inferredKind: "data-store",
+        inferredSchema: "data-store",
         inferredDomain: "data",
         metadata: {
           name: source.name,
@@ -334,7 +335,7 @@ export class DbtResolver implements EaResolver {
     for (const exposure of extractExposures(manifest)) {
       entities.push({
         externalId: exposure.unique_id,
-        inferredKind: "data-product",
+        inferredSchema: "data-product",
         inferredDomain: "data",
         metadata: {
           name: exposure.name,
@@ -354,15 +355,19 @@ export class DbtResolver implements EaResolver {
   }
 
   /**
-   * Discover data-layer artifacts from dbt manifest.
+   * Discover data-layer entities from dbt manifest.
    */
-  discoverArtifacts(ctx: EaResolverContext): EaArtifactDraft[] | null {
+  discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
     const manifest = this.loadManifest(ctx);
     if (!manifest) return null;
 
-    const drafts: EaArtifactDraft[] = [];
+    const drafts: EntityDraft[] = [];
     const now = new Date().toISOString();
     const seen = new Set<string>();
+    const dataProduct = getSchemaDescriptor("data-product")!;
+    const dataQualityRule = getSchemaDescriptor("data-quality-rule")!;
+    const dataStore = getSchemaDescriptor("data-store")!;
+    const lineage = getSchemaDescriptor("lineage")!;
 
     // Models → data-product drafts
     for (const model of extractModels(manifest)) {
@@ -371,8 +376,11 @@ export class DbtResolver implements EaResolver {
       seen.add(key);
 
       drafts.push({
-        suggestedId: `data/DPROD-${slugify(model.name)}`,
-        kind: "data-product",
+        suggestedId: `resource:${slugify(model.name)}`,
+        apiVersion: dataProduct.apiVersion,
+        kind: dataProduct.kind,
+        type: dataProduct.specType,
+        schema: dataProduct.schema,
         title: model.name,
         summary: model.description ?? `dbt model ${model.name}`,
         status: "draft",
@@ -380,7 +388,7 @@ export class DbtResolver implements EaResolver {
         anchors: { dbt: [model.name] },
         discoveredBy: "dbt",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           schema: model.schema,
           database: model.database,
           materialized: model.config?.materialized,
@@ -396,8 +404,11 @@ export class DbtResolver implements EaResolver {
       seen.add(key);
 
       drafts.push({
-        suggestedId: `data/DQR-${slugify(test.name)}`,
-        kind: "data-quality-rule",
+        suggestedId: `control:${slugify(test.name)}`,
+        apiVersion: dataQualityRule.apiVersion,
+        kind: dataQualityRule.kind,
+        type: dataQualityRule.specType,
+        schema: dataQualityRule.schema,
         title: test.name,
         summary: `dbt test: ${test.test_metadata?.name ?? test.name}`,
         status: "draft",
@@ -405,7 +416,7 @@ export class DbtResolver implements EaResolver {
         anchors: { dbt: [test.name] },
         discoveredBy: "dbt",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           testType: test.test_metadata?.name,
           tags: test.tags,
         },
@@ -419,8 +430,11 @@ export class DbtResolver implements EaResolver {
       seen.add(key);
 
       drafts.push({
-        suggestedId: `data/STORE-${slugify(`${source.source_name}-${source.name}`)}`,
-        kind: "data-store",
+        suggestedId: `resource:${slugify(`${source.source_name}-${source.name}`)}`,
+        apiVersion: dataStore.apiVersion,
+        kind: dataStore.kind,
+        type: dataStore.specType,
+        schema: dataStore.schema,
         title: `${source.source_name}.${source.name}`,
         summary: source.description ?? `dbt source ${source.source_name}.${source.name}`,
         status: "draft",
@@ -428,7 +442,7 @@ export class DbtResolver implements EaResolver {
         anchors: { dbt: [`${source.source_name}.${source.name}`] },
         discoveredBy: "dbt",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           schema: source.schema,
           database: source.database,
           sourceName: source.source_name,
@@ -447,8 +461,11 @@ export class DbtResolver implements EaResolver {
 
       const upstreamNames = model.depends_on.nodes.map((n) => n.split(".").pop() ?? n);
       drafts.push({
-        suggestedId: `data/LINEAGE-${slugify(model.name)}`,
-        kind: "lineage",
+        suggestedId: `exchange:${slugify(model.name)}`,
+        apiVersion: lineage.apiVersion,
+        kind: lineage.kind,
+        type: lineage.specType,
+        schema: lineage.schema,
         title: `Lineage: ${model.name}`,
         summary: `Data lineage from ${upstreamNames.join(", ")} to ${model.name}`,
         status: "draft",
@@ -456,7 +473,7 @@ export class DbtResolver implements EaResolver {
         anchors: { dbt: [model.name] },
         discoveredBy: "dbt",
         discoveredAt: now,
-        kindSpecificFields: {
+        schemaFields: {
           upstream: model.depends_on.nodes,
           target: model.unique_id,
         },

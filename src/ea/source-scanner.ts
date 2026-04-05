@@ -115,13 +115,13 @@ export function scanSourceAnnotations(
 
   for (const filePath of files) {
     const content = readFileSync(filePath, "utf-8");
-    const artifactIds = extractAnnotations(content);
-    if (artifactIds.length > 0) {
+    const entityRefs = extractAnnotations(content);
+    if (entityRefs.length > 0) {
       sources.push({
         path: filePath,
         relativePath: relative(projectRoot, filePath),
         frontmatter: {},
-        artifactIds,
+        entityRefs,
       });
     }
   }

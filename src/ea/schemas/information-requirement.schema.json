@@ -4,7 +4,7 @@
   "title": "Anchored Spec — EA Information Requirement",
   "description": "An information requirement for content types and information flow governance.",
   "allOf": [
-    { "$ref": "https://anchored-spec.dev/schemas/ea/artifact-base.schema.json" }
+    { "$ref": "https://anchored-spec.dev/schemas/ea/entity-base.schema.json" }
   ],
   "properties": {
     "kind": { "const": "information-requirement" },
@@ -39,7 +39,7 @@
     },
     "supersededBy": {
       "type": "string",
-      "description": "ID of the artifact that supersedes this one"
+      "description": "ID of the entity that supersedes this one"
     },
     "statusReason": {
       "type": "string",

@@ -1,8 +1,8 @@
 /**
- * Anchored Spec — JavaScript/TypeScript Query Packs
+ * Anchored Spec — JavaScript Query Packs
  *
- * Tree-sitter query patterns for discovering EA artifacts from
- * JavaScript and TypeScript codebases.
+ * Tree-sitter query patterns for discovering EA entities from
+ * JavaScript codebases.
  *
  * Covers: Express/Fastify/Hono routes, Prisma/TypeORM DB access,
  * EventEmitter/Bull events, fetch/axios external calls.
@@ -15,7 +15,7 @@ import type { QueryPack } from "../types.js";
 const expressRoutes: QueryPack = {
   name: "express-routes",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs"],
+  fileGlobs: ["**/*.js", "**/*.jsx", "**/*.mjs"],
   patterns: [
     {
       name: "express-route-handler",
@@ -24,6 +24,8 @@ const expressRoutes: QueryPack = {
           function: (member_expression
             object: (identifier) @_router
             property: (property_identifier) @method)
+          (#match? @_router "^(app|router|server|api|route|routes)$")
+          (#match? @method "^(get|post|put|patch|delete|head|options|all)$")
           arguments: (arguments
             (string (string_fragment) @route.path)))
       `,
@@ -31,7 +33,7 @@ const expressRoutes: QueryPack = {
         { capture: "@method", role: "method" },
         { capture: "@route.path", role: "anchor" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -42,6 +44,8 @@ const expressRoutes: QueryPack = {
           function: (member_expression
             object: (identifier) @_router
             property: (property_identifier) @method)
+          (#match? @_router "^(app|router|server|api|route|routes)$")
+          (#match? @method "^(get|post|put|patch|delete|head|options|all)$")
           arguments: (arguments
             (template_string) @route.path))
       `,
@@ -49,7 +53,7 @@ const expressRoutes: QueryPack = {
         { capture: "@method", role: "method" },
         { capture: "@route.path", role: "anchor" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -60,7 +64,7 @@ const expressRoutes: QueryPack = {
 const nextjsRoutes: QueryPack = {
   name: "nextjs-api-routes",
   language: "javascript",
-  fileGlobs: ["**/app/**/route.ts", "**/app/**/route.js", "**/pages/api/**/*.ts", "**/pages/api/**/*.js"],
+  fileGlobs: ["**/app/**/route.js", "**/pages/api/**/*.js"],
   patterns: [
     {
       name: "nextjs-route-handler-export",
@@ -72,7 +76,7 @@ const nextjsRoutes: QueryPack = {
       captures: [
         { capture: "@method", role: "method" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -88,7 +92,7 @@ const nextjsRoutes: QueryPack = {
       captures: [
         { capture: "@method", role: "method" },
       ],
-      inferredKind: "api-contract",
+      inferredSchema: "api-contract",
       inferredDomain: "systems",
       category: "route",
     },
@@ -100,7 +104,7 @@ const nextjsRoutes: QueryPack = {
 const prismaAccess: QueryPack = {
   name: "prisma-db-access",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.js", "**/*.mjs"],
+  fileGlobs: ["**/*.js", "**/*.mjs"],
   patterns: [
     {
       name: "prisma-model-operation",
@@ -111,12 +115,13 @@ const prismaAccess: QueryPack = {
               object: (identifier) @_prisma
               property: (property_identifier) @model)
             property: (property_identifier) @operation))
+          (#eq? @_prisma "prisma")
       `,
       captures: [
         { capture: "@model", role: "table" },
         { capture: "@operation", role: "metadata" },
       ],
-      inferredKind: "physical-schema",
+      inferredSchema: "physical-schema",
       inferredDomain: "data",
       category: "db-access",
     },
@@ -126,7 +131,7 @@ const prismaAccess: QueryPack = {
 const typeormAccess: QueryPack = {
   name: "typeorm-db-access",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.js"],
+  fileGlobs: ["**/*.js"],
   patterns: [
     {
       name: "typeorm-entity-decorator",
@@ -137,7 +142,7 @@ const typeormAccess: QueryPack = {
           (#eq? @_decorator "Entity"))
       `,
       captures: [],
-      inferredKind: "physical-schema",
+      inferredSchema: "physical-schema",
       inferredDomain: "data",
       category: "db-access",
     },
@@ -149,7 +154,7 @@ const typeormAccess: QueryPack = {
 const eventEmitter: QueryPack = {
   name: "event-emitter",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.js", "**/*.mjs"],
+  fileGlobs: ["**/*.js", "**/*.mjs"],
   patterns: [
     {
       name: "event-emit",
@@ -164,7 +169,7 @@ const eventEmitter: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -181,7 +186,7 @@ const eventEmitter: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -191,7 +196,7 @@ const eventEmitter: QueryPack = {
 const bullQueue: QueryPack = {
   name: "bull-queue",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.js", "**/*.mjs"],
+  fileGlobs: ["**/*.js", "**/*.mjs"],
   patterns: [
     {
       name: "bull-queue-add",
@@ -206,7 +211,7 @@ const bullQueue: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -223,7 +228,7 @@ const bullQueue: QueryPack = {
       captures: [
         { capture: "@event.name", role: "event" },
       ],
-      inferredKind: "event-contract",
+      inferredSchema: "event-contract",
       inferredDomain: "systems",
       category: "event",
     },
@@ -235,7 +240,7 @@ const bullQueue: QueryPack = {
 const fetchCalls: QueryPack = {
   name: "fetch-external-calls",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.js", "**/*.mjs"],
+  fileGlobs: ["**/*.js", "**/*.mjs"],
   patterns: [
     {
       name: "fetch-call",
@@ -249,7 +254,7 @@ const fetchCalls: QueryPack = {
       captures: [
         { capture: "@url", role: "service" },
       ],
-      inferredKind: "service",
+      inferredSchema: "service",
       inferredDomain: "systems",
       category: "external-call",
     },
@@ -265,7 +270,7 @@ const fetchCalls: QueryPack = {
       captures: [
         { capture: "@url", role: "service" },
       ],
-      inferredKind: "service",
+      inferredSchema: "service",
       inferredDomain: "systems",
       category: "external-call",
     },
@@ -275,7 +280,7 @@ const fetchCalls: QueryPack = {
 const axiosCalls: QueryPack = {
   name: "axios-external-calls",
   language: "javascript",
-  fileGlobs: ["**/*.ts", "**/*.js", "**/*.mjs"],
+  fileGlobs: ["**/*.js", "**/*.mjs"],
   patterns: [
     {
       name: "axios-method-call",
@@ -292,7 +297,7 @@ const axiosCalls: QueryPack = {
         { capture: "@url", role: "service" },
         { capture: "@method", role: "method" },
       ],
-      inferredKind: "service",
+      inferredSchema: "service",
       inferredDomain: "systems",
       category: "external-call",
     },
@@ -301,7 +306,7 @@ const axiosCalls: QueryPack = {
 
 // ─── Pack Registry ──────────────────────────────────────────────────────────────
 
-/** All built-in JavaScript/TypeScript query packs. */
+/** All built-in JavaScript query packs. */
 export const javascriptPacks: QueryPack[] = [
   expressRoutes,
   nextjsRoutes,

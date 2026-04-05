@@ -1,35 +1,108 @@
 # Anchored Spec Documentation
 
-This documentation set describes the current anchored-spec framework as it ships today: Backstage-aligned entities, manifest or inline authoring, canonical entity refs, drift detection, traceability, governed evolution, and AI-friendly architecture workflows.
+This documentation set describes the framework as it exists in this repository today. It is architecture-first, implementation-referenced, and organized to support solution framing, delivery planning, and day-to-day engineering use.
 
-## Start here
+## What Anchored Spec Is
 
-- [Backstage alignment](ea-backstage-alignment.md) — entity model, kinds, storage modes, and annotations
-- [Design overview](ea-design-overview.md) — how the framework is structured and how the major subsystems fit together
-- [Implementation guide](ea-implementation-guide.md) — step-by-step project setup and day-to-day usage
-- [Adoption playbook](ea-adoption-playbook.md) — practical rollout guidance for brownfield repositories
+Anchored Spec is a local-first architecture framework for repositories. It gives teams:
 
-## Working with the model
+- a typed architecture model based on Backstage-style entities
+- a CLI for authoring, validation, discovery, drift, reporting, and governance
+- a Node API that exposes the same runtime used by the CLI
+- a documentation and review workflow that stays in version control
 
-- [Entity model](ea-unified-artifact-model.md) — authored entity shape, lifecycle, trace refs, and authored data conventions
-- [Relationship model](ea-relationship-model.md) — current authored and derived relationship semantics
-- [Relation cheat sheet](ea-relation-cheat-sheet.md) — quick lookup for common relation choices
-- [Conflict resolution](ea-conflict-resolution.md) — declared vs observed vs inferred precedence
-- [Transitions and evidence](ea-transitions-evidence-reporting.md) — lifecycle planning, exceptions, evidence, and reporting
+The framework is implemented primarily in:
 
-## Analysis and automation
+- `src/cli/` for the public command surface
+- `src/ea/` for the architecture runtime
+- `src/ea/resolvers/` for discovery sources
+- `src/ea/generators/` for derived outputs
+- `src/ea/schemas/` for schema contracts
 
-- [Drift, resolvers, and generators](ea-drift-resolvers-generators.md) — discovery, drift, doc consistency, and generation
-- [Governed evolution](ea-governed-evolution.md) — semantic diff, compatibility, version policy, and reconcile
-- [Visualization](ea-visualization.md) — graph rendering and export workflows
-- [Model health metrics](ea-model-health-metrics.md) — how to measure model quality and coverage over time
-- [Testing guide](ea-testing-guide.md) — practical tests for architecture-aware repos
-- [CI integration](ea-ci-integration.md) — using anchored-spec in automation
+## Reading Order
 
-## Reference
+If you are new to the framework, read in this order:
 
-- [Schema evolution](ea-schema-evolution.md)
-- [Multi-repo federation](ea-multi-repo-federation.md)
-- [Glossary](ea-glossary.md)
-- [Contributing](contributing.md)
-- [Migration from v0.x](migration-from-v0.md)
+1. [delivery-baseline.md](delivery-baseline.md)
+2. [01-business/business-architecture.md](01-business/business-architecture.md)
+3. [02-system-context/system-context.md](02-system-context/system-context.md)
+4. [03-container/container-architecture.md](03-container/container-architecture.md)
+5. [05-domain/domain-model.md](05-domain/domain-model.md)
+6. [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
+
+## Navigation Index
+
+### Core framing
+
+- [glossary.md](glossary.md)
+- [delivery-baseline.md](delivery-baseline.md)
+- [mobilization.md](mobilization.md)
+- [current-vs-target.md](current-vs-target.md)
+- [readiness-checklist.md](readiness-checklist.md)
+
+### Architecture outputs
+
+- [01-business/business-architecture.md](01-business/business-architecture.md)
+- [02-system-context/system-context.md](02-system-context/system-context.md)
+- [03-container/container-architecture.md](03-container/container-architecture.md)
+- [04-component/anchored-spec-cli.md](04-component/anchored-spec-cli.md)
+- [04-component/anchored-spec-library.md](04-component/anchored-spec-library.md)
+- [05-domain/domain-model.md](05-domain/domain-model.md)
+- [05-domain/state-machines.md](05-domain/state-machines.md)
+- [05-domain/domain-types.md](05-domain/domain-types.md)
+- [05-domain/interfaces.md](05-domain/interfaces.md)
+- [06-api/cli-api.md](06-api/cli-api.md)
+- [06-api/node-api.md](06-api/node-api.md)
+- [06-api/error-codes.md](06-api/error-codes.md)
+- [07-data/data-model.md](07-data/data-model.md)
+- [08-security/security-architecture.md](08-security/security-architecture.md)
+- [09-infrastructure/infrastructure.md](09-infrastructure/infrastructure.md)
+- [09-infrastructure/ci-cd.md](09-infrastructure/ci-cd.md)
+- [09-infrastructure/environments.md](09-infrastructure/environments.md)
+- [09-infrastructure/runbook.md](09-infrastructure/runbook.md)
+- [10-testing/test-strategy.md](10-testing/test-strategy.md)
+
+### Decision records
+
+- [adr/ADR-001-backstage-aligned-entity-envelope.md](adr/ADR-001-backstage-aligned-entity-envelope.md)
+- [adr/ADR-002-dual-storage-modes.md](adr/ADR-002-dual-storage-modes.md)
+- [adr/ADR-003-declared-before-observed.md](adr/ADR-003-declared-before-observed.md)
+- [adr/ADR-004-repository-local-workflow.md](adr/ADR-004-repository-local-workflow.md)
+- [adr/ADR-005-flexible-document-structure.md](adr/ADR-005-flexible-document-structure.md)
+- [adr/ADR-006-catalog-bootstrap-and-synthesis.md](adr/ADR-006-catalog-bootstrap-and-synthesis.md)
+
+### Requirements
+
+- [req/REQ-001-entity-model-as-source-of-truth.md](req/REQ-001-entity-model-as-source-of-truth.md)
+- [req/REQ-002-traceability-and-context-assembly.md](req/REQ-002-traceability-and-context-assembly.md)
+- [req/REQ-003-discovery-and-drift-control-loop.md](req/REQ-003-discovery-and-drift-control-loop.md)
+- [req/REQ-004-semantic-change-governance.md](req/REQ-004-semantic-change-governance.md)
+
+### Guides
+
+- [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
+- [guides/user-guides/choosing-a-modeling-approach.md](guides/user-guides/choosing-a-modeling-approach.md)
+- [guides/user-guides/bottom-up-discovery.md](guides/user-guides/bottom-up-discovery.md)
+- [guides/user-guides/top-down-authoring.md](guides/user-guides/top-down-authoring.md)
+- [guides/user-guides/reporting-and-analysis.md](guides/user-guides/reporting-and-analysis.md)
+- [guides/user-guides/adoption-playbook.md](guides/user-guides/adoption-playbook.md)
+- [guides/developer-guides/contributing.md](guides/developer-guides/contributing.md)
+- [guides/developer-guides/testing-and-ci.md](guides/developer-guides/testing-and-ci.md)
+- [guides/developer-guides/framework-internals.md](guides/developer-guides/framework-internals.md)
+
+## Solution Framing
+
+Anchored Spec is most useful when a team needs architecture to be:
+
+- close to the code that implements it
+- typed enough for automation
+- reviewable enough for humans
+- stable enough for AI-assisted analysis
+
+It is not trying to be:
+
+- a remote architecture registry
+- a generic model-driven code generation platform
+- a documentation wiki with no typed source of truth
+
+The rest of the docs explain how that position maps to the current implementation.

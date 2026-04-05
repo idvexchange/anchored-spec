@@ -1,59 +1,112 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://anchored-spec.dev/schemas/config-v1.schema.json",
-  "title": "Anchored Spec v1.0 Configuration",
-  "description": "Top-level configuration for anchored-spec v1.0. EA fields are promoted to top-level — no nested ea.* section.",
+  "title": "Anchored Spec Configuration",
+  "description": "Top-level configuration for anchored-spec schema versions 1.0 and 1.1.",
   "type": "object",
   "required": ["schemaVersion", "rootDir"],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0",
-      "description": "Config format version. Must be \"1.0\"."
+      "enum": ["1.0", "1.1"],
+      "description": "Config format version."
     },
     "rootDir": {
       "type": "string",
-      "default": "ea",
-      "description": "Root directory for EA artifacts."
+      "default": "docs",
+      "description": "Root directory for EA docs and outputs."
     },
     "generatedDir": {
       "type": "string",
-      "default": "ea/generated",
+      "default": "docs/generated",
       "description": "Directory for generated output files."
     },
     "idPrefix": {
       "type": ["string", "null"],
       "default": null,
-      "description": "Optional organizational prefix for artifact IDs (e.g., \"acme\")."
+      "description": "Optional organizational prefix for entity IDs."
     },
     "domains": {
+      "description": "In 1.0, a domain-to-path map. In 1.1, a semantic domain list.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "systems": { "type": "string" },
+            "delivery": { "type": "string" },
+            "data": { "type": "string" },
+            "information": { "type": "string" },
+            "business": { "type": "string" },
+            "transitions": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      ]
+    },
+    "docs": {
       "type": "object",
-      "description": "Per-domain subdirectory paths.",
+      "additionalProperties": false,
       "properties": {
-        "systems": { "type": "string" },
-        "delivery": { "type": "string" },
-        "data": { "type": "string" },
-        "information": { "type": "string" },
-        "business": { "type": "string" },
-        "transitions": { "type": "string" }
-      },
-      "additionalProperties": false
+        "structure": {
+          "type": "string",
+          "description": "Named docs scaffold profile."
+        },
+        "scanDirs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Directories scanned recursively by doc-aware commands."
+        },
+        "rootDocs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Top-level framing documents."
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "path", "kind"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "path": { "type": "string" },
+              "kind": { "type": "string" },
+              "domains": {
+                "type": "array",
+                "items": { "type": "string" },
+                "uniqueItems": true
+              }
+            }
+          }
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Default section id by create-doc type."
+        }
+      }
     },
     "resolvers": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "name": { "type": "string", "description": "Built-in resolver name (e.g. openapi, tree-sitter)." },
-          "path": { "type": "string", "description": "Module path to a custom resolver." },
-          "cacheTTL": { "type": "number", "description": "Cache TTL in seconds." },
-          "options": { "type": "object", "description": "Resolver-specific options." }
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "cacheTTL": { "type": "number" },
+          "options": { "type": "object" }
         },
         "additionalProperties": false
       },
-      "default": [],
-      "description": "Configured resolver plugins. Use 'name' for built-in resolvers or 'path' for custom modules."
+      "default": []
     },
     "generators": {
       "type": "array",
@@ -61,29 +114,26 @@
         "type": "object",
         "required": ["path", "outputDir"],
         "properties": {
-          "path": { "type": "string", "description": "Module path to the generator." },
-          "outputDir": { "type": "string", "description": "Output directory." },
-          "options": { "type": "object", "description": "Generator-specific options." }
+          "path": { "type": "string" },
+          "outputDir": { "type": "string" },
+          "options": { "type": "object" }
         },
         "additionalProperties": false
       },
-      "default": [],
-      "description": "Configured generator plugins."
+      "default": []
     },
     "evidenceSources": {
       "type": "array",
       "items": { "type": "string" },
-      "default": [],
-      "description": "Evidence source paths."
+      "default": []
     },
     "cache": {
       "type": "object",
       "properties": {
-        "dir": { "type": "string", "default": ".anchored-spec/cache", "description": "Cache directory." },
-        "defaultTTL": { "type": "number", "default": 3600, "description": "Default TTL in seconds." }
+        "dir": { "type": "string", "default": ".anchored-spec/cache" },
+        "defaultTTL": { "type": "number", "default": 3600 }
       },
-      "additionalProperties": false,
-      "description": "Resolver cache settings."
+      "additionalProperties": false
     },
     "quality": {
       "type": "object",
@@ -95,58 +145,47 @@
         "strictMode": { "type": "boolean", "default": false },
         "rules": {
           "type": "object",
-          "additionalProperties": { "enum": ["error", "warning", "info", "off"] }
-        }
-      },
-      "additionalProperties": false,
-      "description": "Quality rule settings."
-    },
-    "sourceRoots": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Source code root directories for anchor resolution."
-    },
-    "sourceGlobs": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Source code glob patterns for anchor resolution."
-    },
-    "sourceAnnotations": {
-      "type": "object",
-      "description": "Source file annotation scanning configuration for trace integrity.",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable scanning source files for @anchored-spec annotations."
-        },
-        "sourceRoots": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Source directories to scan (overrides top-level sourceRoots for annotations)."
-        },
-        "sourceGlobs": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Glob patterns for source files (overrides top-level sourceGlobs for annotations)."
+          "additionalProperties": {
+            "enum": ["error", "warning", "info", "off"]
+          }
         }
       },
       "additionalProperties": false
     },
+    "sourceRoots": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sourceGlobs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "sourceAnnotations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "sourceRoots": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sourceGlobs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "plugins": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Plugin module paths."
+      "items": { "type": "string" }
     },
     "exclude": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Glob patterns for files to exclude from artifact loading."
+      "items": { "type": "string" }
     },
     "driftResolvers": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Pluggable drift resolver module paths."
+      "items": { "type": "string" }
     },
     "hooks": {
       "type": "array",
@@ -154,75 +193,52 @@
         "type": "object",
         "required": ["event", "run"],
         "properties": {
-          "event": { "type": "string", "description": "Hook event name." },
-          "run": { "type": "string", "description": "Command to run." }
+          "event": { "type": "string" },
+          "run": { "type": "string" }
         },
         "additionalProperties": false
-      },
-      "description": "Lifecycle hooks."
+      }
     },
     "testMetadata": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "testGlobs": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "Glob patterns for test files."
+          "items": { "type": "string" }
         },
         "requirementPattern": {
           "oneOf": [
             { "type": "string" },
-            { "type": "array", "items": { "type": "string" } }
-          ],
-          "description": "Regex pattern(s) to extract artifact IDs from test files."
+            {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          ]
         }
-      },
-      "additionalProperties": false,
-      "description": "Test metadata linking configuration."
+      }
     },
     "workflowPolicyPath": {
       "type": "string",
-      "default": "ea/workflow-policy.yaml",
-      "description": "Path to workflow policy file."
+      "default": "docs/workflow-policy.yaml"
     },
     "customChangeTypes": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "Custom change types beyond built-in types."
+      "items": { "type": "string" }
     },
     "versionPolicy": {
       "type": "object",
-      "description": "Version compatibility policy enforcement configuration.",
+      "additionalProperties": false,
       "properties": {
         "defaultCompatibility": {
           "type": "string",
-          "enum": ["backward-only", "full", "breaking-allowed", "frozen"],
-          "default": "breaking-allowed",
-          "description": "Default compatibility mode for all artifacts."
+          "enum": ["backward-only", "full", "breaking-allowed", "frozen"]
         },
-        "perKind": {
+        "perSchema": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "properties": {
-              "compatibility": {
-                "type": "string",
-                "enum": ["backward-only", "full", "breaking-allowed", "frozen"]
-              },
-              "deprecationWindow": {
-                "type": "string",
-                "pattern": "^\\d+(d|m|y)$",
-                "description": "Minimum time in deprecated state before removal (e.g., '90d', '6m')."
-              }
-            },
-            "additionalProperties": false
-          },
-          "description": "Per-kind compatibility policy overrides."
-        },
-        "perDomain": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
+            "additionalProperties": false,
             "properties": {
               "compatibility": {
                 "type": "string",
@@ -232,34 +248,43 @@
                 "type": "string",
                 "pattern": "^\\d+(d|m|y)$"
               }
-            },
-            "additionalProperties": false
-          },
-          "description": "Per-domain compatibility policy overrides."
+            }
+          }
+        },
+        "perDomain": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "compatibility": {
+                "type": "string",
+                "enum": ["backward-only", "full", "breaking-allowed", "frozen"]
+              },
+              "deprecationWindow": {
+                "type": "string",
+                "pattern": "^\\d+(d|m|y)$"
+              }
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      }
     },
     "entityMode": {
       "type": "string",
-      "enum": ["manifest", "inline"],
-      "description": "Entity storage mode: 'manifest' (multi-doc Backstage YAML) or 'inline' (Backstage YAML frontmatter in markdown)."
+      "enum": ["manifest", "inline"]
     },
     "manifestPath": {
       "type": "string",
-      "default": "catalog-info.yaml",
-      "description": "Path to the manifest file (relative to project root). Used when entityMode is 'manifest'."
+      "default": "catalog-info.yaml"
     },
     "catalogDir": {
       "type": "string",
-      "default": "catalog",
-      "description": "Directory containing individual Backstage entity YAML files. Used when entityMode is 'manifest' with split files."
+      "default": "catalog"
     },
     "inlineDocDirs": {
       "type": "array",
-      "items": { "type": "string" },
-      "default": ["docs"],
-      "description": "Directories containing markdown docs with Backstage YAML frontmatter. Used when entityMode is 'inline'."
+      "items": { "type": "string" }
     }
   }
 }
