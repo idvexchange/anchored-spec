@@ -5,7 +5,7 @@
  * spec relation fields, virtual inverse edges computed via the registry.
  * Supports traversal, impact analysis, cycle detection, and export.
  *
- * Design reference: docs/systems/entity-model.md (relation graph conventions)
+ * Design reference: docs/05-domain/domain-model.md (relation graph conventions)
  */
 
 import type { BackstageEntity } from "./backstage/types.js";

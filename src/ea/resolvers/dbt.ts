@@ -4,7 +4,7 @@
  * Parses dbt manifest.json to validate data anchors, collect observed
  * data lineage state, and discover data-product/data-quality-rule/lineage entities.
  *
- * Design reference: docs/delivery/discovery-drift-generation.md (dbt Resolver)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (dbt Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";

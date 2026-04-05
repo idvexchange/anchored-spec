@@ -5,7 +5,7 @@
  * EA entities with live infrastructure by resolving anchors, collecting
  * observed state, and discovering new entities.
  *
- * Design reference: docs/delivery/discovery-drift-generation.md
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md
  */
 
 import type { BackstageEntity } from "../backstage/types.js";

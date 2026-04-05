@@ -4,25 +4,84 @@
 [![npm version](https://img.shields.io/npm/v/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Backstage-aligned, spec-as-source architecture for repositories that want entities, relations, drift detection, and traceability in version control.
+> Backstage-aligned, spec-as-source architecture for repositories that want a real architecture model in version control.
 
-Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in either `catalog-info.yaml` or Markdown frontmatter, then use the CLI to validate them, visualize raw relation graphs and semantic diagrams, discover missing model coverage, detect drift against code and infrastructure, reconcile docs, and assemble context for humans and AI agents.
+Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in version control, link those entities to architecture documents, and then run validation, traceability, discovery, drift detection, reporting, and change-review workflows over the same model.
 
-This repository is the canonical manifest-mode example: a root `catalog-info.yaml` and linked markdown documentation organized by primary EA domain under `docs/`.
+This repository is the canonical manifest-mode example: a root `catalog-info.yaml`, linked markdown under `docs/`, and a CLI that keeps the model reviewable from pull request to pull request.
 
-## What it does
+## Why Anchored Spec Exists
 
-- Author architecture as **Backstage-aligned entities**.
-- Support both **manifest** and **inline Markdown** storage modes.
-- Use **canonical entity refs** such as `component:default/orders-api` everywhere in runtime workflows.
-- Validate schema, ownership, lifecycle, relations, and traceability.
-- Discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Tree-sitter, anchors, and Markdown.
-- Detect architectural drift across systems, data, information, business, transitions, docs, and exceptions.
-- Generate OpenAPI and JSON Schema outputs from authored entities.
-- Link documentation and entities with bidirectional trace references.
-- Produce reports, graph exports, compatibility diffs, and full reconcile runs.
+Most architecture tooling falls apart for one of two reasons:
 
-## Authoring model
+- the model is separate from the repo, so it drifts
+- the docs are prose-only, so automation cannot trust them
+
+Anchored Spec takes a different position:
+
+- architecture should live next to code
+- the source of truth should be typed and reviewable
+- docs should explain the model, not replace it
+- discovery and drift should pressure-test the model, not silently overwrite it
+- AI agents should consume the same architecture graph as humans
+
+## What You Can Do With It
+
+- Author architecture as Backstage-aligned entities.
+- Store that model in manifest mode or inline markdown frontmatter.
+- Use canonical entity refs such as `component:default/orders-service` across commands, docs, and review workflows.
+- Validate schema, relations, ownership, lifecycle, and traceability.
+- Discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, markdown, anchors, and tree-sitter.
+- Detect drift between declared architecture and observed repository reality.
+- Generate a narrow set of derived outputs, currently OpenAPI and JSON Schema.
+- Build graphs, semantic diagrams, reports, impact analyses, constraint views, and AI context bundles.
+- Review changes semantically with compatibility and policy checks instead of relying on text diffs alone.
+
+## Start Here
+
+### Install
+
+```bash
+pnpm add -D anchored-spec
+```
+
+### Initialize a repository
+
+```bash
+npx anchored-spec init --mode manifest
+```
+
+### Create the first entities
+
+```bash
+npx anchored-spec create --kind Component --type service --title "Orders Service" --owner group:default/platform-team
+npx anchored-spec create --kind API --type openapi --title "Orders API" --owner group:default/platform-team
+```
+
+If you are not sure which descriptor shape to use, inspect the supported options first:
+
+```bash
+npx anchored-spec create --list
+```
+
+### Validate and inspect the model
+
+```bash
+npx anchored-spec validate
+npx anchored-spec trace --summary
+npx anchored-spec graph --format mermaid --focus component:default/orders-service --depth 1
+```
+
+### Run the wider architecture loop
+
+```bash
+npx anchored-spec drift
+npx anchored-spec diff --base main --compat --policy
+npx anchored-spec report --view traceability-index
+npx anchored-spec context component:default/orders-service --tier llm
+```
+
+## The Core Model
 
 Anchored Spec uses the Backstage entity envelope:
 
@@ -34,8 +93,7 @@ metadata:
   title: Orders Service
   description: Handles order placement and orchestration.
   annotations:
-    anchored-spec.dev/confidence: declared
-    anchored-spec.dev/source: src/orders/
+    anchored-spec.dev/source: docs/04-component/orders-service.md
 spec:
   type: service
   lifecycle: production
@@ -47,7 +105,7 @@ spec:
     - resource:default/orders-db
 ```
 
-Use Backstage built-in kinds where they fit:
+Prefer Backstage built-in kinds when they fit:
 
 - `Component`
 - `API`
@@ -56,7 +114,7 @@ Use Backstage built-in kinds where they fit:
 - `System`
 - `Domain`
 
-Use anchored-spec custom kinds when you need architecture concepts that Backstage does not model directly:
+Use Anchored Spec custom kinds only when the concept is genuinely architectural and not already covered well by Backstage:
 
 - `Requirement`
 - `Decision`
@@ -71,11 +129,11 @@ Use anchored-spec custom kinds when you need architecture concepts that Backstag
 - `TransitionPlan`
 - `Exception`
 
-## Storage modes
+## Storage Modes
 
 ### Manifest mode
 
-Store entities in a multi-document `catalog-info.yaml` file.
+Entities live in one or more YAML catalog files, usually centered on `catalog-info.yaml`.
 
 ```bash
 npx anchored-spec init --mode manifest --with-examples
@@ -83,55 +141,43 @@ npx anchored-spec init --mode manifest --with-examples
 
 ### Inline mode
 
-Store entities as YAML frontmatter inside Markdown files.
+Entities live in markdown frontmatter, usually inside `docs/`.
 
 ```bash
 npx anchored-spec init --mode inline --with-examples
 ```
 
-## Quick start
+Manifest mode is the clearest operating shape for most multi-concern repositories. Inline mode remains useful when the docs themselves are already the primary authoring surface.
 
-```bash
-pnpm add -D anchored-spec
-npx anchored-spec init --mode manifest
-npx anchored-spec create application --title "Orders Service"
-npx anchored-spec validate
-npx anchored-spec graph --format mermaid
-npx anchored-spec diagrams render backstage --focus system:default/commerce-platform --depth 1
-npx anchored-spec drift
-npx anchored-spec report --view traceability-index
-npx anchored-spec context component:default/orders-service
-```
+## Command Surface
 
-## CLI commands
+| Command        | Use it for                                                                            |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `init`         | Scaffold config, storage mode, optional examples, AI files, IDE files, and CI recipes |
+| `create`       | Create a new entity in the repository's configured storage mode                       |
+| `create-doc`   | Create linked architecture or guide documents with frontmatter and trace links        |
+| `link`         | Add a relation between two entities                                                   |
+| `validate`     | Validate entities, relations, and quality rules                                       |
+| `verify`       | Run broader project verification checks                                               |
+| `trace`        | Inspect entity-to-doc traceability                                                    |
+| `link-docs`    | Sync doc links and entity trace refs                                                  |
+| `discover`     | Discover draft entities or facts from supported source types                          |
+| `drift`        | Compare the declared model to observed reality                                        |
+| `generate`     | Run built-in generators                                                               |
+| `graph`        | Export raw relation graphs                                                            |
+| `diagrams`     | Render semantic diagram projections                                                   |
+| `report`       | Produce reviewer-facing report views                                                  |
+| `impact`       | Analyze downstream impact                                                             |
+| `constraints`  | Extract governing decisions and requirements                                          |
+| `status`       | Summarize lifecycle, ownership, and confidence                                        |
+| `transition`   | Advance lifecycle state with gates                                                    |
+| `diff`         | Review semantic changes and compatibility                                             |
+| `evidence`     | Ingest, validate, and summarize evidence                                              |
+| `reconcile`    | Run a composed maintenance loop                                                       |
+| `search`       | Search entities by ref, kind, domain, status, tags, and text                          |
+| `batch-update` | Bulk-update entity status or confidence                                               |
 
-| Command        | Purpose                                                                      |
-| -------------- | ---------------------------------------------------------------------------- |
-| `init`         | Scaffold config, storage mode, examples, AI files, IDE files, and CI helpers |
-| `create`       | Create a new entity in the project storage mode                              |
-| `validate`     | Validate entities, relations, and quality rules                              |
-| `verify`       | Run broader project verification checks                                      |
-| `graph`        | Export architecture graphs in Mermaid, DOT, or JSON                          |
-| `diagrams`     | Render semantic diagram views such as Backstage system views                 |
-| `report`       | Generate report views or a full report set                                   |
-| `discover`     | Discover draft entities from configured or explicit resolvers                |
-| `drift`        | Compare authored architecture to observed reality                            |
-| `generate`     | Run OpenAPI and JSON Schema generators                                       |
-| `evidence`     | Ingest, validate, and summarize evidence records                             |
-| `impact`       | Calculate downstream impact for an entity                                    |
-| `status`       | Summarize lifecycle, domain, and confidence status                           |
-| `transition`   | Advance lifecycle state with policy gates                                    |
-| `diff`         | Compare git revisions with semantic compatibility checks                     |
-| `reconcile`    | Run generate, validate, drift, trace, and docs checks together               |
-| `trace`        | Show traceability between entities and docs                                  |
-| `link-docs`    | Sync doc frontmatter refs and entity trace refs                              |
-| `context`      | Build context bundles for AI or human review                                 |
-| `create-doc`   | Create pre-linked architecture documentation                                 |
-| `link`         | Add a relation between two entities                                          |
-| `search`       | Search entities by ref, kind, domain, status, tags, and text                 |
-| `batch-update` | Bulk-update entity `status` or `confidence`                                  |
-
-## Project layout
+## Project Layout
 
 ```text
 .
@@ -140,38 +186,45 @@ npx anchored-spec context component:default/orders-service
 ├── catalog-info.yaml
 ├── docs/
 │   ├── business/
-│   ├── data/
-│   ├── delivery/*.md
-│   ├── information/*.md
-│   ├── systems/*.md
-│   └── transitions/*.md
+│   ├── delivery/
+│   ├── information/
+│   ├── systems/
+│   └── transitions/
+├── src/
+│   ├── cli/
+│   └── ea/
 └── package.json
 ```
 
-A project usually uses either manifest mode or inline mode as its primary authoring style. In this repo, manifest-mode documentation lives under `docs/` and is grouped by the primary EA domain while frontmatter carries cross-domain membership.
+In this repository, `catalog-info.yaml` is the machine-readable architecture source and `docs/` is the linked explanation layer. Each document lives in one primary domain folder and can declare additional domain membership in frontmatter.
 
-## Documentation map
+## Documentation
 
-Start here:
+Start with the docs portal:
 
 - [Documentation portal](docs/README.md)
 - [LLM guide](llms.txt)
-- [Architecture overview](docs/systems/overview.md)
-- [Entity model](docs/systems/entity-model.md)
-- [Docs and traceability](docs/information/docs-and-traceability.md)
-- [Getting started](docs/delivery/getting-started.md)
-- [Testing and CI](docs/delivery/testing-and-ci.md)
+- [Delivery baseline](docs/delivery-baseline.md)
+- [Business architecture](docs/01-business/business-architecture.md)
+- [System context](docs/02-system-context/system-context.md)
+- [Domain model](docs/05-domain/domain-model.md)
+- [User getting started guide](docs/guides/user-guides/getting-started.md)
+- [Developer testing and CI guide](docs/guides/developer-guides/testing-and-ci.md)
 
-## AI agent workflow
+## AI Agent Workflow
 
-Anchored Spec ships with [SKILL.md](SKILL.md), an agent-facing operating guide for repositories that use this framework.
+Anchored Spec ships with both a machine-oriented docs index and a repository skill:
+
+- [llms.txt](llms.txt)
+- [llms-full.txt](llms-full.txt)
+- [SKILL.md](SKILL.md)
 
 Useful prompts:
 
 ```text
 Add a new API and the component that provides it. Keep the model and docs in sync.
 
-Audit this repo's architecture coverage and tell me what entities are missing.
+Audit this repo's architecture coverage and identify the missing entities.
 
 Run a semantic diff against main and explain any breaking changes.
 
@@ -188,7 +241,7 @@ pnpm run lint
 pnpm run verify
 ```
 
-See [docs/contributing.md](docs/contributing.md) for repository development guidance.
+See [docs/contributing.md](docs/contributing.md) for repository workflow and documentation standards.
 
 ## License
 

@@ -4,7 +4,7 @@
  * Single source of truth for relation type semantics: canonical directions,
  * computed inverses, valid source/target schema constraints, and cycle policies.
  *
- * Design reference: docs/systems/entity-model.md
+ * Design reference: docs/05-domain/interfaces.md
  */
 
 import {

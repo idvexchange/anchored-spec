@@ -5,7 +5,7 @@
  * Maps attributes to JSON Schema properties with type mapping,
  * required array, and links back to the source entity.
  *
- * Design reference: docs/delivery/discovery-drift-generation.md (JSON Schema Generator)
+ * Design reference: docs/delivery-baseline.md (JSON Schema Generator)
  */
 
 import type { BackstageEntity } from "../backstage/types.js";

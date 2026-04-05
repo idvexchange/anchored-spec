@@ -1,42 +1,34 @@
 # Anchored Spec
 
-Anchored Spec is a Backstage-aligned, spec-as-source architecture framework for repositories that want entities, relations, drift detection, traceability, reporting, and AI-ready context.
+Anchored Spec is a Backstage-aligned, spec-as-source architecture framework for repositories that want a real architecture model in version control.
 
-This file is the machine-oriented starting point for AI agents. Prefer the linked guides over inferring behavior from scattered prose.
+This file is the machine-oriented starting point for AI agents. Read the linked guides instead of inferring framework behavior from scattered prose.
 
 ## Use Anchored Spec Correctly
 
-- Treat Backstage-style entity YAML or Markdown frontmatter as the source of truth.
-- Preserve the repository's current storage mode: manifest mode or inline mode.
-- Prefer Backstage built-in kinds before custom anchored-spec kinds.
+- Treat entity YAML and markdown frontmatter as the source of truth.
+- Preserve the repository's current storage mode: manifest or inline.
+- Prefer Backstage built-in kinds before custom Anchored Spec kinds.
 - Use canonical entity refs such as `component:default/orders-service`.
-- Keep docs, relations, and validation in sync with the entity graph.
+- Keep docs, traceability, and validation aligned with the entity graph.
 - Treat discovery output as draft or observed input, not silent source-of-truth replacement.
-- Re-run validation after meaningful model changes.
-- Use trace, drift, diff, reconcile, and context workflows instead of ad-hoc repo guessing.
+- Use `validate`, `trace`, `drift`, `diff`, `impact`, `constraints`, `context`, and `reconcile` instead of ad-hoc repo guessing.
 
-## Agent Guides
+## Read In This Order
 
 - [Expanded LLM guide](./llms-full.txt)
-- [Agent guide](./docs/llms/agent-guide.md)
-- [Repo skill](./SKILL.md)
-
-## Canonical Docs
-
-- [README](./README.md)
-- [Documentation portal](./docs/README.md)
-- [Getting started](./docs/delivery/getting-started.md)
-- [Entity model](./docs/systems/entity-model.md)
-- [Discovery, drift, and generation](./docs/delivery/discovery-drift-generation.md)
-- [Reporting and analysis](./docs/delivery/reporting-and-analysis.md)
-- [Docs and traceability](./docs/information/docs-and-traceability.md)
-- [Testing and CI](./docs/delivery/testing-and-ci.md)
+- [Repository skill](./SKILL.md)
+- [Delivery baseline](./docs/delivery-baseline.md)
+- [System context](./docs/02-system-context/system-context.md)
+- [Domain model](./docs/05-domain/domain-model.md)
+- [User getting started guide](./docs/guides/user-guides/getting-started.md)
+- [Developer internals guide](./docs/guides/developer-guides/framework-internals.md)
 
 ## Best-Fit Tasks
 
 - model a system, API, resource, ownership group, or architectural decision
-- add or update entity relations and linked docs
-- discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Markdown, anchors, or tree-sitter
+- update entity relations and linked docs together
+- bootstrap draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, markdown, anchors, or tree-sitter
 - analyze drift between declared and observed architecture
-- generate review artifacts such as graphs, diagrams, reports, impact, constraints, and context bundles
-- evaluate compatibility and policy impacts for changes
+- produce reviewer-facing outputs such as graphs, diagrams, reports, impact analyses, constraint views, and context bundles
+- review semantic compatibility and policy impact for changes

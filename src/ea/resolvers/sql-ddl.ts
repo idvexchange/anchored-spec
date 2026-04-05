@@ -4,7 +4,7 @@
  * Parses SQL DDL files (CREATE TABLE statements) to validate schema anchors,
  * collect observed data-layer state, and discover physical-schema/data-store entities.
  *
- * Design reference: docs/delivery/discovery-drift-generation.md (SQL DDL Resolver)
+ * Design reference: docs/guides/user-guides/bottom-up-discovery.md (SQL DDL Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
