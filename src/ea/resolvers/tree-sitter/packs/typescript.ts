@@ -1,8 +1,8 @@
 /**
- * Anchored Spec — JavaScript Query Packs
+ * Anchored Spec — TypeScript Query Packs
  *
  * Tree-sitter query patterns for discovering EA entities from
- * JavaScript codebases.
+ * TypeScript and TSX codebases.
  *
  * Covers: Express/Fastify/Hono routes, Prisma/TypeORM DB access,
  * EventEmitter/Bull events, fetch/axios external calls.
@@ -10,12 +10,10 @@
 
 import type { QueryPack } from "../types.js";
 
-// ─── Route Discovery ────────────────────────────────────────────────────────────
-
 const expressRoutes: QueryPack = {
   name: "express-routes",
-  language: "javascript",
-  fileGlobs: ["**/*.js", "**/*.jsx", "**/*.mjs"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.mts"],
   patterns: [
     {
       name: "express-route-handler",
@@ -60,11 +58,10 @@ const expressRoutes: QueryPack = {
   ],
 };
 
-// Next.js App Router API routes
 const nextjsRoutes: QueryPack = {
   name: "nextjs-api-routes",
-  language: "javascript",
-  fileGlobs: ["**/app/**/route.js", "**/pages/api/**/*.js"],
+  language: "typescript",
+  fileGlobs: ["**/app/**/route.ts", "**/app/**/route.tsx", "**/pages/api/**/*.ts", "**/pages/api/**/*.tsx"],
   patterns: [
     {
       name: "nextjs-route-handler-export",
@@ -99,12 +96,10 @@ const nextjsRoutes: QueryPack = {
   ],
 };
 
-// ─── DB Access Discovery ────────────────────────────────────────────────────────
-
 const prismaAccess: QueryPack = {
   name: "prisma-db-access",
-  language: "javascript",
-  fileGlobs: ["**/*.js", "**/*.mjs"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.mts"],
   patterns: [
     {
       name: "prisma-model-operation",
@@ -130,8 +125,8 @@ const prismaAccess: QueryPack = {
 
 const typeormAccess: QueryPack = {
   name: "typeorm-db-access",
-  language: "javascript",
-  fileGlobs: ["**/*.js"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx"],
   patterns: [
     {
       name: "typeorm-entity-decorator",
@@ -149,12 +144,10 @@ const typeormAccess: QueryPack = {
   ],
 };
 
-// ─── Event Discovery ────────────────────────────────────────────────────────────
-
 const eventEmitter: QueryPack = {
   name: "event-emitter",
-  language: "javascript",
-  fileGlobs: ["**/*.js", "**/*.mjs"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.mts"],
   patterns: [
     {
       name: "event-emit",
@@ -195,8 +188,8 @@ const eventEmitter: QueryPack = {
 
 const bullQueue: QueryPack = {
   name: "bull-queue",
-  language: "javascript",
-  fileGlobs: ["**/*.js", "**/*.mjs"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.mts"],
   patterns: [
     {
       name: "bull-queue-add",
@@ -235,12 +228,10 @@ const bullQueue: QueryPack = {
   ],
 };
 
-// ─── External Call Discovery ────────────────────────────────────────────────────
-
 const fetchCalls: QueryPack = {
   name: "fetch-external-calls",
-  language: "javascript",
-  fileGlobs: ["**/*.js", "**/*.mjs"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.mts"],
   patterns: [
     {
       name: "fetch-call",
@@ -279,8 +270,8 @@ const fetchCalls: QueryPack = {
 
 const axiosCalls: QueryPack = {
   name: "axios-external-calls",
-  language: "javascript",
-  fileGlobs: ["**/*.js", "**/*.mjs"],
+  language: "typescript",
+  fileGlobs: ["**/*.ts", "**/*.tsx", "**/*.mts"],
   patterns: [
     {
       name: "axios-method-call",
@@ -304,10 +295,7 @@ const axiosCalls: QueryPack = {
   ],
 };
 
-// ─── Pack Registry ──────────────────────────────────────────────────────────────
-
-/** All built-in JavaScript query packs. */
-export const javascriptPacks: QueryPack[] = [
+export const typescriptPacks: QueryPack[] = [
   expressRoutes,
   nextjsRoutes,
   prismaAccess,

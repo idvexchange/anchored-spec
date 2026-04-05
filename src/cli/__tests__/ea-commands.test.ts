@@ -32,6 +32,7 @@ describe("CLI v2 commands", () => {
     expect(result.stdout).toContain("status");
     expect(result.stdout).toContain("diagrams");
     expect(result.stdout).toContain("transition");
+    expect(result.stdout).toContain("catalog");
     expect(result.stdout).not.toMatch(/\nea\s+/);
     expect(result.stdout).not.toContain("move");
     expect(result.stdout).not.toContain("enrich");
@@ -141,7 +142,7 @@ describe("CLI v2 commands", () => {
         structure: string;
       };
     }>(dir, ".anchored-spec/config.json");
-    expect(config.schemaVersion).toBe("1.1");
+    expect(config.schemaVersion).toBe("1.2");
     expect(config.entityMode).toBe("manifest");
     expect(config.docs.structure).toBe("architecture-views");
   });

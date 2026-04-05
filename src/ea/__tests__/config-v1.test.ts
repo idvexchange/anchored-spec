@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveConfigV1 } from "../config.js";
+import type { AnchoredSpecConfigV1_2 } from "../config.js";
 
 describe("resolveConfigV1", () => {
   it("returns v1.0 defaults", () => {
@@ -114,5 +115,47 @@ describe("resolveConfigV1", () => {
     ]);
     expect(config.docs.templates.guide).toBe("guides");
     expect(config.workflowPolicyPath).toBe("architecture/workflow-policy.yaml");
+  });
+
+  it("returns v1.2 defaults with catalog bootstrap configuration", () => {
+    const config = resolveConfigV1({ schemaVersion: "1.2" });
+
+    expect(config.schemaVersion).toBe("1.2");
+    expect(config.domains).toEqual([
+      "systems",
+      "delivery",
+      "data",
+      "information",
+      "business",
+      "transitions",
+    ]);
+    expect(config.docs.structure).toBe("architecture-views");
+    expect(config.catalog.bootstrap?.profile).toBe("auto");
+    expect(config.catalog.bootstrap?.outputMode).toBe("curated");
+    expect(config.catalog.bootstrap?.defaults?.ownerUnitType).toBe("team");
+  });
+
+  it("infers v1.2 when catalog config is present and merges bootstrap overrides", () => {
+    const config = resolveConfigV1({
+      rootDir: "architecture",
+      catalog: {
+        bootstrap: {
+          minConfidence: 0.8,
+          include: {
+            decisions: false,
+          },
+          naming: {
+            stripSuffixes: ["-service"],
+          },
+        },
+      },
+    } as Partial<AnchoredSpecConfigV1_2>);
+
+    expect(config.schemaVersion).toBe("1.2");
+    expect(config.generatedDir).toBe("architecture/generated");
+    expect(config.catalog.bootstrap?.minConfidence).toBe(0.8);
+    expect(config.catalog.bootstrap?.include?.decisions).toBe(false);
+    expect(config.catalog.bootstrap?.include?.components).toBe(true);
+    expect(config.catalog.bootstrap?.naming?.stripSuffixes).toEqual(["-service"]);
   });
 });

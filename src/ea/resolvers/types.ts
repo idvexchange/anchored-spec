@@ -26,6 +26,8 @@ export interface EaResolverContext {
   logger: ResolverLogger;
   /** Optional source path hint (e.g., a directory to scan). */
   source?: string;
+  /** Optional source path set hint (for multi-directory scanning). */
+  sourcePaths?: string[];
 }
 
 /** Logger interface for resolvers. */

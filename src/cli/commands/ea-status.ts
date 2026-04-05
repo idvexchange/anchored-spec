@@ -10,6 +10,8 @@ import chalk from "chalk";
 import { EaRoot } from "../../ea/loader.js";
 import { resolveConfigV1 } from "../../ea/config.js";
 import { EA_DOMAINS } from "../../ea/types.js";
+import { validateEntities, validateEaRelations } from "../../ea/validate.js";
+import { createDefaultRegistry } from "../../ea/relation-registry.js";
 import {
   getEntityAnchors,
   getEntityConfidence,
@@ -75,6 +77,19 @@ export function eaStatusCommand(): Command {
         if (anchors && Object.keys(anchors).length > 0) anchoredCount++;
       }
 
+      const qualityResult = validateEntities(entities, {
+        quality: eaConfig.quality,
+      });
+      const relationResult = validateEaRelations(
+        entities,
+        createDefaultRegistry(),
+        { quality: eaConfig.quality },
+      );
+      const validationErrorCount = qualityResult.errors.length + relationResult.errors.length;
+      const validationWarningCount = qualityResult.warnings.length + relationResult.warnings.length;
+      const loadErrorCount = loadResult.errors.length;
+      const errorCount = loadErrorCount + validationErrorCount;
+
       if (options.json) {
         console.log(JSON.stringify({
           total: entities.length,
@@ -85,7 +100,10 @@ export function eaStatusCommand(): Command {
           byConfidence,
           relationCount,
           anchoredCount,
-          errorCount: loadResult.errors.length,
+          errorCount,
+          loadErrorCount,
+          validationErrorCount,
+          validationWarningCount,
         }, null, 2));
         return;
       }
@@ -136,8 +154,15 @@ export function eaStatusCommand(): Command {
       console.log(`  Relations: ${relationCount}`);
       console.log(`  Anchored entities: ${anchoredCount}/${entities.length}`);
 
-      if (loadResult.errors.length > 0) {
-        console.log(chalk.red(`\n  ⚠ ${loadResult.errors.length} loading error(s)`));
+      console.log("");
+      console.log(chalk.bold("Validation"));
+      console.log(`  Errors: ${errorCount}`);
+      console.log(`  Warnings: ${validationWarningCount}`);
+      if (loadErrorCount > 0) {
+        console.log(chalk.red(`  Load errors: ${loadErrorCount}`));
+      }
+      if (validationErrorCount > 0) {
+        console.log(chalk.red(`  Validation errors: ${validationErrorCount}`));
       }
 
       console.log("");

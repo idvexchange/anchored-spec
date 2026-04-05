@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import { aggregateMatches } from "../resolvers/tree-sitter/aggregator.js";
 import { getQueryPacks, builtinPacks } from "../resolvers/tree-sitter/packs/index.js";
 import { javascriptPacks } from "../resolvers/tree-sitter/packs/javascript.js";
+import { typescriptPacks } from "../resolvers/tree-sitter/packs/typescript.js";
 import type { QueryMatch, QueryPattern } from "../resolvers/tree-sitter/types.js";
 import type { BackstageEntity } from "../backstage/types.js";
 
@@ -61,12 +62,15 @@ describe("Query Pack Registry", () => {
   it("returns javascript packs by default", () => {
     const packs = getQueryPacks();
     expect(packs.length).toBeGreaterThan(0);
-    expect(packs.every((p) => p.language === "javascript")).toBe(true);
+    expect(new Set(packs.map((p) => p.language))).toEqual(
+      new Set(["javascript", "typescript"]),
+    );
   });
 
   it("returns packs for specified language", () => {
-    const packs = getQueryPacks(["javascript"]);
+    const packs = getQueryPacks(["typescript"]);
     expect(packs.length).toBeGreaterThan(0);
+    expect(packs.every((p) => p.language === "typescript")).toBe(true);
   });
 
   it("returns empty for unknown language", () => {
@@ -74,9 +78,16 @@ describe("Query Pack Registry", () => {
     expect(packs).toHaveLength(0);
   });
 
+  it("returns no built-in packs for an explicit empty list", () => {
+    const packs = getQueryPacks([]);
+    expect(packs).toHaveLength(0);
+  });
+
   it("builtinPacks has javascript key", () => {
     expect(builtinPacks.javascript).toBeDefined();
     expect(builtinPacks.javascript.length).toBeGreaterThan(0);
+    expect(builtinPacks.typescript).toBeDefined();
+    expect(builtinPacks.typescript.length).toBeGreaterThan(0);
   });
 });
 
@@ -120,6 +131,15 @@ describe("JavaScript Query Packs", () => {
         expect(pattern.inferredDomain).toBeTruthy();
       }
     }
+  });
+});
+
+describe("TypeScript Query Packs", () => {
+  it("has express routes pack", () => {
+    const pack = typescriptPacks.find((p) => p.name === "express-routes");
+    expect(pack).toBeDefined();
+    expect(pack!.language).toBe("typescript");
+    expect(pack!.patterns.length).toBeGreaterThan(0);
   });
 });
 
@@ -244,6 +264,84 @@ describe("Aggregator: External Calls", () => {
     expect(drafts[0].kind).toBe("Component");
     expect(drafts[0].schema).toBe("service");
     expect(drafts[0].confidence).toBe("inferred");
+  });
+});
+
+describe("Aggregator: Framework Categories", () => {
+  it("creates the framework domain/system backbone and attaches CLI commands", () => {
+    const drafts = aggregateMatches([
+      makeMatch({
+        pattern: makePattern({ category: "cli-command", inferredSchema: "system-interface" }),
+        file: "src/cli/commands/ea-discover.ts",
+        captures: {
+          "@command.name": "discover",
+          "@symbol.name": "eaDiscoverCommand",
+        },
+      }),
+    ], []);
+
+    expect(drafts.map((draft) => draft.suggestedId)).toEqual(expect.arrayContaining([
+      "domain:anchored-spec",
+      "system:anchored-spec-framework",
+      "component:anchored-spec-cli",
+      "systeminterface:cli-discover",
+    ]));
+    const commandDraft = drafts.find((draft) => draft.suggestedId === "systeminterface:cli-discover");
+    expect(commandDraft?.schema).toBe("system-interface");
+    expect(commandDraft?.anchors?.commands).toContain("discover");
+    expect(commandDraft?.schemaFields?.direction).toBe("inbound");
+    expect(commandDraft?.schemaFields?.ownership).toBe("owned");
+    expect(commandDraft?.schemaFields?.system).toBe("anchored-spec-framework");
+    expect(commandDraft?.relations).toEqual([]);
+  });
+
+  it("rolls discovered resolvers up into the resolver runtime component", () => {
+    const drafts = aggregateMatches([
+      makeMatch({
+        pattern: makePattern({ category: "resolver", inferredSchema: "service" }),
+        file: "src/ea/resolvers/markdown.ts",
+        captures: {
+          "@resolver.name": "MarkdownResolver",
+          "@module.name": "markdown",
+        },
+      }),
+    ], []);
+
+    const runtimeDraft = drafts.find(
+      (draft) => draft.suggestedId === "component:anchored-spec-resolver-runtime",
+    );
+    expect(runtimeDraft?.schema).toBe("service");
+    expect(runtimeDraft?.anchors?.symbols).toContain("MarkdownResolver");
+  });
+
+  it("rolls framework modules up into area components instead of one entity per file", () => {
+    const drafts = aggregateMatches([
+      makeMatch({
+        pattern: makePattern({ category: "framework-module", inferredSchema: "service" }),
+        file: "src/ea/discovery.ts",
+        captures: {
+          "@symbol.name": "discoverEntities",
+          "@module.name": "discovery",
+        },
+      }),
+      makeMatch({
+        pattern: makePattern({ category: "framework-module", inferredSchema: "service" }),
+        file: "src/ea/discovery.ts",
+        captures: {
+          "@symbol.name": "renderDiscoveryReportMarkdown",
+          "@module.name": "discovery",
+        },
+      }),
+    ], []);
+
+    const discoveryEngine = drafts.find(
+      (draft) => draft.suggestedId === "component:anchored-spec-discovery-engine",
+    );
+    expect(discoveryEngine?.title).toBe("Anchored Spec Discovery Engine");
+    expect(discoveryEngine?.anchors?.symbols).toContain("discoverEntities");
+    expect(
+      drafts.find((draft) => draft.title === "discovery module"),
+    ).toBeUndefined();
   });
 });
 

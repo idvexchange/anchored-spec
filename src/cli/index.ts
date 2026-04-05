@@ -37,6 +37,7 @@ import { eaCreateDocCommand } from "./commands/ea-create-doc.js";
 import { eaLinkCommand } from "./commands/ea-link.js";
 import { eaSearchCommand } from "./commands/ea-search.js";
 import { eaConstraintsCommand } from "./commands/ea-constraints.js";
+import { eaCatalogCommand } from "./commands/ea-catalog.js";
 import { CliError } from "./errors.js";
 
 const require = createRequire(import.meta.url);
@@ -84,6 +85,7 @@ program.addCommand(eaCreateDocCommand());
 program.addCommand(eaLinkCommand());
 program.addCommand(eaSearchCommand());
 program.addCommand(eaConstraintsCommand());
+program.addCommand(eaCatalogCommand());
 
 // ─── Run ────────────────────────────────────────────────────────────────────────
 

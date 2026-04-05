@@ -30,7 +30,17 @@ export interface QueryPattern {
   /** EA domain for produced entities. */
   inferredDomain: EaDomain;
   /** Optional: category for aggregation grouping. */
-  category?: "route" | "db-access" | "event" | "external-call" | "service-boundary";
+  category?:
+    | "route"
+    | "db-access"
+    | "event"
+    | "external-call"
+    | "service-boundary"
+    | "cli-command"
+    | "resolver"
+    | "generator"
+    | "framework-module"
+    | "report-view";
 }
 
 /** A collection of patterns for a specific language/framework. */

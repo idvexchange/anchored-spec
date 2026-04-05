@@ -1,16 +1,16 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://anchored-spec.dev/schemas/config-v1.schema.json",
-  "title": "Anchored Spec v1.0 Configuration",
-  "description": "Top-level configuration for anchored-spec v1.0. EA fields are promoted to top-level — no nested ea.* section.",
+  "title": "Anchored Spec Configuration",
+  "description": "Top-level configuration for anchored-spec. Supports schema versions 1.0, 1.1, and 1.2.",
   "type": "object",
   "required": ["schemaVersion", "rootDir"],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "1.0",
-      "description": "Config format version. Must be \"1.0\"."
+      "enum": ["1.0", "1.1", "1.2"],
+      "description": "Config format version."
     },
     "rootDir": {
       "type": "string",
@@ -28,15 +28,127 @@
       "description": "Optional organizational prefix for entity IDs (e.g., \"acme\")."
     },
     "domains": {
+      "description": "Per-domain paths in 1.0 or semantic domain labels in 1.1+.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "systems": { "type": "string" },
+            "delivery": { "type": "string" },
+            "data": { "type": "string" },
+            "information": { "type": "string" },
+            "business": { "type": "string" },
+            "transitions": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ]
+    },
+    "docs": {
       "type": "object",
-      "description": "Per-domain subdirectory paths.",
+      "description": "Structured docs configuration for schema versions 1.1 and 1.2.",
       "properties": {
-        "systems": { "type": "string" },
-        "delivery": { "type": "string" },
-        "data": { "type": "string" },
-        "information": { "type": "string" },
-        "business": { "type": "string" },
-        "transitions": { "type": "string" }
+        "structure": { "type": "string" },
+        "scanDirs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rootDocs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "path", "kind"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "path": { "type": "string" },
+              "kind": { "type": "string" },
+              "domains": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "catalog": {
+      "type": "object",
+      "description": "Catalog synthesis configuration introduced in schema version 1.2.",
+      "properties": {
+        "bootstrap": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "profile": { "type": "string" },
+            "outputMode": {
+              "type": "string",
+              "enum": ["curated", "expanded"]
+            },
+            "writeTarget": { "type": "string" },
+            "minConfidence": { "type": "number" },
+            "maxTopLevelComponents": { "type": "number" },
+            "include": {
+              "type": "object",
+              "additionalProperties": { "type": "boolean" }
+            },
+            "defaults": {
+              "type": "object",
+              "properties": {
+                "ownerRef": { "type": "string" },
+                "ownerKind": { "type": "string" },
+                "ownerType": { "type": "string" },
+                "ownerUnitType": { "type": "string" },
+                "componentLifecycle": { "type": "string" },
+                "apiLifecycle": { "type": "string" },
+                "capabilityLevel": { "type": "number" }
+              },
+              "additionalProperties": false
+            },
+            "evidence": {
+              "type": "object",
+              "properties": {
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["type"],
+                    "properties": {
+                      "type": { "type": "string" },
+                      "enabled": { "type": "boolean" },
+                      "weight": { "type": "number" }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "mappings": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "naming": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },

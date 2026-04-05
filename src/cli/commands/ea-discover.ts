@@ -28,9 +28,11 @@ import {
   discoverFromDocs,
 } from "../../ea/index.js";
 import { MarkdownResolver } from "../../ea/resolvers/markdown.js";
-import type { EaResolver } from "../../ea/resolvers/types.js";
+import type { EaResolver, ResolverLogger } from "../../ea/resolvers/types.js";
 import type { EntityDraft } from "../../ea/discovery.js";
 import { loadResolversFromConfig } from "../../ea/resolvers/loader.js";
+import type { BackstageEntity } from "../../ea/backstage/types.js";
+import type { ResolverCache } from "../../ea/cache.js";
 import { CliError } from "../errors.js";
 
 /** Map resolver names to their class constructors. */
@@ -44,6 +46,43 @@ const RESOLVER_MAP: Record<string, new () => EaResolver> = {
 };
 
 const AVAILABLE_RESOLVERS = [...Object.keys(RESOLVER_MAP), "tree-sitter"].join(", ");
+const DEFAULT_DISCOVERY_RESOLVER_NAMES = [
+  "openapi",
+  "kubernetes",
+  "terraform",
+  "sql-ddl",
+  "dbt",
+  "markdown",
+] as const;
+
+async function runLoadedResolvers(
+  resolvers: Awaited<ReturnType<typeof loadResolversFromConfig>>,
+  ctx: {
+    projectRoot: string;
+    entities: BackstageEntity[];
+    cache: ResolverCache;
+    logger: ResolverLogger;
+    source?: string;
+    sourcePaths?: string[];
+  },
+): Promise<{ drafts: EntityDraft[]; resolverNames: string[] }> {
+  const drafts: EntityDraft[] = [];
+  const resolverNames: string[] = [];
+
+  for (const lr of resolvers) {
+    resolverNames.push(lr.name);
+
+    if (lr.isAsync && lr.discoverAsync) {
+      const discovered = await lr.discoverAsync(ctx);
+      if (discovered) drafts.push(...discovered);
+    } else if (lr.discoverSync) {
+      const discovered = lr.discoverSync(ctx);
+      if (discovered) drafts.push(...discovered);
+    }
+  }
+
+  return { drafts, resolverNames };
+}
 
 export function eaDiscoverCommand(): Command {
   return new Command("discover")
@@ -147,6 +186,10 @@ export function eaDiscoverCommand(): Command {
 
       const logger = process.env.DEBUG ? consoleLogger : silentLogger;
       const resolverName = (options.resolver as string | undefined);
+      const source = options.source as string | undefined;
+      const configuredDocScanDirs = !source
+        ? (getConfiguredDocScanDirs(eaConfig) ?? undefined)
+        : undefined;
 
       // Use entity-first context for resolver execution.
       const entities = result.entities;
@@ -157,19 +200,55 @@ export function eaDiscoverCommand(): Command {
       let markdownResolver: InstanceType<typeof MarkdownResolver> | undefined;
 
       if (resolverName) {
-        if (resolverName === "tree-sitter") {
+        const configuredResolvers = eaConfig.resolvers?.filter(
+          (resolver) => resolver.name === resolverName,
+        ) ?? [];
+
+        if (configuredResolvers.length > 0) {
+          try {
+            const loaded = await loadResolversFromConfig(
+              configuredResolvers,
+              RESOLVER_MAP,
+              cwd,
+            );
+            const configuredRun = await runLoadedResolvers(loaded, {
+              projectRoot: cwd,
+              entities,
+              cache,
+              logger,
+              source,
+              sourcePaths: configuredDocScanDirs,
+            });
+            drafts.push(...configuredRun.drafts);
+            resolverNames.push(...configuredRun.resolverNames);
+          } catch (err) {
+            throw new CliError(
+              err instanceof Error ? err.message : String(err),
+              1,
+            );
+          }
+        } else if (resolverName === "tree-sitter") {
           // Tree-sitter resolver (async, language-agnostic)
           const packs = getQueryPacks();
           const resolver = new TreeSitterDiscoveryResolver(packs);
           resolverNames.push(resolver.name);
 
-          const discovered = await resolver.discoverEntities({
-            projectRoot: cwd,
-            entities,
-            cache,
-            logger,
-            source: options.source as string | undefined,
-          });
+          let discovered: EntityDraft[] | null;
+          try {
+            discovered = await resolver.discoverEntities({
+              projectRoot: cwd,
+              entities,
+              cache,
+              logger,
+              source,
+              sourcePaths: configuredDocScanDirs,
+            });
+          } catch (err) {
+            throw new CliError(
+              err instanceof Error ? err.message : String(err),
+              1,
+            );
+          }
 
           if (discovered) {
             drafts.push(...discovered);
@@ -188,13 +267,22 @@ export function eaDiscoverCommand(): Command {
           resolverNames.push(resolver.name);
           if (resolver instanceof MarkdownResolver) markdownResolver = resolver;
 
-          const discovered = resolver.discoverEntities?.({
-            projectRoot: cwd,
-            entities,
-            cache,
-            logger,
-            source: options.source as string | undefined,
-          });
+          let discovered: EntityDraft[] | null | undefined;
+          try {
+            discovered = resolver.discoverEntities?.({
+              projectRoot: cwd,
+              entities,
+              cache,
+              logger,
+              source,
+              sourcePaths: configuredDocScanDirs,
+            });
+          } catch (err) {
+            throw new CliError(
+              err instanceof Error ? err.message : String(err),
+              1,
+            );
+          }
 
           if (discovered) {
             drafts.push(...discovered);
@@ -202,33 +290,33 @@ export function eaDiscoverCommand(): Command {
         }
       } else if (eaConfig.resolvers && eaConfig.resolvers.length > 0) {
         // Config-driven resolvers — use resolvers[] from config.json
-        const loaded = await loadResolversFromConfig(
-          eaConfig.resolvers,
-          RESOLVER_MAP,
-          cwd,
-        );
-
-        for (const lr of loaded) {
-          resolverNames.push(lr.name);
-          const ctx = {
+        try {
+          const loaded = await loadResolversFromConfig(
+            eaConfig.resolvers,
+            RESOLVER_MAP,
+            cwd,
+          );
+          const configuredRun = await runLoadedResolvers(loaded, {
             projectRoot: cwd,
             entities,
             cache,
             logger,
-            source: options.source as string | undefined,
-          };
-
-          if (lr.isAsync && lr.discoverAsync) {
-            const discovered = await lr.discoverAsync(ctx);
-            if (discovered) drafts.push(...discovered);
-          } else if (lr.discoverSync) {
-            const discovered = lr.discoverSync(ctx);
-            if (discovered) drafts.push(...discovered);
-          }
+            source,
+            sourcePaths: configuredDocScanDirs,
+          });
+          drafts.push(...configuredRun.drafts);
+          resolverNames.push(...configuredRun.resolverNames);
+        } catch (err) {
+          throw new CliError(
+            err instanceof Error ? err.message : String(err),
+            1,
+          );
         }
       } else {
-        // No resolver specified, no config — run all built-in resolvers
-        for (const [, ResolverClass] of Object.entries(RESOLVER_MAP)) {
+        // No resolver specified, no config — run default built-in resolvers
+        for (const resolverKey of DEFAULT_DISCOVERY_RESOLVER_NAMES) {
+          const ResolverClass = RESOLVER_MAP[resolverKey];
+          if (!ResolverClass) continue;
           const resolver = new ResolverClass();
           resolverNames.push(resolver.name);
           if (resolver instanceof MarkdownResolver) markdownResolver = resolver;
@@ -238,7 +326,8 @@ export function eaDiscoverCommand(): Command {
             entities,
             cache,
             logger,
-            source: options.source as string | undefined,
+            source,
+            sourcePaths: configuredDocScanDirs,
           });
 
           if (discovered) {
@@ -246,7 +335,7 @@ export function eaDiscoverCommand(): Command {
           }
         }
 
-        // Also run tree-sitter if web-tree-sitter is available
+        // Also run tree-sitter by default if its optional runtime is available.
         try {
           const packs = getQueryPacks();
           if (packs.length > 0) {
@@ -257,7 +346,8 @@ export function eaDiscoverCommand(): Command {
               entities,
               cache,
               logger,
-              source: options.source as string | undefined,
+              source,
+              sourcePaths: configuredDocScanDirs,
             });
             if (discovered) {
               drafts.push(...discovered);
@@ -283,7 +373,10 @@ export function eaDiscoverCommand(): Command {
         let manifests = markdownResolver?.lastManifests;
         if (!manifests || manifests.length === 0) {
           const { extractFactsFromDocs } = await import("../../ea/resolvers/markdown.js");
-          manifests = await extractFactsFromDocs(cwd, options.source as string | undefined);
+          manifests = await extractFactsFromDocs(
+            cwd,
+            source ?? configuredDocScanDirs,
+          );
         }
         const factsDir = join(cwd, eaConfig.rootDir ?? "docs", "facts");
         const written = await writeFactManifests(manifests, factsDir);

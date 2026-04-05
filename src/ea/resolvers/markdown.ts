@@ -76,7 +76,11 @@ function walkDir(dir: string): string[] {
  * Find all markdown files under the given directories.
  * Deduplicates paths across overlapping directories.
  */
-function findMarkdownFiles(projectRoot: string, source?: string): string[] {
+function findMarkdownFiles(
+  projectRoot: string,
+  source?: string,
+  sourcePaths?: string[],
+): string[] {
   const root = resolve(projectRoot);
   const seen = new Set<string>();
   const mdFiles: string[] = [];
@@ -98,8 +102,8 @@ function findMarkdownFiles(projectRoot: string, source?: string): string[] {
       }
     }
   } else {
-    // Scan default doc directories
-    for (const dir of DEFAULT_DOC_DIRS) {
+    const dirs = sourcePaths && sourcePaths.length > 0 ? sourcePaths : DEFAULT_DOC_DIRS;
+    for (const dir of dirs) {
       const absDir = resolve(root, dir);
       let stat;
       try {
@@ -200,6 +204,10 @@ function factToDraft(
       };
 
     case "entity-fields":
+      {
+        const attributes = toCanonicalEntityAttributes(fact);
+        if (attributes.length === 0) return null;
+
       return {
         suggestedId: `canonicalentity:${slug}`,
         apiVersion: canonicalEntity.apiVersion,
@@ -210,14 +218,90 @@ function factToDraft(
         summary: `Entity discovered from ${source}`,
         status: "draft",
         confidence: "observed",
+        anchors: {
+          files: [source],
+        },
         discoveredBy: "markdown",
         discoveredAt: now,
+        schemaFields: {
+          attributes,
+        },
       };
+      }
 
     default:
       // Other fact kinds are not directly mappable to entities
       return null;
   }
+}
+
+function toCanonicalEntityAttributes(
+  fact: ExtractedFact,
+): Array<{ name: string; type: string }> {
+  const attributes: Array<{ name: string; type: string }> = [];
+
+  for (const [rawKey, rawValue] of Object.entries(fact.fields)) {
+    const key = rawKey.trim();
+    const value = rawValue.trim();
+    if (!value) continue;
+
+    if (/^item_\d+$/.test(key)) {
+      const parsed = parseInlineAttribute(value);
+      if (parsed) attributes.push(parsed);
+      continue;
+    }
+
+    if (!isLikelyAttributeName(key) || !isLikelyTypeExpression(value)) {
+      continue;
+    }
+
+    attributes.push({
+      name: key,
+      type: value,
+    });
+  }
+
+  return attributes;
+}
+
+function parseInlineAttribute(
+  value: string,
+): { name: string; type: string } | null {
+  const match = value.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/);
+  if (!match) return null;
+
+  const name = match[1]!.trim();
+  const type = match[2]!.trim();
+  if (!isLikelyAttributeName(name) || !isLikelyTypeExpression(type)) {
+    return null;
+  }
+
+  return { name, type };
+}
+
+function isLikelyAttributeName(value: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+}
+
+function isLikelyTypeExpression(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  if (
+    /^(string|number|boolean|Date|unknown|any|object|Record<.*>|Array<.*>|.+\[\]|.+\|.+|.+<.+>)$/.test(trimmed)
+  ) {
+    return true;
+  }
+
+  if (/^[A-Z][A-Za-z0-9_]*(?:<.+>)?(?:\[\])?$/.test(trimmed)) {
+    return true;
+  }
+
+  if (/^[a-z][A-Za-z0-9_]*(?:\[\])?$/.test(trimmed)) {
+    return ["string", "number", "boolean", "unknown", "any", "object"].includes(trimmed);
+  }
+
+  return false;
 }
 
 // ─── Standalone Extraction Function ───────────────────────────────────
@@ -228,10 +312,12 @@ function factToDraft(
  */
 export async function extractFactsFromDocs(
   projectRoot: string,
-  source?: string,
+  source?: string | string[],
   logger: ResolverLogger = silentLogger,
 ): Promise<FactManifest[]> {
-  const mdFiles = findMarkdownFiles(projectRoot, source);
+  const sourceDir = typeof source === "string" ? source : undefined;
+  const sourcePaths = Array.isArray(source) ? source : undefined;
+  const mdFiles = findMarkdownFiles(projectRoot, sourceDir, sourcePaths);
   logger.info(`Found ${mdFiles.length} markdown file(s) to scan`, { projectRoot, source });
 
   const manifests: FactManifest[] = [];
@@ -280,7 +366,10 @@ export class MarkdownResolver implements EaResolver {
    * parses each, extracts facts, and converts relevant facts to entity drafts.
    */
   discoverEntities(ctx: EaResolverContext): EntityDraft[] | null {
-    const cacheKey = `${CACHE_KEY_PREFIX}:${ctx.source ?? "default"}`;
+    const sourceIdentity = ctx.source ?? (ctx.sourcePaths && ctx.sourcePaths.length > 0
+      ? ctx.sourcePaths.join("|")
+      : "default");
+    const cacheKey = `${CACHE_KEY_PREFIX}:${sourceIdentity}`;
     const cached = ctx.cache.get<FactManifest[]>(cacheKey);
 
     let manifests: FactManifest[];
@@ -289,7 +378,7 @@ export class MarkdownResolver implements EaResolver {
       ctx.logger.debug("Using cached markdown fact manifests", { count: cached.length });
       manifests = cached;
     } else {
-      const mdFiles = findMarkdownFiles(ctx.projectRoot, ctx.source);
+      const mdFiles = findMarkdownFiles(ctx.projectRoot, ctx.source, ctx.sourcePaths);
       ctx.logger.info(`Found ${mdFiles.length} markdown file(s) to scan`);
 
       manifests = [];

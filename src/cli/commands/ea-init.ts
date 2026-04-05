@@ -16,6 +16,7 @@ import {
   getConfiguredRootDocs,
   type AnchoredSpecConfigV1,
   type AnchoredSpecConfigV1_1,
+  type AnchoredSpecConfigV1_2,
 } from "../../ea/index.js";
 import { writeIdeFiles } from "../ide-scaffold.js";
 import { writeAiConfigFiles } from "../ai-config.js";
@@ -62,12 +63,12 @@ export function eaInitCommand(): Command {
         console.log(chalk.dim(`  · Reusing existing v${v1Config.schemaVersion} config`));
       } else {
         v1Config = resolveConfigV1(({
-          schemaVersion: "1.1",
+          schemaVersion: "1.2",
           rootDir,
           docs: {
             structure: options.docsStructure as AnchoredSpecConfigV1_1["docs"]["structure"],
           },
-        }) as Partial<AnchoredSpecConfigV1_1>);
+        }) as Partial<AnchoredSpecConfigV1_2>);
       }
 
       const storageMode = (options.mode as string) ?? "manifest";

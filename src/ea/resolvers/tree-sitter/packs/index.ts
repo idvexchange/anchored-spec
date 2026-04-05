@@ -6,11 +6,13 @@
 
 import type { PackRegistry } from "../types.js";
 import { javascriptPacks } from "./javascript.js";
+import { typescriptPacks } from "./typescript.js";
 
 /** Built-in query packs, keyed by language name. */
 export const builtinPacks: PackRegistry = {
   javascript: javascriptPacks,
-  // Future: python, go, java packs
+  typescript: typescriptPacks,
+  // Future: tsx, python, go, java packs
 };
 
 /**
@@ -18,8 +20,11 @@ export const builtinPacks: PackRegistry = {
  * Returns all built-in packs if no languages specified.
  */
 export function getQueryPacks(languages?: string[]): import("../types.js").QueryPack[] {
-  if (!languages || languages.length === 0) {
+  if (!languages) {
     return Object.values(builtinPacks).flat();
+  }
+  if (languages.length === 0) {
+    return [];
   }
   const packs: import("../types.js").QueryPack[] = [];
   for (const lang of languages) {

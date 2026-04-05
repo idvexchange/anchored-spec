@@ -692,6 +692,16 @@ export function validateEaRelations(
       }
 
       if (!target) {
+        if (rel.type === RELATION_OWNED_BY) {
+          push(
+            ruleSeverity("ea:relation:owner-target-missing", "warning", q),
+            "ea:relation:owner-target-missing",
+            aId,
+            `Entity "${aId}" references owner "${rel.target}" that is not present in the local catalog`,
+          );
+          continue;
+        }
+
         push(ruleSeverity("ea:relation:target-missing", "error", q), "ea:relation:target-missing", aId, `Entity "${aId}" references unknown target "${rel.target}" via "${rel.type}"`);
         continue;
       }

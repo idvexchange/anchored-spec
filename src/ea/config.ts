@@ -1,7 +1,7 @@
 /**
  * Anchored Spec — EA Configuration
  *
- * Supports configuration schema versions 1.0 and 1.1.
+ * Supports configuration schema versions 1.0, 1.1, and 1.2.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -77,12 +77,25 @@ export interface EaTestMetadataConfig {
   requirementPattern?: string | string[];
 }
 
-export type AnchoredSpecSchemaVersion = "1.0" | "1.1";
+export type AnchoredSpecSchemaVersion = "1.0" | "1.1" | "1.2";
 export type DocsStructureProfile =
   | "legacy-domain"
   | "architecture-views"
   | "custom"
   | (string & {});
+
+export type CatalogBootstrapProfile =
+  | "auto"
+  | "library"
+  | "cli"
+  | "service"
+  | "webapp"
+  | "workspace"
+  | (string & {});
+
+export type CatalogBootstrapOutputMode =
+  | "curated"
+  | "expanded";
 
 export type DocSectionKind =
   | "architecture"
@@ -105,6 +118,85 @@ export interface AnchoredSpecDocsConfig {
   rootDocs: string[];
   sections: AnchoredSpecDocsSection[];
   templates: Record<string, string>;
+}
+
+export interface CatalogBootstrapIncludeConfig {
+  owners?: boolean;
+  domain?: boolean;
+  system?: boolean;
+  components?: boolean;
+  apis?: boolean;
+  capabilities?: boolean;
+  requirements?: boolean;
+  decisions?: boolean;
+  resources?: boolean;
+}
+
+export interface CatalogBootstrapDefaultsConfig {
+  ownerRef?: string;
+  ownerKind?: string;
+  ownerType?: string;
+  ownerUnitType?: string;
+  componentLifecycle?: string;
+  apiLifecycle?: string;
+  capabilityLevel?: number;
+}
+
+export interface CatalogBootstrapEvidenceSourceConfig {
+  type: string;
+  enabled?: boolean;
+  weight?: number;
+}
+
+export interface CatalogBootstrapMappingsConfig {
+  docs?: {
+    decisionSections?: string[];
+    requirementSections?: string[];
+    capabilitySections?: string[];
+    apiSections?: string[];
+    componentSections?: string[];
+  };
+  archetypes?: {
+    cliSignals?: string[];
+    librarySignals?: string[];
+    serviceSignals?: string[];
+    webappSignals?: string[];
+  };
+  entityKinds?: {
+    owner?: string;
+    topLevelRuntime?: string;
+    publicApi?: string;
+    businessCapability?: string;
+    decisionRecord?: string;
+    requirementRecord?: string;
+  };
+}
+
+export interface CatalogBootstrapNamingConfig {
+  systemFromPackageName?: boolean;
+  stripPrefixes?: string[];
+  stripSuffixes?: string[];
+  componentSuffixes?: Record<string, string>;
+}
+
+export interface CatalogBootstrapConfig {
+  enabled?: boolean;
+  profile?: CatalogBootstrapProfile;
+  outputMode?: CatalogBootstrapOutputMode;
+  writeTarget?: string;
+  minConfidence?: number;
+  maxTopLevelComponents?: number;
+  include?: CatalogBootstrapIncludeConfig;
+  defaults?: CatalogBootstrapDefaultsConfig;
+  evidence?: {
+    sources?: CatalogBootstrapEvidenceSourceConfig[];
+  };
+  mappings?: CatalogBootstrapMappingsConfig;
+  naming?: CatalogBootstrapNamingConfig;
+}
+
+export interface AnchoredSpecCatalogConfig {
+  bootstrap?: CatalogBootstrapConfig;
 }
 
 interface AnchoredSpecConfigBase {
@@ -222,11 +314,28 @@ export interface AnchoredSpecConfigV1_1 extends AnchoredSpecConfigBase {
   docs: AnchoredSpecDocsConfig;
 }
 
+export interface AnchoredSpecConfigV1_2 extends AnchoredSpecConfigBase {
+  /** Config format version. Must be "1.2". */
+  schemaVersion: "1.2";
+
+  /** Semantic domain labels. */
+  domains: string[];
+
+  /** Physical docs structure configuration. */
+  docs: AnchoredSpecDocsConfig;
+
+  /** Catalog synthesis configuration. */
+  catalog: AnchoredSpecCatalogConfig;
+}
+
 /**
  * Historical export name retained for compatibility.
  * Represents the effective config for either v1.0 or v1.1.
  */
-export type AnchoredSpecConfigV1 = AnchoredSpecConfigV1_0 | AnchoredSpecConfigV1_1;
+export type AnchoredSpecConfigV1 =
+  | AnchoredSpecConfigV1_0
+  | AnchoredSpecConfigV1_1
+  | AnchoredSpecConfigV1_2;
 
 const CONFIG_FILE = ".anchored-spec/config.json";
 
@@ -468,6 +577,157 @@ function buildV11Defaults(
   };
 }
 
+function buildCatalogBootstrapDefaults(
+  manifestPath: string,
+): CatalogBootstrapConfig {
+  return {
+    enabled: true,
+    profile: "auto",
+    outputMode: "curated",
+    writeTarget: manifestPath,
+    minConfidence: 0.6,
+    maxTopLevelComponents: 8,
+    include: {
+      owners: true,
+      domain: true,
+      system: true,
+      components: true,
+      apis: true,
+      capabilities: true,
+      requirements: true,
+      decisions: true,
+      resources: false,
+    },
+    defaults: {
+      ownerRef: "group:default/maintainers",
+      ownerKind: "Group",
+      ownerType: "team",
+      ownerUnitType: "team",
+      componentLifecycle: "production",
+      apiLifecycle: "production",
+      capabilityLevel: 1,
+    },
+    evidence: {
+      sources: [
+        { type: "package-json", enabled: true, weight: 1.0 },
+        { type: "exports", enabled: true, weight: 0.9 },
+        { type: "cli-commands", enabled: true, weight: 0.9 },
+        { type: "docs", enabled: true, weight: 1.0 },
+        { type: "discovery", enabled: true, weight: 0.7 },
+        { type: "git", enabled: false, weight: 0.3 },
+      ],
+    },
+    mappings: {
+      docs: {
+        decisionSections: ["decision-record"],
+        requirementSections: ["requirement"],
+        capabilitySections: ["architecture"],
+        apiSections: ["architecture"],
+        componentSections: ["architecture"],
+      },
+      archetypes: {
+        cliSignals: ["bin", "src/cli", "commands"],
+        librarySignals: ["exports", "src/index", "src/lib", "src/ea"],
+        serviceSignals: ["Dockerfile", "server", "app", "api"],
+        webappSignals: ["next.config", "vite.config", "src/routes", "src/app"],
+      },
+      entityKinds: {
+        owner: "Group",
+        topLevelRuntime: "Component",
+        publicApi: "API",
+        businessCapability: "Capability",
+        decisionRecord: "Decision",
+        requirementRecord: "Requirement",
+      },
+    },
+    naming: {
+      systemFromPackageName: true,
+      stripPrefixes: [],
+      stripSuffixes: [],
+      componentSuffixes: {
+        cli: "cli",
+        runtime: "runtime",
+        api: "api",
+      },
+    },
+  };
+}
+
+function mergeCatalogBootstrapConfig(
+  partial: CatalogBootstrapConfig | undefined,
+  manifestPath: string,
+): CatalogBootstrapConfig {
+  const defaults = buildCatalogBootstrapDefaults(manifestPath);
+  return {
+    ...defaults,
+    ...partial,
+    include: { ...defaults.include, ...(partial?.include ?? {}) },
+    defaults: { ...defaults.defaults, ...(partial?.defaults ?? {}) },
+    evidence: {
+      ...defaults.evidence,
+      ...partial?.evidence,
+      sources: partial?.evidence?.sources ?? defaults.evidence?.sources ?? [],
+    },
+    mappings: {
+      ...defaults.mappings,
+      ...partial?.mappings,
+      docs: { ...defaults.mappings?.docs, ...(partial?.mappings?.docs ?? {}) },
+      archetypes: {
+        ...defaults.mappings?.archetypes,
+        ...(partial?.mappings?.archetypes ?? {}),
+      },
+      entityKinds: {
+        ...defaults.mappings?.entityKinds,
+        ...(partial?.mappings?.entityKinds ?? {}),
+      },
+    },
+    naming: {
+      ...defaults.naming,
+      ...(partial?.naming ?? {}),
+      componentSuffixes: {
+        ...defaults.naming?.componentSuffixes,
+        ...(partial?.naming?.componentSuffixes ?? {}),
+      },
+    },
+  };
+}
+
+function buildV12Defaults(
+  rootDir: string,
+  structure: DocsStructureProfile,
+): AnchoredSpecConfigV1_2 {
+  const manifestPath = "catalog-info.yaml";
+  return {
+    schemaVersion: "1.2",
+    rootDir,
+    generatedDir: `${rootDir}/generated`,
+    idPrefix: null,
+    domains: [...EA_DOMAINS],
+    docs: buildDocsDefaults(rootDir, structure),
+    catalog: {
+      bootstrap: buildCatalogBootstrapDefaults(manifestPath),
+    },
+    resolvers: [],
+    generators: [],
+    evidenceSources: [],
+    cache: {
+      dir: ".anchored-spec/cache",
+      defaultTTL: 3600,
+    },
+    quality: {
+      requireOwners: true,
+      requireSummary: true,
+      requireRelations: false,
+      requireAnchors: false,
+      strictMode: false,
+      rules: {},
+    },
+    workflowPolicyPath: `${rootDir}/workflow-policy.yaml`,
+    entityMode: "manifest",
+    manifestPath,
+  };
+}
+
 function mergeDocsConfig(
   rootDir: string,
   partial: Partial<AnchoredSpecDocsConfig> | undefined,
@@ -491,6 +751,10 @@ export function resolveConfigV1(
   partial?: Partial<AnchoredSpecConfigV1> | null,
 ): AnchoredSpecConfigV1 {
   const inferredVersion: AnchoredSpecSchemaVersion =
+    partial?.schemaVersion === "1.2" ||
+    "catalog" in (partial ?? {})
+      ? "1.2"
+      :
     partial?.schemaVersion === "1.1" ||
     Array.isArray((partial as { domains?: unknown } | undefined)?.domains) ||
     "docs" in (partial ?? {})
@@ -498,6 +762,51 @@ export function resolveConfigV1(
       : "1.0";
 
   const rootDir = partial?.rootDir ?? "docs";
+
+  if (inferredVersion === "1.2") {
+    const typedPartial = (partial ?? {}) as Partial<AnchoredSpecConfigV1_2>;
+    const defaults = buildV12Defaults(
+      rootDir,
+      typedPartial.docs?.structure ?? "architecture-views",
+    );
+    const manifestPath = typedPartial.manifestPath ?? defaults.manifestPath ?? "catalog-info.yaml";
+
+    return {
+      schemaVersion: "1.2",
+      rootDir,
+      generatedDir: typedPartial.generatedDir ?? defaults.generatedDir,
+      idPrefix: typedPartial.idPrefix ?? defaults.idPrefix,
+      domains: typedPartial.domains ?? defaults.domains,
+      docs: mergeDocsConfig(rootDir, typedPartial.docs),
+      catalog: {
+        bootstrap: mergeCatalogBootstrapConfig(
+          typedPartial.catalog?.bootstrap,
+          manifestPath,
+        ),
+      },
+      resolvers: typedPartial.resolvers ?? defaults.resolvers,
+      generators: typedPartial.generators ?? defaults.generators,
+      evidenceSources: typedPartial.evidenceSources ?? defaults.evidenceSources,
+      cache: { ...defaults.cache, ...typedPartial.cache },
+      quality: { ...defaults.quality, ...typedPartial.quality },
+      sourceRoots: typedPartial.sourceRoots,
+      sourceGlobs: typedPartial.sourceGlobs,
+      sourceAnnotations: typedPartial.sourceAnnotations,
+      versionPolicy: typedPartial.versionPolicy,
+      plugins: typedPartial.plugins,
+      exclude: typedPartial.exclude,
+      driftResolvers: typedPartial.driftResolvers,
+      hooks: typedPartial.hooks,
+      testMetadata: typedPartial.testMetadata,
+      workflowPolicyPath:
+        typedPartial.workflowPolicyPath ?? defaults.workflowPolicyPath,
+      customChangeTypes: typedPartial.customChangeTypes,
+      entityMode: typedPartial.entityMode ?? defaults.entityMode,
+      manifestPath,
+      catalogDir: typedPartial.catalogDir,
+      inlineDocDirs: typedPartial.inlineDocDirs,
+    };
+  }
 
   if (inferredVersion === "1.1") {
     const typedPartial = (partial ?? {}) as Partial<AnchoredSpecConfigV1_1>;
@@ -585,8 +894,14 @@ export function loadProjectConfig(
 
 export function isConfigV11(
   config: AnchoredSpecConfigV1,
-): config is AnchoredSpecConfigV1_1 {
-  return config.schemaVersion === "1.1";
+): config is AnchoredSpecConfigV1_1 | AnchoredSpecConfigV1_2 {
+  return config.schemaVersion === "1.1" || config.schemaVersion === "1.2";
+}
+
+export function isConfigV12(
+  config: AnchoredSpecConfigV1,
+): config is AnchoredSpecConfigV1_2 {
+  return config.schemaVersion === "1.2";
 }
 
 export function getConfiguredDomains(config: AnchoredSpecConfigV1): string[] {
@@ -656,6 +971,19 @@ export function getVerificationSearchDirs(config: AnchoredSpecConfigV1): string[
   }
 
   return [config.domains.transitions];
+}
+
+export function getCatalogBootstrapConfig(
+  config: AnchoredSpecConfigV1,
+): CatalogBootstrapConfig {
+  if (isConfigV12(config)) {
+    return mergeCatalogBootstrapConfig(
+      config.catalog?.bootstrap,
+      config.manifestPath ?? "catalog-info.yaml",
+    );
+  }
+
+  return buildCatalogBootstrapDefaults(config.manifestPath ?? "catalog-info.yaml");
 }
 
 function titleCase(value: string): string {

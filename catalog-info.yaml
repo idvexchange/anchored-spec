@@ -1,2 +1,598 @@
-# Backstage Software Catalog
-# Add entities as YAML documents separated by ---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: anchored-spec-maintainers
+  title: Anchored Spec Maintainers
+  description: Team accountable for the Anchored Spec framework and its repository-local workflows.
+  tags:
+    - team
+    - architecture
+    - governance
+spec:
+  type: team
+  unitType: team
+  status: active
+  children: []
+  profile:
+    displayName: Anchored Spec Maintainers
+---
+apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: anchored-spec
+  title: Anchored Spec
+  description: Spec-as-source architecture and governance domain for repository-local software delivery.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - architecture
+    - governance
+    - backstage-aligned
+spec:
+  owner: group:default/anchored-spec-maintainers
+  status: active
+---
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: anchored-spec-framework
+  title: Anchored Spec Framework
+  description: Repository-local framework for authoring, validating, discovering, and governing architecture as typed entities.
+  annotations:
+    anchored-spec.dev/source: docs/02-system-context/system-context.md
+  tags:
+    - cli
+    - runtime
+    - repo-local
+spec:
+  owner: group:default/anchored-spec-maintainers
+  domain: domain:default/anchored-spec
+  status: active
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-cli
+  title: Anchored Spec CLI
+  description: Public command surface for local users, CI, and agents working with the framework through shell workflows.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-cli.md
+  tags:
+    - c4:l3
+    - cli
+    - public-surface
+spec:
+  type: tool
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  providesApis:
+    - api:default/anchored-spec-cli-api
+  dependsOn:
+    - component:default/anchored-spec-ea-runtime
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-ea-runtime
+  title: Anchored Spec EA Runtime
+  description: Reusable architecture engine that loads the model, validates it, performs discovery and drift, and powers reporting and governance workflows.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l3
+    - runtime
+    - node
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  providesApis:
+    - api:default/anchored-spec-node-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-model-core
+  title: Anchored Spec Model Core
+  description: Loader, schema, relation, and graph core that normalizes authored entities into one shared architecture model.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l4
+    - model
+    - graph
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  subcomponentOf: component:default/anchored-spec-ea-runtime
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-discovery-engine
+  title: Anchored Spec Discovery Engine
+  description: Resolver pipeline that scans repositories, extracts observed architecture signals, and supports drift analysis.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l4
+    - discovery
+    - tree-sitter
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  subcomponentOf: component:default/anchored-spec-ea-runtime
+  dependsOn:
+    - component:default/anchored-spec-model-core
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-docs-and-trace
+  title: Anchored Spec Docs and Trace
+  description: Documentation scanning and trace analysis layer that connects entity models to supporting repository documents.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l4
+    - docs
+    - traceability
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  subcomponentOf: component:default/anchored-spec-ea-runtime
+  dependsOn:
+    - component:default/anchored-spec-model-core
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-reporting-engine
+  title: Anchored Spec Reporting Engine
+  description: Report, impact, constraints, and context workflows built on the shared graph and discovered evidence.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l4
+    - reporting
+    - analysis
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  subcomponentOf: component:default/anchored-spec-ea-runtime
+  dependsOn:
+    - component:default/anchored-spec-model-core
+    - component:default/anchored-spec-discovery-engine
+    - component:default/anchored-spec-docs-and-trace
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-governance-engine
+  title: Anchored Spec Governance Engine
+  description: Semantic diff, policy, evidence, verify, and reconcile workflows used to review architecture change as architecture.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l4
+    - governance
+    - review
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  subcomponentOf: component:default/anchored-spec-ea-runtime
+  dependsOn:
+    - component:default/anchored-spec-model-core
+    - component:default/anchored-spec-reporting-engine
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: anchored-spec-generation-engine
+  title: Anchored Spec Generation Engine
+  description: Generator runtime that derives machine-readable artifacts such as OpenAPI and JSON Schema from the authored model.
+  annotations:
+    anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+  tags:
+    - c4:l4
+    - generation
+    - artifacts
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  subcomponentOf: component:default/anchored-spec-ea-runtime
+  dependsOn:
+    - component:default/anchored-spec-model-core
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: anchored-spec-cli-api
+  title: Anchored Spec CLI API
+  description: Stable command-oriented interface for repository users, CI jobs, and shell-based agents.
+  annotations:
+    anchored-spec.dev/source: docs/06-api/cli-api.md
+  tags:
+    - cli
+    - public-api
+spec:
+  type: cli
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  definition: docs/06-api/cli-api.md
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: anchored-spec-node-api
+  title: Anchored Spec Node API
+  description: Programmatic Node and TypeScript surface for loading models and invoking framework workflows without the CLI.
+  annotations:
+    anchored-spec.dev/source: docs/06-api/node-api.md
+  tags:
+    - node
+    - typescript
+    - public-api
+spec:
+  type: typescript
+  lifecycle: production
+  owner: group:default/anchored-spec-maintainers
+  system: system:default/anchored-spec-framework
+  definition: docs/06-api/node-api.md
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: explicit-architecture-authoring
+  title: Explicit Architecture Authoring
+  description: Define architecture directly as typed entities rather than relying on prose-only descriptions.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - authoring
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-model-core
+    - api:default/anchored-spec-cli-api
+    - api:default/anchored-spec-node-api
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: bootstrap-from-repository-truth
+  title: Bootstrap From Repository Truth
+  description: Start from existing code and documents by discovering draft architecture from repository-local signals.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - discovery
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-discovery-engine
+    - component:default/anchored-spec-cli
+  dependsOn:
+    - capability:default/explicit-architecture-authoring
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: drift-detection
+  title: Drift Detection
+  description: Compare declared architecture with observed repository evidence and surface mismatches for review.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - drift
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-discovery-engine
+    - component:default/anchored-spec-reporting-engine
+  dependsOn:
+    - capability:default/bootstrap-from-repository-truth
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: downstream-artifact-derivation
+  title: Downstream Artifact Derivation
+  description: Produce focused machine-readable and reviewer-facing outputs from the same normalized entity graph.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - generation
+    - reporting
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-generation-engine
+    - component:default/anchored-spec-reporting-engine
+  dependsOn:
+    - capability:default/explicit-architecture-authoring
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: reviewable-docs-and-implementation
+  title: Reviewable Docs and Implementation
+  description: Keep architecture documents and implementation context reviewable together inside the repository workflow.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - docs
+    - review
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-docs-and-trace
+    - component:default/anchored-spec-reporting-engine
+    - component:default/anchored-spec-cli
+  dependsOn:
+    - capability:default/explicit-architecture-authoring
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: semantic-change-governance
+  title: Semantic Change Governance
+  description: Review architecture change through typed semantics, policy, evidence, and reconciliation instead of plain text diff alone.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - governance
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-governance-engine
+    - component:default/anchored-spec-reporting-engine
+    - component:default/anchored-spec-cli
+  dependsOn:
+    - capability:default/explicit-architecture-authoring
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Capability
+metadata:
+  name: architecture-aware-context-assembly
+  title: Architecture-Aware Context Assembly
+  description: Assemble trusted architecture context for humans and AI agents from the same entity graph and trace data.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/business-architecture.md
+  tags:
+    - capability
+    - ai
+    - context
+spec:
+  status: active
+  level: 1
+  owner: group:default/anchored-spec-maintainers
+  supportedBy:
+    - component:default/anchored-spec-docs-and-trace
+    - component:default/anchored-spec-reporting-engine
+    - component:default/anchored-spec-cli
+  dependsOn:
+    - capability:default/reviewable-docs-and-implementation
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Requirement
+metadata:
+  name: req-001-entity-model-as-source-of-truth
+  title: REQ-001 Entity Model as Source of Truth
+  description: The framework treats the authored entity model as the primary architecture source of truth.
+  annotations:
+    anchored-spec.dev/source: docs/req/REQ-001-entity-model-as-source-of-truth.md
+  tags:
+    - requirement
+    - source-of-truth
+spec:
+  type: technical
+  status: implemented
+  owner: group:default/anchored-spec-maintainers
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Requirement
+metadata:
+  name: req-002-traceability-and-context-assembly
+  title: REQ-002 Traceability and Context Assembly
+  description: The framework connects architecture entities to supporting documentation and context outputs.
+  annotations:
+    anchored-spec.dev/source: docs/req/REQ-002-traceability-and-context-assembly.md
+  tags:
+    - requirement
+    - traceability
+    - context
+spec:
+  type: information
+  status: implemented
+  owner: group:default/anchored-spec-maintainers
+  dependsOn:
+    - requirement:default/req-001-entity-model-as-source-of-truth
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Requirement
+metadata:
+  name: req-003-discovery-and-drift-control-loop
+  title: REQ-003 Discovery and Drift Control Loop
+  description: The framework supports discovering repository truth and comparing it to the authored model through drift workflows.
+  annotations:
+    anchored-spec.dev/source: docs/req/REQ-003-discovery-and-drift-control-loop.md
+  tags:
+    - requirement
+    - discovery
+    - drift
+spec:
+  type: technical
+  status: implemented
+  owner: group:default/anchored-spec-maintainers
+  dependsOn:
+    - requirement:default/req-001-entity-model-as-source-of-truth
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Requirement
+metadata:
+  name: req-004-semantic-change-governance
+  title: REQ-004 Semantic Change Governance
+  description: The framework supports semantic architecture review, policy enforcement, and evidence-backed governance workflows.
+  annotations:
+    anchored-spec.dev/source: docs/req/REQ-004-semantic-change-governance.md
+  tags:
+    - requirement
+    - governance
+    - review
+spec:
+  type: technical
+  status: implemented
+  owner: group:default/anchored-spec-maintainers
+  dependsOn:
+    - requirement:default/req-001-entity-model-as-source-of-truth
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Decision
+metadata:
+  name: adr-001-backstage-aligned-entity-envelope
+  title: ADR-001 Backstage-Aligned Entity Envelope
+  description: Anchored Spec uses the Backstage entity envelope as its primary authored format.
+  annotations:
+    anchored-spec.dev/source: docs/adr/ADR-001-backstage-aligned-entity-envelope.md
+  tags:
+    - adr
+    - backstage
+spec:
+  status: accepted
+  owner: group:default/anchored-spec-maintainers
+  decision: Use the Backstage entity envelope as the primary authored architecture format.
+  context: One stable entity format was needed for validation, relation analysis, discovery matching, governance, and interoperability.
+  rationale: Backstage alignment gives the framework a recognizable model, reusable entity references, and ecosystem compatibility.
+  alternatives:
+    - Use a custom entity envelope designed only for Anchored Spec.
+    - Keep architecture authoring in prose without a typed envelope.
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Decision
+metadata:
+  name: adr-002-dual-storage-modes
+  title: ADR-002 Dual Storage Modes
+  description: Anchored Spec supports both manifest mode and inline mode for repository adoption.
+  annotations:
+    anchored-spec.dev/source: docs/adr/ADR-002-dual-storage-modes.md
+  tags:
+    - adr
+    - storage
+spec:
+  status: accepted
+  owner: group:default/anchored-spec-maintainers
+  decision: Support both manifest mode and inline mode while encouraging each repository to choose one primary approach.
+  context: Repositories want different authoring ergonomics, ranging from central catalogs to docs-first workflows.
+  rationale: Dual modes lower adoption friction without forcing a single documentation style on every repository.
+  dependsOn:
+    - decision:default/adr-001-backstage-aligned-entity-envelope
+  alternatives:
+    - Support manifest mode only.
+    - Support inline markdown entities only.
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Decision
+metadata:
+  name: adr-003-declared-before-observed
+  title: ADR-003 Declared Before Observed
+  description: Discovery and drift support the authored model instead of silently replacing it.
+  annotations:
+    anchored-spec.dev/source: docs/adr/ADR-003-declared-before-observed.md
+  tags:
+    - adr
+    - discovery
+    - governance
+spec:
+  status: accepted
+  owner: group:default/anchored-spec-maintainers
+  decision: Treat declared architecture as primary and discovery output as bootstrap, validation pressure, and observed evidence.
+  context: Discovery is valuable only if it improves the authored model rather than replacing it with unstable automation output.
+  rationale: This preserves reviewability and makes automation trustworthy instead of authoritative by accident.
+  dependsOn:
+    - decision:default/adr-001-backstage-aligned-entity-envelope
+  alternatives:
+    - Allow discovery output to overwrite authored architecture automatically.
+    - Treat observed state as the only source of truth.
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Decision
+metadata:
+  name: adr-004-repository-local-workflow
+  title: ADR-004 Repository-Local Workflow
+  description: The framework keeps its core workflow inside the repository through local files, CLI operations, and CI.
+  annotations:
+    anchored-spec.dev/source: docs/adr/ADR-004-repository-local-workflow.md
+  tags:
+    - adr
+    - workflow
+    - repo-local
+spec:
+  status: accepted
+  owner: group:default/anchored-spec-maintainers
+  decision: Keep the core Anchored Spec workflow repository-local, CLI-first, and usable without a required control plane.
+  context: The framework is intended to improve pull-request-level architecture work rather than move it into a separate hosted platform.
+  rationale: Repository-local operation reduces adoption friction and keeps architecture changes near code changes.
+  dependsOn:
+    - decision:default/adr-001-backstage-aligned-entity-envelope
+  alternatives:
+    - Require a hosted control plane for core workflows.
+    - Make the framework depend on a central enterprise registry first.
+---
+apiVersion: anchored-spec.dev/v1alpha1
+kind: Decision
+metadata:
+  name: adr-005-flexible-document-structure
+  title: ADR-005 Flexible Document Structure Configuration
+  description: The docs tree becomes a first-class configurable structure separate from semantic domains.
+  annotations:
+    anchored-spec.dev/source: docs/adr/ADR-005-flexible-document-structure.md
+  tags:
+    - adr
+    - docs
+    - configuration
+spec:
+  status: proposed
+  owner: group:default/anchored-spec-maintainers
+  decision: Decouple semantic domains from physical documentation layout through a dedicated docs configuration model.
+  context: The repository uses an architecture-first docs tree, but older configuration treated domains as directory paths.
+  rationale: A flexible docs model matches the actual repository structure and keeps semantic domains separate from file layout concerns.
+  dependsOn:
+    - decision:default/adr-002-dual-storage-modes
+    - decision:default/adr-004-repository-local-workflow
+  alternatives:
+    - Keep domains path-oriented and continue overloading them with filesystem meaning.
+    - Introduce per-command directory flags without changing the config model.

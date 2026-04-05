@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1",
+  "schemaVersion": "1.2",
   "rootDir": "docs",
   "generatedDir": "docs/generated",
   "idPrefix": null,
@@ -149,6 +149,36 @@
       "guide": "user-guides",
       "adr": "adr",
       "runbook": "developer-guides"
+    }
+  },
+  "catalog": {
+    "bootstrap": {
+      "enabled": true,
+      "profile": "auto",
+      "outputMode": "curated",
+      "writeTarget": "catalog-info.yaml",
+      "minConfidence": 0.6,
+      "maxTopLevelComponents": 8,
+      "include": {
+        "owners": true,
+        "domain": true,
+        "system": true,
+        "components": true,
+        "apis": true,
+        "capabilities": true,
+        "requirements": true,
+        "decisions": true,
+        "resources": false
+      },
+      "defaults": {
+        "ownerRef": "group:default/anchored-spec-maintainers",
+        "ownerKind": "Group",
+        "ownerType": "team",
+        "ownerUnitType": "team",
+        "componentLifecycle": "production",
+        "apiLifecycle": "production",
+        "capabilityLevel": 1
+      }
     }
   },
   "resolvers": [],

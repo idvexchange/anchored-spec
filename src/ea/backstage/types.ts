@@ -265,7 +265,14 @@ export interface TechnologySpec extends EntitySpecBase {
 export interface SystemInterfaceSpec extends EntitySpecBase {
   direction?: "inbound" | "outbound" | "bidirectional";
   protocol?: string;
+  ownership?: "owned" | "external" | "shared";
+  externalSystem?: string;
   consumers?: string[];
+  sla?: {
+    availability?: string;
+    latencyP99?: string;
+    throughput?: string;
+  };
 }
 
 /** Control spec (anchored-spec custom). */

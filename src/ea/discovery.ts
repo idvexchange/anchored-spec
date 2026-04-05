@@ -285,6 +285,12 @@ function draftToEntity(draft: EntityDraft): BackstageEntity | null {
     ...(draft.anchors ? { anchors: draft.anchors } : {}),
   };
 
+  if (draft.schema === "system-interface") {
+    spec.direction = "bidirectional";
+    spec.ownership = "owned";
+    spec.protocol = "custom";
+  }
+
   for (const relation of draft.relations ?? []) {
     const mapped = relationTypeToSpecEntry(relation.type, toCanonicalTargetRef(relation.target));
     if (!mapped) continue;

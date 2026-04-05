@@ -30,10 +30,15 @@ export type {
   AnchoredSpecConfigV1,
   AnchoredSpecConfigV1_0,
   AnchoredSpecConfigV1_1,
+  AnchoredSpecConfigV1_2,
   AnchoredSpecDocsConfig,
   AnchoredSpecDocsSection,
   AnchoredSpecSchemaVersion,
   DocsStructureProfile,
+  CatalogBootstrapProfile,
+  CatalogBootstrapOutputMode,
+  CatalogBootstrapConfig,
+  AnchoredSpecCatalogConfig,
   EaHookEvent,
   EaHookDefinition,
   EaTestMetadataConfig,
@@ -43,6 +48,7 @@ export {
   resolveConfigV1,
   loadProjectConfig,
   isConfigV11,
+  isConfigV12,
   getConfiguredDomains,
   getConfiguredDocScanDirs,
   getConfiguredDocSections,
@@ -51,6 +57,7 @@ export {
   getDefaultSectionForDocType,
   resolveDocOutputTarget,
   getVerificationSearchDirs,
+  getCatalogBootstrapConfig,
 } from "./config.js";
 
 // Validation
@@ -219,6 +226,24 @@ export {
   renderDiscoveryReportMarkdown,
   stubResolver,
 } from "./discovery.js";
+
+// Catalog synthesis
+export type {
+  CatalogEvidenceRecord,
+  CatalogPlannedEntity,
+  CatalogPlanAction,
+  CatalogSuppressedCandidate,
+  CatalogPlan,
+  CatalogPlanOptions,
+  CatalogApplyResult,
+} from "./catalog.js";
+export {
+  buildCatalogPlan,
+  renderCatalogPlanText,
+  planToManifestYaml,
+  applyCatalogPlan,
+  explainCatalogPlanEntity,
+} from "./catalog.js";
 
 // Cache
 export type { ResolverCache, CacheEntry, CacheStats } from "./cache.js";

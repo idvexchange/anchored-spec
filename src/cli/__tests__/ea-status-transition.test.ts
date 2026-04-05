@@ -42,6 +42,10 @@ describe("status and transition", () => {
             byConfidence: Record<string, number>;
             relationCount: number;
             anchoredCount: number;
+            errorCount: number;
+            loadErrorCount: number;
+            validationErrorCount: number;
+            validationWarningCount: number;
         };
         expect(payload.total).toBe(2);
         expect(payload.byDomain.systems).toBe(2);
@@ -53,6 +57,10 @@ describe("status and transition", () => {
         expect(payload.byConfidence.inferred).toBe(1);
         expect(payload.relationCount).toBe(3);
         expect(payload.anchoredCount).toBe(1);
+        expect(payload.errorCount).toBe(0);
+        expect(payload.loadErrorCount).toBe(0);
+        expect(payload.validationErrorCount).toBe(0);
+        expect(payload.validationWarningCount).toBe(3);
     });
     it("advances a manifest-backed entity to its next lifecycle status", () => {
         const dir = makeWorkspace("transition-success");
