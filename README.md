@@ -185,18 +185,33 @@ Manifest mode is the clearest operating shape for most multi-concern repositorie
 │   └── config.json
 ├── catalog-info.yaml
 ├── docs/
-│   ├── business/
-│   ├── delivery/
-│   ├── information/
-│   ├── systems/
-│   └── transitions/
+│   ├── 01-business/
+│   ├── 02-system-context/
+│   ├── 03-container/
+│   ├── 04-component/
+│   ├── 05-domain/
+│   ├── 06-api/
+│   ├── 07-data/
+│   ├── 08-security/
+│   ├── 09-infrastructure/
+│   ├── 10-testing/
+│   ├── adr/
+│   ├── guides/
+│   ├── req/
+│   ├── README.md
+│   ├── delivery-baseline.md
+│   └── glossary.md
+├── llms.txt
+├── llms-full.txt
 ├── src/
 │   ├── cli/
-│   └── ea/
+│   ├── ea/
+│   ├── resolvers/
+│   └── test-helpers/
 └── package.json
 ```
 
-In this repository, `catalog-info.yaml` is the machine-readable architecture source and `docs/` is the linked explanation layer. Each document lives in one primary domain folder and can declare additional domain membership in frontmatter.
+In this repository, `docs/` is an architecture-first documentation set organized around numbered views, root framing documents, ADRs, requirements, and separate user/developer guides. The implementation lives primarily under `src/cli/` and `src/ea/`, with supporting resolver helpers under `src/resolvers/`.
 
 ## Documentation
 
