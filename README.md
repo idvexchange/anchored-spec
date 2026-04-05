@@ -155,6 +155,7 @@ A project usually uses either manifest mode or inline mode as its primary author
 Start here:
 
 - [Documentation portal](docs/README.md)
+- [LLM guide](llms.txt)
 - [Architecture overview](docs/systems/overview.md)
 - [Entity model](docs/systems/entity-model.md)
 - [Docs and traceability](docs/information/docs-and-traceability.md)

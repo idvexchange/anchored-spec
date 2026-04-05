@@ -50,6 +50,7 @@ No current document has `data` as its primary domain. When the repo gains data-f
 
 ## Root Docs
 
+- [LLM guide](../llms.txt) — machine-oriented index for AI agents
 - [Contributing](contributing.md) — repository workflow, layout, and contribution expectations
 
 ## Working Style

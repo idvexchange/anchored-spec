@@ -1,0 +1,166 @@
+# Anchored Spec: Full AI Agent Guide
+
+Anchored Spec turns a repository into a living architecture model.
+
+The primary authored format is the Backstage entity envelope:
+
+- `apiVersion`
+- `kind`
+- `metadata`
+- `spec`
+
+Everything important in the framework hangs off that entity graph: validation, relations, traceability, discovery, drift, generation, reporting, and AI context assembly.
+
+## Core Operating Rules
+
+1. Treat descriptor YAML and Markdown frontmatter as source of truth.
+2. Preserve the repository's chosen storage mode unless explicitly asked to migrate it.
+3. Prefer built-in Backstage kinds when they fit:
+   - `Component`
+   - `API`
+   - `Resource`
+   - `Group`
+   - `System`
+   - `Domain`
+4. Use anchored-spec custom kinds only when the concept is not well covered by Backstage:
+   - `Requirement`
+   - `Decision`
+   - `CanonicalEntity`
+   - `Exchange`
+   - `Capability`
+   - `ValueStream`
+   - `Mission`
+   - `Technology`
+   - `SystemInterface`
+   - `Control`
+   - `TransitionPlan`
+   - `Exception`
+5. Use canonical entity refs in commands, docs, and relations, for example `component:default/orders-service`.
+6. Preserve `anchored-spec.dev/*` annotations and treat authored `relations` output as derived analysis, not hand-maintained primary source.
+7. Update linked docs when architecture changes materially affect them.
+8. Validate after meaningful edits.
+
+## Storage Modes
+
+### Manifest Mode
+
+Entities live in `catalog-info.yaml`, optionally with extra YAML loaded from configured catalog directories.
+
+### Inline Mode
+
+Entities live in Markdown frontmatter, usually inside `docs/`.
+
+Do not switch a repository from one mode to the other without an explicit user request.
+
+## Recommended Workflow By Intent
+
+### Add a New Architectural Element
+
+1. Choose the smallest correct entity kind.
+2. Create the entity in the repository's current storage mode.
+3. Add relations using existing canonical refs.
+4. Add or update linked docs if the change needs explanation.
+5. Run validation.
+
+Typical commands:
+
+```bash
+npx anchored-spec create --kind Component --type service --title "Orders Service"
+npx anchored-spec validate
+```
+
+### Update Existing Architecture
+
+1. Locate the current entity by canonical ref or exact file.
+2. Change the entity and any directly linked docs together.
+3. Keep `owner`, `lifecycle`, `system`, `domain`, and relation fields coherent.
+4. Re-run the smallest useful quality loop: `validate`, `trace`, `drift`, or `reconcile`.
+
+### Bootstrap From Reality
+
+Use discovery to propose draft entities or facts from sources such as OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, Markdown, anchors, and tree-sitter.
+
+```bash
+npx anchored-spec discover
+npx anchored-spec discover --resolver openapi --source ./openapi.yaml
+```
+
+Discovery is non-authoritative. It should pressure-test or seed the authored model, not overwrite it silently.
+
+### Compare Declared vs Observed
+
+Use drift when the task is about trustworthiness, model coverage, or documentation consistency.
+
+```bash
+npx anchored-spec drift
+npx anchored-spec drift --domain docs
+```
+
+### Review Changes
+
+Use semantic review commands instead of file-only guesses.
+
+```bash
+npx anchored-spec diff --base main --compat --policy
+npx anchored-spec impact --from-diff HEAD~1 --format markdown
+npx anchored-spec constraints --from-diff HEAD~1 --format markdown
+```
+
+### Assemble Context
+
+Use context and trace workflows when the user wants the connected architecture picture.
+
+```bash
+npx anchored-spec trace --summary
+npx anchored-spec context component:default/orders-service --tier llm
+npx anchored-spec link-docs --sync
+```
+
+### End-to-End Maintenance
+
+Use reconcile when a task spans generation, validation, docs, and drift.
+
+```bash
+npx anchored-spec reconcile --include-trace --include-docs
+```
+
+## Modeling Rules
+
+- Keep `metadata.name` stable once it is referenced elsewhere.
+- Use `metadata.description` to describe actual runtime or architectural intent.
+- Prefer real owner refs in `spec.owner`.
+- Use Backstage-native fields such as `dependsOn`, `providesApis`, `consumesApis`, `system`, and `domain` when they fit.
+- Keep relations behaviorally meaningful rather than using them as generic adjacency lists.
+- Link docs to entities with frontmatter refs and link entities back with source annotations or trace refs.
+
+## Anti-Patterns
+
+Do not:
+
+- create a second architecture format beside the entity model
+- switch storage modes without being asked
+- use legacy or informal IDs as the main runtime identifier
+- claim unsupported commands or removed workflows are current
+- treat discovery or inferred facts as authoritative without review
+- let docs drift into isolated prose detached from entity refs
+
+## Safe Completion Checklist
+
+Before finishing meaningful architecture work, prefer to run:
+
+1. `npx anchored-spec validate`
+2. `npx anchored-spec trace --summary` when docs or links changed
+3. `npx anchored-spec drift` when declared vs observed consistency matters
+4. `npx anchored-spec diff --base main --compat --policy` when reviewing a change set
+5. `npx anchored-spec reconcile --include-trace --include-docs` for broader end-to-end checks
+
+## Canonical Follow-Up Reading
+
+- `README.md`
+- `docs/README.md`
+- `docs/delivery/getting-started.md`
+- `docs/systems/entity-model.md`
+- `docs/delivery/discovery-drift-generation.md`
+- `docs/delivery/reporting-and-analysis.md`
+- `docs/information/docs-and-traceability.md`
+- `SKILL.md`
