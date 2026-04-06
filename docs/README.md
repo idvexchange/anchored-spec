@@ -81,6 +81,8 @@ If you are new to the framework, read in this order:
 ### Guides
 
 - [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
+- [guides/user-guides/catalog-bootstrap.md](guides/user-guides/catalog-bootstrap.md)
+- [guides/user-guides/obsidian-and-anchored-spec.md](guides/user-guides/obsidian-and-anchored-spec.md)
 - [guides/user-guides/choosing-a-modeling-approach.md](guides/user-guides/choosing-a-modeling-approach.md)
 - [guides/user-guides/bottom-up-discovery.md](guides/user-guides/bottom-up-discovery.md)
 - [guides/user-guides/top-down-authoring.md](guides/user-guides/top-down-authoring.md)

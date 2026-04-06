@@ -7,7 +7,8 @@ This matrix compares the current shipped capability scope of Anchored Spec with 
 | Entity-native architecture model     | Shipped and central to the framework      | Entities are the normal source of architecture truth         | `src/ea/backstage/`, `src/ea/validate.ts`                                           |
 | Dual storage modes                   | Shipped for manifest and inline authoring | Teams choose one primary mode and keep it stable             | `src/cli/commands/ea-init.ts`, `src/ea/loader.ts`                                   |
 | Validation and schema enforcement    | Shipped                                   | Validation runs locally and in CI                            | `src/cli/commands/ea-validate.ts`                                                   |
-| Discovery from source material       | Shipped across eight source families      | Used selectively to bootstrap or pressure-test the model     | `src/ea/resolvers/`, `src/cli/commands/ea-discover.ts`                              |
+| Catalog synthesis from repository evidence | Shipped                                   | Used first for curated manifest bootstrap in mature repositories | `src/ea/catalog.ts`, `src/cli/commands/ea-catalog.ts`                               |
+| Discovery from source material       | Shipped across eight source families      | Used selectively to widen or pressure-test the model         | `src/ea/resolvers/`, `src/cli/commands/ea-discover.ts`                              |
 | Drift detection                      | Shipped                                   | Used where declared-vs-observed consistency matters          | `src/ea/drift.ts`, `src/cli/commands/ea-drift.ts`                                   |
 | Derived output generation            | Shipped for OpenAPI and JSON Schema       | Used only where downstream artifacts add real value          | `src/ea/generators/`                                                                |
 | Reviewer-facing reports and diagrams | Shipped                                   | Standard review outputs are easy to produce in markdown      | `src/ea/report.ts`, `src/ea/diagrams/`                                              |
@@ -23,6 +24,7 @@ The current codebase already implements the framework's major capabilities. The 
 In practice that means:
 
 - small authored models before massive discovery runs
+- catalog bootstrap before broad discovery when adopting in manifest mode
 - validation and traceability in normal review
 - drift and semantic diff where architectural trust matters
 - AI usage grounded in the same model as humans

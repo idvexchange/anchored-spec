@@ -59,14 +59,22 @@ npx anchored-spec trace --summary
 
 ### Bootstrap from repository reality
 
-Use discovery:
+Prefer catalog synthesis when the goal is a repository-specific first-pass manifest:
+
+```bash
+npx anchored-spec catalog bootstrap --dry-run
+npx anchored-spec catalog bootstrap --write catalog-info.yaml
+npx anchored-spec catalog explain component:default/your-primary-component
+```
+
+Use discovery when you need broader resolver-driven extraction or source-specific findings:
 
 ```bash
 npx anchored-spec discover
 npx anchored-spec discover --resolver openapi --source ./openapi.yaml
 ```
 
-Discovery is non-authoritative. It should seed or challenge the model, not overwrite it silently.
+`catalog bootstrap` is planner-first and emits a curated manifest proposal. Discovery is resolver-first and emits draft findings. Neither is authoritative until reviewed and normalized into the entity model.
 
 ### Compare the model to observed reality
 
@@ -122,6 +130,7 @@ Do not:
 - switch storage modes without being asked
 - use informal IDs as the primary runtime identifier
 - treat discovery or inferred facts as final truth without review
+- skip `catalog bootstrap` when the repository already contains enough structure to synthesize a useful first-pass manifest
 - document unsupported workflows as if they are current
 - let docs drift into prose that cannot be tied back to entity refs
 
@@ -143,5 +152,6 @@ Before finishing meaningful work, prefer to run:
 - `docs/03-container/container-architecture.md`
 - `docs/05-domain/domain-model.md`
 - `docs/06-api/cli-api.md`
+- `docs/guides/user-guides/catalog-bootstrap.md`
 - `docs/guides/user-guides/reporting-and-analysis.md`
 - `SKILL.md`
