@@ -34,6 +34,8 @@ Entities live in markdown frontmatter, usually inside `docs/`.
 
 Preserve the repository's current storage mode unless the user explicitly asks to migrate it.
 
+In manifest-mode repositories with meaningful existing code and docs, prefer `catalog bootstrap` as the first-pass modeling workflow before falling back to raw discovery.
+
 ## Entity rules
 
 Every entity must be valid Backstage-style YAML:
@@ -103,14 +105,22 @@ npx anchored-spec validate
 
 ### When bootstrapping from reality
 
-Use discovery:
+Prefer catalog synthesis first:
+
+```bash
+npx anchored-spec catalog bootstrap --dry-run
+npx anchored-spec catalog bootstrap --write catalog-info.yaml
+npx anchored-spec catalog explain component:default/your-primary-component
+```
+
+Use discovery when you need broader resolver-driven extraction or source-specific expansion:
 
 ```bash
 npx anchored-spec discover
 npx anchored-spec discover --resolver openapi --source ./openapi.yaml
 ```
 
-Discovered entities are drafts until reviewed.
+`catalog bootstrap` produces a curated manifest proposal. `discover` produces draft findings. Neither should be treated as final truth without review.
 
 ### When checking declared vs observed truth
 
@@ -167,6 +177,7 @@ Do not:
 - switch storage modes without being asked
 - use informal IDs as the primary runtime identifier
 - treat discovery or inferred facts as final truth without review
+- skip `catalog bootstrap` when the task is to create a repository-specific first-pass manifest from existing repo evidence
 - describe unsupported or removed commands as current
 - let docs drift away from entity refs
 

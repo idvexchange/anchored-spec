@@ -29,6 +29,7 @@ Anchored Spec takes a different position:
 
 - Author architecture as Backstage-aligned entities.
 - Store that model in manifest mode or inline markdown frontmatter.
+- Bootstrap a curated first-pass manifest from repository evidence with `catalog bootstrap`.
 - Use canonical entity refs such as `component:default/orders-service` across commands, docs, and review workflows.
 - Validate schema, relations, ownership, lifecycle, and traceability.
 - Discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, markdown, anchors, and tree-sitter.
@@ -51,11 +52,20 @@ pnpm add -D anchored-spec
 npx anchored-spec init --mode manifest
 ```
 
-### Create the first entities
+### Create the first model slice
+
+If the architecture is already clear, create entities directly:
 
 ```bash
 npx anchored-spec create --kind Component --type service --title "Orders Service" --owner group:default/platform-team
 npx anchored-spec create --kind API --type openapi --title "Orders API" --owner group:default/platform-team
+```
+
+If the repository already has meaningful structure and docs, bootstrap a curated manifest first:
+
+```bash
+npx anchored-spec catalog bootstrap --dry-run
+npx anchored-spec catalog bootstrap --write catalog-info.yaml
 ```
 
 If you are not sure which descriptor shape to use, inspect the supported options first:
@@ -156,6 +166,7 @@ Manifest mode is the clearest operating shape for most multi-concern repositorie
 | `init`         | Scaffold config, storage mode, optional examples, AI files, IDE files, and CI recipes |
 | `create`       | Create a new entity in the repository's configured storage mode                       |
 | `create-doc`   | Create linked architecture or guide documents with frontmatter and trace links        |
+| `catalog`      | Bootstrap, plan, apply, and explain a curated catalog synthesized from repo evidence  |
 | `link`         | Add a relation between two entities                                                   |
 | `validate`     | Validate entities, relations, and quality rules                                       |
 | `verify`       | Run broader project verification checks                                               |
@@ -224,6 +235,7 @@ Start with the docs portal:
 - [System context](docs/02-system-context/system-context.md)
 - [Domain model](docs/05-domain/domain-model.md)
 - [User getting started guide](docs/guides/user-guides/getting-started.md)
+- [Catalog bootstrap guide](docs/guides/user-guides/catalog-bootstrap.md)
 - [Developer testing and CI guide](docs/guides/developer-guides/testing-and-ci.md)
 
 ## AI Agent Workflow
