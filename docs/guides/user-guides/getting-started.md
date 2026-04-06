@@ -38,6 +38,8 @@ npx anchored-spec catalog bootstrap --dry-run
 npx anchored-spec catalog bootstrap --write catalog-info.yaml
 ```
 
+That first-pass manifest may include `anchored-spec.dev/code-location` on synthesized components when the framework can infer a primary source path.
+
 ## 5. Validate immediately
 
 ```bash

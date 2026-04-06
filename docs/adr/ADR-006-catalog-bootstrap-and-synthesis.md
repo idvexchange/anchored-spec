@@ -504,6 +504,7 @@ metadata:
   title: Anchored Spec CLI
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-cli.md
+    anchored-spec.dev/code-location: src/cli/
 spec:
   type: tool
   lifecycle: production

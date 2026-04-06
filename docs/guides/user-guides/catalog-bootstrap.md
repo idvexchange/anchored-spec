@@ -19,6 +19,7 @@ The catalog workflow:
 - classifies the repository shape
 - proposes a small set of top-level canonical entities
 - attaches synthesized components and related entities under that structure
+- adds `anchored-spec.dev/code-location` on synthesized components when a primary repository-relative source path can be inferred
 - emits a validator-safe manifest plan
 
 This is different from `discover`:
@@ -91,6 +92,7 @@ Focus review on:
 
 - whether the top-level domain, system, and component boundaries are correct
 - whether names match the repository's actual language
+- whether inferred primary code locations point at the intended source area
 - whether ownership and lifecycle defaults need tightening
 - whether synthesized relationships express intent or only weak evidence
 
