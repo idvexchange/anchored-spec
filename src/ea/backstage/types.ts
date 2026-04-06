@@ -105,6 +105,8 @@ export const ANNOTATION_PREFIX = "anchored-spec.dev" as const;
 export const ANNOTATION_KEYS = {
   /** Path to the authoritative markdown doc section. */
   SOURCE: `${ANNOTATION_PREFIX}/source`,
+  /** Primary repository-relative code location for the entity. */
+  CODE_LOCATION: `${ANNOTATION_PREFIX}/code-location`,
   /** Confidence level: observed | declared | verified. */
   CONFIDENCE: `${ANNOTATION_PREFIX}/confidence`,
   /** CSV of expected anchors in the source doc. */

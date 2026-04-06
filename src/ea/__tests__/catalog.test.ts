@@ -49,6 +49,8 @@ describe("catalog synthesis", () => {
       bin: { "anchored-spec": "./dist/cli/index.js" },
       exports: { ".": "./dist/index.js" },
     }, null, 2));
+    writeTextFile(dir, "src/cli/index.ts", "export const main = () => {};\n");
+    writeTextFile(dir, "src/ea/index.ts", "export const runtime = {};\n");
 
     writeTextFile(dir, "docs/01-business/business-architecture.md", `# Business Architecture
 
@@ -119,6 +121,11 @@ Easier interoperability.
 
     const config = loadProjectConfig(dir);
     const plan = await buildCatalogPlan(dir, config);
+    const componentEntities = new Map(
+      plan.plannedEntities
+        .filter((entry) => entry.entity.kind === "Component")
+        .map((entry) => [entry.entity.metadata.name, entry.entity]),
+    );
 
     expect(plan.validation.errors).toEqual([]);
     expect(plan.actions.some((action) => action.entityRef === "group:default/anchored-spec-maintainers")).toBe(true);
@@ -128,6 +135,8 @@ Easier interoperability.
     expect(plan.actions.some((action) => action.entityRef === "requirement:default/req-001-entity-model-as-source-of-truth")).toBe(true);
     expect(plan.actions.some((action) => action.entityRef === "decision:default/adr-001-backstage-aligned-entity-envelope")).toBe(true);
     expect(plan.actions.some((action) => action.entityRef === "capability:default/explicit-architecture-authoring")).toBe(true);
+    expect(componentEntities.get("anchored-spec-cli")?.metadata.annotations?.["anchored-spec.dev/code-location"]).toBe("src/cli/");
+    expect(componentEntities.get("anchored-spec-runtime")?.metadata.annotations?.["anchored-spec.dev/code-location"]).toBe("src/ea/");
   });
 
   it("applies a synthesized plan and writes a valid manifest", async () => {
@@ -142,6 +151,7 @@ Easier interoperability.
       bin: { payments: "./dist/cli/index.js" },
       exports: { ".": "./dist/index.js" },
     }, null, 2));
+    writeTextFile(dir, "src/cli/index.ts", "export const main = () => {};\n");
 
     writeTextFile(dir, "docs/04-component/payments-cli.md", `# Payments CLI
 
@@ -185,6 +195,7 @@ Faster startup.
     expect(manifest).toContain("kind: Group");
     expect(manifest).toContain("kind: System");
     expect(manifest).toContain("kind: Component");
+    expect(manifest).toContain("anchored-spec.dev/code-location: src/cli/");
 
     const entities = plan.plannedEntities.map((entry) => entry.entity);
     const quality = validateEntities(entities, { quality: config.quality });

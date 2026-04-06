@@ -32,6 +32,7 @@ describe("Annotation keys", () => {
 
   it("defines all expected annotation keys", () => {
     expect(ANNOTATION_KEYS.SOURCE).toBe("anchored-spec.dev/source");
+    expect(ANNOTATION_KEYS.CODE_LOCATION).toBe("anchored-spec.dev/code-location");
     expect(ANNOTATION_KEYS.CONFIDENCE).toBe("anchored-spec.dev/confidence");
     expect(ANNOTATION_KEYS.EXPECT_ANCHORS).toBe("anchored-spec.dev/expect-anchors");
     expect(ANNOTATION_KEYS.COMPLIANCE).toBe("anchored-spec.dev/compliance");

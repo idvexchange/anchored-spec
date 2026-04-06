@@ -67,6 +67,10 @@
           "description": "Key-value annotations for tooling metadata.",
           "properties": {
             "anchored-spec.dev/source": { "type": "string" },
+            "anchored-spec.dev/code-location": {
+              "type": "string",
+              "minLength": 1
+            },
             "anchored-spec.dev/confidence": { "type": "string", "pattern": "^(0(\\.\\d+)?|1(\\.0+)?)$" },
             "anchored-spec.dev/expect-anchors": { "type": "string" },
             "anchored-spec.dev/compliance": { "type": "string" },

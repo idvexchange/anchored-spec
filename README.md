@@ -104,6 +104,7 @@ metadata:
   description: Handles order placement and orchestration.
   annotations:
     anchored-spec.dev/source: docs/04-component/orders-service.md
+    anchored-spec.dev/code-location: src/orders/
 spec:
   type: service
   lifecycle: production

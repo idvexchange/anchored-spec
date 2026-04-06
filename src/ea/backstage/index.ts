@@ -175,6 +175,7 @@ export {
   getEntityRisk,
   getEntityCompliance,
   getEntitySource,
+  getEntityCodeLocation,
   getEntityTraceRefs,
   getEntityExpectAnchors,
   getEntityAnchors,

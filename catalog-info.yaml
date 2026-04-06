@@ -57,6 +57,7 @@ metadata:
   description: Public command surface for local users, CI, and agents working with the framework through shell workflows.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-cli.md
+    anchored-spec.dev/code-location: src/cli/
   tags:
     - c4:l3
     - cli
@@ -79,6 +80,7 @@ metadata:
   description: Reusable architecture engine that loads the model, validates it, performs discovery and drift, and powers reporting and governance workflows.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/
   tags:
     - c4:l3
     - runtime
@@ -99,6 +101,7 @@ metadata:
   description: Loader, schema, relation, and graph core that normalizes authored entities into one shared architecture model.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/backstage/
   tags:
     - c4:l4
     - model
@@ -118,6 +121,7 @@ metadata:
   description: Resolver pipeline that scans repositories, extracts observed architecture signals, and supports drift analysis.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/resolvers/
   tags:
     - c4:l4
     - discovery
@@ -139,6 +143,7 @@ metadata:
   description: Documentation scanning and trace analysis layer that connects entity models to supporting repository documents.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/docs/
   tags:
     - c4:l4
     - docs
@@ -160,6 +165,7 @@ metadata:
   description: Report, impact, constraints, and context workflows built on the shared graph and discovered evidence.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/report.ts
   tags:
     - c4:l4
     - reporting
@@ -183,6 +189,7 @@ metadata:
   description: Semantic diff, policy, evidence, verify, and reconcile workflows used to review architecture change as architecture.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/reconcile.ts
   tags:
     - c4:l4
     - governance
@@ -205,6 +212,7 @@ metadata:
   description: Generator runtime that derives machine-readable artifacts such as OpenAPI and JSON Schema from the authored model.
   annotations:
     anchored-spec.dev/source: docs/04-component/anchored-spec-library.md
+    anchored-spec.dev/code-location: src/ea/generators/
   tags:
     - c4:l4
     - generation

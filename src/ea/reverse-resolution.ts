@@ -2,11 +2,12 @@
  * Anchored Spec — Reverse Resolution
  *
  * Maps file paths, symbols, and git diffs back to entity refs.
- * Four resolution strategies ordered by confidence:
+ * Five resolution strategies ordered by confidence:
  *   1. Doc frontmatter ea-entities → entity refs (high)
- *   2. Source @anchored-spec annotations → entity refs (high)
- *   3. Entity spec.anchors reverse matching → entity refs (medium)
- *   4. Heuristic path prefix / naming convention → entity refs (low)
+ *   2. Primary code-location annotation → entity refs (high)
+ *   3. Source / trace path mappings → entity refs (high)
+ *   4. Entity spec.anchors reverse matching → entity refs (medium)
+ *   5. Heuristic path prefix / naming convention → entity refs (low)
  *
  * Design reference: Intelligence Layer Plan §Phase I1
  */
@@ -14,6 +15,7 @@
 import { execFileSync } from "node:child_process";
 import type { BackstageEntity } from "./backstage/types.js";
 import {
+  getEntityCodeLocation,
   getEntityId,
   getEntityTraceRefs,
   getEntityAnchors,
@@ -28,6 +30,7 @@ export type ResolutionConfidence = "high" | "medium" | "low";
 export type ResolutionStrategy =
   | "doc-frontmatter"
   | "source-annotation"
+  | "code-location"
   | "anchor-match"
   | "heuristic";
 
@@ -48,7 +51,7 @@ interface IndexEntry {
 }
 
 export interface ReverseIndex {
-  /** file path → entity refs (from traceRefs, role=implementation or any) */
+  /** file path → entity refs (from docs, code-location, traceRefs, and file-like anchors) */
   fileToEntities: Map<string, IndexEntry[]>;
   /** symbol name → entity refs (from spec.anchors.symbols, .apis, .events) */
   symbolToEntities: Map<string, IndexEntry[]>;
@@ -76,6 +79,16 @@ function confidenceOrder(c: ResolutionConfidence): number {
   }
 }
 
+function normalizePath(path: string): string {
+  return path.replace(/^\.\//, "").replace(/\/+$/, "");
+}
+
+function pathContainsWithin(basePath: string, candidatePath: string): boolean {
+  const base = normalizePath(basePath);
+  const candidate = normalizePath(candidatePath);
+  return candidate === base || candidate.startsWith(`${base}/`);
+}
+
 // ─── Build Index ──────────────────────────────────────────────────────
 
 export function buildReverseIndex(
@@ -87,7 +100,7 @@ export function buildReverseIndex(
   const symbolToEntities = new Map<string, IndexEntry[]>();
 
   const addFile = (path: string, entry: IndexEntry) => {
-    const normalized = path.replace(/^\.\//, "");
+    const normalized = normalizePath(path);
     const existing = fileToEntities.get(normalized) ?? [];
     if (
       !existing.some(
@@ -130,6 +143,15 @@ export function buildReverseIndex(
   // Strategy 2: Entity traceRefs (high confidence)
   for (const entity of entities) {
     const entityRef = getEntityId(entity);
+    const codeLocation = getEntityCodeLocation(entity);
+    if (codeLocation && !codeLocation.startsWith("http://") && !codeLocation.startsWith("https://")) {
+      addFile(codeLocation, {
+        entityRef,
+        confidence: "high",
+        evidence: "annotation:anchored-spec.dev/code-location",
+        strategy: "code-location",
+      });
+    }
     for (const ref of getEntityTraceRefs(entity)) {
       if (ref.path.startsWith("http://") || ref.path.startsWith("https://"))
         continue;
@@ -206,7 +228,7 @@ export function resolveFromFiles(
   const seen = new Set<string>();
 
   for (const file of files) {
-    const normalized = file.replace(/^\.\//, "");
+    const normalized = normalizePath(file);
     const matches = index.fileToEntities.get(normalized);
 
     if (matches) {
@@ -223,14 +245,34 @@ export function resolveFromFiles(
           strategy: match.strategy,
         });
       }
-    } else {
+    }
+
+    for (const entity of entities) {
+      const entityRef = getEntityId(entity);
+      const codeLocation = getEntityCodeLocation(entity);
+      if (!codeLocation || !pathContainsWithin(codeLocation, normalized)) continue;
+
+      const key = `${normalized}::${entityRef}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({
+        inputKind: "file",
+        inputValue: normalized,
+        resolvedEntityRef: entityRef,
+        confidence: "high",
+        evidence: `file is within primary code location "${normalizePath(codeLocation)}"`,
+        strategy: "code-location",
+      });
+    }
+
+    if (!matches) {
       // Heuristic fallback: check if file path overlaps with any traceRef
       for (const entity of entities) {
         const entityRef = getEntityId(entity);
         for (const ref of getEntityTraceRefs(entity)) {
           if (
             ref.path.includes(normalized) ||
-            normalized.includes(ref.path.replace(/^\.\//, ""))
+            normalized.includes(normalizePath(ref.path))
           ) {
             const key = `${normalized}::${entityRef}`;
             if (seen.has(key)) continue;

@@ -23,6 +23,7 @@ import {
   getEntityRisk,
   getEntityCompliance,
   getEntitySource,
+  getEntityCodeLocation,
   getEntityExpectAnchors,
   getEntitySuppressions,
   getLabel,
@@ -52,6 +53,7 @@ const component: BackstageEntity = {
     labels: { tier: "1", env: "production" },
     annotations: {
       [ANNOTATION_KEYS.SOURCE]: "docs/architecture/verifier.md",
+      [ANNOTATION_KEYS.CODE_LOCATION]: "src/verifier/",
       [ANNOTATION_KEYS.CONFIDENCE]: "observed",
       [ANNOTATION_KEYS.RISK]: "high",
       [ANNOTATION_KEYS.COMPLIANCE]: "SOC2,ISO27001",
@@ -331,6 +333,10 @@ describe("annotation accessors", () => {
 
   it("getEntitySource returns source path", () => {
     expect(getEntitySource(component)).toBe("docs/architecture/verifier.md");
+  });
+
+  it("getEntityCodeLocation returns primary code location path", () => {
+    expect(getEntityCodeLocation(component)).toBe("src/verifier/");
   });
 
   it("getEntityExpectAnchors parses CSV anchors", () => {

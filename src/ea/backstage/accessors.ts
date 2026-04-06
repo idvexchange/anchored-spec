@@ -248,6 +248,13 @@ export function getEntitySource(entity: BackstageEntity): string | undefined {
 }
 
 /**
+ * Get the primary code location path from the anchored-spec annotation.
+ */
+export function getEntityCodeLocation(entity: BackstageEntity): string | undefined {
+  return getAnnotation(entity, ANNOTATION_KEYS.CODE_LOCATION);
+}
+
+/**
  * Get all traceRefs from spec.traceRefs (full fidelity) or the source annotation (single ref).
  * Returns an array of `{ path, role? }` objects.
  */

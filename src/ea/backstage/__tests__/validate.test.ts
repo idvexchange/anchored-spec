@@ -137,6 +137,19 @@ describe("validateBackstageEntity", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("accepts a component with a primary code-location annotation", async () => {
+    const entity = makeComponent({
+      metadata: {
+        name: "my-service",
+        annotations: {
+          "anchored-spec.dev/code-location": "src/my-service/",
+        },
+      },
+    });
+    const result = await validateBackstageEntity(entity, "entity-envelope");
+    expect(result.valid).toBe(true);
+  });
+
   it("validates all built-in kinds", async () => {
     const entities: BackstageEntity[] = [
       makeComponent(),
@@ -327,6 +340,22 @@ describe("validateBackstageEntities", () => {
     });
     const result = validateBackstageEntities([entity]);
     expect(result.warnings.some((e) => e.rule === "backstage:quality:orphan-entity")).toBe(true);
+  });
+
+  it("rejects invalid absolute code-location annotations", () => {
+    const entity = makeComponent({
+      metadata: {
+        name: "my-service",
+        title: "My Service",
+        description: "A test service that does useful things",
+        annotations: {
+          "anchored-spec.dev/code-location": "/absolute/path",
+        },
+      },
+    });
+    const result = validateBackstageEntities([entity]);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.rule === "backstage:quality:code-location-format")).toBe(true);
   });
 
   it("does not flag entities with relations as orphans", () => {

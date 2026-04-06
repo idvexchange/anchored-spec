@@ -26,6 +26,7 @@ import type { BackstageEntity } from "./types.js";
 import type { EaValidationError, EaValidationResult, EaValidationOptions } from "../validate.js";
 import {
   getEntityId,
+  getEntityCodeLocation,
   getEntityDescription,
   getEntityStatus,
   getEntityOwners,
@@ -384,6 +385,14 @@ function pushFinding(
   }
 }
 
+function isValidRelativeCodePath(path: string): boolean {
+  if (!path.trim()) return false;
+  if (path.startsWith("http://") || path.startsWith("https://")) return false;
+  if (path.startsWith("/")) return false;
+  if (/^[A-Za-z]:[\\/]/.test(path)) return false;
+  return true;
+}
+
 /**
  * Run quality rules across a set of Backstage entities.
  *
@@ -395,6 +404,7 @@ function pushFinding(
  *   - `backstage:quality:orphan-entity`     (warning)  — Entities with no relations
  *   - `backstage:quality:missing-apiversion`(error)   — Must have valid apiVersion
  *   - `backstage:quality:missing-kind`      (error)   — Must have recognized kind
+ *   - `backstage:quality:code-location-format` (error) — code-location must be a non-empty relative path
  */
 export function validateBackstageEntities(
   entities: BackstageEntity[],
@@ -427,6 +437,7 @@ export function validateBackstageEntities(
   const descSev = ruleSeverity("backstage:quality:active-needs-desc", "warning", quality);
   const apiVersionSev = ruleSeverity("backstage:quality:missing-apiversion", "error", quality);
   const kindSev = ruleSeverity("backstage:quality:missing-kind", "error", quality);
+  const codeLocationSev = ruleSeverity("backstage:quality:code-location-format", "error", quality);
 
   const NAME_RE = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$/;
 
@@ -507,8 +518,22 @@ export function validateBackstageEntities(
         const desc = getEntityDescription(entity);
         if (!desc || desc.length < 10) {
           pushFinding(errors, warnings, descSev, "backstage:quality:active-needs-desc",
-            prefix, `Active entity "${ref}" should have a description (metadata.description, ≥10 chars)`);
+          prefix, `Active entity "${ref}" should have a description (metadata.description, ≥10 chars)`);
         }
+      }
+    }
+
+    if (codeLocationSev !== "off") {
+      const codeLocation = getEntityCodeLocation(entity);
+      if (codeLocation != null && !isValidRelativeCodePath(codeLocation)) {
+        pushFinding(
+          errors,
+          warnings,
+          codeLocationSev,
+          "backstage:quality:code-location-format",
+          prefix,
+          `Entity "${ref}" has invalid ${"anchored-spec.dev/code-location"} "${codeLocation}" (expected a non-empty repository-relative path)`,
+        );
       }
     }
   }

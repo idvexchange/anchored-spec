@@ -10,11 +10,13 @@
  *   - buildReverseIndexCached: cache hit/miss behavior
  */
 
+import { readFileSync } from "node:fs";
 import { describe, it, expect, vi } from "vitest";
 import type { BackstageEntity } from "../backstage/types.js";
 import type { ScannedDoc } from "../docs/scanner.js";
 import type { ResolverCache } from "../cache.js";
 import { NoOpCache } from "../cache.js";
+import { parseBackstageYaml } from "../backstage/parser.js";
 import {
   buildReverseIndex,
   buildReverseIndexCached,
@@ -105,6 +107,29 @@ describe("buildReverseIndex", () => {
         confidence: "high",
         evidence: 'doc frontmatter ea-entities includes "api:default/dossier-lifecycle"',
         strategy: "doc-frontmatter",
+      },
+    ]);
+  });
+
+  it("builds file index from primary code-location annotation", () => {
+    const entity = makeEntity({
+      kind: "Component",
+      name: "order-service",
+      metadata: {
+        annotations: {
+          "anchored-spec.dev/code-location": "src/orders/",
+        },
+      },
+    });
+
+    const index = buildReverseIndex([entity]);
+
+    expect(index.fileToEntities.get("src/orders")).toEqual([
+      {
+        entityRef: "component:default/order-service",
+        confidence: "high",
+        evidence: "annotation:anchored-spec.dev/code-location",
+        strategy: "code-location",
       },
     ]);
   });
@@ -287,6 +312,16 @@ describe("resolveFromFiles", () => {
     entityRefs: ["api:default/dossier-lifecycle"],
   });
 
+  const entityWithCodeLocation = makeEntity({
+    kind: "Component",
+    name: "runtime",
+    metadata: {
+      annotations: {
+        "anchored-spec.dev/code-location": "src/runtime/",
+      },
+    },
+  });
+
   it("resolves file to entity via traceRef (high confidence)", () => {
     const results = resolveFromFiles(
       ["src/orders/handler.ts"],
@@ -328,6 +363,22 @@ describe("resolveFromFiles", () => {
       inputValue: "src/billing/schema.graphql",
       confidence: "medium",
       strategy: "anchor-match",
+    });
+  });
+
+  it("resolves file to entity via primary code location (high confidence)", () => {
+    const results = resolveFromFiles(
+      ["src/runtime/worker.ts"],
+      [entityWithCodeLocation],
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      inputKind: "file",
+      inputValue: "src/runtime/worker.ts",
+      resolvedEntityRef: "component:default/runtime",
+      confidence: "high",
+      strategy: "code-location",
     });
   });
 
@@ -400,6 +451,33 @@ describe("resolveFromFiles", () => {
     );
 
     expect(results).toEqual([]);
+  });
+
+  it("resolves real catalog code-location annotations from catalog-info.yaml", () => {
+    const catalogPath = new URL("../../../catalog-info.yaml", import.meta.url);
+    const parsed = parseBackstageYaml(readFileSync(catalogPath, "utf-8"), catalogPath.pathname);
+    const entities = parsed.entities.map((entry) => entry.entity);
+
+    const cliResults = resolveFromFiles(["src/cli/index.ts"], entities);
+    expect(cliResults.some((result) =>
+      result.resolvedEntityRef === "component:default/anchored-spec-cli" &&
+      result.strategy === "code-location" &&
+      result.confidence === "high"
+    )).toBe(true);
+
+    const docsResults = resolveFromFiles(["src/ea/docs/scanner.ts"], entities);
+    expect(docsResults.some((result) =>
+      result.resolvedEntityRef === "component:default/anchored-spec-docs-and-trace" &&
+      result.strategy === "code-location" &&
+      result.confidence === "high"
+    )).toBe(true);
+
+    const generatorResults = resolveFromFiles(["src/ea/generators/openapi.ts"], entities);
+    expect(generatorResults.some((result) =>
+      result.resolvedEntityRef === "component:default/anchored-spec-generation-engine" &&
+      result.strategy === "code-location" &&
+      result.confidence === "high"
+    )).toBe(true);
   });
 });
 

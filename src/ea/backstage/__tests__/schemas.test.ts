@@ -127,6 +127,7 @@ describe("Backstage JSON Schemas", () => {
             "anchored-spec.dev/confidence": "0.85",
             "anchored-spec.dev/risk": "moderate",
             "anchored-spec.dev/source": "src/main.ts",
+            "anchored-spec.dev/code-location": "src/",
           },
         },
         spec: {},

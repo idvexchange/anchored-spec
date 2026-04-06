@@ -663,13 +663,15 @@ function synthesizeComponents(
     const title = doc.title || titleCase(slugify(basename(doc.relativePath, ".md")));
     const name = slugify(title);
     const type = inferComponentType(title, doc.summary, ctx);
+    const codeLocation = inferComponentCodeLocation(ctx, doc, type);
     const entity = makeEntity("backstage.io/v1alpha1", "Component", name, {
       title,
       description: doc.summary || `${title} synthesized from component-level repository evidence.`,
       tags: ["component", type],
-      annotations: doc.path
-        ? { [ANNOTATION_KEYS.SOURCE]: doc.relativePath }
-        : undefined,
+      annotations: {
+        ...(doc.path ? { [ANNOTATION_KEYS.SOURCE]: doc.relativePath } : {}),
+        ...(codeLocation ? { [ANNOTATION_KEYS.CODE_LOCATION]: codeLocation } : {}),
+      },
       spec: {
         type,
         lifecycle,
@@ -1061,6 +1063,72 @@ function inferComponentType(title: string, summary: string, ctx: RepoContext): s
   if (haystack.includes("worker")) return "worker";
   if (ctx.packageJson?.exports && !ctx.packageJson?.bin) return "library";
   return "service";
+}
+
+function inferComponentCodeLocation(
+  ctx: RepoContext,
+  doc: ParsedMarkdownDoc,
+  componentType: string,
+): string | undefined {
+  const directLocation = normalizeCodeLocationPath(ctx, doc.relativePath);
+  if (directLocation?.startsWith("src/")) return directLocation;
+
+  const titleTokens = new Set(tokenize(`${doc.title} ${doc.summary}`));
+  const topLevelSourceDir = pickTopLevelSourceDir(ctx, titleTokens);
+  if (topLevelSourceDir) return topLevelSourceDir;
+
+  const haystack = `${doc.title} ${doc.summary}`.toLowerCase();
+  if ((haystack.includes("cli") || haystack.includes("command")) && existsSync(join(ctx.projectRoot, "src", "cli"))) {
+    return "src/cli/";
+  }
+  if ((haystack.includes("runtime") || haystack.includes("library") || componentType === "library")) {
+    const runtimeDir = existsSync(join(ctx.projectRoot, "src", "ea"))
+      ? "src/ea/"
+      : existsSync(join(ctx.projectRoot, "src", "lib"))
+        ? "src/lib/"
+        : undefined;
+    if (runtimeDir) return runtimeDir;
+  }
+  if ((haystack.includes("web") || haystack.includes("frontend") || haystack.includes("ui")) && existsSync(join(ctx.projectRoot, "src", "app"))) {
+    return "src/app/";
+  }
+  if ((haystack.includes("web") || haystack.includes("frontend") || haystack.includes("ui")) && existsSync(join(ctx.projectRoot, "src", "routes"))) {
+    return "src/routes/";
+  }
+  if ((haystack.includes("server") || haystack.includes("service")) && existsSync(join(ctx.projectRoot, "src", "server"))) {
+    return "src/server/";
+  }
+
+  return normalizeCodeLocationPath(ctx, "src");
+}
+
+function pickTopLevelSourceDir(ctx: RepoContext, titleTokens: Set<string>): string | undefined {
+  const srcDir = join(ctx.projectRoot, "src");
+  if (!existsSync(srcDir)) return undefined;
+
+  let bestMatch: { path: string; score: number } | undefined;
+  for (const entry of readdirSync(srcDir)) {
+    const candidate = join(srcDir, entry);
+    if (!statSync(candidate).isDirectory()) continue;
+    const candidateTokens = tokenize(entry);
+    const score = candidateTokens.filter((token) => titleTokens.has(token)).length;
+    if (score === 0) continue;
+    const path = normalizeCodeLocationPath(ctx, join("src", entry));
+    if (!path) continue;
+    if (!bestMatch || score > bestMatch.score) {
+      bestMatch = { path, score };
+    }
+  }
+
+  return bestMatch?.path;
+}
+
+function normalizeCodeLocationPath(ctx: RepoContext, repoRelativePath: string): string | undefined {
+  const normalized = repoRelativePath.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
+  if (!normalized) return undefined;
+  const absPath = resolve(ctx.projectRoot, normalized);
+  if (!existsSync(absPath)) return undefined;
+  return statSync(absPath).isDirectory() ? `${normalized}/` : normalized;
 }
 
 function looksLikeApiDoc(doc: ParsedMarkdownDoc): boolean {
