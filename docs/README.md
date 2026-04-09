@@ -4,10 +4,10 @@ This documentation set describes the framework as it exists in this repository t
 
 ## What Anchored Spec Is
 
-Anchored Spec is a local-first architecture framework for repositories. It gives teams:
+Anchored Spec is a local-first architecture control plane for repositories. It gives teams:
 
 - a typed architecture model based on Backstage-style entities
-- a CLI for authoring, validation, discovery, drift, reporting, and governance
+- a CLI-first query and review surface for authoring, validation, discovery, drift, reporting, and governance
 - a Node API that exposes the same runtime used by the CLI
 - a documentation and review workflow that stays in version control
 
@@ -88,9 +88,11 @@ If you are new to the framework, read in this order:
 - [guides/user-guides/top-down-authoring.md](guides/user-guides/top-down-authoring.md)
 - [guides/user-guides/reporting-and-analysis.md](guides/user-guides/reporting-and-analysis.md)
 - [guides/user-guides/adoption-playbook.md](guides/user-guides/adoption-playbook.md)
+- [guides/user-guides/repository-harness-pattern.md](guides/user-guides/repository-harness-pattern.md)
 - [guides/developer-guides/contributing.md](guides/developer-guides/contributing.md)
 - [guides/developer-guides/testing-and-ci.md](guides/developer-guides/testing-and-ci.md)
 - [guides/developer-guides/framework-internals.md](guides/developer-guides/framework-internals.md)
+- [guides/developer-guides/repository-harness-feedback.md](guides/developer-guides/repository-harness-feedback.md)
 
 ## Solution Framing
 
@@ -104,6 +106,8 @@ Anchored Spec is most useful when a team needs architecture to be:
 It is not trying to be:
 
 - a remote architecture registry
+- a full repository harness
+- a full verification orchestrator
 - a generic model-driven code generation platform
 - a documentation wiki with no typed source of truth
 

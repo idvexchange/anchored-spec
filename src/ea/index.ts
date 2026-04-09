@@ -629,6 +629,7 @@ export {
   getEntityRisk,
   getEntityCompliance,
   getEntitySource,
+  getEntityCodeLocation,
   getEntityTraceRefs,
   getEntityExpectAnchors,
   getEntitySuppressions,
@@ -720,6 +721,15 @@ export {
   extractConstraints,
   renderConstraintsMarkdown,
 } from "./constraints.js";
+
+// Command Suggestions
+export type {
+  SuggestedCommandPlan,
+  SuggestedWorkspace,
+} from "./command-suggestions.js";
+export {
+  buildSuggestedCommandPlan,
+} from "./command-suggestions.js";
 
 // Reverse Resolution
 export type {

@@ -26,8 +26,10 @@ Anchored Spec provides several review surfaces over the same entity graph.
 
 - downstream effect analysis
 - governing decisions or requirement paths
+- suggestion-oriented verification handoff into repo-native command plans via `impact --with-commands`
 
 ## Use `context` for
 
 - AI-ready context packages
 - deeper entity-centric review bundles
+- optional path-aware doc narrowing via workflow policy and `context --focus-path`

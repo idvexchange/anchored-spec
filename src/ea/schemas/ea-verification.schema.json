@@ -51,6 +51,68 @@
         }
       }
     },
+    "broaderCommands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed", "skipped"],
+            "default": "pending"
+          },
+          "ranAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Optional wider checks that are useful but not part of the focused default verification set"
+    },
+    "actionCommands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "command", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed", "skipped"],
+            "default": "pending"
+          },
+          "ranAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Intentional follow-up actions that may mutate the repo or generate artifacts"
+    },
     "driftChecks": {
       "type": "array",
       "items": { "type": "string" },

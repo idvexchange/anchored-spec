@@ -15,12 +15,13 @@ If the repository does not use Anchored Spec, do not force these workflows onto 
 
 ## Core mental model
 
-Anchored Spec is an entity-native architecture framework.
+Anchored Spec is an entity-native architecture control plane.
 
 - The source of truth is the entity model, not prose-only docs.
 - The authored format is Backstage-aligned YAML or markdown frontmatter.
 - Runtime identifiers are canonical entity refs such as `component:default/orders-service`.
 - Docs, traceability, discovery, drift, reporting, and AI context all hang off the same graph.
+- The framework owns architecture truth and stable query primitives; repositories still own last-mile task execution.
 
 ## Storage modes
 
@@ -138,6 +139,7 @@ Use semantic review and change-aware analysis:
 ```bash
 npx anchored-spec diff --base main --compat --policy
 npx anchored-spec impact --from-diff HEAD~1 --format markdown
+npx anchored-spec impact --from-diff HEAD~1 --with-commands --format markdown
 npx anchored-spec constraints --from-diff HEAD~1 --format markdown
 ```
 
@@ -177,6 +179,7 @@ Do not:
 - switch storage modes without being asked
 - use informal IDs as the primary runtime identifier
 - treat discovery or inferred facts as final truth without review
+- treat Anchored Spec as the full repo harness or canonical command planner
 - skip `catalog bootstrap` when the task is to create a repository-specific first-pass manifest from existing repo evidence
 - describe unsupported or removed commands as current
 - let docs drift away from entity refs

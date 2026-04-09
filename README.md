@@ -4,9 +4,15 @@
 [![npm version](https://img.shields.io/npm/v/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Backstage-aligned, spec-as-source architecture for repositories that want a real architecture model in version control.
+> Backstage-aligned, spec-as-source architecture control plane for repositories that want a real architecture model in version control.
 
-Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in version control, link those entities to architecture documents, and then run validation, traceability, discovery, drift detection, reporting, and change-review workflows over the same model.
+Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in version control, link those entities to architecture documents and primary code locations, and then run validation, traceability, discovery, drift detection, reporting, and change-review workflows over the same model.
+
+Its best operating shape is deliberately narrow:
+
+- Anchored Spec owns architecture truth, queryability, and declared-vs-observed pressure.
+- The CLI is the normal interface to that control plane for humans and agents.
+- Repositories still own last-mile task execution, focused verification, and workflow ergonomics.
 
 This repository is the canonical manifest-mode example: a root `catalog-info.yaml`, linked markdown under `docs/`, and a CLI that keeps the model reviewable from pull request to pull request.
 
@@ -30,12 +36,14 @@ Anchored Spec takes a different position:
 - Author architecture as Backstage-aligned entities.
 - Store that model in manifest mode or inline markdown frontmatter.
 - Bootstrap a curated first-pass manifest from repository evidence with `catalog bootstrap`.
+- Use the CLI as the default query surface over architecture truth for humans and agents.
 - Use canonical entity refs such as `component:default/orders-service` across commands, docs, and review workflows.
 - Validate schema, relations, ownership, lifecycle, and traceability.
 - Discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, markdown, anchors, and tree-sitter.
 - Detect drift between declared architecture and observed repository reality.
 - Generate a narrow set of derived outputs, currently OpenAPI and JSON Schema.
 - Build graphs, semantic diagrams, reports, impact analyses, constraint views, and AI context bundles.
+- Compile impact into suggestion-oriented command plans without turning the framework into a full workflow orchestrator.
 - Review changes semantically with compatibility and policy checks instead of relying on text diffs alone.
 
 ## Start Here
@@ -89,7 +97,10 @@ npx anchored-spec drift
 npx anchored-spec diff --base main --compat --policy
 npx anchored-spec report --view traceability-index
 npx anchored-spec context component:default/orders-service --tier llm
+npx anchored-spec impact component:default/orders-service --with-commands --format markdown
 ```
+
+Treat the command suggestions from `impact --with-commands` as a thin handoff into repository-native scripts, not as the final owner of your command plan.
 
 ## The Core Model
 
@@ -159,6 +170,24 @@ npx anchored-spec init --mode inline --with-examples
 ```
 
 Manifest mode is the clearest operating shape for most multi-concern repositories. Inline mode remains useful when the docs themselves are already the primary authoring surface.
+
+## Operating Boundary
+
+Anchored Spec should usually be:
+
+- sparse
+- architecture-first
+- local-first
+- reviewable
+- queryable by humans and agents
+
+Anchored Spec should usually not be:
+
+- the full repo harness
+- the full verification orchestrator
+- a mandatory discovery-first system
+- a codebase-wide dependency graph product
+- the owner of every repository-specific workflow decision
 
 ## Command Surface
 
@@ -237,7 +266,9 @@ Start with the docs portal:
 - [Domain model](docs/05-domain/domain-model.md)
 - [User getting started guide](docs/guides/user-guides/getting-started.md)
 - [Catalog bootstrap guide](docs/guides/user-guides/catalog-bootstrap.md)
+- [Repository harness pattern](docs/guides/user-guides/repository-harness-pattern.md)
 - [Developer testing and CI guide](docs/guides/developer-guides/testing-and-ci.md)
+- [Repository harness feedback](docs/guides/developer-guides/repository-harness-feedback.md)
 
 ## AI Agent Workflow
 

@@ -372,6 +372,13 @@ changeRequiredRules:
     description: "Source code changes require a change entity"
     include: ["src/**"]
     exclude: ["src/**/*.test.*", "src/**/*.spec.*"]
+    commands:
+      - "pnpm typecheck"
+    broaderCommands:
+      - "pnpm test"
+      - "pnpm lint"
+    actionCommands:
+      - "pnpm db:generate"
 
 trivialExemptions:
   - "*.md"

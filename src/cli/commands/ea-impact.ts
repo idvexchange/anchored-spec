@@ -12,12 +12,13 @@ import {
   EaRoot,
   createDefaultRegistry,
   buildRelationGraph,
+  buildSuggestedCommandPlan,
   loadProjectConfig,
   getConfiguredDocScanDirs,
   analyzeImpact,
   renderImpactReportMarkdown,
 } from "../../ea/index.js";
-import type { ImpactOptions, ImpactReport, ImpactedEntity } from "../../ea/index.js";
+import type { ImpactOptions, ImpactReport, ImpactedEntity, SuggestedCommandPlan } from "../../ea/index.js";
 import { renderExplanationList } from "../../ea/evidence-renderer.js";
 import type { ExplainableItem } from "../../ea/evidence-renderer.js";
 import { resolveFromFiles, resolveFromDiff } from "../../ea/reverse-resolution.js";
@@ -40,8 +41,9 @@ export function eaImpactCommand(): Command {
     .option("--sort <field>", "Sort results by: score (default), depth", "score")
     .option("--min-score <n>", "Filter results below this score threshold")
     .option("--max-results <n>", "Maximum number of results to return")
-    .option("--view <mode>", "View mode: summary, code, contracts, docs, constraints, graph, llm, domain", "summary")
+    .option("--view <mode>", "View mode: summary, code, contracts, docs, constraints, graph, llm, domain, commands", "summary")
     .option("--explain", "Show detailed rationale for each impacted entity")
+    .option("--with-commands", "Attach suggestion-oriented command planning from workflow policy and workspace scripts")
     .option("--fail-on-impact", "Exit with code 1 if any impacted entities found (CI gate)")
     .action(async (entityInput: string | undefined, options) => {
       const cwd = process.cwd();
@@ -214,22 +216,35 @@ export function eaImpactCommand(): Command {
       }
 
       const report = mergedReport;
+      const commandPlan = options.withCommands
+        ? buildSuggestedCommandPlan(report, entities, cwd, root.loadPolicy())
+        : undefined;
 
       // Output based on view mode
       let output: string;
       if (options.format === "json") {
         if (options.explain) {
           const explained = impactedToExplainableItems(report.impacted, report.sourceRef);
-          const jsonOut = { ...report, explanations: JSON.parse(renderExplanationList(explained, "json")) };
+          const jsonOut = {
+            ...report,
+            ...(commandPlan ? { commandPlan } : {}),
+            explanations: JSON.parse(renderExplanationList(explained, "json")),
+          };
           output = JSON.stringify(jsonOut, null, 2) + "\n";
         } else {
-          output = JSON.stringify(report, null, 2) + "\n";
+          output = JSON.stringify({
+            ...report,
+            ...(commandPlan ? { commandPlan } : {}),
+          }, null, 2) + "\n";
         }
       } else {
         const viewMode = options.view as string;
         switch (viewMode) {
           case "domain":
             output = renderDomainView(report);
+            break;
+          case "commands":
+            output = renderImpactReportMarkdown(report);
             break;
           case "summary":
           default:
@@ -251,6 +266,9 @@ export function eaImpactCommand(): Command {
       if (options.explain && options.format !== "json") {
         const explained = impactedToExplainableItems(report.impacted, report.sourceRef);
         output += "\n## Explanations\n\n" + renderExplanationList(explained, "markdown");
+      }
+      if (commandPlan && options.format !== "json") {
+        output += "\n" + renderSuggestedCommandPlanMarkdown(commandPlan);
       }
 
       if (options.output) {
@@ -276,6 +294,51 @@ export function eaImpactCommand(): Command {
         process.exitCode = 1;
       }
     });
+}
+
+function renderSuggestedCommandPlanMarkdown(plan: SuggestedCommandPlan): string {
+  const lines: string[] = [];
+  lines.push("## Suggested Command Plan");
+  lines.push("");
+  if (plan.impactedWorkspaces.length > 0) {
+    lines.push("Impacted workspaces:");
+    for (const workspace of plan.impactedWorkspaces) {
+      lines.push(`- ${workspace.name} (${workspace.dir})`);
+    }
+    lines.push("");
+  }
+
+  lines.push("Focused verification:");
+  if (plan.commands.length === 0) {
+    lines.push("- none suggested");
+  } else {
+    for (const command of plan.commands) lines.push(`- \`${command}\``);
+  }
+  lines.push("");
+
+  lines.push("Broader checks:");
+  if (plan.broaderCommands.length === 0) {
+    lines.push("- none suggested");
+  } else {
+    for (const command of plan.broaderCommands) lines.push(`- \`${command}\``);
+  }
+  lines.push("");
+
+  lines.push("Follow-up actions:");
+  if (plan.actionCommands.length === 0) {
+    lines.push("- none suggested");
+  } else {
+    for (const command of plan.actionCommands) lines.push(`- \`${command}\``);
+  }
+  lines.push("");
+
+  if (plan.reasons.length > 0) {
+    lines.push("Why included:");
+    for (const reason of plan.reasons) lines.push(`- ${reason}`);
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 
 function renderDomainView(report: ImpactReport): string {

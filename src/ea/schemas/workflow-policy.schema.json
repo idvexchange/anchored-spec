@@ -91,11 +91,62 @@
             "type": "array",
             "items": { "type": "string" },
             "description": "Verification commands to run for changes matching this rule"
+          },
+          "broaderCommands": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional wider checks to suggest for changes matching this rule"
+          },
+          "actionCommands": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Explicit follow-up actions that may mutate the repo"
           }
         },
         "additionalProperties": false
       },
       "description": "Path-based rules that mandate EA change entities"
+    },
+    "readFirstRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "docs"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z]+(-[a-z]+)*$"
+          },
+          "entityRefs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional entity refs this rule applies to"
+          },
+          "entityKinds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional entity kinds this rule applies to"
+          },
+          "pathMatches": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional repo-relative path globs used to narrow doc loading"
+          },
+          "docs": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Primary docs to load first when the rule matches"
+          },
+          "secondaryDocs": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional secondary docs to include when the rule matches"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Optional rules for conditional read-first document refinement in context assembly"
     },
     "trivialExemptions": {
       "type": "array",

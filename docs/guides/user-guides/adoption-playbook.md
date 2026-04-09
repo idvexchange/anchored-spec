@@ -1,6 +1,6 @@
 # Adoption Playbook
 
-Use Anchored Spec to improve architecture clarity and review quality, not to create a second project-management system.
+Use Anchored Spec to improve architecture clarity and review quality, not to create a second project-management system or a full repository workflow engine.
 
 ## Start small
 
@@ -10,6 +10,7 @@ Begin with:
 - one API or contract
 - one supporting dependency or resource
 - one credible architecture explanation
+- one thin repo-native wrapper script if the team needs task scoping or filtered verification
 
 ## Prefer explicit modeling
 
@@ -31,7 +32,23 @@ The first useful controls are usually:
 - clear ownership
 - semantic diff for sensitive changes
 - drift where consistency matters
+- impact suggestions that feed repo-native checks instead of replacing them
+
+## Keep the split clean
+
+Anchored Spec should usually own:
+
+- sparse architecture truth
+- CLI-first lookup over that truth
+- validate, trace, drift, impact, and context primitives
+
+The repository should usually own:
+
+- exact filtered command plans
+- focused versus broader verification choices
+- mutating follow-up actions such as generators or migrations
+- human-facing workflow ergonomics
 
 ## Success criteria
 
-Adoption is working when architecture review becomes easier inside the repository rather than moving somewhere else.
+Adoption is working when architecture review becomes easier inside the repository, while the repository still controls the last mile of practical execution.

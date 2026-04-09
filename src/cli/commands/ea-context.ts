@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
+import { minimatch } from "minimatch";
 import { EaRoot } from "../../ea/loader.js";
 import {
   loadProjectConfig,
@@ -177,6 +178,17 @@ interface AssembleOptions {
   includeChangeRisks?: boolean;
   preferCanonical?: boolean;
   whyIncluded?: boolean;
+  focusPath?: string;
+  workflowPolicy?: Record<string, unknown> | null;
+}
+
+interface ReadFirstRule {
+  id: string;
+  entityRefs?: string[];
+  entityKinds?: string[];
+  pathMatches?: string[];
+  docs: string[];
+  secondaryDocs?: string[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
@@ -373,6 +385,24 @@ function assembleContext(
   const requiredDocs: RequiredDoc[] = [];
   const seenRequired = new Set<string>();
 
+  for (const doc of resolvePolicyReadFirstDocs(target, options.workflowPolicy, options.focusPath)) {
+    if (seenRequired.has(doc.path)) continue;
+    seenRequired.add(doc.path);
+
+    const absPath = resolve(cwd, doc.path);
+    const content = safeReadFile(absPath);
+    if (content == null) continue;
+
+    requiredDocs.push({
+      path: doc.path,
+      content,
+      tokens: estimateTokens(content),
+      ...(whyIncluded ? {
+        inclusionReason: `workflow policy read-first rule "${doc.ruleId}" matched${options.focusPath ? ` focus path "${options.focusPath}"` : ""}`,
+      } : {}),
+    });
+  }
+
   for (const td of tracedDocs) {
     const parsed = parseFrontmatter(td.content);
     for (const reqPath of parsed.frontmatter.requires ?? []) {
@@ -510,6 +540,57 @@ function assembleContext(
     tokenEstimate,
     truncated: false,
   };
+}
+
+function resolvePolicyReadFirstDocs(
+  target: EntityContextView,
+  workflowPolicy: Record<string, unknown> | null | undefined,
+  focusPath?: string,
+): Array<{ path: string; ruleId: string }> {
+  const rules = normalizeReadFirstRules(workflowPolicy);
+  const normalizedFocusPath = focusPath?.replace(/\\/g, "/").replace(/^\.\//, "");
+  const docs: Array<{ path: string; ruleId: string }> = [];
+
+  for (const rule of rules) {
+    if (Array.isArray(rule.entityRefs) && rule.entityRefs.length > 0 && !rule.entityRefs.includes(target.entityRef)) {
+      continue;
+    }
+    if (Array.isArray(rule.entityKinds) && rule.entityKinds.length > 0 && !rule.entityKinds.includes(target.kind)) {
+      continue;
+    }
+    if (Array.isArray(rule.pathMatches) && rule.pathMatches.length > 0) {
+      if (!normalizedFocusPath) continue;
+      if (!rule.pathMatches.some((pattern) => minimatch(normalizedFocusPath, pattern))) continue;
+    }
+
+    for (const path of [...rule.docs, ...(rule.secondaryDocs ?? [])]) {
+      docs.push({ path, ruleId: rule.id });
+    }
+  }
+
+  return docs;
+}
+
+function normalizeReadFirstRules(
+  workflowPolicy: Record<string, unknown> | null | undefined,
+): ReadFirstRule[] {
+  const raw = workflowPolicy?.readFirstRules;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((rule): rule is ReadFirstRule =>
+      Boolean(rule) &&
+      typeof rule === "object" &&
+      typeof (rule as { id?: unknown }).id === "string" &&
+      Array.isArray((rule as { docs?: unknown }).docs),
+    )
+    .map((rule) => ({
+      id: rule.id,
+      entityRefs: Array.isArray(rule.entityRefs) ? rule.entityRefs : undefined,
+      entityKinds: Array.isArray(rule.entityKinds) ? rule.entityKinds : undefined,
+      pathMatches: Array.isArray(rule.pathMatches) ? rule.pathMatches : undefined,
+      docs: rule.docs,
+      secondaryDocs: Array.isArray(rule.secondaryDocs) ? rule.secondaryDocs : undefined,
+    }));
 }
 
 /**
@@ -906,6 +987,7 @@ export function eaContextCommand(): Command {
     .option("--json", "Output as JSON")
     .option("--tier <tier>", "Context tier preset: brief, standard, deep, llm")
     .option("--budget <n>", "Token budget (alias for --max-tokens with --tier llm)")
+    .option("--focus-path <path>", "Optional changed path used to refine read-first docs from workflow policy")
     .option("--why-included", "Show inclusion rationale for each item")
     .option("--prefer-canonical", "Prefer canonical docs over derived duplicates")
     .option("--format <format>", "Output format: markdown, json", "markdown")
@@ -919,6 +1001,7 @@ export function eaContextCommand(): Command {
       }
 
       const loadResult = await root.loadEntities();
+      const workflowPolicy = root.loadPolicy();
       const lookup = buildEntityLookup(loadResult.entities);
       const entities = loadResult.entities.map((entity) => {
         return toEntityContextView(entity);
@@ -994,6 +1077,8 @@ export function eaContextCommand(): Command {
         includeChangeRisks,
         preferCanonical,
         whyIncluded,
+        focusPath: options.focusPath as string | undefined,
+        workflowPolicy,
       });
 
       // Store tier in result for rendering

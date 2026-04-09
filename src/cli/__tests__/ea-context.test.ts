@@ -487,6 +487,90 @@ describe("ea context — --prefer-canonical", () => {
   });
 });
 
+// ─── workflow-policy read-first refinement ───────────────────────────
+
+describe("ea context — workflow policy read-first refinement", () => {
+  it("includes matching read-first docs when focus path matches a policy rule", () => {
+    const dir = setupWorkspaceWithEntity("ctx-read-first", {
+      docs: [
+        { path: "docs/auth-spec.md", content: "# Auth Spec" },
+        { path: "docs/interfaces.md", content: "# Interfaces\n\nInterface guidance." },
+        { path: "docs/domain-model.md", content: "# Domain Model\n\nDomain model guidance." },
+        { path: "docs/state-machine.md", content: "# State Machine\n\nState transitions." },
+      ],
+    });
+
+    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
+  - id: feature
+    name: "Feature"
+    defaultTypes: [feature]
+    requiredSchemas: [change]
+changeRequiredRules:
+  - id: src-rule
+    include: ["src/**"]
+readFirstRules:
+  - id: auth-interfaces
+    entityRefs: ["component:default/auth"]
+    pathMatches: ["src/domain/interfaces/**"]
+    docs: ["docs/interfaces.md"]
+    secondaryDocs: ["docs/domain-model.md"]
+  - id: auth-state-machine
+    entityRefs: ["component:default/auth"]
+    pathMatches: ["src/domain/state-machine/**"]
+    docs: ["docs/state-machine.md"]
+trivialExemptions: ["**/*.md"]
+lifecycleRules:
+  plannedToActiveRequiresChange: true
+`);
+
+    const result = runCli(
+      ["context", AUTH_REF, "--json", "--focus-path", "src/domain/interfaces/user.ts", "--why-included"],
+      dir,
+    );
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    const requiredPaths = json.requiredDocs.map((doc: { path: string }) => doc.path);
+    expect(requiredPaths).toContain("docs/interfaces.md");
+    expect(requiredPaths).toContain("docs/domain-model.md");
+    expect(requiredPaths).not.toContain("docs/state-machine.md");
+    expect(json.requiredDocs[0].inclusionReason).toContain("workflow policy read-first rule");
+  });
+
+  it("does not include path-scoped read-first docs when no focus path is provided", () => {
+    const dir = setupWorkspaceWithEntity("ctx-read-first-no-focus", {
+      docs: [
+        { path: "docs/auth-spec.md", content: "# Auth Spec" },
+        { path: "docs/interfaces.md", content: "# Interfaces" },
+      ],
+    });
+
+    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
+  - id: feature
+    name: "Feature"
+    defaultTypes: [feature]
+    requiredSchemas: [change]
+changeRequiredRules:
+  - id: src-rule
+    include: ["src/**"]
+readFirstRules:
+  - id: auth-interfaces
+    entityRefs: ["component:default/auth"]
+    pathMatches: ["src/domain/interfaces/**"]
+    docs: ["docs/interfaces.md"]
+trivialExemptions: ["**/*.md"]
+lifecycleRules:
+  plannedToActiveRequiresChange: true
+`);
+
+    const result = runCli(["context", AUTH_REF, "--json"], dir);
+    expect(result.exitCode).toBe(0);
+
+    const json = JSON.parse(result.stdout);
+    expect(json.requiredDocs).toEqual([]);
+  });
+});
+
 // ─── --format option ──────────────────────────────────────────────────
 
 describe("ea context — --format option", () => {

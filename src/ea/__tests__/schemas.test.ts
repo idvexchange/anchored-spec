@@ -893,7 +893,22 @@ describe("workflow-policy schema", () => {
           { id: "feature", name: "Feature", defaultTypes: ["feature"], requiredSchemas: ["change"] },
         ],
         changeRequiredRules: [
-          { id: "src-rule", include: ["src/**"] },
+          {
+            id: "src-rule",
+            include: ["src/**"],
+            commands: ["pnpm typecheck"],
+            broaderCommands: ["pnpm test"],
+            actionCommands: ["pnpm db:generate"],
+          },
+        ],
+        readFirstRules: [
+          {
+            id: "auth-interfaces",
+            entityRefs: ["component:default/auth"],
+            pathMatches: ["src/domain/interfaces/**"],
+            docs: ["docs/interfaces.md"],
+            secondaryDocs: ["docs/domain-model.md"],
+          },
         ],
         trivialExemptions: ["**/*.md"],
         lifecycleRules: {
@@ -975,6 +990,12 @@ describe("ea-verification schema", () => {
         entityRef: "WAVE-q1",
         commands: [
           { name: "build", command: "npm run build", required: true },
+        ],
+        broaderCommands: [
+          { name: "test", command: "npm test", required: false },
+        ],
+        actionCommands: [
+          { name: "generate", command: "npm run db:generate", required: false },
         ],
         driftChecks: ["anchors", "openapi"],
         evidence: { collected: true, collectedAt: "2026-01-15T10:00:00Z", adapter: "vitest" },

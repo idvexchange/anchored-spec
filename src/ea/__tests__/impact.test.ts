@@ -7,6 +7,7 @@ import {
   cleanupTestWorkspace,
   createTestWorkspace,
   makeEntity,
+  writeTextFile,
   runCli,
   writeManifestProject,
 } from "../../test-helpers/workspace.js";
@@ -217,5 +218,92 @@ describe("impact CLI", () => {
     expect(payload.sourceRef).toBe("component:default/auth");
     expect(payload.totalImpacted).toBe(2);
     expect(result.stderr).toContain("entities impacted");
+  });
+
+  it("builds suggestion-oriented command plans from workflow policy and workspace scripts", () => {
+    const dir = makeWorkspace("impact-cli-commands");
+    writeManifestProject(dir, [
+      makeEntity({
+        ref: "component:auth",
+        kind: "Component",
+        type: "library",
+        title: "Auth Package",
+        annotations: {
+          "anchored-spec.dev/code-location": "packages/auth/src/",
+        },
+      }),
+      makeEntity({
+        ref: "component:payments",
+        kind: "Component",
+        type: "website",
+        title: "Payments App",
+        uses: ["component:auth"],
+        annotations: {
+          "anchored-spec.dev/code-location": "apps/payments/src/",
+        },
+      }),
+    ]);
+
+    writeTextFile(dir, "package.json", JSON.stringify({
+      name: "repo-root",
+      private: true,
+      workspaces: ["apps/*", "packages/*"],
+      scripts: {
+        typecheck: "tsc --noEmit",
+      },
+    }, null, 2));
+
+    writeTextFile(dir, "apps/payments/package.json", JSON.stringify({
+      name: "@acme/payments",
+      scripts: {
+        typecheck: "tsc --noEmit",
+        test: "vitest run",
+        "db:generate": "prisma generate",
+      },
+    }, null, 2));
+    writeTextFile(dir, "apps/payments/src/index.ts", "export const payments = true;\n");
+
+    writeTextFile(dir, "packages/auth/package.json", JSON.stringify({
+      name: "@acme/auth",
+      scripts: {
+        typecheck: "tsc --noEmit",
+      },
+    }, null, 2));
+    writeTextFile(dir, "packages/auth/src/index.ts", "export const auth = true;\n");
+
+    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
+  - id: feature
+    name: "Feature"
+    defaultTypes: [feature]
+    requiredSchemas: [change]
+changeRequiredRules:
+  - id: app-source
+    include: ["apps/**"]
+    commands: ["pnpm validate"]
+    broaderCommands: ["pnpm test"]
+    actionCommands: ["pnpm db:generate"]
+trivialExemptions: ["**/*.md"]
+lifecycleRules:
+  plannedToActiveRequiresChange: true
+`);
+
+    const result = runCli(["impact", "component:auth", "--format", "json", "--with-commands"], dir);
+    expect(result.exitCode).toBe(0);
+
+    const payload = JSON.parse(result.stdout) as {
+      commandPlan?: {
+        commands: string[];
+        broaderCommands: string[];
+        actionCommands: string[];
+        impactedWorkspaces: Array<{ name: string }>;
+      };
+    };
+
+    expect(payload.commandPlan).toBeDefined();
+    expect(payload.commandPlan?.impactedWorkspaces.some((workspace) => workspace.name === "@acme/payments")).toBe(true);
+    expect(payload.commandPlan?.commands).toContain("pnpm --filter @acme/payments run typecheck");
+    expect(payload.commandPlan?.commands).toContain("pnpm validate");
+    expect(payload.commandPlan?.broaderCommands).toContain("pnpm --filter @acme/payments run test");
+    expect(payload.commandPlan?.actionCommands).toContain("pnpm --filter @acme/payments run db:generate");
   });
 });
