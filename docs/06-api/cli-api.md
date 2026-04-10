@@ -1,3 +1,8 @@
+---
+ea-entities:
+  - api:default/anchored-spec-cli-api
+---
+
 # CLI API
 
 The Anchored Spec CLI is the main user-facing API of the framework. It is implemented in `src/cli/index.ts` and the command modules under `src/cli/commands/`.

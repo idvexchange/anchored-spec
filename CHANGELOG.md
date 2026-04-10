@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Repository-evidence adapter framework** — `impact --with-commands` can now enrich architecture impact with adapter-derived repository targets and rendered suggestions through `repositoryEvidence.adapters`, including a built-in `node-workspaces` adapter and custom module loading support.
+- **Structured impact output split** — `commandPlan` now exposes `architectureImpact`, `repositoryImpact`, and `suggestions` so repositories can compile local command plans without treating Anchored Spec as the final orchestrator. Legacy `commands`, `broaderCommands`, and `actionCommands` fields remain for compatibility.
+- **Secondary file-link evidence** — `anchors.files` is now part of the anchors type/schema and participates in reverse resolution and command suggestion path collection as lower-confidence file evidence.
+- **Repository harness boundary ADR** — Added `ADR-007` to formalize Anchored Spec as an architecture control plane with thin, repo-local harnesses owning last-mile execution.
+- **Repository harness feedback guide** — Added a detailed field-feedback guide documenting what worked, what did not, and where the framework should stay generic.
+
+### Changed
+
+- **Framework positioning** — README, guides, AI-facing files, and developer docs now consistently describe Anchored Spec as a sparse architecture control plane rather than a full repository workflow engine.
+- **Component-to-code guidance** — `anchored-spec.dev/code-location` is now documented as the primary architecture-level code link for `Component`, with file, symbol, test, and adapter evidence treated as supporting context.
+- **Repository impact guidance** — `impact --with-commands`, repository harness patterns, and CI/testing docs now emphasize adapter-driven repository evidence and repository-owned command rendering instead of Node/package-manager-specific assumptions in the core model.
+- **AI workflow guidance** — `llms.txt`, `llms-full.txt`, and `SKILL.md` now align human and agent workflows around the same control-plane model, explicit `code-location` usage, and structured impact handoff.
+
+## [0.3.0] — 2026-04-06
+
+### Added
+
 - **Backstage-native primary code linkage for components** — Supports the `anchored-spec.dev/code-location` annotation on `kind: Component`, uses it during reverse resolution, and emits it from `catalog bootstrap` when a primary source location can be inferred.
 - **Hybrid impact command suggestions** (`impact --with-commands`) — Produces a suggestion-oriented `commandPlan` that combines architecture impact, workflow policy, and detected workspace scripts into `commands`, `broaderCommands`, and `actionCommands` without turning Anchored Spec into an orchestrator.
 - **Policy-driven read-first narrowing** (`context --focus-path`) — Lets workflow policy declare `readFirstRules` so context assembly can require the right architecture and design docs for a code path before implementation work starts.
@@ -66,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ea discover` command** — 3-way dispatch: `--resolver` flag → config `resolvers[]` → all built-ins fallback.
 - **SKILL.md** — Now 27 sections with 16 workflows (was 16 sections in v1.0).
 
-## [1.0.0] — 2025-07-18
+## [0.2.0] — 2026-03-30
 
 ### Breaking Changes
 
@@ -111,7 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `src/cli/commands/ea-migrate-previous.ts` — CLI for prior-format migration
 - 9 prior-format documentation files (getting-started, concepts, commands, configuration, drift-detection, plugins-and-hooks, evidence-pipeline, ci-integration, programmatic-api)
 
-## [0.1.0] — 2025-07-17
+## [0.1.0] — 2026-03-29
 
 Initial release with dual spec-anchored (REQ/CHG/ADR) and spec-as-source (EA) support.
 

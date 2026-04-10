@@ -113,9 +113,6 @@ type FrameworkAreaDescriptor = {
   summary: string;
 };
 
-const FRAMEWORK_DOMAIN_REF = "domain:anchored-spec";
-const FRAMEWORK_SYSTEM_REF = "system:anchored-spec-framework";
-
 const FRAMEWORK_AREAS: Record<FrameworkAreaId, FrameworkAreaDescriptor> = {
   cli: {
     id: "cli",

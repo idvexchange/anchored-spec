@@ -1,3 +1,8 @@
+---
+ea-entities:
+  - system:default/anchored-spec-framework
+---
+
 # System Context
 
 This document describes the external actors and systems around Anchored Spec.

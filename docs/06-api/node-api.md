@@ -1,3 +1,8 @@
+---
+ea-entities:
+  - api:default/anchored-spec-node-api
+---
+
 # Node API
 
 The Node API is the programmatic surface of the framework. The package entrypoint in `src/index.ts` re-exports the EA runtime from `src/ea/index.ts`.

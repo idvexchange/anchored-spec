@@ -29,6 +29,8 @@ Everything important in the framework depends on that graph: validation, traceab
 8. Treat file anchors, symbol findings, tests, and repository-evidence adapter output as secondary evidence.
 9. Update linked docs when the architecture meaning changes.
 10. Validate after meaningful edits.
+11. If a repository ships a thin local harness, use it for fresh-context scoping and focused verification before broad manual scanning.
+12. In manifest-mode reference setups, keep machine-readable harness collateral in `.anchored-spec/` and repo-local wrappers in `scripts/`.
 
 ## Storage Modes
 
@@ -100,6 +102,8 @@ npx anchored-spec constraints --from-diff HEAD~1 --format markdown
 
 Treat `impact --with-commands` as a control-plane handoff. Prefer `architectureImpact`, `repositoryImpact`, and `suggestions` as the stable interface, and let repository-local wrappers or adapters decide the final command rendering.
 
+When a repository provides `task:start`, `task:verify`, or similar wrappers, use them as the operational layer on top of Anchored Spec rather than treating the framework itself as the full repo harness.
+
 ### Assemble review context
 
 Use trace and context workflows:
@@ -161,4 +165,4 @@ Before finishing meaningful work, prefer to run:
 - `docs/06-api/cli-api.md`
 - `docs/guides/user-guides/catalog-bootstrap.md`
 - `docs/guides/user-guides/reporting-and-analysis.md`
-- `SKILL.md`
+- `docs/guides/user-guides/SKILL.md`

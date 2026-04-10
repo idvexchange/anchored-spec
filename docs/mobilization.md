@@ -109,9 +109,9 @@ Make the model maintainable over time across contributors and repositories.
 ### Implementation references
 
 - `.github/workflows/ci.yml`
-- `SKILL.md`
-- `llms.txt`
-- `llms-full.txt`
+- `docs/guides/user-guides/SKILL.md`
+- `docs/guides/user-guides/llms.txt`
+- `docs/guides/user-guides/llms-full.txt`
 
 ## Recommended Sequence
 

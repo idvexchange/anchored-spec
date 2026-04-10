@@ -165,9 +165,9 @@
         "system": true,
         "components": true,
         "apis": true,
-        "capabilities": true,
-        "requirements": true,
-        "decisions": true,
+        "capabilities": false,
+        "requirements": false,
+        "decisions": false,
         "resources": false
       },
       "defaults": {
@@ -181,7 +181,22 @@
       }
     }
   },
-  "resolvers": [],
+  "resolvers": [
+    {
+      "name": "tree-sitter",
+      "options": {
+        "queryPacks": [],
+        "customPacks": [
+          ".anchored-spec/query-packs/backstage.js",
+          ".anchored-spec/query-packs/commands.js",
+          ".anchored-spec/query-packs/core-runtime.js",
+          ".anchored-spec/query-packs/docs-and-facts.js",
+          ".anchored-spec/query-packs/generators.js",
+          ".anchored-spec/query-packs/resolvers.js"
+        ]
+      }
+    }
+  ],
   "generators": [],
   "evidenceSources": [],
   "cache": {
@@ -196,7 +211,7 @@
     "strictMode": false,
     "rules": {}
   },
-  "workflowPolicyPath": "docs/workflow-policy.yaml",
+  "workflowPolicyPath": ".anchored-spec/policy.json",
   "entityMode": "manifest",
   "manifestPath": "catalog-info.yaml"
 }

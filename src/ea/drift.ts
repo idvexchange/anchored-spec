@@ -12,6 +12,7 @@ import { normalizeKnownEntityRef } from "./backstage/ref-utils.js";
 import {
   getEntityDomain,
   getEntityId,
+  getEntityOwnerRef,
   getEntitySpecRelations,
   getEntityStatus,
   getEntityTitle,
@@ -1282,16 +1283,17 @@ const unownedCriticalSystem: EaDriftRule = {
   evaluate(ctx) {
     const results: EaValidationError[] = [];
 
-    // Build set of entities owned by org-units
+    // Build set of org-unit refs, then mark systems whose owner points to one.
+    const orgUnitRefs = new Set<string>(
+      ctx.entities
+        .filter((entity) => hasEntitySchema(entity, "org-unit"))
+        .map((entity) => getEntityId(entity)),
+    );
+
     const ownedEntities = new Set<string>();
     for (const a of ctx.entities) {
-      if (!hasEntitySchema(a, "org-unit")) continue;
-      const specRelations = a.spec?.relations as Array<{ type: string; target: string }> | undefined;
-      if (specRelations) {
-        for (const r of specRelations) {
-          if (r.type === RELATION_OWNED_BY) ownedEntities.add(getEntityId(a));
-        }
-      }
+      const ownerRef = getEntityOwnerRef(a);
+      if (ownerRef && orgUnitRefs.has(ownerRef)) ownedEntities.add(getEntityId(a));
     }
 
     for (const a of ctx.entities) {

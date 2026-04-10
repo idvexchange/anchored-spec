@@ -8,6 +8,9 @@ coverage
 .env.*
 npm-debug.log*
 
+# Obsidian Vault
+.obsidian/
+
 # Anchored Spec
 ea/generated/
 .anchored-spec/cache/
@@ -15,3 +18,7 @@ ea/generated/
 # Anchored Spec
 docs/generated/
 .anchored-spec/cache/
+.anchored-spec/task-brief.json
+.anchored-spec/verification-report.json
+.anchored-spec/verification-baseline.json
+.anchored-spec/execution-report.json

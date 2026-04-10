@@ -41,7 +41,9 @@
   "files": [
     "dist",
     "README.md",
-    "SKILL.md",
+    "docs/guides/user-guides/SKILL.md",
+    "docs/guides/user-guides/llms.txt",
+    "docs/guides/user-guides/llms-full.txt",
     "LICENSE"
   ],
   "scripts": {
@@ -50,12 +52,18 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "verify": "tsc && vitest run && eslint .",
+    "test:harness": "vitest run src/ea/__tests__/repository-harness.test.ts",
+    "task:start": "node ./scripts/task-start.mjs",
+    "task:verify": "node ./scripts/task-verify.mjs",
+    "task:check": "node ./scripts/task-check.mjs",
+    "task:close": "node ./scripts/task-close.mjs",
+    "verify": "pnpm run task:check && pnpm run spec:validate && pnpm run spec:trace && pnpm run test:harness && tsc && vitest run && eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "prepublishOnly": "pnpm verify",
     "spec:validate": "anchored-spec validate",
     "spec:verify": "anchored-spec verify",
     "spec:graph": "anchored-spec graph --format mermaid",
+    "spec:trace": "anchored-spec trace --summary",
     "spec:drift": "anchored-spec drift",
     "spec:report": "anchored-spec report"
   },

@@ -605,6 +605,38 @@ describe("Phase 2D: Business Drift Rules", () => {
             expect(result.warnings.find((w) => w.rule === "ea:business/process-missing-owner")).toBeUndefined();
         });
     });
+    describe("ea:business/unowned-critical-system", () => {
+        it("does not fire when an active application is owned by an org-unit", () => {
+            const entities = [
+                makeEntity({
+                    ref: "group:platform",
+                    kind: "Group",
+                    type: "team",
+                    unitType: "team"
+                } as any),
+                makeEntity({
+                    ref: "system:commerce",
+                    kind: "System"
+                }),
+                makeEntity({
+                    ref: "api:orders",
+                    kind: "API",
+                    type: "openapi"
+                }),
+                makeEntity({
+                    ref: "component:orders",
+                    kind: "Component",
+                    type: "website",
+                    status: "active",
+                    owner: "group:platform",
+                    system: "system:commerce",
+                    providesApis: ["api:orders"]
+                } as any),
+            ];
+            const result = evaluateEaDrift(entities);
+            expect(result.warnings.find((w) => w.rule === "ea:business/unowned-critical-system")).toBeUndefined();
+        });
+    });
     describe("ea:business/control-missing-evidence", () => {
         it("fires when automated control has no evidence", () => {
             const entities = [

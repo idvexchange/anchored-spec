@@ -74,6 +74,8 @@ That wrapper can then:
 
 If the repository uses a package manager, build tool, or internal execution system, keep that rendering logic in the repository layer or a repository-evidence adapter rather than in the architecture model itself.
 
+For a manifest-mode reference shape, keep machine-readable harness collateral under `.anchored-spec/` and repo-local wrappers under `scripts/`.
+
 If the repository needs to route from a component into code, start from the component's `anchored-spec.dev/code-location`. Treat extra file anchors, symbols, and tests as secondary evidence for narrowing or enrichment.
 
 `context --focus-path` is optional. Use it when the repository keeps policy-based read-first rules that narrow which supporting docs matter for a particular changed path.

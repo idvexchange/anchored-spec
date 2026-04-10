@@ -32,7 +32,8 @@ If you are new to the framework, read in this order:
 4. [03-container/container-architecture.md](03-container/container-architecture.md)
 5. [05-domain/domain-model.md](05-domain/domain-model.md)
 6. [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
-7. [guides/user-guides/repository-harness-pattern.md](guides/user-guides/repository-harness-pattern.md)
+7. [guides/user-guides/llms.txt](guides/user-guides/llms.txt)
+8. [guides/user-guides/repository-harness-pattern.md](guides/user-guides/repository-harness-pattern.md)
 
 ## Navigation Index
 
@@ -86,6 +87,9 @@ If you are new to the framework, read in this order:
 ### Guides
 
 - [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
+- [guides/user-guides/llms.txt](guides/user-guides/llms.txt)
+- [guides/user-guides/llms-full.txt](guides/user-guides/llms-full.txt)
+- [guides/user-guides/SKILL.md](guides/user-guides/SKILL.md)
 - [guides/user-guides/catalog-bootstrap.md](guides/user-guides/catalog-bootstrap.md)
 - [guides/user-guides/obsidian-and-anchored-spec.md](guides/user-guides/obsidian-and-anchored-spec.md)
 - [guides/user-guides/choosing-a-modeling-approach.md](guides/user-guides/choosing-a-modeling-approach.md)

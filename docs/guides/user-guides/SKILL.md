@@ -22,6 +22,8 @@ Anchored Spec is an entity-native architecture control plane.
 - Runtime identifiers are canonical entity refs such as `component:default/orders-service`.
 - Docs, traceability, discovery, drift, reporting, and AI context all hang off the same graph.
 - The framework owns architecture truth and stable query primitives; repositories still own last-mile task execution.
+- In repositories that ship a thin local harness, prefer that harness for fresh-context routing and focused verification rather than rebuilding scope manually.
+- In manifest-mode reference setups, keep machine-readable harness collateral in `.anchored-spec/` and repo-local execution helpers in `scripts/`.
 - `anchored-spec.dev/code-location` is the preferred primary code linkage for a top-level component.
 - File anchors, symbols, tests, and repository-evidence adapter output are supporting context, not the primary architecture boundary.
 
@@ -147,6 +149,8 @@ npx anchored-spec constraints --from-diff HEAD~1 --format markdown
 ```
 
 When `--with-commands` is used, treat the result as a handoff into repository-local workflow logic. Prefer the structured `architectureImpact`, `repositoryImpact`, and `suggestions` fields over assuming the framework should own final command orchestration.
+
+If the repository has `task:start` and `task:verify`, use them as the default repo-local wrapper around this control plane.
 
 ### When assembling context
 

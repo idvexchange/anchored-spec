@@ -1,0 +1,312 @@
+{
+  "workflowVariants": [
+    {
+      "id": "code-change",
+      "name": "Code Change",
+      "defaultTypes": ["feature", "fix"],
+      "requiredSchemas": [],
+      "verificationFocus": ["targeted-tests", "typecheck", "architecture-validate"]
+    },
+    {
+      "id": "docs-change",
+      "name": "Docs Change",
+      "defaultTypes": ["docs"],
+      "requiredSchemas": [],
+      "verificationFocus": ["traceability", "docs-validate"]
+    },
+    {
+      "id": "repository-harness",
+      "name": "Repository Harness",
+      "defaultTypes": ["chore"],
+      "requiredSchemas": [],
+      "skipSkillSequence": true,
+      "verificationFocus": ["task-brief", "scoped-verification"]
+    }
+  ],
+  "changeRequiredRules": [
+    {
+      "id": "cli-surface",
+      "include": [
+        "src/cli/**",
+        "docs/04-component/anchored-spec-cli.md",
+        "docs/06-api/cli-api.md"
+      ],
+      "commands": ["pnpm exec tsc --noEmit"],
+      "broaderCommands": ["pnpm run build", "pnpm run test", "pnpm run lint"]
+    },
+    {
+      "id": "runtime-core",
+      "include": [
+        "src/ea/**",
+        "src/resolvers/**",
+        ".anchored-spec/query-packs/**",
+        "docs/04-component/anchored-spec-library.md",
+        "docs/06-api/node-api.md"
+      ],
+      "commands": ["pnpm exec tsc --noEmit"],
+      "broaderCommands": ["pnpm run build", "pnpm run test", "pnpm run lint"]
+    },
+    {
+      "id": "architecture-docs",
+      "include": [
+        "catalog-info.yaml",
+        "docs/**",
+        ".anchored-spec/config.json",
+        "AGENTS.md",
+        "docs/guides/user-guides/SKILL.md",
+        "docs/guides/user-guides/llms.txt",
+        "docs/guides/user-guides/llms-full.txt"
+      ],
+      "commands": [
+        "pnpm exec anchored-spec validate",
+        "pnpm exec anchored-spec trace --summary"
+      ],
+      "broaderCommands": ["pnpm exec anchored-spec drift"]
+    },
+    {
+      "id": "harness-surface",
+      "include": [
+        "scripts/**",
+        ".anchored-spec/policy.json",
+        "docs/AGENTS.md",
+        "docs/guides/developer-guides/agent-harness.md",
+        "package.json",
+        ".gitignore"
+      ],
+      "commands": ["pnpm run task:check"],
+      "broaderCommands": ["pnpm run test:harness", "pnpm run lint"]
+    }
+  ],
+  "readFirstRules": [
+    {
+      "id": "cli-surface",
+      "entityRefs": [
+        "component:default/anchored-spec-cli",
+        "api:default/anchored-spec-cli-api"
+      ],
+      "pathMatches": [
+        "src/cli/**",
+        "docs/04-component/anchored-spec-cli.md",
+        "docs/06-api/cli-api.md"
+      ],
+      "docs": ["docs/04-component/anchored-spec-cli.md"],
+      "secondaryDocs": ["docs/06-api/cli-api.md", "docs/05-domain/interfaces.md"]
+    },
+    {
+      "id": "runtime-core",
+      "entityRefs": [
+        "component:default/anchored-spec-ea-runtime",
+        "api:default/anchored-spec-node-api"
+      ],
+      "pathMatches": [
+        "src/ea/**",
+        "src/resolvers/**",
+        ".anchored-spec/query-packs/**",
+        "docs/04-component/anchored-spec-library.md",
+        "docs/06-api/node-api.md"
+      ],
+      "docs": ["docs/04-component/anchored-spec-library.md"],
+      "secondaryDocs": [
+        "docs/05-domain/domain-model.md",
+        "docs/05-domain/interfaces.md",
+        "docs/guides/user-guides/bottom-up-discovery.md",
+        "docs/guides/user-guides/reporting-and-analysis.md"
+      ]
+    },
+    {
+      "id": "repository-harness",
+      "entityRefs": ["component:default/anchored-spec-repository-harness"],
+      "pathMatches": [
+        "scripts/**",
+        ".anchored-spec/policy.json",
+        "docs/AGENTS.md",
+        "docs/guides/developer-guides/agent-harness.md",
+        "AGENTS.md",
+        "docs/guides/user-guides/SKILL.md",
+        "docs/guides/user-guides/llms.txt",
+        "docs/guides/user-guides/llms-full.txt",
+        "package.json",
+        ".gitignore"
+      ],
+      "docs": ["docs/guides/developer-guides/agent-harness.md"],
+      "secondaryDocs": [
+        "docs/guides/user-guides/repository-harness-pattern.md",
+        "docs/adr/ADR-007-control-plane-and-repository-harness-boundary.md"
+      ]
+    }
+  ],
+  "trivialExemptions": ["*.md", ".github/**", ".vscode/**", ".gitignore"],
+  "lifecycleRules": {
+    "plannedToActiveRequiresChange": true,
+    "activeToShippedRequiresCoverage": true,
+    "deprecatedRequiresReason": true
+  },
+  "extensions": {
+    "harness": {
+      "commonRequestRouting": [
+        {
+          "id": "cli-surface",
+          "baselineManaged": true,
+          "matchSignals": ["cli", "command", "flags", "prompt", "scaffold"],
+          "strongSignals": ["cli command", "public cli", "command output"],
+          "negativeSignals": ["resolver", "traceability", "drift"],
+          "defaultPaths": ["src/cli"],
+          "entityRefs": [
+            "component:default/anchored-spec-cli",
+            "api:default/anchored-spec-cli-api"
+          ],
+          "readFirst": [
+            "docs/04-component/anchored-spec-cli.md",
+            "docs/06-api/cli-api.md"
+          ],
+          "crossHints": ["src/cli/index.ts", "docs/06-api/cli-api.md"],
+          "alsoUpdate": [
+            "docs/04-component/anchored-spec-cli.md",
+            "docs/06-api/cli-api.md"
+          ],
+          "leafAgents": ["AGENTS.md", "docs/AGENTS.md"]
+        },
+        {
+          "id": "runtime-core",
+          "baselineManaged": true,
+          "matchSignals": [
+            "runtime",
+            "model",
+            "graph",
+            "loader",
+            "config",
+            "relation",
+            "resolver",
+            "discovery",
+            "trace",
+            "report",
+            "impact",
+            "diff",
+            "reconcile"
+          ],
+          "strongSignals": [
+            "entity graph",
+            "ea runtime",
+            "catalog bootstrap",
+            "tree-sitter",
+            "impact analysis"
+          ],
+          "negativeSignals": ["cli", "task:start", "task:verify"],
+          "defaultPaths": ["src/ea"],
+          "entityRefs": [
+            "component:default/anchored-spec-ea-runtime",
+            "api:default/anchored-spec-node-api"
+          ],
+          "readFirst": [
+            "docs/04-component/anchored-spec-library.md",
+            "docs/06-api/node-api.md"
+          ],
+          "crossHints": [
+            "src/ea/config.ts",
+            "src/ea/loader.ts",
+            ".anchored-spec/query-packs"
+          ],
+          "alsoUpdate": [
+            "docs/04-component/anchored-spec-library.md",
+            "docs/06-api/node-api.md"
+          ],
+          "leafAgents": ["AGENTS.md", "docs/AGENTS.md"]
+        },
+        {
+          "id": "repository-harness",
+          "baselineManaged": true,
+          "matchSignals": ["harness", "task:start", "task:verify", "baseline", "observability"],
+          "strongSignals": ["repository harness", "agent workflow", "task brief"],
+          "negativeSignals": ["bootstrap"],
+          "defaultPaths": ["scripts"],
+          "entityRefs": ["component:default/anchored-spec-repository-harness"],
+          "readFirst": [
+            "docs/guides/developer-guides/agent-harness.md",
+            "docs/guides/user-guides/repository-harness-pattern.md"
+          ],
+          "crossHints": [".anchored-spec/policy.json", "package.json"],
+          "alsoUpdate": [
+            "AGENTS.md",
+            "docs/guides/user-guides/SKILL.md",
+            "docs/guides/user-guides/llms.txt",
+            "docs/guides/user-guides/llms-full.txt"
+          ],
+          "leafAgents": ["AGENTS.md", "docs/AGENTS.md"]
+        }
+      ],
+      "pathRoutes": [
+        {
+          "id": "cli-surface",
+          "baselineManaged": true,
+          "include": [
+            "src/cli/**",
+            "docs/04-component/anchored-spec-cli.md",
+            "docs/06-api/cli-api.md"
+          ],
+          "entityRefs": [
+            "component:default/anchored-spec-cli",
+            "api:default/anchored-spec-cli-api"
+          ],
+          "readFirst": [
+            "docs/04-component/anchored-spec-cli.md",
+            "docs/06-api/cli-api.md"
+          ],
+          "crossHints": ["src/cli/index.ts"],
+          "alsoUpdate": ["docs/04-component/anchored-spec-cli.md"],
+          "leafAgents": ["AGENTS.md"]
+        },
+        {
+          "id": "runtime-core",
+          "baselineManaged": true,
+          "include": [
+            "src/ea/**",
+            "src/resolvers/**",
+            ".anchored-spec/query-packs/**",
+            "docs/04-component/anchored-spec-library.md",
+            "docs/06-api/node-api.md"
+          ],
+          "entityRefs": [
+            "component:default/anchored-spec-ea-runtime",
+            "api:default/anchored-spec-node-api"
+          ],
+          "readFirst": [
+            "docs/04-component/anchored-spec-library.md",
+            "docs/06-api/node-api.md"
+          ],
+          "crossHints": ["src/ea/config.ts", "src/ea/loader.ts"],
+          "alsoUpdate": ["docs/04-component/anchored-spec-library.md"],
+          "leafAgents": ["AGENTS.md"]
+        },
+        {
+          "id": "repository-harness",
+          "baselineManaged": true,
+          "include": [
+            "scripts/**",
+            ".anchored-spec/policy.json",
+            "docs/AGENTS.md",
+            "docs/guides/developer-guides/agent-harness.md",
+            "AGENTS.md",
+            "docs/guides/user-guides/SKILL.md",
+            "docs/guides/user-guides/llms.txt",
+            "docs/guides/user-guides/llms-full.txt",
+            "package.json",
+            ".gitignore"
+          ],
+          "entityRefs": ["component:default/anchored-spec-repository-harness"],
+          "readFirst": [
+            "docs/guides/developer-guides/agent-harness.md",
+            "docs/guides/user-guides/repository-harness-pattern.md"
+          ],
+          "crossHints": [".anchored-spec/policy.json", "package.json"],
+          "alsoUpdate": [
+            "AGENTS.md",
+            "docs/guides/user-guides/SKILL.md",
+            "docs/guides/user-guides/llms.txt",
+            "docs/guides/user-guides/llms-full.txt"
+          ],
+          "leafAgents": ["AGENTS.md", "docs/AGENTS.md"]
+        }
+      ]
+    }
+  }
+}

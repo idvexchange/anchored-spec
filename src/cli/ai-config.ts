@@ -57,7 +57,7 @@ Architecture is defined as Backstage-aligned entities stored in catalog manifest
 - \`.anchored-spec/config.json\` — Framework configuration
 - \`catalog-info.yaml\` or \`docs/*.md\` — Entity storage, depending on \`entityMode\`
 - \`${rootDir}/generated/\` — Generated outputs and reports
-- \`SKILL.md\` — Detailed AI agent workflow instructions (READ THIS for comprehensive guidance)
+- \`docs/guides/user-guides/SKILL.md\` — Detailed AI agent workflow instructions (READ THIS for comprehensive guidance)
 
 ## Key Commands
 
@@ -82,7 +82,7 @@ Anchored-spec metadata lives in \`anchored-spec.dev/*\` annotations and entity-s
 1. Always validate after modifying entities: \`npx anchored-spec validate\`
 2. Keep \`metadata.name\` stable once referenced by other entities or docs
 3. Use project-configured manifest or inline storage; do not invent ad-hoc file layouts
-4. Read \`SKILL.md\` for detailed workflow guidance before complex operations
+4. Read \`docs/guides/user-guides/SKILL.md\` for detailed workflow guidance before complex operations
 `;
 }
 
@@ -92,7 +92,7 @@ export function generateClaudeMd(_config: AiConfigInput): string {
 Spec-as-source EA framework. Architecture = Backstage-aligned entities, not ad-hoc docs.
 
 ## Read First
-- \`SKILL.md\` — Complete AI agent instruction set (26 sections, 15 workflows). READ THIS.
+- \`docs/guides/user-guides/SKILL.md\` — Complete AI agent instruction set (26 sections, 15 workflows). READ THIS.
 - \`.anchored-spec/config.json\` — Project configuration
 
 ## Structure
@@ -297,8 +297,8 @@ ${domainList(domains, "- ")}
 - \`.anchored-spec/config.json\` — Framework config (schema version, domains, resolvers, quality rules)
 
 ## Key Files
-- \`SKILL.md\` — AI agent instruction set (READ THIS for workflows)
-- \`${rootDir}/workflow-policy.yaml\` — Workflow policy rules (if exists)
+- \`docs/guides/user-guides/SKILL.md\` — AI agent instruction set (READ THIS for workflows)
+- \`.anchored-spec/policy.json\` — Workflow policy rules (if present)
 
 ## Entity Naming
 Each schema profile has a unique prefix:

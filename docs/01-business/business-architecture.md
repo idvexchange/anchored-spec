@@ -1,3 +1,8 @@
+---
+ea-entities:
+  - domain:default/anchored-spec
+---
+
 # Business Architecture
 
 This document describes the business intent of the Anchored Spec framework rather than the technical implementation details.

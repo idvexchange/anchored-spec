@@ -6,7 +6,7 @@
 
 > Backstage-aligned, spec-as-source architecture control plane for repositories that want a real architecture model in version control.
 
-Anchored Spec turns a repository into a living architecture model. You author Backstage-style entities in version control, link those entities to architecture documents and primary code locations, and then run validation, traceability, discovery, drift detection, reporting, and change-review workflows over the same model.
+Anchored Spec turns a repository into a living architecture model. You author [Backstage-style entities](https://backstage.io/docs/features/software-catalog/descriptor-format/) in version control, link those entities to architecture documents and primary code locations, and then run validation, traceability, discovery, drift detection, reporting, and change-review workflows over the same model.
 
 Its best operating shape is deliberately narrow:
 
@@ -15,7 +15,27 @@ Its best operating shape is deliberately narrow:
 - Repositories still own last-mile task execution, focused verification, and workflow ergonomics.
 - `anchored-spec.dev/code-location` is the preferred code linkage for a component; richer file, symbol, and test evidence remains secondary.
 
-This repository is the canonical manifest-mode example: a root `catalog-info.yaml`, linked markdown under `docs/`, and a CLI that keeps the model reviewable from pull request to pull request.
+This repository is the canonical manifest-mode example: a sparse root `catalog-info.yaml`, linked markdown under `docs/`, machine-readable repo collateral under `.anchored-spec/`, and thin repo-local wrappers under `scripts/`.
+
+## Working On This Repo
+
+This repository uses a thin repo-local harness on top of Anchored Spec itself:
+
+```bash
+pnpm task:start --changed
+pnpm task:start <path...>
+pnpm task:verify
+pnpm task:check
+```
+
+Use `task:start` for fresh context in this repository, then follow the brief's `readFirst` and `lookupCommands` before broader file scanning. The harness is repo-local workflow glue; the framework still owns the architecture model and CLI primitives.
+
+Reference layout for this repo:
+
+- `catalog-info.yaml` keeps the top-level architecture model sparse and reviewable
+- `.anchored-spec/config.json` and `.anchored-spec/policy.json` hold machine-readable framework and harness collateral
+- `.anchored-spec/query-packs/` holds repo-local discovery enrichment
+- `scripts/` holds repo-local task routing and verification helpers
 
 ## Why Anchored Spec Exists
 
@@ -74,6 +94,7 @@ If the repository already has meaningful structure and docs, bootstrap a curated
 
 ```bash
 npx anchored-spec catalog bootstrap --dry-run
+npx anchored-spec catalog bootstrap --dry-run --explain
 npx anchored-spec catalog bootstrap --write catalog-info.yaml
 ```
 
@@ -136,7 +157,7 @@ spec:
     - resource:default/orders-db
 ```
 
-Prefer Backstage built-in kinds when they fit:
+Prefer [Backstage built-in kinds](https://backstage.io/docs/features/software-catalog/system-model) when they fit:
 
 - `Component`
 - `API`
@@ -247,12 +268,14 @@ Anchored Spec should usually not be:
 │   ├── 10-testing/
 │   ├── adr/
 │   ├── guides/
+│   │   └── user-guides/
+│   │       ├── SKILL.md
+│   │       ├── llms.txt
+│   │       └── llms-full.txt
 │   ├── req/
 │   ├── README.md
 │   ├── delivery-baseline.md
 │   └── glossary.md
-├── llms.txt
-├── llms-full.txt
 ├── src/
 │   ├── cli/
 │   ├── ea/
@@ -268,7 +291,7 @@ In this repository, `docs/` is an architecture-first documentation set organized
 Start with the docs portal:
 
 - [Documentation portal](docs/README.md)
-- [LLM guide](llms.txt)
+- [LLM guide](docs/guides/user-guides/llms.txt)
 - [Delivery baseline](docs/delivery-baseline.md)
 - [Business architecture](docs/01-business/business-architecture.md)
 - [System context](docs/02-system-context/system-context.md)
@@ -283,9 +306,9 @@ Start with the docs portal:
 
 Anchored Spec ships with both a machine-oriented docs index and a repository skill:
 
-- [llms.txt](llms.txt)
-- [llms-full.txt](llms-full.txt)
-- [SKILL.md](SKILL.md)
+- [llms.txt](docs/guides/user-guides/llms.txt)
+- [llms-full.txt](docs/guides/user-guides/llms-full.txt)
+- [SKILL.md](docs/guides/user-guides/SKILL.md)
 
 Useful prompts:
 

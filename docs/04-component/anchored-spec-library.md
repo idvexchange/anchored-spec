@@ -1,3 +1,8 @@
+---
+ea-entities:
+  - component:default/anchored-spec-ea-runtime
+---
+
 # Anchored Spec EA Runtime
 
 This document breaks down the `src/ea/` container into its main components.

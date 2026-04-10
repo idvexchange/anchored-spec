@@ -6,11 +6,15 @@ This repository builds Anchored Spec itself, so changes to implementation, docum
 
 ```bash
 pnpm install
+pnpm task:start --changed
+pnpm task:check
 pnpm run build
 pnpm run test
 pnpm run check-types
 pnpm run lint
 ```
+
+For non-trivial work in this repository, start with `pnpm task:start --changed` or `pnpm task:start <path...>`, then use `pnpm task:verify` for focused verification before widening to full-repo checks.
 
 ## High-value areas
 

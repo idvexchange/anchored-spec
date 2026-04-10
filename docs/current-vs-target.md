@@ -17,7 +17,7 @@ This matrix compares the current shipped capability scope of Anchored Spec with 
 | Primary component-to-code linkage    | Shipped via `anchored-spec.dev/code-location` | Components point at one primary source area; lower-level evidence stays secondary | `src/cli/commands/ea-catalog.ts`, `src/ea/reverse-resolution.ts`, `src/ea/types.ts` |
 | Lifecycle and policy governance      | Shipped                                   | Teams use policy intentionally, not ceremonially                   | `src/ea/policy.ts`, `src/ea/version-policy.ts`, `src/cli/commands/ea-transition.ts` |
 | Evidence and verification            | Shipped                                   | Evidence improves trust, but repos still own execution ergonomics  | `src/ea/evidence.ts`, `src/cli/commands/ea-evidence.ts`, `src/ea/verify.ts`         |
-| AI context assembly                  | Shipped                                   | Agents consume the same graph humans trust                         | `src/cli/commands/ea-context.ts`, `SKILL.md`, `llms-full.txt`                       |
+| AI context assembly                  | Shipped                                   | Agents consume the same graph humans trust                         | `src/cli/commands/ea-context.ts`, `docs/guides/user-guides/SKILL.md`, `docs/guides/user-guides/llms-full.txt` |
 
 ## Interpretation
 

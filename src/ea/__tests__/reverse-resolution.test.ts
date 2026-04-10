@@ -554,16 +554,23 @@ describe("resolveFromFiles", () => {
       result.confidence === "high"
     )).toBe(true);
 
-    const docsResults = resolveFromFiles(["src/ea/docs/scanner.ts"], entities);
-    expect(docsResults.some((result) =>
-      result.resolvedEntityRef === "component:default/anchored-spec-docs-and-trace" &&
+    const runtimeResults = resolveFromFiles(["src/ea/docs/scanner.ts"], entities);
+    expect(runtimeResults.some((result) =>
+      result.resolvedEntityRef === "component:default/anchored-spec-ea-runtime" &&
       result.strategy === "code-location" &&
       result.confidence === "high"
     )).toBe(true);
 
     const generatorResults = resolveFromFiles(["src/ea/generators/openapi.ts"], entities);
     expect(generatorResults.some((result) =>
-      result.resolvedEntityRef === "component:default/anchored-spec-generation-engine" &&
+      result.resolvedEntityRef === "component:default/anchored-spec-ea-runtime" &&
+      result.strategy === "code-location" &&
+      result.confidence === "high"
+    )).toBe(true);
+
+    const harnessResults = resolveFromFiles(["scripts/task-start.mjs"], entities);
+    expect(harnessResults.some((result) =>
+      result.resolvedEntityRef === "component:default/anchored-spec-repository-harness" &&
       result.strategy === "code-location" &&
       result.confidence === "high"
     )).toBe(true);

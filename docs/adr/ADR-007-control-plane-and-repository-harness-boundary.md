@@ -60,6 +60,7 @@ When a component needs to point into implementation, the preferred architecture-
 - `docs/current-vs-target.md`
 - `docs/guides/user-guides/repository-harness-pattern.md`
 - `docs/guides/developer-guides/repository-harness-feedback.md`
+- `.anchored-spec/policy.json`
 - `src/cli/commands/ea-impact.ts`
 - `src/cli/commands/ea-context.ts`
 - `src/ea/reverse-resolution.ts`

@@ -1,3 +1,8 @@
+---
+ea-entities:
+  - component:default/anchored-spec-cli
+---
+
 # Anchored Spec CLI
 
 This document breaks down the `src/cli/` container into its main components.

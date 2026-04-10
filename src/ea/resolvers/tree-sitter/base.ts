@@ -34,8 +34,7 @@ type TreeSitterNode = {
   endPosition: { row: number; column: number };
 };
 
-type TreeSitterLanguage = {
-};
+type TreeSitterLanguage = object;
 
 type TreeSitterQuery = {
   matches(node: TreeSitterNode): TreeSitterQueryMatch[];

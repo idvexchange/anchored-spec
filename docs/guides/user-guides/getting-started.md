@@ -35,12 +35,15 @@ If the repository already has strong structure and docs, bootstrap a curated fir
 
 ```bash
 npx anchored-spec catalog bootstrap --dry-run
+npx anchored-spec catalog bootstrap --dry-run --explain
 npx anchored-spec catalog bootstrap --write catalog-info.yaml
 ```
 
 That first-pass manifest may include `anchored-spec.dev/code-location` on synthesized components when the framework can infer a primary source path.
 
 Use that annotation as the main code pointer for a component. Keep extra file-level evidence as supporting context instead of turning the catalog into a full source index.
+
+For best results, curate the bootstrap output back down to the smallest correct set of top-level entities, then add bidirectional doc trace links before layering on any richer custom kinds.
 
 ## 5. Validate immediately
 
