@@ -206,6 +206,39 @@ describe("buildReverseIndex", () => {
     expect(index.symbolToEntities.has("BillingRecord")).toBe(true);
   });
 
+  it("indexes anchors.files as file-only secondary code links", () => {
+    const entity = makeEntity({
+      kind: "Component",
+      name: "docs-api",
+      spec: {
+        anchors: {
+          files: ["src/docs/render.ts", "src/docs/"],
+        },
+      },
+    });
+
+    const index = buildReverseIndex([entity]);
+
+    expect(index.fileToEntities.get("src/docs/render.ts")).toEqual([
+      {
+        entityRef: "component:default/docs-api",
+        confidence: "medium",
+        evidence: "anchor:files",
+        strategy: "anchor-match",
+      },
+    ]);
+    expect(index.fileToEntities.get("src/docs/")).toBeUndefined();
+    expect(index.fileToEntities.get("src/docs")).toEqual([
+      {
+        entityRef: "component:default/docs-api",
+        confidence: "medium",
+        evidence: "anchor:files",
+        strategy: "anchor-match",
+      },
+    ]);
+    expect(index.symbolToEntities.has("src/docs/render.ts")).toBe(false);
+  });
+
   it("deduplicates entries for same entity+path+strategy", () => {
     const entity = makeEntity({
       kind: "Component",
@@ -307,6 +340,16 @@ describe("resolveFromFiles", () => {
     },
   });
 
+  const entityWithFileAnchors = makeEntity({
+    kind: "Component",
+    name: "docs-api",
+    spec: {
+      anchors: {
+        files: ["src/docs/"],
+      },
+    },
+  });
+
   const doc = makeDoc({
     relativePath: "docs/api.md",
     entityRefs: ["api:default/dossier-lifecycle"],
@@ -376,6 +419,52 @@ describe("resolveFromFiles", () => {
     expect(results[0]).toMatchObject({
       inputKind: "file",
       inputValue: "src/runtime/worker.ts",
+      resolvedEntityRef: "component:default/runtime",
+      confidence: "high",
+      strategy: "code-location",
+    });
+  });
+
+  it("resolves file to entity via anchors.files (medium confidence)", () => {
+    const results = resolveFromFiles(
+      ["src/docs/render.ts"],
+      [entityWithFileAnchors],
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      inputKind: "file",
+      inputValue: "src/docs/render.ts",
+      resolvedEntityRef: "component:default/docs-api",
+      confidence: "medium",
+      strategy: "anchor-match",
+      evidence: 'file is within anchor file path "src/docs"',
+    });
+  });
+
+  it("prefers code-location over anchors.files for the same entity", () => {
+    const entity = makeEntity({
+      kind: "Component",
+      name: "runtime",
+      metadata: {
+        annotations: {
+          "anchored-spec.dev/code-location": "src/runtime/",
+        },
+      },
+      spec: {
+        anchors: {
+          files: ["src/runtime/worker.ts"],
+        },
+      },
+    });
+
+    const results = resolveFromFiles(
+      ["src/runtime/worker.ts"],
+      [entity],
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
       resolvedEntityRef: "component:default/runtime",
       confidence: "high",
       strategy: "code-location",

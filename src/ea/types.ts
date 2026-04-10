@@ -38,6 +38,7 @@ export type EntityConfidence = "declared" | "observed" | "inferred";
 
 export interface EaAnchors {
   symbols?: string[];
+  files?: string[];
   apis?: string[];
   events?: string[];
   schemas?: string[];

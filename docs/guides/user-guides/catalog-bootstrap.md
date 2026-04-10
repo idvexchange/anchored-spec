@@ -22,6 +22,8 @@ The catalog workflow:
 - adds `anchored-spec.dev/code-location` on synthesized components when a primary repository-relative source path can be inferred
 - emits a validator-safe manifest plan
 
+Use that code location as the main repository pointer for the component. Keep richer file, symbol, or test evidence outside the core architecture model unless it materially improves repository-local workflows.
+
 This is different from `discover`:
 
 - `discover` is resolver-first and can produce broad raw findings
@@ -95,6 +97,7 @@ Focus review on:
 - whether inferred primary code locations point at the intended source area
 - whether ownership and lifecycle defaults need tightening
 - whether synthesized relationships express intent or only weak evidence
+- whether any lower-level file evidence should stay in repository adapters instead of the catalog
 
 After applying the plan:
 

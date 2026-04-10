@@ -1,21 +1,31 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
-
-import { parse as parseYaml } from "yaml";
 import { minimatch } from "minimatch";
 
 import type { BackstageEntity } from "./backstage/types.js";
 import {
   getEntityCodeLocation,
+  getEntityAnchors,
   getEntityId,
   getEntitySource,
   getEntityTraceRefs,
 } from "./backstage/accessors.js";
 import type { ImpactReport } from "./impact.js";
+import type {
+  RepositoryCommandSuggestion,
+  RepositoryCommandSuggestionKind,
+  RepositoryCommandSuggestionTier,
+  RepositoryEvidenceAdapter,
+  RepositoryTarget,
+} from "./repository-evidence.js";
+import { NodeWorkspaceEvidenceAdapter } from "./repository-evidence-node.js";
 
 export interface SuggestedCommandPlan {
   sourceRef: string;
   impactedEntityRefs: string[];
+  architectureImpact: SuggestedArchitectureImpact;
+  repositoryImpact: SuggestedRepositoryImpact;
+  suggestions: SuggestedAction[];
+  impactedTargets: SuggestedTarget[];
+  /** @deprecated Prefer impactedTargets. Retained for compatibility with existing CLI and tests. */
   impactedWorkspaces: SuggestedWorkspace[];
   commands: string[];
   broaderCommands: string[];
@@ -23,11 +33,41 @@ export interface SuggestedCommandPlan {
   reasons: string[];
 }
 
-export interface SuggestedWorkspace {
+export interface SuggestedArchitectureImpact {
+  sourceRef: string;
+  impactedEntityRefs: string[];
+}
+
+export interface SuggestedRepositoryImpact {
+  adapterIds: string[];
+  targets: SuggestedTarget[];
+}
+
+export interface SuggestedAction {
+  id: string;
+  tier: RepositoryCommandSuggestionTier;
+  kind: RepositoryCommandSuggestionKind;
+  command: string;
+  source: "workflow-policy" | "repository-evidence";
+  sourceId: string;
+  reason: string;
+  targetId?: string;
+  targetName?: string;
+  targetKind?: string;
+  targetPath?: string;
+}
+
+export interface SuggestedTarget {
+  adapterId: string;
+  id: string;
   name: string;
+  path: string;
   dir: string;
+  kind?: string;
   entityRefs: string[];
 }
+
+export type SuggestedWorkspace = SuggestedTarget;
 
 interface WorkflowPolicyRule {
   id: string;
@@ -42,25 +82,23 @@ interface WorkflowPolicyShape {
   changeRequiredRules?: WorkflowPolicyRule[];
 }
 
-interface WorkspacePackage {
-  name: string;
-  dir: string;
-  scripts: Record<string, string>;
-}
-
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "coverage", "build", ".next", ".turbo"]);
-
 export function buildSuggestedCommandPlan(
   report: ImpactReport,
   entities: BackstageEntity[],
   projectRoot: string,
   workflowPolicy?: Record<string, unknown> | null,
+  options?: {
+    adapters?: RepositoryEvidenceAdapter[];
+  },
 ): SuggestedCommandPlan {
   const entityByRef = new Map(entities.map((entity) => [getEntityId(entity), entity]));
   const targetRefs = [report.sourceRef, ...report.impacted.map((entry) => entry.id)];
   const uniqueRefs = [...new Set(targetRefs)];
-  const workspaces = discoverWorkspacePackages(projectRoot);
   const pathsByEntity = new Map<string, string[]>();
+  const adapters = options?.adapters ?? [new NodeWorkspaceEvidenceAdapter()];
+  const discoveredTargets = adapters.flatMap((adapter) =>
+    adapter.discoverTargets(projectRoot).map((target) => ({ adapter, target })),
+  );
 
   for (const ref of uniqueRefs) {
     const entity = entityByRef.get(ref);
@@ -68,14 +106,16 @@ export function buildSuggestedCommandPlan(
     pathsByEntity.set(ref, collectEntityPaths(entity));
   }
 
-  const workspaceMatches = new Map<string, { workspace: WorkspacePackage; entityRefs: Set<string> }>();
+  const targetMatches = new Map<string, { adapterId: string; target: RepositoryTarget; entityRefs: Set<string> }>();
   for (const [entityRef, paths] of pathsByEntity) {
     for (const path of paths) {
-      const workspace = matchWorkspaceForPath(path, workspaces);
-      if (!workspace) continue;
-      const existing = workspaceMatches.get(workspace.dir) ?? { workspace, entityRefs: new Set<string>() };
-      existing.entityRefs.add(entityRef);
-      workspaceMatches.set(workspace.dir, existing);
+      for (const { adapter, target } of discoveredTargets) {
+        if (!pathMatchesTarget(path, target)) continue;
+        const matchKey = `${adapter.id}::${target.id}`;
+        const existing = targetMatches.get(matchKey) ?? { adapterId: adapter.id, target, entityRefs: new Set<string>() };
+        existing.entityRefs.add(entityRef);
+        targetMatches.set(matchKey, existing);
+      }
     }
   }
 
@@ -83,6 +123,7 @@ export function buildSuggestedCommandPlan(
   const broaderCommands = new Set<string>();
   const actionCommands = new Set<string>();
   const reasons = new Set<string>();
+  const suggestions = new Map<string, SuggestedAction>();
 
   const rules = normalizeWorkflowRules(workflowPolicy);
   for (const [entityRef, paths] of pathsByEntity) {
@@ -92,26 +133,54 @@ export function buildSuggestedCommandPlan(
         addAll(commands, rule.commands);
         addAll(broaderCommands, rule.broaderCommands);
         addAll(actionCommands, rule.actionCommands);
-        reasons.add(`workflow policy rule "${rule.id}" matched ${path}`);
+        const reason = `workflow policy rule "${rule.id}" matched ${path}`;
+        reasons.add(reason);
+        addWorkflowPolicySuggestions(rule, reason, suggestions);
       }
-      const workspace = matchWorkspaceForPath(path, workspaces);
-      if (workspace) {
-        addWorkspaceScriptSuggestions(workspace, commands, broaderCommands, actionCommands);
-        reasons.add(`workspace "${workspace.name}" inferred from ${path} for ${entityRef}`);
+      for (const { adapter, target } of discoveredTargets) {
+        if (!pathMatchesTarget(path, target)) continue;
+        const reason = `repository target "${target.name}" inferred from ${path} for ${entityRef} via ${adapter.id}`;
+        addSuggestedCommands(
+          adapter.suggestCommands(target, projectRoot),
+          adapter,
+          target,
+          reason,
+          commands,
+          broaderCommands,
+          actionCommands,
+          suggestions,
+        );
+        reasons.add(reason);
       }
     }
   }
 
+  const impactedTargets = [...targetMatches.values()]
+    .map(({ adapterId, target, entityRefs }) => ({
+      adapterId,
+      id: target.id,
+      name: target.name,
+      path: target.path,
+      dir: target.path,
+      kind: target.kind,
+      entityRefs: [...entityRefs].sort(),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
     sourceRef: report.sourceRef,
     impactedEntityRefs: report.impacted.map((entry) => entry.id),
-    impactedWorkspaces: [...workspaceMatches.values()]
-      .map(({ workspace, entityRefs }) => ({
-        name: workspace.name,
-        dir: workspace.dir,
-        entityRefs: [...entityRefs].sort(),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    architectureImpact: {
+      sourceRef: report.sourceRef,
+      impactedEntityRefs: report.impacted.map((entry) => entry.id),
+    },
+    repositoryImpact: {
+      adapterIds: [...new Set(impactedTargets.map((target) => target.adapterId))].sort(),
+      targets: impactedTargets,
+    },
+    suggestions: [...suggestions.values()].sort((a, b) => a.command.localeCompare(b.command)),
+    impactedTargets,
+    impactedWorkspaces: impactedTargets,
     commands: [...commands].sort(),
     broaderCommands: [...broaderCommands].sort(),
     actionCommands: [...actionCommands].sort(),
@@ -123,6 +192,13 @@ function collectEntityPaths(entity: BackstageEntity): string[] {
   const values = new Set<string>();
   const codeLocation = getEntityCodeLocation(entity);
   if (codeLocation) values.add(normalizeRepoPath(codeLocation));
+
+  const anchors = getEntityAnchors(entity);
+  if (Array.isArray(anchors?.files)) {
+    for (const file of anchors.files) {
+      if (typeof file === "string") values.add(normalizeRepoPath(file));
+    }
+  }
 
   const source = getEntitySource(entity);
   if (source) values.add(normalizeRepoPath(source));
@@ -139,116 +215,10 @@ function normalizeRepoPath(path: string): string {
   return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
 }
 
-function discoverWorkspacePackages(projectRoot: string): WorkspacePackage[] {
-  const allPackageJsons = walkPackageJsons(projectRoot);
-  const workspacePatterns = readWorkspacePatterns(projectRoot);
-  const workspaces = allPackageJsons
-    .filter((pkgPath) => pkgPath !== join(projectRoot, "package.json"))
-    .filter((pkgPath) => {
-      const relativePath = normalizeRepoPath(relative(projectRoot, dirname(pkgPath)));
-      if (workspacePatterns.length === 0) return true;
-      return workspacePatterns.some((pattern) => minimatch(relativePath, pattern) || minimatch(`${relativePath}/package.json`, pattern));
-    })
-    .map((pkgPath) => {
-      try {
-        const parsed = JSON.parse(readFileSync(pkgPath, "utf-8")) as { name?: string; scripts?: Record<string, string> };
-        return {
-          name: parsed.name ?? normalizeRepoPath(relative(projectRoot, dirname(pkgPath))),
-          dir: normalizeRepoPath(relative(projectRoot, dirname(pkgPath))),
-          scripts: parsed.scripts ?? {},
-        } satisfies WorkspacePackage;
-      } catch {
-        return undefined;
-      }
-    })
-    .filter((value): value is WorkspacePackage => Boolean(value));
-
-  if (workspaces.length > 0) return workspaces;
-
-  const rootPackage = join(projectRoot, "package.json");
-  if (!existsSync(rootPackage)) return [];
-  try {
-    const parsed = JSON.parse(readFileSync(rootPackage, "utf-8")) as { name?: string; scripts?: Record<string, string> };
-    return [{
-      name: parsed.name ?? ".",
-      dir: ".",
-      scripts: parsed.scripts ?? {},
-    }];
-  } catch {
-    return [];
-  }
-}
-
-function walkPackageJsons(dir: string): string[] {
-  const results: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (SKIP_DIRS.has(entry)) continue;
-    const path = join(dir, entry);
-    const stat = statSync(path);
-    if (stat.isDirectory()) {
-      results.push(...walkPackageJsons(path));
-      continue;
-    }
-    if (stat.isFile() && entry === "package.json") {
-      results.push(path);
-    }
-  }
-  return results;
-}
-
-function readWorkspacePatterns(projectRoot: string): string[] {
-  const patterns: string[] = [];
-  const rootPackagePath = join(projectRoot, "package.json");
-  if (existsSync(rootPackagePath)) {
-    try {
-      const parsed = JSON.parse(readFileSync(rootPackagePath, "utf-8")) as {
-        workspaces?: string[] | { packages?: string[] };
-      };
-      if (Array.isArray(parsed.workspaces)) patterns.push(...parsed.workspaces);
-      if (
-        parsed.workspaces &&
-        !Array.isArray(parsed.workspaces) &&
-        typeof parsed.workspaces === "object" &&
-        Array.isArray(parsed.workspaces.packages)
-      ) {
-        patterns.push(...parsed.workspaces.packages);
-      }
-    } catch {
-      // ignore malformed package.json here; normal validation handles it elsewhere
-    }
-  }
-
-  const pnpmWorkspacePath = join(projectRoot, "pnpm-workspace.yaml");
-  if (existsSync(pnpmWorkspacePath)) {
-    try {
-      const parsed = parseYaml(readFileSync(pnpmWorkspacePath, "utf-8")) as { packages?: string[] } | null;
-      if (parsed?.packages) patterns.push(...parsed.packages);
-    } catch {
-      // ignore malformed workspace file here
-    }
-  }
-
-  return [...new Set(patterns.map((pattern) => normalizeRepoPath(pattern)))];
-}
-
-function matchWorkspaceForPath(
-  path: string,
-  workspaces: WorkspacePackage[],
-): WorkspacePackage | undefined {
+function pathMatchesTarget(path: string, target: RepositoryTarget): boolean {
   const normalized = normalizeRepoPath(path);
-  let best: WorkspacePackage | undefined;
-  for (const workspace of workspaces) {
-    if (
-      normalized === workspace.dir ||
-      normalized.startsWith(`${workspace.dir}/`) ||
-      workspace.dir === "."
-    ) {
-      if (!best || workspace.dir.length > best.dir.length) {
-        best = workspace;
-      }
-    }
-  }
-  return best;
+  const targetPath = normalizeRepoPath(target.path);
+  return normalized === targetPath || normalized.startsWith(`${targetPath}/`) || targetPath === ".";
 }
 
 function normalizeWorkflowRules(
@@ -270,43 +240,103 @@ function matchesRule(path: string, rule: WorkflowPolicyRule): boolean {
   return !exclude.some((pattern) => minimatch(normalized, pattern));
 }
 
-function addWorkspaceScriptSuggestions(
-  workspace: WorkspacePackage,
+function addSuggestedCommands(
+  rawSuggestions: RepositoryCommandSuggestion[],
+  adapter: RepositoryEvidenceAdapter,
+  target: RepositoryTarget,
+  reason: string,
   commands: Set<string>,
   broaderCommands: Set<string>,
   actionCommands: Set<string>,
+  suggestions: Map<string, SuggestedAction>,
 ): void {
-  for (const scriptName of Object.keys(workspace.scripts)) {
-    const command = workspace.dir === "."
-      ? `pnpm run ${scriptName}`
-      : `pnpm --filter ${workspace.name} run ${scriptName}`;
-    if (isActionScript(scriptName)) {
-      actionCommands.add(command);
-    } else if (isFocusedScript(scriptName)) {
-      commands.add(command);
-    } else if (isBroaderScript(scriptName)) {
-      broaderCommands.add(command);
+  for (const suggestion of rawSuggestions) {
+    if (!suggestion.command?.trim()) continue;
+    if (suggestion.tier === "actionCommands") {
+      actionCommands.add(suggestion.command);
+    } else if (suggestion.tier === "commands") {
+      commands.add(suggestion.command);
+    } else if (suggestion.tier === "broaderCommands") {
+      broaderCommands.add(suggestion.command);
     }
+    const action: SuggestedAction = {
+      id: buildActionId("repository-evidence", adapter.id, target.id, suggestion.tier, suggestion.command),
+      tier: suggestion.tier,
+      kind: suggestion.kind,
+      command: suggestion.command,
+      source: "repository-evidence",
+      sourceId: adapter.id,
+      reason: suggestion.reason ?? reason,
+      targetId: target.id,
+      targetName: target.name,
+      targetKind: target.kind,
+      targetPath: target.path,
+    };
+    suggestions.set(action.id, action);
   }
-}
-
-function isFocusedScript(name: string): boolean {
-  const value = name.toLowerCase();
-  return value === "typecheck" || value === "check" || value === "build" || value === "verify";
-}
-
-function isBroaderScript(name: string): boolean {
-  const value = name.toLowerCase();
-  return value.includes("test") || value.includes("lint") || value.includes("e2e") || value.includes("integration");
-}
-
-function isActionScript(name: string): boolean {
-  const value = name.toLowerCase();
-  return value.includes("generate") || value.includes("migrate") || value.includes("seed");
 }
 
 function addAll(target: Set<string>, values?: string[]): void {
   for (const value of values ?? []) {
     if (value.trim()) target.add(value);
   }
+}
+
+function addWorkflowPolicySuggestions(
+  rule: WorkflowPolicyRule,
+  reason: string,
+  suggestions: Map<string, SuggestedAction>,
+): void {
+  addWorkflowPolicySuggestionTier(rule, "commands", rule.commands, reason, suggestions);
+  addWorkflowPolicySuggestionTier(rule, "broaderCommands", rule.broaderCommands, reason, suggestions);
+  addWorkflowPolicySuggestionTier(rule, "actionCommands", rule.actionCommands, reason, suggestions);
+}
+
+function addWorkflowPolicySuggestionTier(
+  rule: WorkflowPolicyRule,
+  tier: RepositoryCommandSuggestionTier,
+  commands: string[] | undefined,
+  reason: string,
+  suggestions: Map<string, SuggestedAction>,
+): void {
+  for (const command of commands ?? []) {
+    const normalized = command.trim();
+    if (!normalized) continue;
+    const action: SuggestedAction = {
+      id: buildActionId("workflow-policy", rule.id, undefined, tier, normalized),
+      tier,
+      kind: inferCommandKind(normalized),
+      command: normalized,
+      source: "workflow-policy",
+      sourceId: rule.id,
+      reason,
+    };
+    suggestions.set(action.id, action);
+  }
+}
+
+function buildActionId(
+  source: SuggestedAction["source"],
+  sourceId: string,
+  targetId: string | undefined,
+  tier: RepositoryCommandSuggestionTier,
+  command: string,
+): string {
+  return [source, sourceId, targetId ?? "-", tier, command].join("::");
+}
+
+function inferCommandKind(command: string): RepositoryCommandSuggestionKind {
+  const value = command.toLowerCase();
+  if (value.includes("typecheck")) return "typecheck";
+  if (value.includes(" run check") || value.endsWith(" check")) return "check";
+  if (value.includes("build")) return "build";
+  if (value.includes("verify")) return "verify";
+  if (value.includes("lint")) return "lint";
+  if (value.includes("integration")) return "integration";
+  if (value.includes("e2e")) return "e2e";
+  if (value.includes("test")) return "test";
+  if (value.includes("generate")) return "generate";
+  if (value.includes("migrate")) return "migrate";
+  if (value.includes("seed")) return "seed";
+  return "custom";
 }

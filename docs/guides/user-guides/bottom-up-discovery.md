@@ -9,6 +9,7 @@ If you want a curated first-pass `catalog-info.yaml`, start with [catalog-bootst
 - start with `--dry-run`
 - treat results as draft
 - normalize names, owners, and boundaries after discovery
+- treat tree-sitter and file-level findings as optional enrichment, not as the primary routing model
 
 ## Default sequence
 
@@ -38,3 +39,5 @@ npx anchored-spec discover --resolver sql-ddl --source ./schema.sql --dry-run
 4. add ownership and descriptions
 5. run validation again
 6. use drift to compare the cleaned model to current reality
+
+When discovery can infer a clear primary source area, record it on the component with `anchored-spec.dev/code-location` and keep raw file evidence secondary.

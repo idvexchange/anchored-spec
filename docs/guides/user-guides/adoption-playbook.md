@@ -33,6 +33,7 @@ The first useful controls are usually:
 - semantic diff for sensitive changes
 - drift where consistency matters
 - impact suggestions that feed repo-native checks instead of replacing them
+- optional repository-evidence adapters only when the repository needs richer repo-local target expansion
 
 ## Keep the split clean
 
@@ -48,6 +49,10 @@ The repository should usually own:
 - focused versus broader verification choices
 - mutating follow-up actions such as generators or migrations
 - human-facing workflow ergonomics
+
+Use repository-evidence adapters to enrich that last mile only when they help. They should not become a second source of architecture truth.
+
+When you need code linkage, prefer one primary `anchored-spec.dev/code-location` per top-level component before adding broader file-level evidence.
 
 ## Success criteria
 

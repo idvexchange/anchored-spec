@@ -2,14 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://anchored-spec.dev/schemas/config-v1.schema.json",
   "title": "Anchored Spec Configuration",
-  "description": "Top-level configuration for anchored-spec schema versions 1.0 and 1.1.",
+  "description": "Top-level configuration for anchored-spec schema versions 1.0, 1.1, and 1.2.",
   "type": "object",
   "required": ["schemaVersion", "rootDir"],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "enum": ["1.0", "1.1"],
+      "enum": ["1.0", "1.1", "1.2"],
       "description": "Config format version."
     },
     "rootDir": {
@@ -91,6 +91,35 @@
           "type": "object",
           "additionalProperties": { "type": "string" },
           "description": "Default section id by create-doc type."
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bootstrap": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "repositoryEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "adapters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "enabled": { "type": "boolean" },
+              "options": { "type": "object" }
+            },
+            "additionalProperties": false
+          }
         }
       }
     },

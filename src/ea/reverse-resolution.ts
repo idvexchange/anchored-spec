@@ -89,6 +89,17 @@ function pathContainsWithin(basePath: string, candidatePath: string): boolean {
   return candidate === base || candidate.startsWith(`${base}/`);
 }
 
+function upsertResolution(
+  resultMap: Map<string, ResolutionResult>,
+  result: ResolutionResult,
+): void {
+  const key = `${result.inputKind}::${result.inputValue}::${result.resolvedEntityRef}`;
+  const existing = resultMap.get(key);
+  if (!existing || confidenceOrder(result.confidence) < confidenceOrder(existing.confidence)) {
+    resultMap.set(key, result);
+  }
+}
+
 // ─── Build Index ──────────────────────────────────────────────────────
 
 export function buildReverseIndex(
@@ -170,6 +181,18 @@ export function buildReverseIndex(
     const anchors = getEntityAnchors(entity);
     if (!anchors) continue;
 
+    if (Array.isArray(anchors.files)) {
+      for (const value of anchors.files) {
+        if (typeof value !== "string") continue;
+        addFile(value, {
+          entityRef,
+          confidence: "medium",
+          evidence: "anchor:files",
+          strategy: "anchor-match",
+        });
+      }
+    }
+
     const symbolFields = ["symbols", "apis", "events", "schemas"] as const;
     for (const field of symbolFields) {
       const values = (anchors as Record<string, unknown>)[field];
@@ -224,8 +247,7 @@ export function resolveFromFiles(
   cwd?: string,
 ): ResolutionResult[] {
   const index = buildReverseIndex(entities, docs, cwd);
-  const results: ResolutionResult[] = [];
-  const seen = new Set<string>();
+  const resultMap = new Map<string, ResolutionResult>();
 
   for (const file of files) {
     const normalized = normalizePath(file);
@@ -233,10 +255,7 @@ export function resolveFromFiles(
 
     if (matches) {
       for (const match of matches) {
-        const key = `${normalized}::${match.entityRef}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        results.push({
+        upsertResolution(resultMap, {
           inputKind: "file",
           inputValue: normalized,
           resolvedEntityRef: match.entityRef,
@@ -252,10 +271,7 @@ export function resolveFromFiles(
       const codeLocation = getEntityCodeLocation(entity);
       if (!codeLocation || !pathContainsWithin(codeLocation, normalized)) continue;
 
-      const key = `${normalized}::${entityRef}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push({
+      upsertResolution(resultMap, {
         inputKind: "file",
         inputValue: normalized,
         resolvedEntityRef: entityRef,
@@ -263,6 +279,26 @@ export function resolveFromFiles(
         evidence: `file is within primary code location "${normalizePath(codeLocation)}"`,
         strategy: "code-location",
       });
+
+      continue;
+    }
+
+    for (const entity of entities) {
+      const entityRef = getEntityId(entity);
+      const anchors = getEntityAnchors(entity);
+      if (!Array.isArray(anchors?.files)) continue;
+
+      for (const value of anchors.files) {
+        if (typeof value !== "string" || !pathContainsWithin(value, normalized)) continue;
+        upsertResolution(resultMap, {
+          inputKind: "file",
+          inputValue: normalized,
+          resolvedEntityRef: entityRef,
+          confidence: "medium",
+          evidence: `file is within anchor file path "${normalizePath(value)}"`,
+          strategy: "anchor-match",
+        });
+      }
     }
 
     if (!matches) {
@@ -274,10 +310,7 @@ export function resolveFromFiles(
             ref.path.includes(normalized) ||
             normalized.includes(normalizePath(ref.path))
           ) {
-            const key = `${normalized}::${entityRef}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            results.push({
+            upsertResolution(resultMap, {
               inputKind: "file",
               inputValue: normalized,
               resolvedEntityRef: entityRef,
@@ -291,7 +324,7 @@ export function resolveFromFiles(
     }
   }
 
-  return results.sort(
+  return [...resultMap.values()].sort(
     (a, b) => confidenceOrder(a.confidence) - confidenceOrder(b.confidence),
   );
 }

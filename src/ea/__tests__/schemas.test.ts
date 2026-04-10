@@ -172,6 +172,7 @@ describe("anchors schema", () => {
     const result = validateEaSchema(
       {
         symbols: ["OrderService"],
+        files: ["src/orders/service.ts", "src/orders/"],
         apis: ["POST /orders"],
         events: ["order.created"],
         schemas: ["OrderSchema"],

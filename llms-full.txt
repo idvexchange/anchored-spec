@@ -25,8 +25,10 @@ Everything important in the framework depends on that graph: validation, traceab
 4. Use Anchored Spec custom kinds only when Backstage does not capture the concept well enough.
 5. Use canonical refs in commands, docs, and relations, for example `component:default/orders-service`.
 6. Preserve `anchored-spec.dev/*` annotations and treat derived `relations` as analysis output.
-7. Update linked docs when the architecture meaning changes.
-8. Validate after meaningful edits.
+7. Prefer `anchored-spec.dev/code-location` as the primary code pointer for a component.
+8. Treat file anchors, symbol findings, tests, and repository-evidence adapter output as secondary evidence.
+9. Update linked docs when the architecture meaning changes.
+10. Validate after meaningful edits.
 
 ## Storage Modes
 
@@ -92,8 +94,11 @@ Use diff, impact, and constraints:
 ```bash
 npx anchored-spec diff --base main --compat --policy
 npx anchored-spec impact --from-diff HEAD~1 --format markdown
+npx anchored-spec impact --from-diff HEAD~1 --with-commands --format json
 npx anchored-spec constraints --from-diff HEAD~1 --format markdown
 ```
+
+Treat `impact --with-commands` as a control-plane handoff. Prefer `architectureImpact`, `repositoryImpact`, and `suggestions` as the stable interface, and let repository-local wrappers or adapters decide the final command rendering.
 
 ### Assemble review context
 
@@ -121,6 +126,7 @@ npx anchored-spec reconcile --include-trace --include-docs
 - prefer `dependsOn`, `providesApis`, and `consumesApis` over vague prose
 - keep relations behaviorally meaningful
 - link docs to canonical entity refs
+- prefer one primary code location per top-level component before adding broader file-level evidence
 
 ## Anti-Patterns
 
@@ -130,6 +136,7 @@ Do not:
 - switch storage modes without being asked
 - use informal IDs as the primary runtime identifier
 - treat discovery or inferred facts as final truth without review
+- treat Anchored Spec as the full repo harness or canonical command planner
 - skip `catalog bootstrap` when the repository already contains enough structure to synthesize a useful first-pass manifest
 - document unsupported workflows as if they are current
 - let docs drift into prose that cannot be tied back to entity refs

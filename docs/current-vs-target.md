@@ -13,7 +13,8 @@ This matrix compares the current shipped capability scope of Anchored Spec with 
 | Derived output generation            | Shipped for OpenAPI and JSON Schema       | Used only where downstream artifacts add real value                | `src/ea/generators/`                                                                |
 | Reviewer-facing reports and diagrams | Shipped                                   | Standard review outputs are easy to produce in markdown            | `src/ea/report.ts`, `src/ea/diagrams/`                                              |
 | Change-aware impact and constraints  | Shipped                                   | Used to surface blast radius, then hand off to repo-local checks   | `src/ea/impact.ts`, `src/ea/constraints.ts`                                         |
-| Command-plan suggestions             | Shipped as optional helper                | Repositories compile framework suggestions into local command plans | `src/ea/command-suggestions.ts`, `src/cli/commands/ea-impact.ts`                    |
+| Command-plan suggestions             | Shipped as optional helper                | Repositories compile structured suggestions and adapter-derived targets into local command plans | `src/ea/command-suggestions.ts`, `src/cli/commands/ea-impact.ts`, `src/ea/repository-evidence-loader.ts` |
+| Primary component-to-code linkage    | Shipped via `anchored-spec.dev/code-location` | Components point at one primary source area; lower-level evidence stays secondary | `src/cli/commands/ea-catalog.ts`, `src/ea/reverse-resolution.ts`, `src/ea/types.ts` |
 | Lifecycle and policy governance      | Shipped                                   | Teams use policy intentionally, not ceremonially                   | `src/ea/policy.ts`, `src/ea/version-policy.ts`, `src/cli/commands/ea-transition.ts` |
 | Evidence and verification            | Shipped                                   | Evidence improves trust, but repos still own execution ergonomics  | `src/ea/evidence.ts`, `src/cli/commands/ea-evidence.ts`, `src/ea/verify.ts`         |
 | AI context assembly                  | Shipped                                   | Agents consume the same graph humans trust                         | `src/cli/commands/ea-context.ts`, `SKILL.md`, `llms-full.txt`                       |
@@ -29,5 +30,6 @@ In practice that means:
 - CLI-first lookup before raw manifest reading in day-to-day work
 - validation and traceability in normal review
 - drift and semantic diff where architectural trust matters
-- impact suggestions feeding repo-native command plans instead of replacing them
+- impact suggestions feeding repo-native command plans instead of replacing them, with repository evidence remaining adapter-driven and optional
+- explicit `code-location` annotations as the main component-to-code pointer, with file anchors and adapter evidence used only as support
 - AI usage grounded in the same model as humans

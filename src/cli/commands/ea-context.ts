@@ -668,6 +668,7 @@ function formatAnchors(entity: EntityContextView): string[] {
   const lines: string[] = [];
   const fields: [string, string[] | undefined][] = [
     ["symbols", anchors.symbols as string[] | undefined],
+    ["files", anchors.files as string[] | undefined],
     ["apis", anchors.apis as string[] | undefined],
     ["events", anchors.events as string[] | undefined],
     ["schemas", anchors.schemas as string[] | undefined],

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Backstage-native primary code linkage for components** — Supports the `anchored-spec.dev/code-location` annotation on `kind: Component`, uses it during reverse resolution, and emits it from `catalog bootstrap` when a primary source location can be inferred.
+- **Hybrid impact command suggestions** (`impact --with-commands`) — Produces a suggestion-oriented `commandPlan` that combines architecture impact, workflow policy, and detected workspace scripts into `commands`, `broaderCommands`, and `actionCommands` without turning Anchored Spec into an orchestrator.
+- **Policy-driven read-first narrowing** (`context --focus-path`) — Lets workflow policy declare `readFirstRules` so context assembly can require the right architecture and design docs for a code path before implementation work starts.
+- **Repository harness guidance** — Added a dedicated guide for using Anchored Spec as the architecture control plane alongside repo-local harnesses and execution workflows.
 - **Markdown prose resolver** (`discover --resolver markdown`) — Extracts structured facts from tables, TypeScript/JSON code blocks, Mermaid state diagrams, heading+list patterns, and YAML frontmatter. Supports `@ea:events`, `@ea:states`, `@ea:endpoints`, `@ea:entities`, `@ea:enums`, `@ea:schema`, `@ea:transitions` annotation hints for precise fact classification.
 - **Doc consistency drift domain** (`drift --domain docs`) — 8 new drift rules detecting value mismatches, naming inconsistencies, missing entries, extra entries, and state machine conflicts across documents. Total: 52 drift rules.
 - **Fact-to-entity reconciliation** (`drift --domain docs --include-entities`) — Compares doc facts against entity anchor declarations to detect spec/prose divergence.
@@ -54,6 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Framework positioning** — Anchored Spec is now documented as a sparse architecture control plane that feeds humans, agents, and repository-local harnesses, rather than as an end-to-end repo orchestrator.
+- **Workflow policy schemas** — `changeRequiredRules` and verification settings now support graduated command classes (`commands`, `broaderCommands`, `actionCommands`) so policy can suggest what to run without owning execution.
+- **CLI documentation and adoption guidance** — README, docs index, adoption playbook, reporting guidance, and SKILL guidance now align around the control-plane plus thin repo-harness model.
 - **`EaResolverConfig` type** — `path` is now optional (either `name` or `path` required). Added `name?: string` for built-in references.
 - **`config-v1.schema.json`** — `resolvers` items no longer require `path`; supports `name` for built-in resolvers.
 - **`ea discover` command** — 3-way dispatch: `--resolver` flag → config `resolvers[]` → all built-ins fallback.

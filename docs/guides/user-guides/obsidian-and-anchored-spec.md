@@ -63,6 +63,7 @@ When a note becomes durable:
 - write or refine linked architecture docs under `docs/`
 - record decisions under `docs/adr/`
 - record requirements under `docs/req/`
+- add a primary `anchored-spec.dev/code-location` when a component has a clear source area
 
 If the repository is still thin, start with:
 
@@ -107,6 +108,7 @@ Put this in Anchored Spec:
 
 - systems, components, APIs, resources, domains, and groups
 - accepted relationships
+- primary code locations for top-level components
 - ownership and lifecycle
 - reviewable architecture explanations
 - architecture decisions

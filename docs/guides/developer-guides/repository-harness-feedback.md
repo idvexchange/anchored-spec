@@ -2,6 +2,8 @@
 
 Field feedback from integrating Anchored Spec into a large `pnpm`/`turbo` monorepo with multiple runtime apps, shared packages, architecture docs, local-first AI agent workflows, and a deliberate bias toward low-bloat automation.
 
+Some examples below are intentionally monorepo- and Node-specific because that was the evaluated environment. The framework conclusions are broader: keep the architecture model generic and let repository-local harnesses or adapters handle environment-specific execution details.
+
 This document is intentionally practical. It focuses on what helped, what created friction, what the framework should simplify about its own intent, and which framework features would have produced the most value without erasing the repository-specific layer that still needs to exist.
 
 ## Executive Summary

@@ -11,6 +11,11 @@
       "items": { "type": "string" },
       "description": "Code symbols: class names, function names, exported constants"
     },
+    "files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Repository-relative file or directory paths linked to the entity as secondary code locations"
+    },
     "apis": {
       "type": "array",
       "items": { "type": "string" },

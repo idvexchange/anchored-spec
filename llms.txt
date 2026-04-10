@@ -13,6 +13,8 @@ This file is the machine-oriented starting point for AI agents. Read the linked 
 - Keep docs, traceability, and validation aligned with the entity graph.
 - Prefer `catalog bootstrap` for first-pass manifest creation in existing repositories.
 - Treat discovery output as draft or observed input, not silent source-of-truth replacement.
+- Prefer `anchored-spec.dev/code-location` as the primary code link for a component.
+- Treat file anchors, symbols, tests, and repository-evidence adapters as supporting context rather than primary architecture truth.
 - Use `validate`, `trace`, `drift`, `diff`, `impact`, `constraints`, `context`, and `reconcile` instead of ad-hoc repo guessing.
 
 ## Read In This Order
@@ -35,3 +37,4 @@ This file is the machine-oriented starting point for AI agents. Read the linked 
 - analyze drift between declared and observed architecture
 - produce reviewer-facing outputs such as graphs, diagrams, reports, impact analyses, constraint views, and context bundles
 - review semantic compatibility and policy impact for changes
+- hand structured `impact --with-commands` output to a thin repository-local wrapper instead of expecting the framework to own command orchestration

@@ -22,6 +22,8 @@ Anchored Spec is an entity-native architecture control plane.
 - Runtime identifiers are canonical entity refs such as `component:default/orders-service`.
 - Docs, traceability, discovery, drift, reporting, and AI context all hang off the same graph.
 - The framework owns architecture truth and stable query primitives; repositories still own last-mile task execution.
+- `anchored-spec.dev/code-location` is the preferred primary code linkage for a top-level component.
+- File anchors, symbols, tests, and repository-evidence adapter output are supporting context, not the primary architecture boundary.
 
 ## Storage modes
 
@@ -53,6 +55,7 @@ Agent expectations:
 - preserve `anchored-spec.dev/*` annotations
 - prefer Backstage-native fields such as `owner`, `dependsOn`, `providesApis`, `consumesApis`, `system`, and `domain`
 - treat derived `relations` output as analysis, not hand-maintained primary source
+- prefer one primary `anchored-spec.dev/code-location` before adding lower-level file evidence
 
 ## Kind selection
 
@@ -143,6 +146,8 @@ npx anchored-spec impact --from-diff HEAD~1 --with-commands --format markdown
 npx anchored-spec constraints --from-diff HEAD~1 --format markdown
 ```
 
+When `--with-commands` is used, treat the result as a handoff into repository-local workflow logic. Prefer the structured `architectureImpact`, `repositoryImpact`, and `suggestions` fields over assuming the framework should own final command orchestration.
+
 ### When assembling context
 
 Use trace and context workflows:
@@ -170,6 +175,7 @@ Agents should write docs that reflect the current shipped framework.
 - keep examples aligned with the actual CLI surface
 - prefer short GitHub-friendly sections with clear next actions
 - link docs back to canonical entity refs
+- make the architecture-control-plane versus repository-harness split explicit when relevant
 
 ## Anti-patterns
 

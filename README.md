@@ -13,6 +13,7 @@ Its best operating shape is deliberately narrow:
 - Anchored Spec owns architecture truth, queryability, and declared-vs-observed pressure.
 - The CLI is the normal interface to that control plane for humans and agents.
 - Repositories still own last-mile task execution, focused verification, and workflow ergonomics.
+- `anchored-spec.dev/code-location` is the preferred code linkage for a component; richer file, symbol, and test evidence remains secondary.
 
 This repository is the canonical manifest-mode example: a root `catalog-info.yaml`, linked markdown under `docs/`, and a CLI that keeps the model reviewable from pull request to pull request.
 
@@ -43,7 +44,7 @@ Anchored Spec takes a different position:
 - Detect drift between declared architecture and observed repository reality.
 - Generate a narrow set of derived outputs, currently OpenAPI and JSON Schema.
 - Build graphs, semantic diagrams, reports, impact analyses, constraint views, and AI context bundles.
-- Compile impact into suggestion-oriented command plans without turning the framework into a full workflow orchestrator.
+- Compile impact into structured, suggestion-oriented command plans, with optional repository-evidence adapters rendering repo-local targets and commands without turning the framework into a full workflow orchestrator.
 - Review changes semantically with compatibility and policy checks instead of relying on text diffs alone.
 
 ## Start Here
@@ -101,6 +102,14 @@ npx anchored-spec impact component:default/orders-service --with-commands --form
 ```
 
 Treat the command suggestions from `impact --with-commands` as a thin handoff into repository-native scripts, not as the final owner of your command plan.
+
+The JSON payload now separates:
+
+- `architectureImpact` for declared entity blast radius
+- `repositoryImpact` for adapter-derived repo-local targets
+- `suggestions` for intent-first actions before repository-specific command handling
+
+Compatibility fields such as `commands`, `broaderCommands`, and `actionCommands` still exist for repository wrappers that have not migrated yet.
 
 ## The Core Model
 
@@ -300,7 +309,7 @@ pnpm run lint
 pnpm run verify
 ```
 
-See [docs/contributing.md](docs/contributing.md) for repository workflow and documentation standards.
+See [developer contributing guide](docs/guides/developer-guides/contributing.md) for repository workflow and documentation standards.
 
 ## License
 

@@ -22,7 +22,19 @@ The repository owns:
 1. Find the top-level entity with `search` or an explicit ref.
 2. Inspect direct relationships with `trace`.
 3. Expand blast radius with `impact --with-commands`.
-4. Let the repository wrapper decide what to run next.
+4. Inspect structured suggestions and any adapter-derived repository targets.
+5. Let the repository wrapper decide what to run next.
+
+## Human and AI usage
+
+Humans and agents should use the same control plane:
+
+- route to a top-level entity with `search`
+- inspect direct dependencies and dependents with `trace`
+- load focused docs with `context`
+- hand suggested commands to a repo-local wrapper
+
+That shared loop keeps architecture review, AI assistance, and local execution aligned on the same model.
 
 Typical exploration flow:
 
@@ -44,6 +56,9 @@ set -euo pipefail
 target="${1:?entity ref required}"
 plan_json="$(npx anchored-spec impact "$target" --with-commands --format json)"
 
+echo "$plan_json" | jq -r '.commandPlan.architectureImpact.impactedEntityRefs[]?'
+echo "$plan_json" | jq -r '.commandPlan.repositoryImpact.targets[]? | "\(.adapterId): \(.name) \(.path)"'
+echo "$plan_json" | jq -r '.commandPlan.suggestions[]? | "\(.tier) \(.kind) \(.command)"'
 echo "$plan_json" | jq -r '.commandPlan.commands[]?'
 echo "$plan_json" | jq -r '.commandPlan.broaderCommands[]?'
 echo "$plan_json" | jq -r '.commandPlan.actionCommands[]?'
@@ -51,10 +66,15 @@ echo "$plan_json" | jq -r '.commandPlan.actionCommands[]?'
 
 That wrapper can then:
 
+- use `suggestions` as the stable intent-level interface
 - drop commands that are too broad for the current task
 - prefer focused `typecheck` commands over tests by default
 - require human approval before running `actionCommands`
 - compare results to local baselines
+
+If the repository uses a package manager, build tool, or internal execution system, keep that rendering logic in the repository layer or a repository-evidence adapter rather than in the architecture model itself.
+
+If the repository needs to route from a component into code, start from the component's `anchored-spec.dev/code-location`. Treat extra file anchors, symbols, and tests as secondary evidence for narrowing or enrichment.
 
 `context --focus-path` is optional. Use it when the repository keeps policy-based read-first rules that narrow which supporting docs matter for a particular changed path.
 
@@ -65,3 +85,21 @@ That wrapper can then:
 - Treat discovery as optional pressure, not as the source of truth.
 - Keep mutating actions separate from focused verification.
 - Do not duplicate top-level structural relationships in local policy files.
+
+## Do and do not
+
+Do:
+
+- keep the entity graph sparse and reviewable
+- use the CLI as the default fresh-context interface
+- let repositories own the exact execution plan
+- reserve repo-local hints for operational or non-structural adjacency
+- prefer one primary code location per top-level component
+
+Do not:
+
+- treat Anchored Spec as the full task router
+- treat tree-sitter as the primary control plane
+- encode every low-level dependency in the catalog
+- mix mutating follow-up actions into default verification
+- let secondary file evidence replace explicit component boundaries

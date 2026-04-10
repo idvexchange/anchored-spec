@@ -25,4 +25,5 @@ pnpm run lint
 - keep docs aligned with shipped behavior
 - add tests when semantic behavior changes
 - preserve the framework's local-first design
+- preserve the architecture-control-plane versus repository-harness split
 - do not document features that do not exist in code

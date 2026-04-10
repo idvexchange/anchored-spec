@@ -133,6 +133,7 @@ describe("resolveConfigV1", () => {
     expect(config.catalog.bootstrap?.profile).toBe("auto");
     expect(config.catalog.bootstrap?.outputMode).toBe("curated");
     expect(config.catalog.bootstrap?.defaults?.ownerUnitType).toBe("team");
+    expect(config.repositoryEvidence?.adapters).toEqual([{ name: "node-workspaces", enabled: true }]);
   });
 
   it("infers v1.2 when catalog config is present and merges bootstrap overrides", () => {
@@ -157,5 +158,23 @@ describe("resolveConfigV1", () => {
     expect(config.catalog.bootstrap?.include?.decisions).toBe(false);
     expect(config.catalog.bootstrap?.include?.components).toBe(true);
     expect(config.catalog.bootstrap?.naming?.stripSuffixes).toEqual(["-service"]);
+  });
+
+  it("preserves explicit repository-evidence adapter configuration in v1.2", () => {
+    const config = resolveConfigV1({
+      schemaVersion: "1.2",
+      repositoryEvidence: {
+        adapters: [
+          { name: "node-workspaces", enabled: false },
+          { path: "tools/custom-adapter.mjs", options: { mode: "generic" } },
+        ],
+      },
+    });
+
+    expect(config.schemaVersion).toBe("1.2");
+    expect(config.repositoryEvidence?.adapters).toEqual([
+      { name: "node-workspaces", enabled: false },
+      { path: "tools/custom-adapter.mjs", options: { mode: "generic" } },
+    ]);
   });
 });

@@ -24,6 +24,7 @@ Catalog bootstrap fits the bottom-up and mixed paths. It gives you a curated man
 
 - both existing reality and intended target design matter
 - you want discovery to bootstrap but not define the final model
+- you want explicit component boundaries and code locations, with repository-specific expansion left to adapters or local wrappers
 
 ## Recommended default
 

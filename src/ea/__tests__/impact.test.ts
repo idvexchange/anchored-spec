@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { analyzeImpact, renderImpactReportMarkdown } from "../impact.js";
 import { buildRelationGraph } from "../graph.js";
 import { createDefaultRegistry } from "../relation-registry.js";
+import { buildSuggestedCommandPlan } from "../command-suggestions.js";
+import type { RepositoryEvidenceAdapter } from "../repository-evidence.js";
+import { loadRepositoryEvidenceAdapters } from "../repository-evidence-loader.js";
+import { resolveConfigV1 } from "../config.js";
 import {
   cleanupTestWorkspace,
   createTestWorkspace,
@@ -201,6 +205,87 @@ describe("impact analysis", () => {
     expect(report.totalImpacted).toBe(0);
     expect(report.byCategory).toEqual([]);
   });
+
+  it("supports repository-evidence adapters without assuming Node workspaces", () => {
+    const entities = [
+      makeEntity({
+        ref: "component:auth",
+        kind: "Component",
+        type: "service",
+        title: "Auth Service",
+        annotations: {
+          "anchored-spec.dev/code-location": "services/auth/src/",
+        },
+      }),
+      makeEntity({
+        ref: "component:payments",
+        kind: "Component",
+        type: "website",
+        title: "Payments App",
+        uses: ["component:auth"],
+        anchors: {
+          files: ["services/payments/src/"],
+        },
+      }),
+    ];
+    const graph = buildRelationGraph(entities, createDefaultRegistry());
+    const report = analyzeImpact(graph, "component:auth");
+    const adapter: RepositoryEvidenceAdapter = {
+      id: "generic-test-adapter",
+      discoverTargets() {
+        return [
+          {
+            id: "payments-service",
+            name: "payments-service",
+            path: "services/payments",
+            kind: "service-unit",
+          },
+        ];
+      },
+      suggestCommands(target) {
+        return [
+          { command: `check-target ${target.id}`, tier: "commands", kind: "custom" },
+        ];
+      },
+    };
+
+    const plan = buildSuggestedCommandPlan(report, entities, "/tmp/project", null, {
+      adapters: [adapter],
+    });
+
+    expect(plan.architectureImpact).toEqual({
+      sourceRef: "component:auth",
+      impactedEntityRefs: ["component:default/payments"],
+    });
+    expect(plan.repositoryImpact.adapterIds).toEqual(["generic-test-adapter"]);
+    expect(plan.impactedTargets).toEqual([
+      {
+        adapterId: "generic-test-adapter",
+        id: "payments-service",
+        name: "payments-service",
+        path: "services/payments",
+        dir: "services/payments",
+        kind: "service-unit",
+        entityRefs: ["component:default/payments"],
+      },
+    ]);
+    expect(plan.suggestions).toEqual([
+      {
+        id: "repository-evidence::generic-test-adapter::payments-service::commands::check-target payments-service",
+        tier: "commands",
+        kind: "custom",
+        command: "check-target payments-service",
+        source: "repository-evidence",
+        sourceId: "generic-test-adapter",
+        reason: 'repository target "payments-service" inferred from services/payments/src for component:default/payments via generic-test-adapter',
+        targetId: "payments-service",
+        targetName: "payments-service",
+        targetKind: "service-unit",
+        targetPath: "services/payments",
+      },
+    ]);
+    expect(plan.commands).toContain("check-target payments-service");
+  });
 });
 
 describe("impact CLI", () => {
@@ -305,5 +390,169 @@ lifecycleRules:
     expect(payload.commandPlan?.commands).toContain("pnpm validate");
     expect(payload.commandPlan?.broaderCommands).toContain("pnpm --filter @acme/payments run test");
     expect(payload.commandPlan?.actionCommands).toContain("pnpm --filter @acme/payments run db:generate");
+  });
+
+  it("uses anchors.files as a secondary workspace hint for command suggestions", () => {
+    const dir = makeWorkspace("impact-cli-anchor-files");
+    writeManifestProject(dir, [
+      makeEntity({
+        ref: "component:auth",
+        kind: "Component",
+        type: "library",
+        title: "Auth Package",
+        annotations: {
+          "anchored-spec.dev/code-location": "packages/auth/src/",
+        },
+      }),
+      makeEntity({
+        ref: "component:payments",
+        kind: "Component",
+        type: "website",
+        title: "Payments App",
+        uses: ["component:auth"],
+        anchors: {
+          files: ["apps/payments/src/"],
+        },
+      }),
+    ]);
+
+    writeTextFile(dir, "package.json", JSON.stringify({
+      name: "repo-root",
+      private: true,
+      workspaces: ["apps/*", "packages/*"],
+    }, null, 2));
+
+    writeTextFile(dir, "apps/payments/package.json", JSON.stringify({
+      name: "@acme/payments",
+      scripts: {
+        typecheck: "tsc --noEmit",
+      },
+    }, null, 2));
+    writeTextFile(dir, "apps/payments/src/index.ts", "export const payments = true;\n");
+
+    writeTextFile(dir, "packages/auth/package.json", JSON.stringify({
+      name: "@acme/auth",
+      scripts: {
+        typecheck: "tsc --noEmit",
+      },
+    }, null, 2));
+    writeTextFile(dir, "packages/auth/src/index.ts", "export const auth = true;\n");
+
+    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
+  - id: feature
+    name: "Feature"
+    defaultTypes: [feature]
+    requiredSchemas: [change]
+changeRequiredRules:
+  - id: app-source
+    include: ["apps/**"]
+    commands: ["pnpm validate"]
+trivialExemptions: ["**/*.md"]
+lifecycleRules:
+  plannedToActiveRequiresChange: true
+`);
+
+    const result = runCli(["impact", "component:auth", "--format", "json", "--with-commands"], dir);
+    expect(result.exitCode).toBe(0);
+
+    const payload = JSON.parse(result.stdout) as {
+      commandPlan?: {
+        commands: string[];
+        impactedWorkspaces: Array<{ name: string }>;
+      };
+    };
+
+    expect(payload.commandPlan).toBeDefined();
+    expect(payload.commandPlan?.impactedWorkspaces.some((workspace) => workspace.name === "@acme/payments")).toBe(true);
+    expect(payload.commandPlan?.commands).toContain("pnpm --filter @acme/payments run typecheck");
+    expect(payload.commandPlan?.commands).toContain("pnpm validate");
+  });
+
+  it("loads a custom repository-evidence adapter from config and keeps node assumptions out of core types", async () => {
+    const dir = makeWorkspace("impact-cli-custom-adapter");
+    const entities = [
+      makeEntity({
+        ref: "component:auth",
+        kind: "Component",
+        type: "service",
+        title: "Auth Service",
+        annotations: {
+          "anchored-spec.dev/code-location": "services/auth/src/",
+        },
+      }),
+      makeEntity({
+        ref: "component:payments",
+        kind: "Component",
+        type: "website",
+        title: "Payments App",
+        uses: ["component:auth"],
+        anchors: {
+          files: ["services/payments/src/"],
+        },
+      }),
+    ];
+    writeManifestProject(dir, entities, {
+      schemaVersion: "1.2",
+      repositoryEvidence: {
+        adapters: [
+          { path: "tools/repository-evidence/custom-adapter.mjs" },
+        ],
+      },
+    });
+
+    writeTextFile(dir, "services/auth/src/index.ts", "export const auth = true;\n");
+    writeTextFile(dir, "services/payments/src/index.ts", "export const payments = true;\n");
+    writeTextFile(dir, "tools/repository-evidence/custom-adapter.mjs", `export function createRepositoryEvidenceAdapter() {
+  return {
+    id: "service-units",
+    discoverTargets() {
+      return [{ id: "payments-service", name: "payments-service", path: "services/payments", kind: "service-unit" }];
+    },
+    suggestCommands(target) {
+      return [{ kind: "verify", tier: "commands", command: "verify-service " + target.id, targetId: target.id }];
+    },
+  };
+}
+`);
+
+    const config = resolveConfigV1({
+      schemaVersion: "1.2",
+      repositoryEvidence: {
+        adapters: [
+          { path: "tools/repository-evidence/custom-adapter.mjs" },
+        ],
+      },
+    });
+    const adapters = await loadRepositoryEvidenceAdapters(config, dir);
+    const graph = buildRelationGraph(entities, createDefaultRegistry());
+    const report = analyzeImpact(graph, "component:auth");
+    const plan = buildSuggestedCommandPlan(report, entities, dir, null, { adapters });
+
+    expect(plan.repositoryImpact.adapterIds).toEqual(["service-units"]);
+    expect(plan.repositoryImpact.targets).toEqual([
+      {
+        adapterId: "service-units",
+        id: "payments-service",
+        name: "payments-service",
+        path: "services/payments",
+        dir: "services/payments",
+        kind: "service-unit",
+        entityRefs: ["component:default/payments"],
+      },
+    ]);
+    expect(plan.commands).toContain("verify-service payments-service");
+    expect(plan.suggestions).toContainEqual({
+      id: "repository-evidence::service-units::payments-service::commands::verify-service payments-service",
+      tier: "commands",
+      sourceId: "service-units",
+      kind: "verify",
+      source: "repository-evidence",
+      command: "verify-service payments-service",
+      reason: 'repository target "payments-service" inferred from services/payments/src for component:default/payments via service-units',
+      targetId: "payments-service",
+      targetName: "payments-service",
+      targetKind: "service-unit",
+      targetPath: "services/payments",
+    });
   });
 });

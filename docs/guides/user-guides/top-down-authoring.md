@@ -16,7 +16,7 @@ npx anchored-spec validate
 
 1. create domain and system boundaries
 2. create runtime components, APIs, and resources
-3. add relationships
+3. add relationships and primary `anchored-spec.dev/code-location` annotations where useful
 4. validate
 5. add reports or semantic review workflows as the model becomes useful
 

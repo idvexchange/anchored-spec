@@ -23,6 +23,27 @@ pnpm run lint
 - lint
 - built CLI dogfooding
 
+## Boundary for adopters
+
+This repository's CI validates the Anchored Spec framework itself.
+
+Consumer repositories should usually wire Anchored Spec into CI as a control-plane layer, for example:
+
+- `validate` for schema and relation correctness
+- `trace --check` when trace integrity matters
+- `drift` where declared-versus-observed consistency matters
+- `diff --compat --policy` for sensitive architectural changes
+- `impact --with-commands --format json` when a repository wrapper wants structured `architectureImpact`, `repositoryImpact`, and `suggestions`
+
+The repository should still own:
+
+- exact task scoping
+- exact command execution
+- focused versus broader verification
+- mutating follow-up actions
+
+If a repository wants richer repo-local impact expansion in CI, prefer a repository-evidence adapter or wrapper-owned rendering logic over hardcoding those assumptions into the architecture model.
+
 ## When changing behavior
 
 - update tests first or alongside the change

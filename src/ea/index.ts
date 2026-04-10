@@ -42,6 +42,7 @@ export type {
   EaHookEvent,
   EaHookDefinition,
   EaTestMetadataConfig,
+  AnchoredSpecRepositoryEvidenceConfig,
 } from "./config.js";
 
 export {
@@ -724,7 +725,29 @@ export {
 
 // Command Suggestions
 export type {
+  RepositoryTarget,
+  RepositoryCommandSuggestion,
+  RepositoryCommandSuggestionKind,
+  RepositoryCommandSuggestionTier,
+  RepositoryEvidenceAdapterConfig,
+  RepositoryEvidenceAdapterFactory,
+  RepositoryEvidenceAdapterFactoryContext,
+  RepositoryEvidenceAdapter,
+} from "./repository-evidence.js";
+export {
+  NodeWorkspaceEvidenceAdapter,
+} from "./repository-evidence-node.js";
+export {
+  loadRepositoryEvidenceAdapters,
+  getRepositoryEvidenceAdapterConfigs,
+} from "./repository-evidence-loader.js";
+
+export type {
   SuggestedCommandPlan,
+  SuggestedAction,
+  SuggestedArchitectureImpact,
+  SuggestedRepositoryImpact,
+  SuggestedTarget,
   SuggestedWorkspace,
 } from "./command-suggestions.js";
 export {

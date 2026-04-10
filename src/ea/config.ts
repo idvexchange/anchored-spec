@@ -7,6 +7,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { EA_DOMAINS, type BuiltInEaDomain } from "./types.js";
+import type { RepositoryEvidenceAdapterConfig } from "./repository-evidence.js";
 
 // ─── Shared Sub-Config Types ────────────────────────────────────────────────────
 
@@ -199,6 +200,10 @@ export interface AnchoredSpecCatalogConfig {
   bootstrap?: CatalogBootstrapConfig;
 }
 
+export interface AnchoredSpecRepositoryEvidenceConfig {
+  adapters?: RepositoryEvidenceAdapterConfig[];
+}
+
 interface AnchoredSpecConfigBase {
   /** Root directory for EA docs and outputs. Default: "docs". */
   rootDir: string;
@@ -326,6 +331,9 @@ export interface AnchoredSpecConfigV1_2 extends AnchoredSpecConfigBase {
 
   /** Catalog synthesis configuration. */
   catalog: AnchoredSpecCatalogConfig;
+
+  /** Optional repository-evidence adapters for repo-local target and command enrichment. */
+  repositoryEvidence?: AnchoredSpecRepositoryEvidenceConfig;
 }
 
 /**
@@ -707,6 +715,9 @@ function buildV12Defaults(
     catalog: {
       bootstrap: buildCatalogBootstrapDefaults(manifestPath),
     },
+    repositoryEvidence: {
+      adapters: [{ name: "node-workspaces", enabled: true }],
+    },
     resolvers: [],
     generators: [],
     evidenceSources: [],
@@ -783,6 +794,9 @@ export function resolveConfigV1(
           typedPartial.catalog?.bootstrap,
           manifestPath,
         ),
+      },
+      repositoryEvidence: {
+        adapters: typedPartial.repositoryEvidence?.adapters ?? defaults.repositoryEvidence?.adapters ?? [],
       },
       resolvers: typedPartial.resolvers ?? defaults.resolvers,
       generators: typedPartial.generators ?? defaults.generators,

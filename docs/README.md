@@ -8,8 +8,11 @@ Anchored Spec is a local-first architecture control plane for repositories. It g
 
 - a typed architecture model based on Backstage-style entities
 - a CLI-first query and review surface for authoring, validation, discovery, drift, reporting, and governance
+- optional repository-evidence adapters that enrich repo-local targets and command suggestions without redefining architecture truth
 - a Node API that exposes the same runtime used by the CLI
 - a documentation and review workflow that stays in version control
+
+In that model, a component's primary repository linkage should usually be `anchored-spec.dev/code-location`. Lower-level file, symbol, or test evidence can still exist, but it should support the architecture model rather than replace it.
 
 The framework is implemented primarily in:
 
@@ -29,6 +32,7 @@ If you are new to the framework, read in this order:
 4. [03-container/container-architecture.md](03-container/container-architecture.md)
 5. [05-domain/domain-model.md](05-domain/domain-model.md)
 6. [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
+7. [guides/user-guides/repository-harness-pattern.md](guides/user-guides/repository-harness-pattern.md)
 
 ## Navigation Index
 
@@ -70,6 +74,7 @@ If you are new to the framework, read in this order:
 - [adr/ADR-004-repository-local-workflow.md](adr/ADR-004-repository-local-workflow.md)
 - [adr/ADR-005-flexible-document-structure.md](adr/ADR-005-flexible-document-structure.md)
 - [adr/ADR-006-catalog-bootstrap-and-synthesis.md](adr/ADR-006-catalog-bootstrap-and-synthesis.md)
+- [adr/ADR-007-control-plane-and-repository-harness-boundary.md](adr/ADR-007-control-plane-and-repository-harness-boundary.md)
 
 ### Requirements
 
@@ -112,3 +117,12 @@ It is not trying to be:
 - a documentation wiki with no typed source of truth
 
 The rest of the docs explain how that position maps to the current implementation.
+
+The default daily-use loop should usually be:
+
+1. find the top-level entity with `search`
+2. inspect direct relationships with `trace`
+3. assemble focused review context with `context`
+4. surface blast radius with `impact --with-commands`
+5. inspect `architectureImpact`, `repositoryImpact`, and `suggestions`
+6. let a repository-local wrapper decide which commands to run

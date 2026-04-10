@@ -14,6 +14,7 @@ import {
   buildRelationGraph,
   buildSuggestedCommandPlan,
   loadProjectConfig,
+  loadRepositoryEvidenceAdapters,
   getConfiguredDocScanDirs,
   analyzeImpact,
   renderImpactReportMarkdown,
@@ -43,7 +44,7 @@ export function eaImpactCommand(): Command {
     .option("--max-results <n>", "Maximum number of results to return")
     .option("--view <mode>", "View mode: summary, code, contracts, docs, constraints, graph, llm, domain, commands", "summary")
     .option("--explain", "Show detailed rationale for each impacted entity")
-    .option("--with-commands", "Attach suggestion-oriented command planning from workflow policy and workspace scripts")
+    .option("--with-commands", "Attach suggestion-oriented command planning from workflow policy and optional repository-evidence adapters")
     .option("--fail-on-impact", "Exit with code 1 if any impacted entities found (CI gate)")
     .action(async (entityInput: string | undefined, options) => {
       const cwd = process.cwd();
@@ -216,8 +217,13 @@ export function eaImpactCommand(): Command {
       }
 
       const report = mergedReport;
+      const repositoryEvidenceAdapters = options.withCommands
+        ? await loadRepositoryEvidenceAdapters(eaConfig, cwd)
+        : [];
       const commandPlan = options.withCommands
-        ? buildSuggestedCommandPlan(report, entities, cwd, root.loadPolicy())
+        ? buildSuggestedCommandPlan(report, entities, cwd, root.loadPolicy(), {
+          adapters: repositoryEvidenceAdapters,
+        })
         : undefined;
 
       // Output based on view mode
@@ -300,10 +306,27 @@ function renderSuggestedCommandPlanMarkdown(plan: SuggestedCommandPlan): string 
   const lines: string[] = [];
   lines.push("## Suggested Command Plan");
   lines.push("");
-  if (plan.impactedWorkspaces.length > 0) {
-    lines.push("Impacted workspaces:");
-    for (const workspace of plan.impactedWorkspaces) {
-      lines.push(`- ${workspace.name} (${workspace.dir})`);
+  if (plan.architectureImpact.impactedEntityRefs.length > 0) {
+    lines.push("Architecture impact:");
+    for (const ref of plan.architectureImpact.impactedEntityRefs) {
+      lines.push(`- ${ref}`);
+    }
+    lines.push("");
+  }
+
+  if (plan.repositoryImpact.targets.length > 0) {
+    lines.push("Impacted repository targets:");
+    for (const target of plan.repositoryImpact.targets) {
+      lines.push(`- ${target.name} (${target.path}) via ${target.adapterId}`);
+    }
+    lines.push("");
+  }
+
+  if (plan.suggestions.length > 0) {
+    lines.push("Structured suggestions:");
+    for (const suggestion of plan.suggestions) {
+      const target = suggestion.targetName ? ` → ${suggestion.targetName}` : "";
+      lines.push(`- ${suggestion.tier}/${suggestion.kind}${target}: \`${suggestion.command}\``);
     }
     lines.push("");
   }
