@@ -93,9 +93,10 @@ describe("EaRoot", () => {
 
   it("loads workflow policy and transition verifications from configured directories", () => {
     mkdirSync(join(tempDir, "docs", "transitions", "change-1"), { recursive: true });
+    mkdirSync(join(tempDir, ".anchored-spec"), { recursive: true });
     writeFileSync(
-      join(tempDir, "docs", "workflow-policy.yaml"),
-      "workflowVariants:\n  - id: default\n",
+      join(tempDir, ".anchored-spec", "policy.json"),
+      JSON.stringify({ workflowVariants: [{ id: "default" }] }, null, 2),
     );
     writeFileSync(
       join(tempDir, "docs", "transitions", "change-1", "verification.yaml"),

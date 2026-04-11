@@ -57,9 +57,9 @@ When a component needs to point into implementation, the preferred architecture-
 ## Implementation References
 
 - `README.md`
-- `docs/current-vs-target.md`
-- `docs/guides/user-guides/repository-harness-pattern.md`
-- `docs/guides/developer-guides/repository-harness-feedback.md`
+- `docs/workflows/repository-harness.md`
+- `docs/workflows/review-and-analysis.md`
+- `docs/maintainers/scaffold-strategy.md`
 - `.anchored-spec/policy.json`
 - `src/cli/commands/ea-impact.ts`
 - `src/cli/commands/ea-context.ts`

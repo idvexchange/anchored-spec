@@ -4,7 +4,7 @@
  * Resolves API anchors against OpenAPI 3.0/3.1 spec files (YAML/JSON),
  * collects observed endpoint state, and discovers api-contract entities.
  *
- * Design reference: docs/guides/user-guides/bottom-up-discovery.md (OpenAPI Resolver)
+ * Design reference: docs/workflows/model-the-repo.md (OpenAPI Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";

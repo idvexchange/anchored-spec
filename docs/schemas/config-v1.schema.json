@@ -294,7 +294,7 @@
     },
     "workflowPolicyPath": {
       "type": "string",
-      "default": "ea/workflow-policy.yaml",
+      "default": ".anchored-spec/policy.json",
       "description": "Path to workflow policy file."
     },
     "customChangeTypes": {

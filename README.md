@@ -81,6 +81,8 @@ pnpm add -D anchored-spec
 npx anchored-spec init --mode manifest
 ```
 
+If you want a neutral reference shape to edit rather than a blank manifest, add `--with-examples`. That scaffold stays sparse: one owner, one domain, one system, one component, one API, and linked docs.
+
 ### Create the first model slice
 
 If the architecture is already clear, create entities directly:
@@ -256,6 +258,10 @@ Anchored Spec should usually not be:
 │   └── config.json
 ├── catalog-info.yaml
 ├── docs/
+│   ├── start/
+│   ├── workflows/
+│   ├── maintainers/
+│   ├── archive/
 │   ├── 01-business/
 │   ├── 02-system-context/
 │   ├── 03-container/
@@ -266,15 +272,7 @@ Anchored Spec should usually not be:
 │   ├── 08-security/
 │   ├── 09-infrastructure/
 │   ├── 10-testing/
-│   ├── adr/
-│   ├── guides/
-│   │   └── user-guides/
-│   │       ├── SKILL.md
-│   │       ├── llms.txt
-│   │       └── llms-full.txt
-│   ├── req/
 │   ├── README.md
-│   ├── delivery-baseline.md
 │   └── glossary.md
 ├── src/
 │   ├── cli/
@@ -284,31 +282,28 @@ Anchored Spec should usually not be:
 └── package.json
 ```
 
-In this repository, `docs/` is an architecture-first documentation set organized around numbered views, root framing documents, ADRs, requirements, and separate user/developer guides. The implementation lives primarily under `src/cli/` and `src/ea/`, with supporting resolver helpers under `src/resolvers/`.
+In this repository, `docs/` is an architecture-first documentation set organized into `start/`, `workflows/`, `maintainers/`, `archive/`, and the numbered architecture reference views. The implementation lives primarily under `src/cli/` and `src/ea/`, with supporting resolver helpers under `src/resolvers/`.
 
 ## Documentation
 
 Start with the docs portal:
 
 - [Documentation portal](docs/README.md)
-- [LLM guide](docs/guides/user-guides/llms.txt)
-- [Delivery baseline](docs/delivery-baseline.md)
+- [Adoption overview](docs/start/adoption-overview.md)
+- [Choose your path](docs/start/choose-your-path.md)
 - [Business architecture](docs/01-business/business-architecture.md)
 - [System context](docs/02-system-context/system-context.md)
 - [Domain model](docs/05-domain/domain-model.md)
-- [User getting started guide](docs/guides/user-guides/getting-started.md)
-- [Catalog bootstrap guide](docs/guides/user-guides/catalog-bootstrap.md)
-- [Repository harness pattern](docs/guides/user-guides/repository-harness-pattern.md)
-- [Developer testing and CI guide](docs/guides/developer-guides/testing-and-ci.md)
-- [Repository harness feedback](docs/guides/developer-guides/repository-harness-feedback.md)
+- [Model the repo](docs/workflows/model-the-repo.md)
+- [Review and analysis](docs/workflows/review-and-analysis.md)
+- [Repository harness](docs/workflows/repository-harness.md)
+- [Maintainer architecture](docs/maintainers/architecture.md)
 
 ## AI Agent Workflow
 
-Anchored Spec ships with both a machine-oriented docs index and a repository skill:
+Anchored Spec ships a single canonical agent workflow guide:
 
-- [llms.txt](docs/guides/user-guides/llms.txt)
-- [llms-full.txt](docs/guides/user-guides/llms-full.txt)
-- [SKILL.md](docs/guides/user-guides/SKILL.md)
+- [Agent guide](docs/workflows/agent-guide.md)
 
 Useful prompts:
 
@@ -332,7 +327,7 @@ pnpm run lint
 pnpm run verify
 ```
 
-See [developer contributing guide](docs/guides/developer-guides/contributing.md) for repository workflow and documentation standards.
+See [maintainer contributing guide](docs/maintainers/contributing.md) for repository workflow and documentation standards.
 
 ## License
 

@@ -4,6 +4,8 @@ metadata:
   name: anchored-spec-maintainers
   title: Anchored Spec Maintainers
   description: Team accountable for the Anchored Spec framework and its repository-local workflow guidance.
+  annotations:
+    anchored-spec.dev/source: docs/01-business/anchored-spec-maintainers.md
   tags:
     - team
     - architecture
@@ -100,7 +102,7 @@ metadata:
   title: Anchored Spec Repository Harness
   description: Thin repo-local task routing and verification layer that keeps machine-readable policy in `.anchored-spec` and execution helpers in `scripts/`.
   annotations:
-    anchored-spec.dev/source: docs/guides/developer-guides/agent-harness.md
+    anchored-spec.dev/source: docs/workflows/repository-harness.md
     anchored-spec.dev/code-location: scripts/
   tags:
     - harness

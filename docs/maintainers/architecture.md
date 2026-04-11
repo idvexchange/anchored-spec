@@ -1,4 +1,4 @@
-# Framework Internals
+# Maintainer Architecture
 
 This guide is for contributors who need the implementation map behind the public CLI and Node API surfaces.
 
@@ -13,12 +13,14 @@ This guide is for contributors who need the implementation map behind the public
 - `src/ea/policy.ts`, `src/ea/version-policy.ts`, `src/ea/evidence.ts`, and `src/ea/reconcile.ts` for governance
 - `src/cli/commands/` for user-facing orchestration
 
-## Key design rule
+## Design rules
 
-The framework keeps most domain logic in `src/ea/` and treats the CLI as a thin operational shell.
+- keep domain logic in `src/ea/` and keep the CLI thin
+- keep architecture truth generic across repositories
+- keep repository-specific execution knowledge adapter-driven and optional
+- do not make package-manager or language assumptions part of core architecture truth
+- keep the framework sparse, queryable, and reusable while repositories own last-mile execution
 
-Repository-specific execution knowledge should stay adapter-driven and optional. Core architecture truth should not depend on package-manager or language-specific assumptions.
-
-## Key design consequence
+## Key consequence
 
 If you are fixing behavior rather than changing output wording or file orchestration, the real change probably belongs in the EA runtime rather than the command layer.

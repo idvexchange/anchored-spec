@@ -10,7 +10,7 @@ describe("resolveConfigV1", () => {
     expect(config.schemaVersion).toBe("1.0");
     expect(config.rootDir).toBe("docs");
     expect(config.generatedDir).toBe("docs/generated");
-    expect(config.workflowPolicyPath).toBe("docs/workflow-policy.yaml");
+    expect(config.workflowPolicyPath).toBe(".anchored-spec/policy.json");
     expect(config.entityMode).toBe("manifest");
     expect(config.manifestPath).toBe("catalog-info.yaml");
     expect(config.inlineDocDirs).toBeUndefined();
@@ -23,7 +23,7 @@ describe("resolveConfigV1", () => {
     expect(config.domains.systems).toBe("architecture/systems");
     expect(config.domains.transitions).toBe("architecture/transitions");
     expect(config.generatedDir).toBe("architecture/generated");
-    expect(config.workflowPolicyPath).toBe("architecture/workflow-policy.yaml");
+    expect(config.workflowPolicyPath).toBe(".anchored-spec/policy.json");
   });
 
   it("shallow merges nested config while preserving defaults", () => {
@@ -114,7 +114,7 @@ describe("resolveConfigV1", () => {
       },
     ]);
     expect(config.docs.templates.guide).toBe("guides");
-    expect(config.workflowPolicyPath).toBe("architecture/workflow-policy.yaml");
+    expect(config.workflowPolicyPath).toBe(".anchored-spec/policy.json");
   });
 
   it("returns v1.2 defaults with catalog bootstrap configuration", () => {

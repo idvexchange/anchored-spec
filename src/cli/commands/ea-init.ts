@@ -34,7 +34,7 @@ export function eaInitCommand(): Command {
       "Docs structure profile: legacy-domain, architecture-views (default), custom",
       "architecture-views",
     )
-    .option("--with-examples", "Create starter Backstage entities")
+    .option("--with-examples", "Create a sparse example model with linked docs")
     .option("--with-policy", "Create a starter workflow policy file")
     .option("--force", "Overwrite existing files")
     .option("--dry-run", "Show what would be created without writing")
@@ -242,21 +242,24 @@ export function eaInitCommand(): Command {
 
       console.log(chalk.blue(`\n✅ Project initialized with anchored-spec v${v1Config.schemaVersion}!`));
       console.log(chalk.dim("\nNext steps:"));
-      console.log(chalk.dim("  1. Create an entity:      anchored-spec create --kind Component --type website --title \"My App\""));
-      console.log(chalk.dim("  2. Validate entities:     anchored-spec validate"));
-      console.log(chalk.dim("  3. Run full verification: anchored-spec verify"));
-      console.log(chalk.dim("  4. Visualize graph:       anchored-spec graph --format mermaid"));
+      console.log(chalk.dim("  1. Inspect shapes:        anchored-spec create --list"));
+      console.log(chalk.dim("  2. If the repo already has structure:"));
+      console.log(chalk.dim("                           anchored-spec catalog bootstrap --dry-run"));
+      console.log(chalk.dim("  3. Otherwise create one: anchored-spec create --kind Component --type website --title \"My App\""));
+      console.log(chalk.dim("  4. Validate entities:    anchored-spec validate"));
+      console.log(chalk.dim("  5. Visualize graph:      anchored-spec graph --format mermaid"));
+      console.log(chalk.dim("  6. Run wider checks:     anchored-spec verify"));
       if (!options.withPolicy) {
-        console.log(chalk.dim("  5. Create policy:         anchored-spec init --with-policy"));
+        console.log(chalk.dim("  7. Create policy:        anchored-spec init --with-policy"));
       }
       if (!options.ide) {
-        console.log(chalk.dim("  6. VS Code integration:   anchored-spec init --ide"));
+        console.log(chalk.dim("  8. VS Code integration:  anchored-spec init --ide"));
       }
       if (!options.ai) {
-        console.log(chalk.dim("  7. AI assistant config:   anchored-spec init --ai all"));
+        console.log(chalk.dim("  9. AI assistant config:  anchored-spec init --ai all"));
       }
       if (!options.ci) {
-        console.log(chalk.dim("  8. CI integration:        anchored-spec init --ci"));
+        console.log(chalk.dim(" 10. CI integration:       anchored-spec init --ci"));
       }
     });
 }
@@ -338,67 +341,68 @@ function createWorkflowPolicy(
   dryRun: boolean,
   force: boolean,
 ): void {
-  const policyPath = join(cwd, config.workflowPolicyPath ?? `${config.rootDir}/workflow-policy.yaml`);
+  const relativePolicyPath = config.workflowPolicyPath ?? ".anchored-spec/policy.json";
+  const policyPath = join(cwd, relativePolicyPath);
   if (existsSync(policyPath) && !force) {
     console.log(chalk.dim("  · Workflow policy already exists"));
     return;
   }
 
-  const policyContent = `# Anchored Spec — Workflow Policy
-# Defines governance rules for entity lifecycle transitions.
-
-workflowVariants:
-  - id: feature-behavior-first
-    name: "Feature (Behavior First)"
-    defaultTypes: [feature]
-    requiredSchemas: [requirements, design-doc, implementation-plan]
-    verificationFocus: [behavioral-coverage, semantic-drift]
-
-  - id: fix-root-cause-first
-    name: "Fix (Root Cause First)"
-    defaultTypes: [fix]
-    requiredSchemas: [bugfix-spec, design-doc]
-    verificationFocus: [regression-testing, root-cause-verification]
-
-  - id: chore
-    name: "Chore (Lightweight)"
-    defaultTypes: [chore]
-    requiredSchemas: []
-    skipSkillSequence: true
-    verificationFocus: [build-passes]
-
-changeRequiredRules:
-  - id: source-change
-    description: "Source code changes require a change entity"
-    include: ["src/**"]
-    exclude: ["src/**/*.test.*", "src/**/*.spec.*"]
-    commands:
-      - "pnpm typecheck"
-    broaderCommands:
-      - "pnpm test"
-      - "pnpm lint"
-    actionCommands:
-      - "pnpm db:generate"
-
-trivialExemptions:
-  - "*.md"
-  - ".github/**"
-  - ".vscode/**"
-  - "*.config.*"
-  - ".gitignore"
-
-lifecycleRules:
-  plannedToActiveRequiresChange: true
-  activeToShippedRequiresCoverage: true
-  deprecatedRequiresReason: true
-`;
+  const policyContent = JSON.stringify(
+    {
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          requiredSchemas: ["requirements", "design-doc"],
+          verificationFocus: ["behavioral-coverage", "semantic-drift"],
+        },
+        {
+          id: "fix",
+          name: "Fix",
+          defaultTypes: ["fix"],
+          requiredSchemas: ["bugfix-spec"],
+          verificationFocus: ["regression-testing", "root-cause-verification"],
+        },
+        {
+          id: "chore",
+          name: "Chore",
+          defaultTypes: ["chore"],
+          requiredSchemas: [],
+          skipSkillSequence: true,
+          verificationFocus: ["build-passes"],
+        },
+      ],
+      changeRequiredRules: [],
+      readFirstRules: [],
+      trivialExemptions: [
+        "*.md",
+        ".github/**",
+        ".vscode/**",
+        ".gitignore",
+      ],
+      lifecycleRules: {
+        plannedToActiveRequiresChange: true,
+        activeToShippedRequiresCoverage: true,
+        deprecatedRequiresReason: true,
+      },
+      extensions: {
+        harness: {
+          commonRequestRouting: [],
+        },
+      },
+    },
+    null,
+    2,
+  ) + "\n";
 
   if (!dryRun) {
     const dir = dirname(policyPath);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     writeFileSync(policyPath, policyContent);
   }
-  console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${config.workflowPolicyPath ?? "ea/workflow-policy.yaml"}`));
+  console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${relativePolicyPath}`));
 }
 
 function addPackageScripts(cwd: string, dryRun: boolean): void {
@@ -441,55 +445,240 @@ function createBackstageExamples(
   dryRun: boolean,
 ): void {
   const mode = config.entityMode ?? "manifest";
+  const configuredSections = getConfiguredDocSections(config);
+  const findSectionPath = (id: string, fallback: string) =>
+    configuredSections.find((section) => section.id === id)?.path ?? fallback;
 
-  const componentYaml = `apiVersion: backstage.io/v1alpha1
-kind: Component
+  const manifestDocPaths = {
+    domain: `${findSectionPath("business", config.rootDir)}/example-domain.md`,
+    system: `${findSectionPath("system-context", config.rootDir)}/example-platform.md`,
+    component: `${findSectionPath("component", config.rootDir)}/example-service.md`,
+    api: `${findSectionPath("api", config.rootDir)}/example-api.md`,
+  };
+
+  const groupYaml = `apiVersion: backstage.io/v1alpha1
+kind: Group
 metadata:
-  name: example-service
-  description: >
-    A starter component. Replace this with your actual service description.
-  annotations:
-    anchored-spec.dev/confidence: "0.5"
-  tags:
-    - example
+  name: example-team
+  description: Example owning team for the starter model.
 spec:
-  type: service
-  lifecycle: experimental
-  owner: your-team
-  system: example-system
+  type: team
+  profile:
+    displayName: Example Team
+`;
+
+  const domainYaml = `apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: example-domain
+  description: Example business domain for a sparse starter model.
+  annotations:
+    anchored-spec.dev/source: ${manifestDocPaths.domain}
+spec:
+  owner: group:default/example-team
 `;
 
   const systemYaml = `apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
-  name: example-system
-  description: An example system grouping related components.
+  name: example-platform
+  description: Example system grouping one component and one API.
+  annotations:
+    anchored-spec.dev/source: ${manifestDocPaths.system}
 spec:
-  owner: your-team
+  owner: group:default/example-team
+  domain: example-domain
 `;
+
+  const componentYaml = `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: example-service
+  description: Example service component in the starter model.
+  annotations:
+    anchored-spec.dev/source: ${manifestDocPaths.component}
+  tags:
+    - example
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/example-team
+  system: example-platform
+  providesApis:
+    - api:default/example-api
+`;
+
+  const apiYaml = `apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: example-api
+  description: Example public API exposed by the starter component.
+  annotations:
+    anchored-spec.dev/source: ${manifestDocPaths.api}
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: group:default/example-team
+  system: example-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Example API
+      version: 0.1.0
+    paths: {}
+`;
+
+  const exampleDocs = [
+    {
+      path: "docs/01-business/example-domain.md",
+      content: `---
+ea-entities:
+  - domain:default/example-domain
+---
+
+# Example Domain
+
+Replace this with the business scope and language that matter for your repository.
+`,
+    },
+    {
+      path: "docs/02-system-context/example-platform.md",
+      content: `---
+ea-entities:
+  - system:default/example-platform
+---
+
+# Example Platform
+
+Describe the bounded system that groups the first useful set of components and APIs.
+`,
+    },
+    {
+      path: "docs/04-component/example-service.md",
+      content: `---
+ea-entities:
+  - component:default/example-service
+---
+
+# Example Service
+
+Document the component responsibility, key dependencies, and why it exists.
+`,
+    },
+    {
+      path: "docs/06-api/example-api.md",
+      content: `---
+ea-entities:
+  - api:default/example-api
+---
+
+# Example API
+
+Document the public contract or attach the authoritative API definition.
+`,
+    },
+  ];
 
   if (mode === "manifest") {
     const manifestPath = join(cwd, config.manifestPath ?? "catalog-info.yaml");
-    const content = `---\n${systemYaml}---\n${componentYaml}`;
+    const content = `---\n${groupYaml}---\n${domainYaml}---\n${systemYaml}---\n${componentYaml}---\n${apiYaml}`;
     if (!dryRun) writeFileSync(manifestPath, content);
     console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create example entities in ${config.manifestPath ?? "catalog-info.yaml"}`));
+    for (const doc of exampleDocs) {
+      if (!dryRun) {
+        const docPath = join(cwd, doc.path);
+        const dir = dirname(docPath);
+        if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        writeFileSync(docPath, doc.content);
+      }
+      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${doc.path}`));
+    }
   } else if (mode === "inline") {
     const relativeDocDir = (config.inlineDocDirs ?? [config.rootDir])[0] ?? config.rootDir;
     const docDir = join(cwd, relativeDocDir);
     if (!existsSync(docDir) && !dryRun) mkdirSync(docDir, { recursive: true });
 
-    const svcPath = join(docDir, "example-service.md");
-    if (!existsSync(svcPath)) {
-      const md = `---\n${componentYaml}---\n\n# Example Service\n\nTODO: Add documentation for this service.\n`;
-      if (!dryRun) writeFileSync(svcPath, md);
-      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${relativeDocDir}/example-service.md`));
-    }
+    const inlineDomainYaml = `apiVersion: backstage.io/v1alpha1
+kind: Domain
+metadata:
+  name: example-domain
+  description: Example business domain for a sparse starter model.
+spec:
+  owner: group:default/example-team
+`;
 
-    const sysPath = join(docDir, "example-system.md");
-    if (!existsSync(sysPath)) {
-      const md = `---\n${systemYaml}---\n\n# Example System\n\nTODO: Add documentation for this system.\n`;
-      if (!dryRun) writeFileSync(sysPath, md);
-      console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${relativeDocDir}/example-system.md`));
+    const inlineSystemYaml = `apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: example-platform
+  description: Example system grouping one component and one API.
+spec:
+  owner: group:default/example-team
+  domain: example-domain
+`;
+
+    const inlineComponentYaml = `apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: example-service
+  description: Example service component in the starter model.
+  tags:
+    - example
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:default/example-team
+  system: example-platform
+  providesApis:
+    - api:default/example-api
+`;
+
+    const inlineApiYaml = `apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: example-api
+  description: Example public API exposed by the starter component.
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: group:default/example-team
+  system: example-platform
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Example API
+      version: 0.1.0
+    paths: {}
+`;
+
+    const inlineDocs = [
+      {
+        path: join(docDir, "example-domain.md"),
+        relativePath: `${relativeDocDir}/example-domain.md`,
+        content: `---\n${inlineDomainYaml}---\n\n# Example Domain\n\nReplace this with the business scope and language that matter for your repository.\n`,
+      },
+      {
+        path: join(docDir, "example-system.md"),
+        relativePath: `${relativeDocDir}/example-system.md`,
+        content: `---\n${inlineSystemYaml}---\n\n# Example Platform\n\nDescribe the bounded system that groups the first useful set of components and APIs.\n`,
+      },
+      {
+        path: join(docDir, "example-service.md"),
+        relativePath: `${relativeDocDir}/example-service.md`,
+        content: `---\n${inlineComponentYaml}---\n\n# Example Service\n\nDocument the component responsibility, key dependencies, and why it exists.\n`,
+      },
+      {
+        path: join(docDir, "example-api.md"),
+        relativePath: `${relativeDocDir}/example-api.md`,
+        content: `---\n${inlineApiYaml}---\n\n# Example API\n\nDocument the public contract or attach the authoritative API definition.\n`,
+      },
+    ];
+
+    for (const doc of inlineDocs) {
+      if (!existsSync(doc.path)) {
+        if (!dryRun) writeFileSync(doc.path, doc.content);
+        console.log(chalk.green(`  ${dryRun ? "→" : "✓"} Create ${doc.relativePath}`));
+      }
     }
   }
 }

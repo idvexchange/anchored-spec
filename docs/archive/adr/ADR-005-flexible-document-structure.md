@@ -10,7 +10,7 @@ The repository documentation set now uses an architecture-first structure under 
 
 - root framing documents such as `docs/README.md` and `docs/glossary.md`
 - numbered architecture views such as `docs/01-business/` through `docs/10-testing/`
-- support areas such as `docs/adr/`, `docs/req/`, and `docs/guides/`
+- support areas such as `docs/archive/adr/`, `docs/archive/req/`, `docs/workflows/`, and `docs/maintainers/`
 
 That structure is now the repository standard, but the current Anchored Spec configuration model still treats `domains` as physical directory paths:
 
@@ -101,10 +101,8 @@ The physical documentation structure moves into a dedicated config section:
     "rootDocs": [
       "docs/README.md",
       "docs/glossary.md",
-      "docs/delivery-baseline.md",
-      "docs/mobilization.md",
-      "docs/current-vs-target.md",
-      "docs/readiness-checklist.md"
+      "docs/start/adoption-overview.md",
+      "docs/start/choose-your-path.md"
     ],
     "sections": [
       {
@@ -180,34 +178,34 @@ The physical documentation structure moves into a dedicated config section:
       {
         "id": "adr",
         "title": "Architecture Decision Records",
-        "path": "docs/adr",
+        "path": "docs/archive/adr",
         "kind": "decision-record"
       },
       {
         "id": "req",
         "title": "Requirements",
-        "path": "docs/req",
+        "path": "docs/archive/req",
         "kind": "requirement"
       },
       {
-        "id": "user-guides",
-        "title": "User Guides",
-        "path": "docs/guides/user-guides",
+        "id": "workflows",
+        "title": "Workflows",
+        "path": "docs/workflows",
         "kind": "guide"
       },
       {
-        "id": "developer-guides",
-        "title": "Developer Guides",
-        "path": "docs/guides/developer-guides",
+        "id": "maintainers",
+        "title": "Maintainers",
+        "path": "docs/maintainers",
         "kind": "guide"
       }
     ],
     "templates": {
       "spec": "api",
       "architecture": "component",
-      "guide": "user-guides",
+      "guide": "workflows",
       "adr": "adr",
-      "runbook": "developer-guides"
+      "runbook": "maintainers"
     }
   }
 }
@@ -240,7 +238,7 @@ Validation rules:
 Behavior:
 
 - `legacy-domain` scaffolds the existing folder-per-domain layout used by `1.0`
-- `architecture-views` scaffolds the current gold-standard docs tree, including `guides/user-guides` and `guides/developer-guides`
+- `architecture-views` scaffolds the current gold-standard docs tree, including `start/`, `workflows/`, `maintainers/`, and `archive/`
 - `custom` writes a minimal `docs` block and leaves section definition to the repository owner
 
 For new repositories created on `1.1`, `architecture-views` becomes the default scaffold profile.

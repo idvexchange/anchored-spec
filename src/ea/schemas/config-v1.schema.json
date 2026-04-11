@@ -249,7 +249,7 @@
     },
     "workflowPolicyPath": {
       "type": "string",
-      "default": "docs/workflow-policy.yaml"
+      "default": ".anchored-spec/policy.json"
     },
     "customChangeTypes": {
       "type": "array",

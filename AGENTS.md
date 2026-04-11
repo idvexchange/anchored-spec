@@ -10,7 +10,7 @@ This repository builds Anchored Spec itself. Agents must use the framework while
 
 - The primary architecture model lives in [`catalog-info.yaml`](./catalog-info.yaml).
 - Architecture and implementation guidance live under [`docs/`](./docs/README.md).
-- Agent-specific operating guidance for framework users lives in [`docs/guides/user-guides/SKILL.md`](./docs/guides/user-guides/SKILL.md), [`docs/guides/user-guides/llms.txt`](./docs/guides/user-guides/llms.txt), and [`docs/guides/user-guides/llms-full.txt`](./docs/guides/user-guides/llms-full.txt).
+- Agent-specific operating guidance for framework users lives in [`docs/workflows/agent-guide.md`](./docs/workflows/agent-guide.md).
 - Machine-readable framework collateral for this repo lives under [`.anchored-spec/`](./.anchored-spec/), especially [`.anchored-spec/config.json`](./.anchored-spec/config.json) and [`.anchored-spec/policy.json`](./.anchored-spec/policy.json).
 
 ## Non-Negotiable Rule
@@ -64,7 +64,7 @@ This repo is not a normal product monorepo. It is the framework repo. That means
 
 - when changing framework behavior, update tests with the change
 - when changing public behavior, update docs with the change
-- when changing agent-facing guidance, keep `AGENTS.md`, `docs/guides/user-guides/SKILL.md`, `docs/guides/user-guides/llms.txt`, and `docs/guides/user-guides/llms-full.txt` aligned
+- when changing agent-facing guidance, keep `AGENTS.md` and `docs/workflows/agent-guide.md` aligned
 
 ## Reading Discipline
 

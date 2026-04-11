@@ -93,14 +93,14 @@ The public shell-oriented interface.
 The programmatic Node API.
 `);
 
-    writeTextFile(dir, "docs/req/REQ-001-entity-model-as-source-of-truth.md", `# REQ-001: Entity Model as Source of Truth
+    writeTextFile(dir, "docs/archive/req/REQ-001-entity-model-as-source-of-truth.md", `# REQ-001: Entity Model as Source of Truth
 
 ## Requirement
 
 The framework shall treat the authored entity model as the primary architecture source of truth.
 `);
 
-    writeTextFile(dir, "docs/adr/ADR-001-backstage-aligned-entity-envelope.md", `# ADR-001: Backstage-Aligned Entity Envelope
+    writeTextFile(dir, "docs/archive/adr/ADR-001-backstage-aligned-entity-envelope.md", `# ADR-001: Backstage-Aligned Entity Envelope
 
 ## Status
 
@@ -161,13 +161,13 @@ CLI for repository-local payment workflows.
 
 The shell interface.
 `);
-    writeTextFile(dir, "docs/req/REQ-001-catalog-bootstrap.md", `# REQ-001: Catalog Bootstrap
+    writeTextFile(dir, "docs/archive/req/REQ-001-catalog-bootstrap.md", `# REQ-001: Catalog Bootstrap
 
 ## Requirement
 
 The framework shall bootstrap a catalog.
 `);
-    writeTextFile(dir, "docs/adr/ADR-001-catalog-bootstrap.md", `# ADR-001: Catalog Bootstrap
+    writeTextFile(dir, "docs/archive/adr/ADR-001-catalog-bootstrap.md", `# ADR-001: Catalog Bootstrap
 
 ## Status
 

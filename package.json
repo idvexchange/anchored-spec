@@ -41,9 +41,7 @@
   "files": [
     "dist",
     "README.md",
-    "docs/guides/user-guides/SKILL.md",
-    "docs/guides/user-guides/llms.txt",
-    "docs/guides/user-guides/llms-full.txt",
+    "docs/workflows/agent-guide.md",
     "LICENSE"
   ],
   "scripts": {

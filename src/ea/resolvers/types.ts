@@ -5,7 +5,7 @@
  * EA entities with live infrastructure by resolving anchors, collecting
  * observed state, and discovering new entities.
  *
- * Design reference: docs/guides/user-guides/bottom-up-discovery.md
+ * Design reference: docs/workflows/model-the-repo.md
  */
 
 import type { BackstageEntity } from "../backstage/types.js";

@@ -423,21 +423,17 @@ export function buildVerificationCommands(cwd, scopePaths, matchedRouteIds, poli
     filePath.startsWith("docs/") ||
     [
       "AGENTS.md",
-      "docs/guides/user-guides/SKILL.md",
-      "docs/guides/user-guides/llms.txt",
-      "docs/guides/user-guides/llms-full.txt",
+      "docs/workflows/agent-guide.md",
     ].includes(filePath),
   );
   const touchesHarness = normalizedPaths.some((filePath) =>
     filePath.startsWith("scripts/") ||
     filePath === ".anchored-spec/policy.json" ||
     filePath === "docs/AGENTS.md" ||
-    filePath === "docs/guides/developer-guides/agent-harness.md" ||
+    filePath === "docs/workflows/repository-harness.md" ||
     [
       "AGENTS.md",
-      "docs/guides/user-guides/SKILL.md",
-      "docs/guides/user-guides/llms.txt",
-      "docs/guides/user-guides/llms-full.txt",
+      "docs/workflows/agent-guide.md",
       "package.json",
       ".gitignore",
     ].includes(filePath),

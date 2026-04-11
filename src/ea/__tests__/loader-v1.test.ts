@@ -44,7 +44,9 @@ describe("EaRoot v2 loading", () => {
         const config = writeManifestProject(dir, [
             makeEntity({ ref: "component:auth", kind: "Component", type: "service" }),
         ]);
-        writeTextFile(dir, "docs/workflow-policy.yaml", "workflowVariants:\n  - id: default");
+        writeTextFile(dir, ".anchored-spec/policy.json", JSON.stringify({
+            workflowVariants: [{ id: "default" }]
+        }, null, 2));
         writeTextFile(dir, "docs/transitions/wave-1/verification.yaml", "checks:\n  - id: smoke");
         const root = new EaRoot(dir, config);
         expect(root.loadPolicy()).toEqual({

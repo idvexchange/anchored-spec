@@ -16,10 +16,10 @@ Use this file to load only the docs relevant to the current task. Do not read al
 | --- | --- |
 | CLI command behavior or machine output | `04-component/anchored-spec-cli.md`, `06-api/cli-api.md` |
 | EA runtime, graph, model, or loader behavior | `04-component/anchored-spec-library.md`, `05-domain/domain-model.md`, `05-domain/interfaces.md` |
-| Discovery, resolvers, or tree-sitter enrichment | `guides/user-guides/bottom-up-discovery.md`, `04-component/anchored-spec-library.md` |
-| Traceability, docs scanning, or context assembly | `04-component/anchored-spec-library.md`, `req/REQ-002-traceability-and-context-assembly.md` |
-| Reports, impact, constraints, diff, policy, reconcile, or verify | `guides/user-guides/reporting-and-analysis.md`, `06-api/node-api.md`, `req/REQ-004-semantic-change-governance.md` |
-| Harness, task briefs, workflow policy, or agent guidance | `guides/developer-guides/agent-harness.md`, `guides/user-guides/repository-harness-pattern.md`, `adr/ADR-007-control-plane-and-repository-harness-boundary.md` |
+| Discovery, resolvers, or tree-sitter enrichment | `workflows/model-the-repo.md`, `04-component/anchored-spec-library.md` |
+| Traceability, docs scanning, or context assembly | `04-component/anchored-spec-library.md`, `archive/req/REQ-002-traceability-and-context-assembly.md` |
+| Reports, impact, constraints, diff, policy, reconcile, or verify | `workflows/review-and-analysis.md`, `06-api/node-api.md`, `archive/req/REQ-004-semantic-change-governance.md` |
+| Harness, task briefs, workflow policy, or agent guidance | `workflows/repository-harness.md`, `workflows/agent-guide.md`, `archive/adr/ADR-007-control-plane-and-repository-harness-boundary.md` |
 
 ## Notes
 

@@ -22,7 +22,7 @@ const findings = [];
 const requiredFiles = [
   ".anchored-spec/policy.json",
   "docs/AGENTS.md",
-  "docs/guides/developer-guides/agent-harness.md",
+  "docs/workflows/repository-harness.md",
 ];
 
 for (const filePath of requiredFiles) {

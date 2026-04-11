@@ -236,7 +236,7 @@ describe("extractConstraints", () => {
         id: "ADR-auth-policy",
         kind: "decision",
         title: "Auth Policy Decision",
-        traceRefs: [{ path: "docs/adr/001-auth.md" }],
+        traceRefs: [{ path: "docs/archive/adr/001-auth.md" }],
         relations: [{ type: "targets", target: "SVC-auth" }],
       }),
     ];
@@ -246,7 +246,7 @@ describe("extractConstraints", () => {
     const results = extractConstraints(graph, ["component:default/auth"], { entities });
     const decision = results.find((r) => r.ref === "decision:default/auth-policy");
     expect(decision).toBeDefined();
-    expect(decision!.relatedDocs).toContain("docs/adr/001-auth.md");
+    expect(decision!.relatedDocs).toContain("docs/archive/adr/001-auth.md");
   });
 
   it("records sourceEntityRef for each constraint", () => {

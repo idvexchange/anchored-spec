@@ -5,7 +5,7 @@
  * Builds paths from `anchors.apis`, sets info from entity metadata,
  * and links back to the source entity.
  *
- * Design reference: docs/delivery-baseline.md (OpenAPI Generator)
+ * Design reference: docs/maintainers/architecture.md (OpenAPI Generator)
  */
 
 import type { BackstageEntity } from "../backstage/types.js";

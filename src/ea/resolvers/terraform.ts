@@ -7,7 +7,7 @@
  *
  * Supports AWS, GCP, and Azure resource type mappings.
  *
- * Design reference: docs/guides/user-guides/bottom-up-discovery.md (Terraform Resolver)
+ * Design reference: docs/workflows/model-the-repo.md (Terraform Resolver)
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";

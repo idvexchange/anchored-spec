@@ -5,8 +5,8 @@
  * Kubernetes manifests, Terraform state). Creates draft entities with
  * confidence "inferred" or "observed", never overwrites existing entities.
  *
- * Design reference: docs/guides/user-guides/bottom-up-discovery.md (Discovery workflow)
- * Conflict rule: docs/adr/ADR-003-declared-before-observed.md (declared data remains primary)
+ * Design reference: docs/workflows/model-the-repo.md (Discovery workflow)
+ * Conflict rule: docs/archive/adr/ADR-003-declared-before-observed.md (declared data remains primary)
  */
 
 import type { BackstageEntity } from "./backstage/types.js";

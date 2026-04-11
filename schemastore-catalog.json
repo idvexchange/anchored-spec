@@ -13,6 +13,7 @@
       "name": "Anchored Spec Workflow Policy",
       "description": "Workflow policy rules for anchored-spec version governance",
       "fileMatch": [
+        ".anchored-spec/policy.json",
         "ea/workflow-policy.yaml",
         "ea/workflow-policy.json",
         "**/workflow-policy.yaml",

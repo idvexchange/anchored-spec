@@ -130,7 +130,10 @@ describe("CLI v2 commands", () => {
     expect(existsSync(join(dir, "catalog-info.yaml"))).toBe(true);
     expect(existsSync(join(dir, "docs", "README.md"))).toBe(true);
     expect(existsSync(join(dir, "docs", "01-business"))).toBe(true);
-    expect(existsSync(join(dir, "docs", "guides", "user-guides"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "workflows"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "maintainers"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "archive", "adr"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "archive", "req"))).toBe(true);
     expect(existsSync(join(dir, "docs", "generated"))).toBe(true);
     expect(
       existsSync(join(dir, "docs", "schemas", "config-v1.schema.json")),
@@ -138,13 +141,72 @@ describe("CLI v2 commands", () => {
     const config = readJsonFile<{
       schemaVersion: string;
       entityMode: string;
+      workflowPolicyPath: string;
       docs: {
         structure: string;
       };
     }>(dir, ".anchored-spec/config.json");
     expect(config.schemaVersion).toBe("1.2");
     expect(config.entityMode).toBe("manifest");
+    expect(config.workflowPolicyPath).toBe(".anchored-spec/policy.json");
     expect(config.docs.structure).toBe("architecture-views");
+    expect(result.stdout).toContain("anchored-spec create --list");
+    expect(result.stdout).toContain("anchored-spec catalog bootstrap --dry-run");
+    expect(existsSync(join(dir, "scripts"))).toBe(false);
+    expect(existsSync(join(dir, "AGENTS.md"))).toBe(false);
+  });
+  it("creates a generic JSON workflow policy scaffold", () => {
+    const dir = makeWorkspace("cli-init-policy");
+    const result = runCli(["init", "--with-policy", "--force"], dir);
+
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(join(dir, ".anchored-spec", "policy.json"))).toBe(true);
+
+    const policy = readJsonFile<{
+      workflowVariants: Array<{ id: string }>;
+      changeRequiredRules: unknown[];
+      readFirstRules: unknown[];
+      extensions: { harness: { commonRequestRouting: unknown[] } };
+    }>(dir, ".anchored-spec/policy.json");
+
+    expect(policy.workflowVariants.map((variant) => variant.id)).toEqual(["feature", "fix", "chore"]);
+    expect(policy.changeRequiredRules).toEqual([]);
+    expect(policy.readFirstRules).toEqual([]);
+    expect(policy.extensions.harness.commonRequestRouting).toEqual([]);
+    expect(JSON.stringify(policy)).not.toContain("pnpm");
+    expect(JSON.stringify(policy)).not.toContain("npm run");
+    expect(JSON.stringify(policy)).not.toContain("cargo test");
+    expect(JSON.stringify(policy)).not.toContain("go test");
+  });
+  it("creates a sparse example model with linked docs", () => {
+    const dir = makeWorkspace("cli-init-examples");
+    const result = runCli(["init", "--with-examples", "--force"], dir);
+
+    expect(result.exitCode).toBe(0);
+
+    const manifest = readTextFile(dir, "catalog-info.yaml");
+    expect(manifest).toContain("kind: Group");
+    expect(manifest).toContain("name: example-team");
+    expect(manifest).toContain("kind: Domain");
+    expect(manifest).toContain("name: example-domain");
+    expect(manifest).toContain("kind: System");
+    expect(manifest).toContain("name: example-platform");
+    expect(manifest).toContain("kind: Component");
+    expect(manifest).toContain("name: example-service");
+    expect(manifest).toContain("kind: API");
+    expect(manifest).toContain("name: example-api");
+    expect(manifest).toContain("anchored-spec.dev/source: docs/04-component/example-service.md");
+
+    expect(existsSync(join(dir, "docs", "01-business", "example-domain.md"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "02-system-context", "example-platform.md"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "04-component", "example-service.md"))).toBe(true);
+    expect(existsSync(join(dir, "docs", "06-api", "example-api.md"))).toBe(true);
+    expect(readTextFile(dir, "docs/04-component/example-service.md")).toContain("component:default/example-service");
+    expect(readTextFile(dir, "docs/06-api/example-api.md")).toContain("api:default/example-api");
+    expect(manifest).not.toContain("kind: Resource");
+    expect(manifest).not.toContain("kind: Capability");
+    expect(existsSync(join(dir, "scripts"))).toBe(false);
+    expect(existsSync(join(dir, "AGENTS.md"))).toBe(false);
   });
   it("supports inline-mode initialization for entity frontmatter projects", () => {
     const dir = makeWorkspace("cli-init-inline");
@@ -166,7 +228,7 @@ describe("CLI v2 commands", () => {
     expect(listResult.exitCode).toBe(0);
     expect(listResult.stdout).toContain("component");
     expect(listResult.stdout).toContain("docs/04-component");
-    expect(listResult.stdout).toContain("user-guides");
+    expect(listResult.stdout).toContain("workflows");
 
     const createResult = runCli(
       ["create-doc", "--title", "Orders Contract", "--type", "spec"],
@@ -190,7 +252,7 @@ describe("CLI v2 commands", () => {
         "--type",
         "guide",
         "--section",
-        "developer-guides",
+        "maintainers",
       ],
       dir,
     );
@@ -201,13 +263,12 @@ describe("CLI v2 commands", () => {
         join(
           dir,
           "docs",
-          "guides",
-          "developer-guides",
+          "maintainers",
           "contributor-onboarding.md",
         ),
       ),
     ).toBe(true);
-    expect(cliOutput(createResult)).toContain("Section: developer-guides");
+    expect(cliOutput(createResult)).toContain("Section: maintainers");
   });
   it("creates a Backstage entity and exposes it through top-level status", () => {
     const dir = makeWorkspace("cli-create");

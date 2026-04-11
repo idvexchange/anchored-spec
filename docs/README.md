@@ -1,53 +1,52 @@
 # Anchored Spec Documentation
 
-This documentation set describes the framework as it exists in this repository today. It is architecture-first, implementation-referenced, and organized to support solution framing, delivery planning, and day-to-day engineering use.
+This docs set is organized around four jobs:
 
-## What Anchored Spec Is
+- `start/` for adoption framing and first-step guidance
+- `workflows/` for day-to-day framework usage
+- `maintainers/` for contributors to Anchored Spec itself
+- `archive/` for ADRs and requirement records that explain why the framework looks the way it does
 
-Anchored Spec is a local-first architecture control plane for repositories. It gives teams:
+The numbered architecture docs remain the sparse reference layer for the framework model itself.
 
-- a typed architecture model based on Backstage-style entities
-- a CLI-first query and review surface for authoring, validation, discovery, drift, reporting, and governance
-- optional repository-evidence adapters that enrich repo-local targets and command suggestions without redefining architecture truth
-- a Node API that exposes the same runtime used by the CLI
-- a documentation and review workflow that stays in version control
+## Start Here
 
-In that model, a component's primary repository linkage should usually be `anchored-spec.dev/code-location`. Lower-level file, symbol, or test evidence can still exist, but it should support the architecture model rather than replace it.
+If you are new to Anchored Spec, read in this order:
 
-The framework is implemented primarily in:
+1. [start/adoption-overview.md](start/adoption-overview.md)
+2. [start/choose-your-path.md](start/choose-your-path.md)
+3. [01-business/business-architecture.md](01-business/business-architecture.md)
+4. [02-system-context/system-context.md](02-system-context/system-context.md)
+5. [04-component/anchored-spec-cli.md](04-component/anchored-spec-cli.md)
+6. [05-domain/domain-model.md](05-domain/domain-model.md)
+7. [workflows/model-the-repo.md](workflows/model-the-repo.md)
+8. [workflows/review-and-analysis.md](workflows/review-and-analysis.md)
 
-- `src/cli/` for the public command surface
-- `src/ea/` for the architecture runtime
-- `src/ea/resolvers/` for discovery sources
-- `src/ea/generators/` for derived outputs
-- `src/ea/schemas/` for schema contracts
+## Navigation
 
-## Reading Order
+### Start
 
-If you are new to the framework, read in this order:
+- [start/adoption-overview.md](start/adoption-overview.md)
+- [start/choose-your-path.md](start/choose-your-path.md)
 
-1. [delivery-baseline.md](delivery-baseline.md)
-2. [01-business/business-architecture.md](01-business/business-architecture.md)
-3. [02-system-context/system-context.md](02-system-context/system-context.md)
-4. [03-container/container-architecture.md](03-container/container-architecture.md)
-5. [05-domain/domain-model.md](05-domain/domain-model.md)
-6. [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
-7. [guides/user-guides/llms.txt](guides/user-guides/llms.txt)
-8. [guides/user-guides/repository-harness-pattern.md](guides/user-guides/repository-harness-pattern.md)
+### Workflows
 
-## Navigation Index
+- [workflows/model-the-repo.md](workflows/model-the-repo.md)
+- [workflows/review-and-analysis.md](workflows/review-and-analysis.md)
+- [workflows/repository-harness.md](workflows/repository-harness.md)
+- [workflows/agent-guide.md](workflows/agent-guide.md)
+- [workflows/obsidian.md](workflows/obsidian.md)
 
-### Core framing
+### Maintainers
 
-- [glossary.md](glossary.md)
-- [delivery-baseline.md](delivery-baseline.md)
-- [mobilization.md](mobilization.md)
-- [current-vs-target.md](current-vs-target.md)
-- [readiness-checklist.md](readiness-checklist.md)
+- [maintainers/contributing.md](maintainers/contributing.md)
+- [maintainers/architecture.md](maintainers/architecture.md)
+- [maintainers/scaffold-strategy.md](maintainers/scaffold-strategy.md)
 
-### Architecture outputs
+### Architecture Reference
 
 - [01-business/business-architecture.md](01-business/business-architecture.md)
+- [01-business/anchored-spec-maintainers.md](01-business/anchored-spec-maintainers.md)
 - [02-system-context/system-context.md](02-system-context/system-context.md)
 - [03-container/container-architecture.md](03-container/container-architecture.md)
 - [04-component/anchored-spec-cli.md](04-component/anchored-spec-cli.md)
@@ -66,67 +65,43 @@ If you are new to the framework, read in this order:
 - [09-infrastructure/environments.md](09-infrastructure/environments.md)
 - [09-infrastructure/runbook.md](09-infrastructure/runbook.md)
 - [10-testing/test-strategy.md](10-testing/test-strategy.md)
+- [glossary.md](glossary.md)
 
-### Decision records
+### Archive
 
-- [adr/ADR-001-backstage-aligned-entity-envelope.md](adr/ADR-001-backstage-aligned-entity-envelope.md)
-- [adr/ADR-002-dual-storage-modes.md](adr/ADR-002-dual-storage-modes.md)
-- [adr/ADR-003-declared-before-observed.md](adr/ADR-003-declared-before-observed.md)
-- [adr/ADR-004-repository-local-workflow.md](adr/ADR-004-repository-local-workflow.md)
-- [adr/ADR-005-flexible-document-structure.md](adr/ADR-005-flexible-document-structure.md)
-- [adr/ADR-006-catalog-bootstrap-and-synthesis.md](adr/ADR-006-catalog-bootstrap-and-synthesis.md)
-- [adr/ADR-007-control-plane-and-repository-harness-boundary.md](adr/ADR-007-control-plane-and-repository-harness-boundary.md)
+- [archive/adr/ADR-001-backstage-aligned-entity-envelope.md](archive/adr/ADR-001-backstage-aligned-entity-envelope.md)
+- [archive/adr/ADR-002-dual-storage-modes.md](archive/adr/ADR-002-dual-storage-modes.md)
+- [archive/adr/ADR-003-declared-before-observed.md](archive/adr/ADR-003-declared-before-observed.md)
+- [archive/adr/ADR-004-repository-local-workflow.md](archive/adr/ADR-004-repository-local-workflow.md)
+- [archive/adr/ADR-005-flexible-document-structure.md](archive/adr/ADR-005-flexible-document-structure.md)
+- [archive/adr/ADR-006-catalog-bootstrap-and-synthesis.md](archive/adr/ADR-006-catalog-bootstrap-and-synthesis.md)
+- [archive/adr/ADR-007-control-plane-and-repository-harness-boundary.md](archive/adr/ADR-007-control-plane-and-repository-harness-boundary.md)
+- [archive/req/REQ-001-entity-model-as-source-of-truth.md](archive/req/REQ-001-entity-model-as-source-of-truth.md)
+- [archive/req/REQ-002-traceability-and-context-assembly.md](archive/req/REQ-002-traceability-and-context-assembly.md)
+- [archive/req/REQ-003-discovery-and-drift-control-loop.md](archive/req/REQ-003-discovery-and-drift-control-loop.md)
+- [archive/req/REQ-004-semantic-change-governance.md](archive/req/REQ-004-semantic-change-governance.md)
 
-### Requirements
+## Operating Position
 
-- [req/REQ-001-entity-model-as-source-of-truth.md](req/REQ-001-entity-model-as-source-of-truth.md)
-- [req/REQ-002-traceability-and-context-assembly.md](req/REQ-002-traceability-and-context-assembly.md)
-- [req/REQ-003-discovery-and-drift-control-loop.md](req/REQ-003-discovery-and-drift-control-loop.md)
-- [req/REQ-004-semantic-change-governance.md](req/REQ-004-semantic-change-governance.md)
+Anchored Spec is a local-first architecture control plane for repositories.
 
-### Guides
+Use it for:
 
-- [guides/user-guides/getting-started.md](guides/user-guides/getting-started.md)
-- [guides/user-guides/llms.txt](guides/user-guides/llms.txt)
-- [guides/user-guides/llms-full.txt](guides/user-guides/llms-full.txt)
-- [guides/user-guides/SKILL.md](guides/user-guides/SKILL.md)
-- [guides/user-guides/catalog-bootstrap.md](guides/user-guides/catalog-bootstrap.md)
-- [guides/user-guides/obsidian-and-anchored-spec.md](guides/user-guides/obsidian-and-anchored-spec.md)
-- [guides/user-guides/choosing-a-modeling-approach.md](guides/user-guides/choosing-a-modeling-approach.md)
-- [guides/user-guides/bottom-up-discovery.md](guides/user-guides/bottom-up-discovery.md)
-- [guides/user-guides/top-down-authoring.md](guides/user-guides/top-down-authoring.md)
-- [guides/user-guides/reporting-and-analysis.md](guides/user-guides/reporting-and-analysis.md)
-- [guides/user-guides/adoption-playbook.md](guides/user-guides/adoption-playbook.md)
-- [guides/user-guides/repository-harness-pattern.md](guides/user-guides/repository-harness-pattern.md)
-- [guides/developer-guides/contributing.md](guides/developer-guides/contributing.md)
-- [guides/developer-guides/testing-and-ci.md](guides/developer-guides/testing-and-ci.md)
-- [guides/developer-guides/framework-internals.md](guides/developer-guides/framework-internals.md)
-- [guides/developer-guides/repository-harness-feedback.md](guides/developer-guides/repository-harness-feedback.md)
+- typed architecture modeling
+- stable CLI-native query and review workflows
+- traceability, impact analysis, and semantic change review
+- a thin handoff into repository-local execution
 
-## Solution Framing
+Do not treat it as:
 
-Anchored Spec is most useful when a team needs architecture to be:
+- the full repository harness
+- the final command orchestrator
+- a replacement for repository-specific execution policy
 
-- close to the code that implements it
-- typed enough for automation
-- reviewable enough for humans
-- stable enough for AI-assisted analysis
-
-It is not trying to be:
-
-- a remote architecture registry
-- a full repository harness
-- a full verification orchestrator
-- a generic model-driven code generation platform
-- a documentation wiki with no typed source of truth
-
-The rest of the docs explain how that position maps to the current implementation.
-
-The default daily-use loop should usually be:
+The normal operating loop is:
 
 1. find the top-level entity with `search`
 2. inspect direct relationships with `trace`
-3. assemble focused review context with `context`
-4. surface blast radius with `impact --with-commands`
-5. inspect `architectureImpact`, `repositoryImpact`, and `suggestions`
-6. let a repository-local wrapper decide which commands to run
+3. assemble focused context with `context`
+4. inspect downstream blast radius with `impact --with-commands`
+5. let a repository-local wrapper decide exact verification and follow-up commands

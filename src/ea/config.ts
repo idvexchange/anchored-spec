@@ -264,7 +264,7 @@ interface AnchoredSpecConfigBase {
   /** Test metadata linking configuration. */
   testMetadata?: EaTestMetadataConfig;
 
-  /** Path to workflow policy file. Default: "<rootDir>/workflow-policy.yaml". */
+  /** Path to workflow policy file. Default: ".anchored-spec/policy.json". */
   workflowPolicyPath?: string;
 
   /** Custom change types beyond built-in types. */
@@ -350,10 +350,8 @@ const CONFIG_FILE = ".anchored-spec/config.json";
 const ARCHITECTURE_VIEW_ROOT_DOC_NAMES = [
   "README.md",
   "glossary.md",
-  "delivery-baseline.md",
-  "mobilization.md",
-  "current-vs-target.md",
-  "readiness-checklist.md",
+  "start/adoption-overview.md",
+  "start/choose-your-path.md",
 ] as const;
 
 const CUSTOM_ROOT_DOC_NAMES = ["README.md"] as const;
@@ -447,25 +445,25 @@ function buildArchitectureViewSections(rootDir: string): AnchoredSpecDocsSection
     {
       id: "adr",
       title: "Architecture Decision Records",
-      path: `${rootDir}/adr`,
+      path: `${rootDir}/archive/adr`,
       kind: "decision-record",
     },
     {
       id: "req",
       title: "Requirements",
-      path: `${rootDir}/req`,
+      path: `${rootDir}/archive/req`,
       kind: "requirement",
     },
     {
-      id: "user-guides",
-      title: "User Guides",
-      path: `${rootDir}/guides/user-guides`,
+      id: "workflows",
+      title: "Workflows",
+      path: `${rootDir}/workflows`,
       kind: "guide",
     },
     {
-      id: "developer-guides",
-      title: "Developer Guides",
-      path: `${rootDir}/guides/developer-guides`,
+      id: "maintainers",
+      title: "Maintainers",
+      path: `${rootDir}/maintainers`,
       kind: "guide",
     },
   ];
@@ -508,9 +506,9 @@ function buildDocsDefaults(
         templates: {
           spec: "api",
           architecture: "component",
-          guide: "user-guides",
+          guide: "workflows",
           adr: "adr",
-          runbook: "developer-guides",
+          runbook: "maintainers",
         },
       };
   }
@@ -547,7 +545,7 @@ function buildV1Defaults(rootDir: string): AnchoredSpecConfigV1_0 {
       strictMode: false,
       rules: {},
     },
-    workflowPolicyPath: `${rootDir}/workflow-policy.yaml`,
+    workflowPolicyPath: ".anchored-spec/policy.json",
     entityMode: "manifest",
     manifestPath: "catalog-info.yaml",
   };
@@ -579,7 +577,7 @@ function buildV11Defaults(
       strictMode: false,
       rules: {},
     },
-    workflowPolicyPath: `${rootDir}/workflow-policy.yaml`,
+    workflowPolicyPath: ".anchored-spec/policy.json",
     entityMode: "manifest",
     manifestPath: "catalog-info.yaml",
   };
@@ -733,7 +731,7 @@ function buildV12Defaults(
       strictMode: false,
       rules: {},
     },
-    workflowPolicyPath: `${rootDir}/workflow-policy.yaml`,
+    workflowPolicyPath: ".anchored-spec/policy.json",
     entityMode: "manifest",
     manifestPath,
   };

@@ -64,9 +64,9 @@ describe("repository harness scripts", () => {
     writeTextFile(dir, "AGENTS.md", "# Root agent\n");
     writeTextFile(dir, "docs/AGENTS.md", "# Docs agent\n");
     writeTextFile(dir, "docs/04-component/cli.md", "# CLI\n");
-    writeTextFile(dir, "docs/guides/developer-guides/agent-harness.md", "# Harness\n");
-    writeTextFile(dir, "docs/guides/user-guides/repository-harness-pattern.md", "# Pattern\n");
-    writeTextFile(dir, "docs/adr/ADR-007-control-plane-and-repository-harness-boundary.md", "# ADR\n");
+    writeTextFile(dir, "docs/workflows/repository-harness.md", "# Harness\n");
+    writeTextFile(dir, "docs/workflows/agent-guide.md", "# Agent Guide\n");
+    writeTextFile(dir, "docs/archive/adr/ADR-007-control-plane-and-repository-harness-boundary.md", "# ADR\n");
     writeTextFile(
       dir,
       ".anchored-spec/policy.json",
@@ -160,9 +160,9 @@ describe("repository harness scripts", () => {
     writeTextFile(dir, "docs/AGENTS.md", "# Docs agent\n");
     writeTextFile(dir, "docs/04-component/cli.md", "# CLI\n");
     writeTextFile(dir, "docs/06-api/cli-api.md", "# API\n");
-    writeTextFile(dir, "docs/guides/developer-guides/agent-harness.md", "# Harness\n");
-    writeTextFile(dir, "docs/guides/user-guides/repository-harness-pattern.md", "# Pattern\n");
-    writeTextFile(dir, "docs/adr/ADR-007-control-plane-and-repository-harness-boundary.md", "# ADR\n");
+    writeTextFile(dir, "docs/workflows/repository-harness.md", "# Harness\n");
+    writeTextFile(dir, "docs/workflows/agent-guide.md", "# Agent Guide\n");
+    writeTextFile(dir, "docs/archive/adr/ADR-007-control-plane-and-repository-harness-boundary.md", "# ADR\n");
     writeTextFile(
       dir,
       ".anchored-spec/policy.json",
@@ -227,9 +227,9 @@ describe("repository harness scripts", () => {
     writeTextFile(dir, "AGENTS.md", "# Root agent\n");
     writeTextFile(dir, "docs/AGENTS.md", "# Docs agent\n");
     writeTextFile(dir, "docs/04-component/cli.md", "# CLI\n");
-    writeTextFile(dir, "docs/guides/developer-guides/agent-harness.md", "# Harness\n");
-    writeTextFile(dir, "docs/guides/user-guides/repository-harness-pattern.md", "# Pattern\n");
-    writeTextFile(dir, "docs/adr/ADR-007-control-plane-and-repository-harness-boundary.md", "# ADR\n");
+    writeTextFile(dir, "docs/workflows/repository-harness.md", "# Harness\n");
+    writeTextFile(dir, "docs/workflows/agent-guide.md", "# Agent Guide\n");
+    writeTextFile(dir, "docs/archive/adr/ADR-007-control-plane-and-repository-harness-boundary.md", "# ADR\n");
     writeTextFile(
       dir,
       ".anchored-spec/policy.json",
@@ -324,7 +324,7 @@ describe("repository harness scripts", () => {
     );
     writeTextFile(dir, ".gitignore", ".anchored-spec/task-brief.json\n.anchored-spec/verification-report.json\n.anchored-spec/verification-baseline.json\n.anchored-spec/execution-report.json\n");
     writeTextFile(dir, "docs/AGENTS.md", "# Docs\n");
-    writeTextFile(dir, "docs/guides/developer-guides/agent-harness.md", "# Harness\n");
+    writeTextFile(dir, "docs/workflows/repository-harness.md", "# Harness\n");
     writeTextFile(
       dir,
       ".anchored-spec/policy.json",
@@ -346,7 +346,7 @@ describe("repository harness scripts", () => {
         paths: ["scripts/task-start.mjs"],
         matchedTaskRoutes: ["repository-harness"],
         matchedCommonRoute: null,
-        readFirst: ["docs/guides/developer-guides/agent-harness.md"],
+        readFirst: ["docs/workflows/repository-harness.md"],
         leafAgents: ["docs/AGENTS.md"],
         crossHints: [".anchored-spec/policy.json"],
         commands: ["node -e \"process.stdout.write('ok')\""],
@@ -369,7 +369,7 @@ describe("repository harness scripts", () => {
     });
     expect(checkResult.status).toBe(0);
 
-    const closeResult = spawnSync("node", [TASK_CLOSE, "--read", "docs/guides/developer-guides/agent-harness.md", "--agent", "docs/AGENTS.md", "--hint", ".anchored-spec/policy.json", "--json"], {
+    const closeResult = spawnSync("node", [TASK_CLOSE, "--read", "docs/workflows/repository-harness.md", "--agent", "docs/AGENTS.md", "--hint", ".anchored-spec/policy.json", "--json"], {
       cwd: dir,
       encoding: "utf8",
     });

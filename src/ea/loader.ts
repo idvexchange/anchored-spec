@@ -142,7 +142,7 @@ export class EaRoot {
   get workflowPolicyPath(): string {
     return join(
       this.projectRoot,
-      this.v1Config.workflowPolicyPath ?? `${this.v1Config.rootDir}/workflow-policy.yaml`,
+      this.v1Config.workflowPolicyPath ?? ".anchored-spec/policy.json",
     );
   }
 

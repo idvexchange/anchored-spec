@@ -356,21 +356,29 @@ describe("impact CLI", () => {
     }, null, 2));
     writeTextFile(dir, "packages/auth/src/index.ts", "export const auth = true;\n");
 
-    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
-  - id: feature
-    name: "Feature"
-    defaultTypes: [feature]
-    requiredSchemas: [change]
-changeRequiredRules:
-  - id: app-source
-    include: ["apps/**"]
-    commands: ["pnpm validate"]
-    broaderCommands: ["pnpm test"]
-    actionCommands: ["pnpm db:generate"]
-trivialExemptions: ["**/*.md"]
-lifecycleRules:
-  plannedToActiveRequiresChange: true
-`);
+    writeTextFile(dir, ".anchored-spec/policy.json", JSON.stringify({
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          requiredSchemas: ["change"],
+        },
+      ],
+      changeRequiredRules: [
+        {
+          id: "app-source",
+          include: ["apps/**"],
+          commands: ["pnpm validate"],
+          broaderCommands: ["pnpm test"],
+          actionCommands: ["pnpm db:generate"],
+        },
+      ],
+      trivialExemptions: ["**/*.md"],
+      lifecycleRules: {
+        plannedToActiveRequiresChange: true,
+      },
+    }, null, 2));
 
     const result = runCli(["impact", "component:auth", "--format", "json", "--with-commands"], dir);
     expect(result.exitCode).toBe(0);
@@ -438,19 +446,27 @@ lifecycleRules:
     }, null, 2));
     writeTextFile(dir, "packages/auth/src/index.ts", "export const auth = true;\n");
 
-    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
-  - id: feature
-    name: "Feature"
-    defaultTypes: [feature]
-    requiredSchemas: [change]
-changeRequiredRules:
-  - id: app-source
-    include: ["apps/**"]
-    commands: ["pnpm validate"]
-trivialExemptions: ["**/*.md"]
-lifecycleRules:
-  plannedToActiveRequiresChange: true
-`);
+    writeTextFile(dir, ".anchored-spec/policy.json", JSON.stringify({
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          requiredSchemas: ["change"],
+        },
+      ],
+      changeRequiredRules: [
+        {
+          id: "app-source",
+          include: ["apps/**"],
+          commands: ["pnpm validate"],
+        },
+      ],
+      trivialExemptions: ["**/*.md"],
+      lifecycleRules: {
+        plannedToActiveRequiresChange: true,
+      },
+    }, null, 2));
 
     const result = runCli(["impact", "component:auth", "--format", "json", "--with-commands"], dir);
     expect(result.exitCode).toBe(0);

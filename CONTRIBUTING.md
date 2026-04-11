@@ -1,6 +1,6 @@
 # Contributing
 
-Repository contribution guidance now lives in [docs/contributing.md](docs/contributing.md).
+Repository contribution guidance now lives in [docs/maintainers/contributing.md](docs/maintainers/contributing.md).
 
 Use that guide for:
 

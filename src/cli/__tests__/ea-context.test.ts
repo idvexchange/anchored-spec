@@ -500,28 +500,41 @@ describe("ea context — workflow policy read-first refinement", () => {
       ],
     });
 
-    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
-  - id: feature
-    name: "Feature"
-    defaultTypes: [feature]
-    requiredSchemas: [change]
-changeRequiredRules:
-  - id: src-rule
-    include: ["src/**"]
-readFirstRules:
-  - id: auth-interfaces
-    entityRefs: ["component:default/auth"]
-    pathMatches: ["src/domain/interfaces/**"]
-    docs: ["docs/interfaces.md"]
-    secondaryDocs: ["docs/domain-model.md"]
-  - id: auth-state-machine
-    entityRefs: ["component:default/auth"]
-    pathMatches: ["src/domain/state-machine/**"]
-    docs: ["docs/state-machine.md"]
-trivialExemptions: ["**/*.md"]
-lifecycleRules:
-  plannedToActiveRequiresChange: true
-`);
+    writeTextFile(dir, ".anchored-spec/policy.json", JSON.stringify({
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          requiredSchemas: ["change"],
+        },
+      ],
+      changeRequiredRules: [
+        {
+          id: "src-rule",
+          include: ["src/**"],
+        },
+      ],
+      readFirstRules: [
+        {
+          id: "auth-interfaces",
+          entityRefs: ["component:default/auth"],
+          pathMatches: ["src/domain/interfaces/**"],
+          docs: ["docs/interfaces.md"],
+          secondaryDocs: ["docs/domain-model.md"],
+        },
+        {
+          id: "auth-state-machine",
+          entityRefs: ["component:default/auth"],
+          pathMatches: ["src/domain/state-machine/**"],
+          docs: ["docs/state-machine.md"],
+        },
+      ],
+      trivialExemptions: ["**/*.md"],
+      lifecycleRules: {
+        plannedToActiveRequiresChange: true,
+      },
+    }, null, 2));
 
     const result = runCli(
       ["context", AUTH_REF, "--json", "--focus-path", "src/domain/interfaces/user.ts", "--why-included"],
@@ -545,23 +558,34 @@ lifecycleRules:
       ],
     });
 
-    writeTextFile(dir, "docs/workflow-policy.yaml", `workflowVariants:
-  - id: feature
-    name: "Feature"
-    defaultTypes: [feature]
-    requiredSchemas: [change]
-changeRequiredRules:
-  - id: src-rule
-    include: ["src/**"]
-readFirstRules:
-  - id: auth-interfaces
-    entityRefs: ["component:default/auth"]
-    pathMatches: ["src/domain/interfaces/**"]
-    docs: ["docs/interfaces.md"]
-trivialExemptions: ["**/*.md"]
-lifecycleRules:
-  plannedToActiveRequiresChange: true
-`);
+    writeTextFile(dir, ".anchored-spec/policy.json", JSON.stringify({
+      workflowVariants: [
+        {
+          id: "feature",
+          name: "Feature",
+          defaultTypes: ["feature"],
+          requiredSchemas: ["change"],
+        },
+      ],
+      changeRequiredRules: [
+        {
+          id: "src-rule",
+          include: ["src/**"],
+        },
+      ],
+      readFirstRules: [
+        {
+          id: "auth-interfaces",
+          entityRefs: ["component:default/auth"],
+          pathMatches: ["src/domain/interfaces/**"],
+          docs: ["docs/interfaces.md"],
+        },
+      ],
+      trivialExemptions: ["**/*.md"],
+      lifecycleRules: {
+        plannedToActiveRequiresChange: true,
+      },
+    }, null, 2));
 
     const result = runCli(["context", AUTH_REF, "--json"], dir);
     expect(result.exitCode).toBe(0);
