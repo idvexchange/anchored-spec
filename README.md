@@ -5,10 +5,27 @@
 # Anchored Spec
 
 [![CI](https://github.com/idvexchange/anchored-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/idvexchange/anchored-spec/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
+[![Release](https://img.shields.io/github/v/release/idvexchange/anchored-spec?include_prereleases&sort=semver)](https://github.com/idvexchange/anchored-spec/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Backstage-aligned, spec-as-source architecture control plane for repositories that want a real architecture model in version control.
+> Backstage-aligned architecture control plane for repositories that want a real architecture model in version control.
+
+**Status:** pre-1.0. Public API, CLI surface, and entity schemas may change between minor versions. See [CHANGELOG](CHANGELOG.md).
+
+## Contents
+
+- [Why Anchored Spec Exists](#why-anchored-spec-exists)
+- [Operating Boundary](#operating-boundary)
+- [Is This For You?](#is-this-for-you)
+- [What You Can Do With It](#what-you-can-do-with-it)
+- [Quickstart](#quickstart)
+- [The Core Model](#the-core-model)
+- [Storage Modes](#storage-modes)
+- [Impact and Command Suggestions](#impact-and-command-suggestions)
+- [Command Surface](#command-surface)
+- [Documentation](#documentation)
+- [AI Agent Workflow](#ai-agent-workflow)
+- [Contributing](#contributing)
 
 Anchored Spec turns a repository into a living architecture model. You author [Backstage-style entities](https://backstage.io/docs/features/software-catalog/descriptor-format/) in version control, link those entities to architecture documents and primary code locations, and then run validation, traceability, discovery, drift detection, reporting, and change-review workflows over the same model.
 
@@ -17,44 +34,48 @@ Its best operating shape is deliberately narrow:
 - Anchored Spec owns architecture truth, queryability, and declared-vs-observed pressure.
 - The CLI is the normal interface to that control plane for humans and agents.
 - Repositories still own last-mile task execution, focused verification, and workflow ergonomics.
-- `anchored-spec.dev/code-location` is the preferred code linkage for a component; richer file, symbol, and test evidence remains secondary.
 
-This repository is the canonical manifest-mode example: a sparse root `catalog-info.yaml`, linked markdown under `docs/`, machine-readable repo collateral under `.anchored-spec/`, and thin repo-local wrappers under `scripts/`.
+## Adoption Pattern
 
-## Working On This Repo
+This repository is the canonical manifest-mode example, deliberately set up the way Anchored Spec recommends adopting repos use it:
 
-This repository uses a thin repo-local harness on top of Anchored Spec itself:
-
-```bash
-pnpm task:start --changed
-pnpm task:start <path...>
-pnpm task:verify
-pnpm task:check
-```
-
-Use `task:start` for fresh context in this repository, then follow the brief's `readFirst` and `lookupCommands` before broader file scanning. The harness is repo-local workflow glue; the framework still owns the architecture model and CLI primitives.
-
-Reference layout for this repo:
-
-- `catalog-info.yaml` keeps the top-level architecture model sparse and reviewable
-- `.anchored-spec/config.json` and `.anchored-spec/policy.json` hold machine-readable framework and harness collateral
-- `.anchored-spec/query-packs/` holds repo-local discovery enrichment
-- `scripts/` holds repo-local task routing and verification helpers
+- `catalog-info.yaml` — a sparse root entity manifest, the architectural source of truth.
+- `docs/` — linked markdown explaining and tracing back to the entities.
+- `.anchored-spec/` — machine-readable framework and harness collateral (`config.json`, `policy.json`, query packs, task briefs).
+- `scripts/` — the repo-local harness itself (`task-start`, `task-verify`, `task-check`, `task-close` plus a shared `harness-lib`), exposed as `pnpm task:*` commands. The harness is *this repo's* last-mile workflow glue. It is **not** part of the published `anchored-spec` package. Other adopting repos write their own equivalent: a few scripts, a Makefile, a task runner that are tailored to their stack.
 
 ## Why Anchored Spec Exists
 
 Most architecture tooling falls apart for one of two reasons:
 
-- the model is separate from the repo, so it drifts
-- the docs are prose-only, so automation cannot trust them
+- The model is separate from the repo, so it drifts.
+- The docs are prose-only, so automation cannot trust them.
 
 Anchored Spec takes a different position:
 
-- architecture should live next to code
-- the source of truth should be typed and reviewable
-- docs should explain the model, not replace it
-- discovery and drift should pressure-test the model, not silently overwrite it
-- AI agents should consume the same architecture graph as humans
+- Architecture should live next to code.
+- The source of truth should be typed and reviewable.
+- Docs should explain the model, not replace it.
+- Discovery and drift should pressure-test the model, not silently overwrite it.
+- AI agents should consume the same architecture graph as humans.
+
+## Operating Boundary
+
+Anchored Spec should usually be:
+
+- Sparse.
+- Architecture-first.
+- Local-first.
+- Reviewable.
+- Queryable by humans and agents.
+
+Anchored Spec should usually not be:
+
+- The full repo harness.
+- The full verification orchestrator.
+- A mandatory discovery-first system.
+- A codebase-wide dependency graph product.
+- The owner of every repository-specific workflow decision.
 
 ## Is This For You?
 
@@ -73,20 +94,16 @@ The single biggest risk is the same as every "X-as-code" framework: it is only a
 
 ## What You Can Do With It
 
-- Author architecture as Backstage-aligned entities.
-- Store that model in manifest mode or inline markdown frontmatter.
-- Bootstrap a curated first-pass manifest from repository evidence with `catalog bootstrap`.
-- Use the CLI as the default query surface over architecture truth for humans and agents.
-- Use canonical entity refs such as `component:default/orders-service` across commands, docs, and review workflows.
+- Author architecture as Backstage-aligned entities in YAML or markdown frontmatter.
+- Bootstrap a curated first-pass model from existing repository evidence.
 - Validate schema, relations, ownership, lifecycle, and traceability.
-- Discover draft entities from OpenAPI, Kubernetes, Terraform, SQL DDL, dbt, markdown, anchors, and tree-sitter.
-- Detect drift between declared architecture and observed repository reality.
-- Generate a narrow set of derived outputs, currently OpenAPI and JSON Schema.
-- Build graphs, semantic diagrams, reports, impact analyses, constraint views, and AI context bundles.
-- Compile impact into structured, suggestion-oriented command plans, with optional repository-evidence adapters rendering repo-local targets and commands without turning the framework into a full workflow orchestrator.
-- Review changes semantically with compatibility and policy checks instead of relying on text diffs alone.
+- Detect drift between the declared model and observed repository reality.
+- Review changes semantically with compatibility and policy checks.
+- Hand humans and AI agents the same queryable architecture graph.
 
-## Start Here
+See the [documentation portal](docs/README.md) for the full capability surface.
+
+## Quickstart
 
 ### Install
 
@@ -97,63 +114,62 @@ pnpm add -D anchored-spec
 ### Initialize a repository
 
 ```bash
-npx anchored-spec init --mode manifest
+pnpm exec anchored-spec init --mode manifest
 ```
 
-If you want a neutral reference shape to edit rather than a blank manifest, add `--with-examples`. That scaffold stays sparse: one owner, one domain, one system, one component, one API, and linked docs.
+Add `--with-examples` for a neutral reference shape: one owner, one domain, one system, one component, one API, and linked docs.
 
 ### Create the first model slice
 
 If the architecture is already clear, create entities directly:
 
 ```bash
-npx anchored-spec create --kind Component --type service --title "Orders Service" --owner group:default/platform-team
-npx anchored-spec create --kind API --type openapi --title "Orders API" --owner group:default/platform-team
+pnpm exec anchored-spec create --kind Component --type service --title "Orders Service" --owner group:default/platform-team
+pnpm exec anchored-spec create --kind API --type openapi --title "Orders API" --owner group:default/platform-team
 ```
 
 If the repository already has meaningful structure and docs, bootstrap a curated manifest first:
 
 ```bash
-npx anchored-spec catalog bootstrap --dry-run
-npx anchored-spec catalog bootstrap --dry-run --explain
-npx anchored-spec catalog bootstrap --write catalog-info.yaml
+pnpm exec anchored-spec catalog bootstrap --dry-run
+pnpm exec anchored-spec catalog bootstrap --dry-run --explain
+pnpm exec anchored-spec catalog bootstrap --write catalog-info.yaml
 ```
 
-If you are not sure which descriptor shape to use, inspect the supported options first:
+If you are not sure which descriptor shape to use, inspect the supported options:
 
 ```bash
-npx anchored-spec create --list
+pnpm exec anchored-spec create --list
 ```
 
-### Validate and inspect the model
+### Inspect and run the loop
 
 ```bash
-npx anchored-spec validate
-npx anchored-spec trace --summary
-npx anchored-spec graph --format mermaid --focus component:default/orders-service --depth 1
+pnpm exec anchored-spec validate
+pnpm exec anchored-spec trace --summary
+pnpm exec anchored-spec graph --format mermaid --focus component:default/orders-service --depth 1
+pnpm exec anchored-spec drift
+pnpm exec anchored-spec diff --base main --compat --policy
+pnpm exec anchored-spec report --view traceability-index
+pnpm exec anchored-spec context component:default/orders-service --tier llm
+pnpm exec anchored-spec impact component:default/orders-service --with-commands --format markdown
 ```
 
-### Run the wider architecture loop
-
-```bash
-npx anchored-spec drift
-npx anchored-spec diff --base main --compat --policy
-npx anchored-spec report --view traceability-index
-npx anchored-spec context component:default/orders-service --tier llm
-npx anchored-spec impact component:default/orders-service --with-commands --format markdown
-```
-
-Treat the command suggestions from `impact --with-commands` as a thin handoff into repository-native scripts, not as the final owner of your command plan.
-
-The JSON payload now separates:
-
-- `architectureImpact` for declared entity blast radius
-- `repositoryImpact` for adapter-derived repo-local targets
-- `suggestions` for intent-first actions before repository-specific command handling
-
-Compatibility fields such as `commands`, `broaderCommands`, and `actionCommands` still exist for repository wrappers that have not migrated yet.
+Treat command suggestions from `impact --with-commands` as a thin handoff into repository-native scripts, not as the final owner of your command plan. See [Impact and Command Suggestions](#impact-and-command-suggestions) for the JSON payload shape.
 
 ## The Core Model
+
+Entities relate through a small, opinionated set of architectural shapes. A typical slice looks like this:
+
+```mermaid
+flowchart LR
+  D[Domain: commerce] --> S[System: commerce-platform]
+  S --> C[Component: orders-service]
+  C -- providesApis --> A[API: orders-api]
+  C -- dependsOn --> R[Resource: orders-db]
+  G[Group: platform-team] -. owns .-> C
+  G -. owns .-> A
+```
 
 Anchored Spec uses the Backstage entity envelope:
 
@@ -209,7 +225,7 @@ Use Anchored Spec custom kinds only when the concept is genuinely architectural 
 Entities live in one or more YAML catalog files, usually centered on `catalog-info.yaml`.
 
 ```bash
-npx anchored-spec init --mode manifest --with-examples
+pnpm exec anchored-spec init --mode manifest --with-examples
 ```
 
 ### Inline mode
@@ -217,28 +233,20 @@ npx anchored-spec init --mode manifest --with-examples
 Entities live in markdown frontmatter, usually inside `docs/`.
 
 ```bash
-npx anchored-spec init --mode inline --with-examples
+pnpm exec anchored-spec init --mode inline --with-examples
 ```
 
 Manifest mode is the clearest operating shape for most multi-concern repositories. Inline mode remains useful when the docs themselves are already the primary authoring surface.
 
-## Operating Boundary
+## Impact and Command Suggestions
 
-Anchored Spec should usually be:
+`impact --with-commands` separates its JSON payload so repositories can compose their own command plans on top of architectural truth:
 
-- sparse
-- architecture-first
-- local-first
-- reviewable
-- queryable by humans and agents
+- `architectureImpact` — declared entity blast radius
+- `repositoryImpact` — adapter-derived repo-local targets
+- `suggestions` — intent-first actions before any repository-specific command handling
 
-Anchored Spec should usually not be:
-
-- the full repo harness
-- the full verification orchestrator
-- a mandatory discovery-first system
-- a codebase-wide dependency graph product
-- the owner of every repository-specific workflow decision
+Compatibility fields (`commands`, `broaderCommands`, `actionCommands`) remain available for repository wrappers that have not migrated yet.
 
 ## Command Surface
 
@@ -269,40 +277,6 @@ Anchored Spec should usually not be:
 | `search`       | Search entities by ref, kind, domain, status, tags, and text                          |
 | `batch-update` | Bulk-update entity status or confidence                                               |
 
-## Project Layout
-
-```text
-.
-├── .anchored-spec/
-│   └── config.json
-├── catalog-info.yaml
-├── docs/
-│   ├── start/
-│   ├── workflows/
-│   ├── maintainers/
-│   ├── archive/
-│   ├── 01-business/
-│   ├── 02-system-context/
-│   ├── 03-container/
-│   ├── 04-component/
-│   ├── 05-domain/
-│   ├── 06-api/
-│   ├── 07-data/
-│   ├── 08-security/
-│   ├── 09-infrastructure/
-│   ├── 10-testing/
-│   ├── README.md
-│   └── glossary.md
-├── src/
-│   ├── cli/
-│   ├── ea/
-│   ├── resolvers/
-│   └── test-helpers/
-└── package.json
-```
-
-In this repository, `docs/` is an architecture-first documentation set organized into `start/`, `workflows/`, `maintainers/`, `archive/`, and the numbered architecture reference views. The implementation lives primarily under `src/cli/` and `src/ea/`, with supporting resolver helpers under `src/resolvers/`.
-
 ## Documentation
 
 Start with the docs portal:
@@ -320,13 +294,19 @@ Start with the docs portal:
 
 ## AI Agent Workflow
 
-Anchored Spec ships a single canonical agent workflow guide:
+Because the architecture model lives in version control as typed entities, agents can consume the same graph that humans review — no separate context-window dance, no parallel "AI memory" of how the system fits together. The CLI is the agent surface.
 
 - [Agent guide](docs/workflows/agent-guide.md)
 
-Useful prompts:
+A concrete handoff: pipe a focused context bundle straight into an agent's clipboard or stdin.
 
-```text
+```bash
+pnpm exec anchored-spec context component:default/orders-service --tier llm | pbcopy
+```
+
+Useful prompts to pair with that context:
+
+```markdown
 Add a new API and the component that provides it. Keep the model and docs in sync.
 
 Audit this repo's architecture coverage and identify the missing entities.
@@ -336,18 +316,17 @@ Run a semantic diff against main and explain any breaking changes.
 Trace every document and source path connected to component:default/orders-service.
 ```
 
-## Development
+---
 
-```bash
-pnpm install
-pnpm run build
-pnpm run test
-pnpm run lint
-pnpm run verify
-```
+## Contributing
 
-See [maintainer contributing guide](docs/maintainers/contributing.md) for repository workflow and documentation standards.
+Contributor and maintainer documentation — repository layout, local workflow, build/test/lint commands, and documentation standards — lives in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
 [MIT](LICENSE)
+
+---
+
+[CHANGELOG](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Documentation](docs/README.md) · [Agent guide](docs/workflows/agent-guide.md)
+
