@@ -5,7 +5,9 @@
 # Anchored Spec
 
 [![CI](https://github.com/idvexchange/anchored-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/idvexchange/anchored-spec/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/idvexchange/anchored-spec?include_prereleases&sort=semver)](https://github.com/idvexchange/anchored-spec/releases)
+[![npm version](https://img.shields.io/npm/v/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
+[![npm downloads](https://img.shields.io/npm/dm/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
+[![Types](https://img.shields.io/npm/types/anchored-spec)](https://www.npmjs.com/package/anchored-spec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > Backstage-aligned architecture control plane for repositories that want a real architecture model in version control.

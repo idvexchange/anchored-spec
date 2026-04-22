@@ -1,7 +1,7 @@
 {
   "name": "anchored-spec",
   "version": "0.4.0",
-  "description": "Spec-as-source enterprise architecture framework — architecture models as living code",
+  "description": "Backstage-aligned, spec-as-source architecture control plane — author entities in version control, validate, trace, detect drift, and analyze impact from one CLI for humans and AI agents.",
   "type": "module",
   "bin": {
     "anchored-spec": "./dist/cli/index.js"
@@ -100,19 +100,28 @@
     "web-tree-sitter": "^0.26.8"
   },
   "keywords": [
-    "spec-driven",
-    "requirements",
-    "architecture-decision-records",
+    "architecture",
+    "architecture-as-code",
+    "spec-as-source",
+    "backstage",
+    "software-catalog",
+    "drift-detection",
+    "traceability",
+    "impact-analysis",
+    "ai-agents",
+    "llm-context",
+    "devtools",
+    "cli",
     "adr",
-    "ears",
-    "behavioral-requirements",
-    "governance",
-    "spec-anchored"
+    "governance"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/idvexchange/anchored-spec"
+    "url": "git+https://github.com/idvexchange/anchored-spec.git"
+  },
+  "bugs": {
+    "url": "https://github.com/idvexchange/anchored-spec/issues"
   },
   "homepage": "https://github.com/idvexchange/anchored-spec#readme",
   "engines": {
