@@ -58,12 +58,12 @@
     "verify": "pnpm run task:check && pnpm run spec:validate && pnpm run spec:trace && pnpm run test:harness && tsc && vitest run && eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "prepublishOnly": "pnpm verify",
-    "spec:validate": "anchored-spec validate",
-    "spec:verify": "anchored-spec verify",
-    "spec:graph": "anchored-spec graph --format mermaid",
-    "spec:trace": "anchored-spec trace --summary",
-    "spec:drift": "anchored-spec drift",
-    "spec:report": "anchored-spec report"
+    "spec:validate": "node ./dist/cli/index.js validate",
+    "spec:verify": "node ./dist/cli/index.js verify",
+    "spec:graph": "node ./dist/cli/index.js graph --format mermaid",
+    "spec:trace": "node ./dist/cli/index.js trace --summary",
+    "spec:drift": "node ./dist/cli/index.js drift",
+    "spec:report": "node ./dist/cli/index.js report"
   },
   "dependencies": {
     "@backstage/catalog-model": "^1.7.7",

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.1] — 2026-04-22
 
+### Fixed
+
+- **`spec:*` repo scripts no longer rely on the package's own bin being on `PATH`** — they now invoke `node ./dist/cli/index.js …` directly, which works deterministically in clean CI checkouts as well as in local development. This also makes the new tag-driven release workflow self-consistent end-to-end.
+
 ### Changed
 
 - **`package.json` metadata** — Description rewritten to match the README's control-plane positioning. Keywords replaced with discoverable, on-message terms (`architecture`, `architecture-as-code`, `spec-as-source`, `backstage`, `software-catalog`, `drift-detection`, `traceability`, `impact-analysis`, `ai-agents`, `llm-context`, `devtools`, `cli`, `adr`, `governance`). Added `bugs` field so the npm page links to GitHub issues. Normalised `repository.url` to the npm-canonical `git+https://…git` form.
