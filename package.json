@@ -1,6 +1,6 @@
 {
   "name": "anchored-spec",
-  "version": "1.0.0",
+  "version": "0.4.0",
   "description": "Spec-as-source enterprise architecture framework — architecture models as living code",
   "type": "module",
   "bin": {

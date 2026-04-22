@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/anchored-spec-logo.svg" alt="Anchored Spec" width="360">
+</p>
+
 # Anchored Spec
 
 [![CI](https://github.com/idvexchange/anchored-spec/actions/workflows/ci.yml/badge.svg)](https://github.com/idvexchange/anchored-spec/actions/workflows/ci.yml)
@@ -51,6 +55,21 @@ Anchored Spec takes a different position:
 - docs should explain the model, not replace it
 - discovery and drift should pressure-test the model, not silently overwrite it
 - AI agents should consume the same architecture graph as humans
+
+## Is This For You?
+
+Anchored Spec is opinionated about where it pays off. Use this as a rough decision rule before adopting it:
+
+| Situation                                                | Verdict                                                                  |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1–3 services, small team, no AI agents                   | **Skip.** A README and a few ADRs are enough.                            |
+| 5–30 services, growing, onboarding pain, some agent use  | **Strong fit.** This is the best ROI zone.                               |
+| Large org already on Backstage                           | **Complement.** Use it as the in-repo authoring layer feeding Backstage. |
+| Heavily regulated or audit-driven                        | **Strong fit** for traceability, provided the model has a named owner.   |
+| AI-agent-heavy engineering org                           | **Strong fit** — giving agents a clean architecture surface is the most novel value. |
+| No one will own the model                                | **Don't bother** — like every architecture-as-code tool, it dies the moment PRs stop updating it. |
+
+The single biggest risk is the same as every "X-as-code" framework: it is only as alive as the discipline around it. The framework gives you the right primitives and the right pressure (`validate`, `drift`, `diff --policy`), but it cannot make a team care. Pair adoption with a named owner and a CI gate, or expect it to become wallpaper.
 
 ## What You Can Do With It
 

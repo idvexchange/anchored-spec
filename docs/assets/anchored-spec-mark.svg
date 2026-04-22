@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Anchored Spec">
+  <title>Anchored Spec</title>
+  <desc>An anchor whose ring, stock and flukes are graph nodes, evoking a Backstage-style entity graph anchored in version control.</desc>
+  <style>
+    .stroke { stroke: #0B2545; }
+    .node   { fill: #13A89E; }
+    @media (prefers-color-scheme: dark) {
+      .stroke { stroke: #E6F1FF; }
+      .node   { fill: #2DD4BF; }
+    }
+  </style>
+  <g class="stroke" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="32" cy="12" r="5"/>
+    <line x1="32" y1="17" x2="32" y2="48"/>
+    <line x1="20" y1="22" x2="44" y2="22"/>
+    <path d="M 18 40 Q 18 52 32 52 Q 46 52 46 40"/>
+    <line x1="18" y1="40" x2="14" y2="44"/>
+    <line x1="46" y1="40" x2="50" y2="44"/>
+  </g>
+  <g class="node">
+    <circle cx="32" cy="12" r="1.8"/>
+    <circle cx="20" cy="22" r="2.6"/>
+    <circle cx="44" cy="22" r="2.6"/>
+    <circle cx="14" cy="44" r="2.6"/>
+    <circle cx="50" cy="44" r="2.6"/>
+  </g>
+</svg>

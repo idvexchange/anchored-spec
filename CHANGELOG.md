@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-04-22
+
 ### Added
 
 - **Repository-evidence adapter framework** — `impact --with-commands` can now enrich architecture impact with adapter-derived repository targets and rendered suggestions through `repositoryEvidence.adapters`, including a built-in `node-workspaces` adapter and custom module loading support.
@@ -14,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Secondary file-link evidence** — `anchors.files` is now part of the anchors type/schema and participates in reverse resolution and command suggestion path collection as lower-confidence file evidence.
 - **Repository harness boundary ADR** — Added `ADR-007` to formalize Anchored Spec as an architecture control plane with thin, repo-local harnesses owning last-mile execution.
 - **Repository harness feedback guide** — Added a detailed field-feedback guide documenting what worked, what did not, and where the framework should stay generic.
+- **Project logo** — Added `docs/assets/anchored-spec-logo.svg` and `docs/assets/anchored-spec-mark.svg` (light/dark adaptive SVG logo and square mark) and surfaced the logo at the top of `README.md`.
+- **Adoption guidance** — Added an "Is This For You?" decision-rule section to `README.md` to help teams self-select before adopting the framework.
 
 ### Changed
 
@@ -21,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Component-to-code guidance** — `anchored-spec.dev/code-location` is now documented as the primary architecture-level code link for `Component`, with file, symbol, test, and adapter evidence treated as supporting context.
 - **Repository impact guidance** — `impact --with-commands`, repository harness patterns, and CI/testing docs now emphasize adapter-driven repository evidence and repository-owned command rendering instead of Node/package-manager-specific assumptions in the core model.
 - **AI workflow guidance** — `llms.txt`, `llms-full.txt`, and `SKILL.md` now align human and agent workflows around the same control-plane model, explicit `code-location` usage, and structured impact handoff.
+
+### Versioning
+
+- **Tag realignment** — Repository tags have been force-overwritten to align with this changelog. Historical tags `v1.0.0` and `v1.1.0-backstage-phase-a` have been removed; the canonical tag history is now `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`.
 
 ## [0.3.0] — 2026-04-06
 
