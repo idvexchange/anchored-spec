@@ -20,6 +20,7 @@
 - [Operating Boundary](#operating-boundary)
 - [Is This For You?](#is-this-for-you)
 - [What You Can Do With It](#what-you-can-do-with-it)
+- [Questions It Helps You Answer](#questions-it-helps-you-answer)
 - [Quickstart](#quickstart)
 - [The Core Model](#the-core-model)
 - [Storage Modes](#storage-modes)
@@ -104,6 +105,68 @@ The single biggest risk is the same as every "X-as-code" framework: it is only a
 - Hand humans and AI agents the same queryable architecture graph.
 
 See the [documentation portal](docs/README.md) for the full capability surface.
+
+## Questions It Helps You Answer
+
+Every question below resolves against a version-controlled model — not a stale wiki — and is answerable by humans or AI agents through the same CLI.
+
+**Discovery and ownership**
+
+- Who owns `payments-api`, and which team is on call for the `checkout` system?
+- Which components belong to the `Identity` domain?
+- Where does the source for `fraud-scorer` live? (via the `code-location` annotation)
+- Which APIs does `order-service` provide vs. consume?
+
+**Impact and blast radius — _"if I change X…"_**
+
+- If I change the `PaymentIntent` schema, what breaks, and which teams need to be in the room?
+- If I deprecate the `v1/orders` API, who do I need to notify?
+- If I rename this resource, what entities reference it?
+- If this component goes down, what user journeys are affected?
+
+**Trace and lineage**
+
+- What requirement does this component satisfy, and which ADR justifies the technology choice?
+- Trace the path from business capability `Onboarding` down to running services.
+- Which decisions reference this deprecated standard?
+- What is the chain from regulation → policy → control → implementing component?
+
+**Drift detection**
+
+- Has the codebase drifted from the declared architecture?
+- Are there services in production that are not in the catalog?
+- Does `payments-api`'s code still match its declared dependencies?
+- Which entities lack code-location anchors, and are there orphan files with no owning component?
+
+**Validation and policy**
+
+- Does every Component have an owner, and is every API consumed by something?
+- Do all PII-handling services link to a retention policy?
+- Is this entity ref structurally valid and resolvable?
+- Are we violating any organisational architecture policies?
+
+**Compliance and audit**
+
+- Which controls cover this regulatory requirement?
+- Show me every component that processes PII with its retention policy and DPO owner.
+- What is the evidence trail for SOC2 control X?
+- Which ADRs were superseded, and by what?
+
+**AI-agent routing**
+
+- I am about to edit this file — what entity owns it, what does it relate to, and what should I read first?
+- Given this task description, which entities and docs are in scope?
+- What is the smallest context slice an agent needs to safely make this change?
+- After my change, what should I re-validate?
+
+**Portfolio and strategy**
+
+- Which systems are still on Java 8?
+- How many services have no defined SLO?
+- What is our exposure to library X across the portfolio?
+- Which capabilities have no owning team?
+
+Every question reduces to one of: _who owns it_, _what does it relate to_, _what changes if I touch it_, _does reality match the spec_, or _what is the smallest context for this task_.
 
 ## Quickstart
 
