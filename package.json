@@ -1,6 +1,6 @@
 {
   "name": "anchored-spec",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Backstage-aligned, spec-as-source architecture control plane — author entities in version control, validate, trace, detect drift, and analyze impact from one CLI for humans and AI agents.",
   "type": "module",
   "bin": {

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-04-22
+
+### Changed
+
+- **`package.json` metadata** — Description rewritten to match the README's control-plane positioning. Keywords replaced with discoverable, on-message terms (`architecture`, `architecture-as-code`, `spec-as-source`, `backstage`, `software-catalog`, `drift-detection`, `traceability`, `impact-analysis`, `ai-agents`, `llm-context`, `devtools`, `cli`, `adr`, `governance`). Added `bugs` field so the npm page links to GitHub issues. Normalised `repository.url` to the npm-canonical `git+https://…git` form.
+- **README badges** — Added `npm downloads` and `Types` badges next to the version badge.
+
+### Added
+
+- **`SECURITY.md`** — Pre-1.0 support table and GHSA-based private vulnerability reporting policy.
+- **`.github/dependabot.yml`** — Weekly grouped npm and GitHub Actions dependency updates; major version bumps held for manual review.
+- **`.github/workflows/release.yml`** — Tag-driven (`v*`) publish workflow with npm provenance via OIDC, version-tag consistency check, full `verify` run, and a paired GitHub Release with auto-generated notes.
+- **`.github/release-notes-v0.4.0.md`** — Hand-written release notes for the first npm release.
+
 ## [0.4.0] — 2026-04-22
 
 ### Added
